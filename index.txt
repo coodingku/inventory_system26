@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Inventory & POS | Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f4f7f6; display: flex; }
+        
+        /* Sidebar */
+        .sidebar { width: 250px; background: var(--primary); height: 100vh; color: white; padding: 20px; position: fixed; }
+        .content { margin-left: 280px; padding: 30px; width: 100%; }
+        
+        /* Cards */
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: var(--primary); }
+        
+        /* Form & Table */
+        input, select { padding: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #f8f9fa; color: var(--primary); }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-add { background: var(--accent); }
+        .stok-warning { color: var(--danger); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>INV-POS</h2>
+        <p>Manajemen Barang</p>
+        <hr>
+        <div style="margin-top: 20px;">
+            <p style="cursor:pointer;">📊 Dashboard</p>
+            <p style="cursor:pointer; opacity: 0.7;">🛒 POS (Segera)</p>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="card">
+            <h2>➕ Tambah Barang Baru</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <input type="text" id="kode" placeholder="Kode Barang (Contoh: BRG01)">
+                <input type="text" id="nama" placeholder="Nama Barang">
+                <input type="number" id="harga" placeholder="Harga Jual (Rp)">
+                <input type="number" id="stok" placeholder="Stok Awal">
+                <select id="kategori">
+                    <option value="Umum">Pilih Kategori</option>
+                    <option value="Makanan">Makanan</option>
+                    <option value="Minuman">Minuman</option>
+                    <option value="Alat Tulis">Alat Tulis</option>
+                </select>
+                <button class="btn btn-add" onclick="tambahBarang()">Simpan Barang</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📦 Daftar Stok Inventory</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama Barang</th>
+                        <th>Kategori</th>
+                        <th>Stok</th>
+                        <th>Harga Jual</th>
+                    </tr>
+                </thead>
+                <tbody id="tabel-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // KONFIGURASI SUPABASE
+        const SB_URL = 'uojhjskgugghwxtdsfvm';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+
+        // Fungsi Load Data
+        async function muatInventory() {
+            const { data, error } = await supabase
+                .from('inventory')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            const tbody = document.getElementById('tabel-body');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const warningClass = item.stok_sekarang <= 5 ? 'stok-warning' : '';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${item.kode_barang}</b></td>
+                        <td>${item.nama_barang}</td>
+                        <td>${item.kategori}</td>
+                        <td class="${warningClass}">${item.stok_sekarang}</td>
+                        <td>Rp ${parseInt(item.harga_jual).toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Fungsi Tambah Barang
+        async function tambahBarang() {
+            const kode = document.getElementById('kode').value;
+            const nama = document.getElementById('nama').value;
+            const harga = document.getElementById('harga').value;
+            const stok = document.getElementById('stok').value;
+            const kategori = document.getElementById('kategori').value;
+
+            if(!kode || !nama || !harga) return alert("Mohon lengkapi data!");
+
+            const { error } = await supabase
+                .from('inventory')
+                .insert([{ 
+                    kode_barang: kode, 
+                    nama_barang: nama, 
+                    harga_jual: harga, 
+                    stok_sekarang: stok,
+                    kategori: kategori 
+                }]);
+
+            if (error) {
+                alert("Error: " + error.message);
+            } else {
+                alert("Barang berhasil disimpan!");
+                // Reset Form
+                document.querySelectorAll('input').forEach(i => i.value = '');
+                muatInventory();
+            }
+        }
+
+        // Jalankan saat halaman dibuka
+        window.onload = muatInventory;
+    </script>
+</body>
+</html>
