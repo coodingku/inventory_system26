@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Barang | Inventory System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #1e293b; --accent: #3b82f6; --success: #10b981; }
+        body { font-family: 'Inter', sans-serif; margin: 0; display: flex; background: #f8fafc; }
+        
+        .sidebar { width: 240px; background: var(--primary); min-height: 100vh; color: white; padding: 20px; position: fixed; }
+        .main-content { margin-left: 240px; padding: 40px; width: 100%; box-sizing: border-box; }
+        
+        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        
+        /* Form Styling */
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        label { display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; }
+        
+        .btn-add { background: var(--success); color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+
+        /* Table Styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; background: #f1f5f9; color: #475569; font-size: 0.85rem; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+        
+        .nav-link { display: block; padding: 12px; color: #cbd5e1; text-decoration: none; border-radius: 8px; margin-bottom: 5px; cursor: pointer; }
+        .nav-link.active { background: var(--accent); color: white; }
+        
+        .badge-stok { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .rendah { background: #fee2e2; color: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>INV-POS Pro</h2>
+        <a class="nav-link" onclick="location.href='index.html'">📊 Analytics</a>
+        <a class="nav-link active">📦 Stok Barang</a>
+        <a class="nav-link" onclick="location.href='pos.html'">🛒 Kasir POS</a>
+    </div>
+
+    <div class="main-content">
+        <h1>Manajemen Produk</h1>
+        
+        <div class="card">
+            <h3 style="margin-top:0">➕ Tambah Produk Baru</h3>
+            <div class="form-row">
+                <div>
+                    <label>Kode Barang</label>
+                    <input type="text" id="kode" placeholder="Misal: BRG001">
+                </div>
+                <div>
+                    <label>Nama Barang</label>
+                    <input type="text" id="nama" placeholder="Contoh: Kopi Susu">
+                </div>
+                <div>
+                    <label>Kategori</label>
+                    <select id="kategori">
+                        <option value="Makanan">Makanan</option>
+                        <option value="Minuman">Minuman</option>
+                        <option value="Snack">Snack</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label>Harga Jual (Rp)</label>
+                    <input type="number" id="harga" placeholder="0">
+                </div>
+                <div>
+                    <label>Stok Awal</label>
+                    <input type="number" id="stok" placeholder="0">
+                </div>
+                <div>
+                    <label>&nbsp;</label>
+                    <button class="btn-add" onclick="tambahBarang()">Simpan ke Inventory</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top:0">📦 Daftar Barang Lengkap</h3>
+            <table id="tabel-inventory">
+                <thead>
+                    <tr>
+                        <th>KODE</th>
+                        <th>NAMA PRODUK</th>
+                        <th>KATEGORI</th>
+                        <th>STOK</th>
+                        <th>HARGA JUAL</th>
+                    </tr>
+                </thead>
+                <tbody id="isi-tabel">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const SB_URL = 'uojhjskgugghwxtdsfvm';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+
+        async function muatData() {
+            const { data, error } = await supabase
+                .from('inventory')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) return console.error(error);
+
+            const tbody = document.getElementById('isi-tabel');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const stokRendah = item.stok_sekarang <= 5 ? 'rendah' : '';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${item.kode_barang}</b></td>
+                        <td>${item.nama_barang}</td>
+                        <td>${item.kategori}</td>
+                        <td><span class="badge-stok ${stokRendah}">${item.stok_sekarang}</span></td>
+                        <td>Rp ${item.harga_jual.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function tambahBarang() {
+            const kode = document.getElementById('kode').value;
+            const nama = document.getElementById('nama').value;
+            const kat = document.getElementById('kategori').value;
+            const hrg = document.getElementById('harga').value;
+            const stk = document.getElementById('stok').value;
+
+            if(!kode || !nama || !hrg) return alert("Mohon lengkapi data barang!");
+
+            const { error } = await supabase
+                .from('inventory')
+                .insert([{ 
+                    kode_barang: kode, 
+                    nama_barang: nama, 
+                    kategori: kat, 
+                    harga_jual: hrg, 
+                    stok_sekarang: stk 
+                }]);
+
+            if (error) {
+                alert("Gagal menambah barang: " + error.message);
+            } else {
+                alert("Barang berhasil ditambahkan!");
+                location.reload();
+            }
+        }
+
+        window.onload = muatData;
+    </script>
+</body>
+</html>
