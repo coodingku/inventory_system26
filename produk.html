@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Produk | POS System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #1e293b; --accent: #3b82f6; --success: #10b981; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; background: #f8fafc; }
+        .sidebar { width: 240px; background: var(--primary); min-height: 100vh; color: white; padding: 20px; position: fixed; }
+        .main-content { margin-left: 240px; padding: 40px; width: 100%; box-sizing: border-box; }
+        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; }
+        .btn-add { background: var(--success); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; background: #f1f5f9; color: #475569; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .btn-edit { background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>POS SYSTEM</h2>
+        <p style="cursor:pointer" onclick="location.href='index.html'">📊 Analytics</p>
+        <p style="cursor:pointer; font-weight:bold; color:var(--accent)">📦 Manajemen Produk</p>
+        <p style="cursor:pointer" onclick="location.href='pos.html'">🛒 Kasir POS</p>
+    </div>
+
+    <div class="main-content">
+        <h1>Manajemen Produk</h1>
+        
+        <div class="card">
+            <h3>➕ Tambah Produk</h3>
+            <div class="form-row">
+                <input type="text" id="kode" placeholder="Kode Barang">
+                <input type="text" id="nama" placeholder="Nama Barang">
+                <select id="kategori">
+                    <option value="Makanan">Makanan</option>
+                    <option value="Minuman">Minuman</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+                <input type="number" id="harga" placeholder="Harga Jual">
+                <input type="number" id="stok" placeholder="Stok">
+                <button class="btn-add" onclick="tambahProduk()">Simpan</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📦 Daftar Produk</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>KODE</th>
+                        <th>NAMA</th>
+                        <th>STOK</th>
+                        <th>HARGA</th>
+                        <th>AKSI</th>
+                    </tr>
+                </thead>
+                <tbody id="isi-tabel"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // DEKLARASI KONFIGURASI (HANYA SEKALI)
+        const URL_SB = 'uojhjskgugghwxtdsfvm';
+        const KEY_SB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabase = window.supabase.createClient(URL_SB, KEY_SB);
+
+        async function muatProduk() {
+            const { data, error } = await supabase.from('produk').select('*').order('created_at', { ascending: false });
+            if (error) return console.error(error);
+
+            const tbody = document.getElementById('isi-tabel');
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.kode_barang}</td>
+                        <td>${item.nama_barang}</td>
+                        <td>${item.stok_sekarang}</td>
+                        <td>Rp ${item.harga_jual.toLocaleString()}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editProduk('${item.id}', ${item.harga_jual})">✎</button>
+                            <button class="btn-delete" onclick="hapusProduk('${item.id}')">🗑</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        async function tambahProduk() {
+            const row = {
+                kode_barang: document.getElementById('kode').value,
+                nama_barang: document.getElementById('nama').value,
+                kategori: document.getElementById('kategori').value,
+                harga_jual: parseInt(document.getElementById('harga').value),
+                stok_sekarang: parseInt(document.getElementById('stok').value)
+            };
+
+            const { error } = await supabase.from('produk').insert([row]);
+            if (error) alert(error.message);
+            else { alert("Produk Berhasil Disimpan!"); location.reload(); }
+        }
+
+        async function hapusProduk(id) {
+            if (confirm("Hapus produk ini?")) {
+                await supabase.from('produk').delete().eq('id', id);
+                muatProduk();
+            }
+        }
+
+        async function editProduk(id, hargaLama) {
+            const baru = prompt("Masukkan Harga Baru:", hargaLama);
+            if (baru) {
+                await supabase.from('produk').update({ harga_jual: parseInt(baru) }).eq('id', id);
+                muatProduk();
+            }
+        }
+
+        window.onload = muatProduk;
+    </script>
+</body>
+</html>
