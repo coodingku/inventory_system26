@@ -109,16 +109,25 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
-        async function muatData() {
+    // 2. Fungsi Memuat Data dari Kantin
+    async function muatData() {
+        try {
             const { data, error } = await supabase
                 .from('inventory')
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error) return console.error(error);
+            if (error) throw error;
 
             const tbody = document.getElementById('isi-tabel');
+            if (!tbody) return; // Mencegah error jika elemen tabel tidak ditemukan
+            
             tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Belum ada produk di Kantin.</td></tr>';
+                return;
+            }
 
             data.forEach(item => {
                 const stokRendah = item.stok_sekarang <= 5 ? 'rendah' : '';
@@ -130,82 +139,69 @@
                         <td><span class="badge-stok ${stokRendah}">${item.stok_sekarang}</span></td>
                         <td>Rp ${item.harga_jual.toLocaleString()}</td>
                         <td>
-                            <button class="btn-edit" onclick="editHarga('${item.id}', '${item.nama_barang}', ${item.harga_jual})">✎ Edit Harga</button>
+                            <button class="btn-edit" onclick="editHarga('${item.id}', '${item.nama_barang}', ${item.harga_jual})">✎ Edit</button>
                             <button class="btn-delete" onclick="hapusBarang('${item.id}', '${item.nama_barang}')">🗑 Hapus</button>
                         </td>
-                    </tr>
-                `;
+                    </tr>`;
             });
+        } catch (err) {
+            console.error("Gagal muat data Kantin:", err.message);
         }
-
-       async function tambahBarang() {
-    const kode = document.getElementById('kode').value;
-    const nama = document.getElementById('nama').value;
-    const kat = document.getElementById('kategori').value;
-    const hrg = parseInt(document.getElementById('harga').value); // Pastikan angka
-    const stk = parseInt(document.getElementById('stok').value);  // Pastikan angka
-
-    if(!kode || !nama || isNaN(hrg)) return alert("Mohon lengkapi data barang!");
-
-    const { data, error } = await supabase
-        .from('inventory') // Pastikan nama tabel di Supabase adalah 'inventory'
-        .insert([{ 
-            kode_barang: kode, 
-            nama_barang: nama, 
-            kategori: kat, 
-            harga_jual: hrg, 
-            stok_sekarang: stk 
-        }])
-        .select(); // Tambahkan .select() untuk memastikan data masuk
-
-    if (error) {
-        console.error("Detail Error:", error);
-        alert("Gagal menambah barang: " + error.message);
-    } else {
-        alert("Barang '" + nama + "' berhasil disimpan ke Kantin!");
-        // Bersihkan input setelah simpan
-        document.getElementById('kode').value = '';
-        document.getElementById('nama').value = '';
-        document.getElementById('harga').value = '';
-        document.getElementById('stok').value = '';
-        muatData(); // Panggil ulang tabel tanpa refresh halaman
     }
-}
-        // FUNGSI EDIT HARGA
-        async function editHarga(id, nama, hargaLama) {
-            const hargaBaru = prompt(`Masukkan harga baru untuk ${nama}:`, hargaLama);
-            
-            if (hargaBaru !== null && hargaBaru !== "") {
-                const { error } = await supabase
-                    .from('inventory')
-                    .update({ harga_jual: parseInt(hargaBaru) })
-                    .eq('id', id);
 
-                if (error) alert("Gagal update harga: " + error.message);
-                else {
-                    alert("Harga berhasil diperbarui!");
-                    muatData();
-                }
+    // 3. Fungsi Tambah Barang Kantin
+    async function tambahBarang() {
+        try {
+            const kode = document.getElementById('kode').value;
+            const nama = document.getElementById('nama').value;
+            const kat = document.getElementById('kategori').value;
+            const hrg = parseInt(document.getElementById('harga').value);
+            const stk = parseInt(document.getElementById('stok').value);
+
+            if(!kode || !nama || isNaN(hrg)) {
+                alert("Mohon lengkapi data barang Kantin!");
+                return;
             }
-        
 
-        // FUNGSI HAPUS BARANG
-        async function hapusBarang(id, nama) {
-            if (confirm(`Apakah Anda yakin ingin menghapus "${nama}" dari inventory?`)) {
-                const { error } = await supabase
-                    .from('inventory')
-                    .delete()
-                    .eq('id', id);
+            const { error } = await supabase
+                .from('inventory')
+                .insert([{ 
+                    kode_barang: kode, 
+                    nama_barang: nama, 
+                    kategori: kat, 
+                    harga_jual: hrg, 
+                    stok_sekarang: stk 
+                }]);
 
-                if (error) alert("Gagal menghapus: " + error.message);
-                else {
-                    alert("Barang telah dihapus.");
-                    muatData();
-                }
-            }
+            if (error) throw error;
+
+            alert("Barang Kantin berhasil disimpan!");
+            location.reload(); 
+        } catch (err) {
+            alert("Gagal simpan: " + err.message);
         }
+    }
 
-        window.onload = muatData;
-    </script>
+    // 4. Fungsi Edit & Hapus
+    async function editHarga(id, nama, hargaLama) {
+        const hargaBaru = prompt(`Masukkan harga baru untuk ${nama}:`, hargaLama);
+        if (hargaBaru) {
+            const { error } = await supabase.from('inventory').update({ harga_jual: parseInt(hargaBaru) }).eq('id', id);
+            if (error) alert(error.message);
+            else muatData();
+        }
+    }
+
+    async function hapusBarang(id, nama) {
+        if (confirm(`Hapus ${nama} dari Kantin?`)) {
+            const { error } = await supabase.from('inventory').delete().eq('id', id);
+            if (error) alert(error.message);
+            else muatData();
+        }
+    }
+
+    // Jalankan muatData saat halaman selesai dimuat
+    window.onload = muatData;
+</script>
 </body>
 </html>
