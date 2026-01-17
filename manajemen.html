@@ -138,32 +138,39 @@
             });
         }
 
-        async function tambahBarang() {
-            const kode = document.getElementById('kode').value;
-            const nama = document.getElementById('nama').value;
-            const kat = document.getElementById('kategori').value;
-            const hrg = document.getElementById('harga').value;
-            const stk = document.getElementById('stok').value;
+       async function tambahBarang() {
+    const kode = document.getElementById('kode').value;
+    const nama = document.getElementById('nama').value;
+    const kat = document.getElementById('kategori').value;
+    const hrg = parseInt(document.getElementById('harga').value); // Pastikan angka
+    const stk = parseInt(document.getElementById('stok').value);  // Pastikan angka
 
-            if(!kode || !nama || !hrg) return alert("Mohon lengkapi data barang!");
+    if(!kode || !nama || isNaN(hrg)) return alert("Mohon lengkapi data barang!");
 
-            const { error } = await supabase
-                .from('inventory')
-                .insert([{ 
-                    kode_barang: kode, 
-                    nama_barang: nama, 
-                    kategori: kat, 
-                    harga_jual: hrg, 
-                    stok_sekarang: stk 
-                }]);
+    const { data, error } = await supabase
+        .from('inventory') // Pastikan nama tabel di Supabase adalah 'inventory'
+        .insert([{ 
+            kode_barang: kode, 
+            nama_barang: nama, 
+            kategori: kat, 
+            harga_jual: hrg, 
+            stok_sekarang: stk 
+        }])
+        .select(); // Tambahkan .select() untuk memastikan data masuk
 
-            if (error) alert(error.message);
-            else {
-                alert("Barang berhasil ditambahkan!");
-                location.reload();
-            }
-        }
-
+    if (error) {
+        console.error("Detail Error:", error);
+        alert("Gagal menambah barang: " + error.message);
+    } else {
+        alert("Barang '" + nama + "' berhasil disimpan ke Kantin!");
+        // Bersihkan input setelah simpan
+        document.getElementById('kode').value = '';
+        document.getElementById('nama').value = '';
+        document.getElementById('harga').value = '';
+        document.getElementById('stok').value = '';
+        muatData(); // Panggil ulang tabel tanpa refresh halaman
+    }
+}
         // FUNGSI EDIT HARGA
         async function editHarga(id, nama, hargaLama) {
             const hargaBaru = prompt(`Masukkan harga baru untuk ${nama}:`, hargaLama);
