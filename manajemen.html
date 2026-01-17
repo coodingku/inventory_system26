@@ -6,7 +6,7 @@
     <title>Manajemen Barang | Inventory System</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #1e293b; --accent: #3b82f6; --success: #10b981; }
+        :root { --primary: #1e293b; --accent: #3b82f6; --success: #10b981; --danger: #ef4444; }
         body { font-family: 'Inter', sans-serif; margin: 0; display: flex; background: #f8fafc; }
         
         .sidebar { width: 240px; background: var(--primary); min-height: 100vh; color: white; padding: 20px; position: fixed; }
@@ -14,7 +14,6 @@
         
         .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
         
-        /* Form Styling */
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
         label { display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 5px; }
         input, select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; }
@@ -29,6 +28,9 @@
         .nav-link { display: block; padding: 12px; color: #cbd5e1; text-decoration: none; border-radius: 8px; margin-bottom: 5px; cursor: pointer; }
         .nav-link.active { background: var(--accent); color: white; }
         
+        /* Action Buttons */
+        .btn-edit { background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
         .badge-stok { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
         .rendah { background: #fee2e2; color: #ef4444; }
     </style>
@@ -84,19 +86,21 @@
 
         <div class="card">
             <h3 style="margin-top:0">📦 Daftar Barang Lengkap</h3>
-            <table id="tabel-inventory">
-                <thead>
-                    <tr>
-                        <th>KODE</th>
-                        <th>NAMA PRODUK</th>
-                        <th>KATEGORI</th>
-                        <th>STOK</th>
-                        <th>HARGA JUAL</th>
-                    </tr>
-                </thead>
-                <tbody id="isi-tabel">
-                    </tbody>
-            </table>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>KODE</th>
+                            <th>NAMA PRODUK</th>
+                            <th>KATEGORI</th>
+                            <th>STOK</th>
+                            <th>HARGA JUAL</th>
+                            <th>AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="isi-tabel"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -125,6 +129,10 @@
                         <td>${item.kategori}</td>
                         <td><span class="badge-stok ${stokRendah}">${item.stok_sekarang}</span></td>
                         <td>Rp ${item.harga_jual.toLocaleString()}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editHarga('${item.id}', '${item.nama_barang}', ${item.harga_jual})">✎ Edit Harga</button>
+                            <button class="btn-delete" onclick="hapusBarang('${item.id}', '${item.nama_barang}')">🗑 Hapus</button>
+                        </td>
                     </tr>
                 `;
             });
@@ -149,11 +157,44 @@
                     stok_sekarang: stk 
                 }]);
 
-            if (error) {
-                alert("Gagal menambah barang: " + error.message);
-            } else {
+            if (error) alert(error.message);
+            else {
                 alert("Barang berhasil ditambahkan!");
                 location.reload();
+            }
+        }
+
+        // FUNGSI EDIT HARGA
+        async function editHarga(id, nama, hargaLama) {
+            const hargaBaru = prompt(`Masukkan harga baru untuk ${nama}:`, hargaLama);
+            
+            if (hargaBaru !== null && hargaBaru !== "") {
+                const { error } = await supabase
+                    .from('inventory')
+                    .update({ harga_jual: parseInt(hargaBaru) })
+                    .eq('id', id);
+
+                if (error) alert("Gagal update harga: " + error.message);
+                else {
+                    alert("Harga berhasil diperbarui!");
+                    muatData();
+                }
+            }
+        }
+
+        // FUNGSI HAPUS BARANG
+        async function hapusBarang(id, nama) {
+            if (confirm(`Apakah Anda yakin ingin menghapus "${nama}" dari inventory?`)) {
+                const { error } = await supabase
+                    .from('inventory')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) alert("Gagal menghapus: " + error.message);
+                else {
+                    alert("Barang telah dihapus.");
+                    muatData();
+                }
             }
         }
 
