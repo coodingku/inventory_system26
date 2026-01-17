@@ -74,40 +74,46 @@
         // Deklarasi Global
         const supabase = window.supabase.createClient(URL_SB, KEY_SB);
 
-        async function muatProduk() {
-            try {
-                const { data, error } = await supabase
-                    .from('produk')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+       async function muatProduk() {
+    try {
+        const { data, error } = await supabase
+            .from('produk')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-                if (error) throw error;
+        if (error) throw error;
 
-                const tbody = document.getElementById('isi-tabel');
-                tbody.innerHTML = '';
+        const tbody = document.getElementById('isi-tabel');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
 
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Data produk kosong.</td></tr>';
-                    return;
-                }
-
-                data.forEach(item => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${item.kode_barang}</td>
-                            <td>${item.nama_barang}</td>
-                            <td>${item.stok_sekarang}</td>
-                            <td>Rp ${item.harga_jual.toLocaleString()}</td>
-                            <td>
-                                <button class="btn-edit" onclick="editProduk('${item.id}', ${item.harga_jual})">✎</button>
-                                <button class="btn-delete" onclick="hapusProduk('${item.id}')">🗑</button>
-                            </td>
-                        </tr>`;
-                });
-            } catch (err) {
-                console.error("Gagal muat data:", err.message);
-            }
+        // PROTEKSI: Cek apakah data ada dan tidak null
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Data produk kosong.</td></tr>';
+            return;
         }
+
+        data.forEach(item => {
+            // PROTEKSI: Pastikan item tidak null sebelum akses properti
+            if (item && item.id) { 
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.kode_barang || '-'}</td>
+                        <td>${item.nama_barang || '-'}</td>
+                        <td>${item.stok_sekarang || 0}</td>
+                        <td>Rp ${(item.harga_jual || 0).toLocaleString()}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editProduk('${item.id}', ${item.harga_jual})">✎</button>
+                            <button class="btn-delete" onclick="hapusProduk('${item.id}')">🗑</button>
+                        </td>
+                    </tr>`;
+            }
+        });
+    } catch (err) {
+        console.error("Gagal muat data:", err.message);
+    }
+}
 
         async function tambahProduk() {
             try {
