@@ -3,173 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory System | Management</title>
+    <title>Analytics Dashboard | Inventory & POS</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --primary-bg: #1e293b;
-            --sidebar-color: #334155;
-            --accent: #10b981;
-            --text-main: #f8fafc;
-        }
-        body { font-family: 'Inter', sans-serif; margin: 0; display: flex; background: #f1f5f9; color: #334155; }
+        :root { --primary: #1e293b; --accent: #3b82f6; --success: #10b981; }
+        body { font-family: 'Inter', sans-serif; margin: 0; display: flex; background: #f8fafc; }
         
-        /* Sidebar Lebih Rapi */
-        .sidebar { width: 240px; background: var(--primary-bg); min-height: 100vh; color: white; padding: 20px; position: fixed; }
-        .sidebar h2 { font-size: 1.2rem; margin-bottom: 30px; border-bottom: 1px solid #475569; padding-bottom: 10px; }
-        .nav-link { display: block; padding: 12px; color: #cbd5e1; text-decoration: none; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; }
-        .nav-link:hover { background: var(--sidebar-color); color: white; }
+        .sidebar { width: 240px; background: var(--primary); min-height: 100vh; color: white; padding: 20px; position: fixed; }
+        .main-content { margin-left: 240px; padding: 40px; width: 100%; }
+        
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid var(--accent); }
+        .stat-card h3 { margin: 0; font-size: 0.8rem; color: #64748b; text-transform: uppercase; }
+        .stat-card p { margin: 10px 0 0; font-size: 1.5rem; font-weight: bold; color: #1e293b; }
+
+        /* Chart Section */
+        .chart-container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        .nav-link { display: block; padding: 12px; color: #cbd5e1; text-decoration: none; border-radius: 8px; margin-bottom: 5px; cursor: pointer; }
         .nav-link.active { background: var(--accent); color: white; }
-
-        /* Area Konten Utama */
-        .main-content { margin-left: 240px; padding: 40px; width: 100%; box-sizing: border-box; }
-        .header { margin-bottom: 30px; }
-        
-        /* Layout Kartu Form (Rapi) */
-        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 30px; }
-        .form-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-            gap: 15px; 
-            align-items: end;
-        }
-        
-        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #64748b; }
-        input, select { 
-            width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; 
-            box-sizing: border-box; font-size: 0.9rem;
-        }
-
-        .btn-save { 
-            background: var(--accent); color: white; border: none; padding: 11px; 
-            border-radius: 6px; font-weight: 600; cursor: pointer; width: 100%;
-        }
-        .btn-save:hover { opacity: 0.9; }
-
-        /* Tabel Responsif */
-        .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #f8fafc; color: #64748b; text-align: left; padding: 15px; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
-        tr:hover { background: #f8fafc; }
-        
-        .badge-stok { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
-        .stok-aman { background: #dcfce7; color: #166534; }
-        .stok-tipis { background: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h2>📦 Management</h2>
-        <a class="nav-link active">📊 Dashboard</a>
-        <a class="nav-link" onclick="location.href='pos.html'">🛒 Buka POS (Kasir)</a>
+        <h2>INV-POS Pro</h2>
+        <a class="nav-link active">📊 Analytics</a>
+        <a class="nav-link" onclick="location.href='manajemen.html'">📦 Stok Barang</a>
+        <a class="nav-link" onclick="location.href='pos.html'">🛒 Kasir POS</a>
     </div>
 
     <div class="main-content">
-        <div class="header">
-            <h1 style="margin:0">Dashboard Stok</h1>
-            <p style="color:#64748b">Kelola data barang dan persediaan kantin</p>
-        </div>
-
-        <div class="card">
-            <h3 style="margin-top:0">➕ Tambah Barang Baru</h3>
-            <div class="form-grid">
-                <div>
-                    <label>Kode Barang</label>
-                    <input type="text" id="kode" placeholder="Misal: BRG-001">
-                </div>
-                <div>
-                    <label>Nama Barang</label>
-                    <input type="text" id="nama" placeholder="Nama Produk">
-                </div>
-                <div>
-                    <label>Kategori</label>
-                    <select id="kategori">
-                        <option value="Makanan">Makanan</option>
-                        <option value="Minuman">Minuman</option>
-                        <option value="Lain-lain">Lain-lain</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Harga Jual (Rp)</label>
-                    <input type="number" id="harga" placeholder="0">
-                </div>
-                <div>
-                    <label>Stok Awal</label>
-                    <input type="number" id="stok" placeholder="0">
-                </div>
-                <button class="btn-save" onclick="tambahBarang()">Simpan Barang</button>
+        <h1>Dashboard Analisis</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Produk</h3>
+                <p id="total-produk">0</p>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--success);">
+                <h3>Total Stok Tersedia</h3>
+                <p id="total-stok">0</p>
+            </div>
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <h3>Nilai Aset (Harga Jual)</h3>
+                <p id="nilai-aset">Rp 0</p>
             </div>
         </div>
 
-        <div class="card">
-            <h3 style="margin-top:0">📦 Daftar Inventory</h3>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>KODE</th>
-                            <th>NAMA BARANG</th>
-                            <th>KATEGORI</th>
-                            <th>STOK</th>
-                            <th>HARGA JUAL</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabel-body">
-                        </tbody>
-                </table>
-            </div>
+        <div class="chart-container">
+            <h3>Perbandingan Stok Per Kategori</h3>
+            <canvas id="stokChart" height="100"></canvas>
         </div>
     </div>
 
     <script>
-        // GANTI DENGAN URL & KEY ANDA
         const SB_URL = 'uojhjskgugghwxtdsfvm';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
-        async function muatInventory() {
-            const { data, error } = await supabase.from('inventory').select('*').order('created_at', { ascending: false });
-            if (error) return console.error(error);
+        async function muatAnalisis() {
+            const { data, error } = await supabase.from('inventory').select('*');
+            if (error) return;
 
-            const tbody = document.getElementById('tabel-body');
-            tbody.innerHTML = '';
+            // Hitung Ringkasan
+            const totalProduk = data.length;
+            const totalStok = data.reduce((sum, item) => sum + item.stok_sekarang, 0);
+            const nilaiAset = data.reduce((sum, item) => sum + (item.stok_sekarang * item.harga_jual), 0);
 
+            document.getElementById('total-produk').innerText = totalProduk;
+            document.getElementById('total-stok').innerText = totalStok;
+            document.getElementById('nilai-aset').innerText = 'Rp ' + nilaiAset.toLocaleString();
+
+            // Siapkan Data Grafik (Berdasarkan Kategori)
+            const kategoriMap = {};
             data.forEach(item => {
-                const stokStatus = item.stok_sekarang <= 5 ? 'stok-tipis' : 'stok-aman';
-                tbody.innerHTML += `
-                    <tr>
-                        <td><b>${item.kode_barang}</b></td>
-                        <td>${item.nama_barang}</td>
-                        <td>${item.kategori}</td>
-                        <td><span class="badge-stok ${stokStatus}">${item.stok_sekarang}</span></td>
-                        <td>Rp ${parseInt(item.harga_jual).toLocaleString()}</td>
-                    </tr>
-                `;
+                kategoriMap[item.kategori] = (kategoriMap[item.kategori] || 0) + item.stok_sekarang;
+            });
+
+            tampilkanGrafik(Object.keys(kategoriMap), Object.values(kategoriMap));
+        }
+
+        function tampilkanGrafik(labels, values) {
+            const ctx = document.getElementById('stokChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Jumlah Stok',
+                        data: values,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 5
+                    }]
+                },
+                options: { responsive: true }
             });
         }
 
-        async function tambahBarang() {
-            const kode = document.getElementById('kode').value;
-            const nama = document.getElementById('nama').value;
-            const harga = document.getElementById('harga').value;
-            const stok = document.getElementById('stok').value;
-            const kategori = document.getElementById('kategori').value;
-
-            if(!kode || !nama || !harga) return alert("Lengkapi data!");
-
-            const { error } = await supabase.from('inventory').insert([{ 
-                kode_barang: kode, nama_barang: nama, harga_jual: harga, stok_sekarang: stok, kategori: kategori 
-            }]);
-
-            if (error) alert(error.message);
-            else {
-                alert("Berhasil!");
-                location.reload();
-            }
-        }
-        window.onload = muatInventory;
+        window.onload = muatAnalisis;
     </script>
 </body>
 </html>
