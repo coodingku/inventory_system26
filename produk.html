@@ -66,103 +66,101 @@
         </div>
     </div>
 
-   <script>
-    // 1. DEKLARASI KONFIGURASI (HANYA SEKALI DI SELURUH FILE)
-    const URL_SB = 'uojhjskgugghwxtdsfvm';
-    const KEY_SB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    <script>
+        // 1. PERBAIKAN URL (Gunakan format lengkap https://...)
+        const URL_SB = 'https://uojhjskgugghwxtdsfvm.supabase.co'; 
+        const KEY_SB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
 
-    // Inisialisasi hanya sekali untuk mencegah error "already been declared"
-    const supabase = window.supabase.createClient(URL_SB, KEY_SB);
+        // Deklarasi Global
+        const supabase = window.supabase.createClient(URL_SB, KEY_SB);
 
-    // 2. FUNGSI MUAT DATA DARI TABEL PRODUK
-    async function muatProduk() {
-        try {
-            const { data, error } = await supabase
-                .from('produk')
-                .select('*')
-                .order('created_at', { ascending: false });
+        async function muatProduk() {
+            try {
+                const { data, error } = await supabase
+                    .from('produk')
+                    .select('*')
+                    .order('created_at', { ascending: false });
 
-            if (error) throw error;
+                if (error) throw error;
 
-            const tbody = document.getElementById('isi-tabel');
-            if (!tbody) return;
-            
-            tbody.innerHTML = '';
+                const tbody = document.getElementById('isi-tabel');
+                tbody.innerHTML = '';
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Data produk kosong.</td></tr>';
-                return;
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Data produk kosong.</td></tr>';
+                    return;
+                }
+
+                data.forEach(item => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${item.kode_barang}</td>
+                            <td>${item.nama_barang}</td>
+                            <td>${item.stok_sekarang}</td>
+                            <td>Rp ${item.harga_jual.toLocaleString()}</td>
+                            <td>
+                                <button class="btn-edit" onclick="editProduk('${item.id}', ${item.harga_jual})">✎</button>
+                                <button class="btn-delete" onclick="hapusProduk('${item.id}')">🗑</button>
+                            </td>
+                        </tr>`;
+                });
+            } catch (err) {
+                console.error("Gagal muat data:", err.message);
             }
-
-            data.forEach(item => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${item.kode_barang}</td>
-                        <td>${item.nama_barang}</td>
-                        <td>${item.stok_sekarang}</td>
-                        <td>Rp ${item.harga_jual.toLocaleString()}</td>
-                        <td>
-                            <button class="btn-edit" onclick="editProduk('${item.id}', ${item.harga_jual})">✎</button>
-                            <button class="btn-delete" onclick="hapusProduk('${item.id}')">🗑</button>
-                        </td>
-                    </tr>`;
-            });
-        } catch (err) {
-            console.error("Gagal muat data:", err.message);
         }
-    }
 
-    // 3. FUNGSI TAMBAH PRODUK
-    async function tambahProduk() {
-        try {
-            const row = {
-                kode_barang: document.getElementById('kode').value,
-                nama_barang: document.getElementById('nama').value,
-                kategori: document.getElementById('kategori').value,
-                harga_jual: parseInt(document.getElementById('harga').value),
-                stok_sekarang: parseInt(document.getElementById('stok').value)
-            };
+        async function tambahProduk() {
+            try {
+                const row = {
+                    kode_barang: document.getElementById('kode').value,
+                    nama_barang: document.getElementById('nama').value,
+                    kategori: document.getElementById('kategori').value,
+                    harga_jual: parseInt(document.getElementById('harga').value) || 0,
+                    stok_sekarang: parseInt(document.getElementById('stok').value) || 0
+                };
 
-            if (!row.kode_barang || !row.nama_barang || isNaN(row.harga_jual)) {
-                alert("Mohon lengkapi data produk!");
-                return;
+                if (!row.kode_barang || !row.nama_barang) {
+                    alert("Mohon isi Kode dan Nama Barang!");
+                    return;
+                }
+
+                const { error } = await supabase.from('produk').insert([row]);
+                if (error) throw error;
+
+                alert("Produk Berhasil Disimpan!");
+                // Bersihkan input setelah simpan daripada reload seluruh halaman
+                document.getElementById('kode').value = '';
+                document.getElementById('nama').value = '';
+                document.getElementById('harga').value = '';
+                document.getElementById('stok').value = '';
+                muatProduk();
+            } catch (err) {
+                alert("Gagal menyimpan: " + err.message);
             }
-
-            const { error } = await supabase.from('produk').insert([row]);
-            if (error) throw error;
-
-            alert("Produk Berhasil Disimpan!");
-            location.reload(); 
-        } catch (err) {
-            alert("Gagal menyimpan: " + err.message);
         }
-    }
 
-    // 4. FUNGSI HAPUS PRODUK
-    async function hapusProduk(id) {
-        if (confirm("Hapus produk ini secara permanen?")) {
-            const { error } = await supabase.from('produk').delete().eq('id', id);
-            if (error) alert(error.message);
-            else muatProduk();
+        async function hapusProduk(id) {
+            if (confirm("Hapus produk ini secara permanen?")) {
+                const { error } = await supabase.from('produk').delete().eq('id', id);
+                if (error) alert(error.message);
+                else muatProduk();
+            }
         }
-    }
 
-    // 5. FUNGSI EDIT HARGA
-    async function editProduk(id, hargaLama) {
-        const baru = prompt("Masukkan Harga Baru:", hargaLama);
-        if (baru !== null && baru !== "") {
-            const { error } = await supabase
-                .from('produk')
-                .update({ harga_jual: parseInt(baru) })
-                .eq('id', id);
-            
-            if (error) alert(error.message);
-            else muatProduk();
+        async function editProduk(id, hargaLama) {
+            const baru = prompt("Masukkan Harga Baru:", hargaLama);
+            if (baru !== null && baru !== "") {
+                const { error } = await supabase
+                    .from('produk')
+                    .update({ harga_jual: parseInt(baru) })
+                    .eq('id', id);
+                
+                if (error) alert(error.message);
+                else muatProduk();
+            }
         }
-    }
 
-    // Jalankan muatProduk saat halaman siap
-    window.onload = muatProduk;
-</script>
+        window.onload = muatProduk;
+    </script>
 </body>
 </html>
