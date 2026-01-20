@@ -7,18 +7,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #1e293b; --accent: #3b82f6; --success: #10b981; --danger: #ef4444; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; background: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: #f8fafc; }
         .sidebar { width: 240px; background: var(--primary); min-height: 100vh; color: white; padding: 20px; position: fixed; }
         .main-content { margin-left: 240px; padding: 40px; width: 100%; box-sizing: border-box; }
         .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; }
-        .btn-add { background: var(--success); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .btn-add { background: var(--success); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 12px; background: #f1f5f9; color: #475569; }
+        th { text-align: left; padding: 12px; background: #f1f5f9; }
         td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
-        .btn-edit { background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .btn-delete { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -45,7 +43,7 @@
                 </select>
                 <input type="number" id="harga" placeholder="Harga Jual">
                 <input type="number" id="stok" placeholder="Stok">
-                <button class="btn-add" onclick="tambahProduk()">Simpan</button>
+                <button class="btn-add" onclick="tambahProduk()">Simpan Produk</button>
             </div>
         </div>
 
@@ -67,53 +65,46 @@
     </div>
 
     <script>
-        // 1. PERBAIKAN URL (Gunakan format lengkap https://...)
+        // --- KONFIGURASI (PASTIKAN HANYA ADA SATU BLOK INI) ---
         const URL_SB = 'https://uojhjskgugghwxtdsfvm.supabase.co'; 
         const KEY_SB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
 
-        // Deklarasi Global
+        // Inisialisasi Supabase
         const supabase = window.supabase.createClient(URL_SB, KEY_SB);
 
-       async function muatProduk() {
-    try {
-        const { data, error } = await supabase
-            .from('produk')
-            .select('*')
-            .order('created_at', { ascending: false });
+        async function muatProduk() {
+            try {
+                const { data, error } = await supabase
+                    .from('produk')
+                    .select('*')
+                    .order('created_at', { ascending: false });
 
-        if (error) throw error;
+                if (error) throw error;
 
-        const tbody = document.getElementById('isi-tabel');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
+                const tbody = document.getElementById('isi-tabel');
+                tbody.innerHTML = '';
 
-        // PROTEKSI: Cek apakah data ada dan tidak null
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Data produk kosong.</td></tr>';
-            return;
-        }
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada produk.</td></tr>';
+                    return;
+                }
 
-        data.forEach(item => {
-            // PROTEKSI: Pastikan item tidak null sebelum akses properti
-            if (item && item.id) { 
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${item.kode_barang || '-'}</td>
-                        <td>${item.nama_barang || '-'}</td>
-                        <td>${item.stok_sekarang || 0}</td>
-                        <td>Rp ${(item.harga_jual || 0).toLocaleString()}</td>
-                        <td>
-                            <button class="btn-edit" onclick="editProduk('${item.id}', ${item.harga_jual})">✎</button>
-                            <button class="btn-delete" onclick="hapusProduk('${item.id}')">🗑</button>
-                        </td>
-                    </tr>`;
+                data.forEach(item => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${item.kode_barang}</td>
+                            <td>${item.nama_barang}</td>
+                            <td>${item.stok_sekarang}</td>
+                            <td>Rp ${item.harga_jual.toLocaleString()}</td>
+                            <td>
+                                <button onclick="hapusProduk('${item.id}')">🗑</button>
+                            </td>
+                        </tr>`;
+                });
+            } catch (err) {
+                console.error("Gagal muat:", err.message);
             }
-        });
-    } catch (err) {
-        console.error("Gagal muat data:", err.message);
-    }
-}
+        }
 
         async function tambahProduk() {
             try {
@@ -125,44 +116,20 @@
                     stok_sekarang: parseInt(document.getElementById('stok').value) || 0
                 };
 
-                if (!row.kode_barang || !row.nama_barang) {
-                    alert("Mohon isi Kode dan Nama Barang!");
-                    return;
-                }
-
                 const { error } = await supabase.from('produk').insert([row]);
                 if (error) throw error;
 
-                alert("Produk Berhasil Disimpan!");
-                // Bersihkan input setelah simpan daripada reload seluruh halaman
-                document.getElementById('kode').value = '';
-                document.getElementById('nama').value = '';
-                document.getElementById('harga').value = '';
-                document.getElementById('stok').value = '';
-                muatProduk();
+                alert("Berhasil disimpan!");
+                location.reload(); 
             } catch (err) {
-                alert("Gagal menyimpan: " + err.message);
+                alert("Gagal: " + err.message);
             }
         }
 
         async function hapusProduk(id) {
-            if (confirm("Hapus produk ini secara permanen?")) {
-                const { error } = await supabase.from('produk').delete().eq('id', id);
-                if (error) alert(error.message);
-                else muatProduk();
-            }
-        }
-
-        async function editProduk(id, hargaLama) {
-            const baru = prompt("Masukkan Harga Baru:", hargaLama);
-            if (baru !== null && baru !== "") {
-                const { error } = await supabase
-                    .from('produk')
-                    .update({ harga_jual: parseInt(baru) })
-                    .eq('id', id);
-                
-                if (error) alert(error.message);
-                else muatProduk();
+            if (confirm("Hapus produk ini?")) {
+                await supabase.from('produk').delete().eq('id', id);
+                muatProduk();
             }
         }
 
