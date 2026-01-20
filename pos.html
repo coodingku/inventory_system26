@@ -7,99 +7,86 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --bg: #f4f7f6; --danger: #e74c3c; --white: #ffffff; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        /* Sidebar Nav */
+        /* Sidebar */
         nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; display: flex; flex-direction: column; position: fixed; }
         nav h2 { color: var(--accent); border-bottom: 2px solid #34495e; padding-bottom: 10px; margin-top: 0; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 8px; transition: 0.3s; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 8px; }
         nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: auto; color: #e74c3c; cursor: pointer; padding: 10px; font-weight: bold; border-top: 1px solid #34495e; }
 
-        /* Main Layout */
+        /* Main */
         main { flex: 1; margin-left: 280px; padding: 20px; display: grid; grid-template-columns: 1fr 450px; gap: 20px; height: 100vh; box-sizing: border-box; }
 
-        /* Product Section */
-        .product-section { background: var(--white); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
-        .search-box { width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; margin-bottom: 15px; font-size: 16px; outline: none; }
-        .grid-produk { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 15px; overflow-y: auto; }
-        .item-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; padding: 12px; cursor: pointer; transition: 0.2s; }
-        .item-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-color: var(--accent); }
-        .item-card strong { display: block; font-size: 14px; color: #333; height: 35px; overflow: hidden; }
-        .item-card .price { color: var(--success); font-weight: 800; display: block; margin-top: 5px; }
-
-        /* Billing Section */
+        /* Product & Cart UI */
+        .product-section { background: var(--white); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .grid-produk { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; overflow-y: auto; }
+        .item-card { border: 1px solid #eee; padding: 10px; border-radius: 10px; cursor: pointer; text-align: center; }
+        
         .billing-section { background: var(--white); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
         .cart-list { flex: 1; overflow-y: auto; }
-        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .discount-select { width: 100%; padding: 4px; border-radius: 5px; border: 1px solid #ddd; font-size: 11px; margin-top: 5px; background: #fff9db; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 14px; }
 
-        /* Summary Area */
+        /* Summary */
         .summary-area { background: #f8f9fa; padding: 15px; border-radius: 12px; margin-top: 10px; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; align-items: center; }
-        .total-row { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; color: var(--primary); border-top: 2px solid #dee2e6; margin-top: 10px; padding-top: 10px; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .total-row { display: flex; justify-content: space-between; font-size: 24px; font-weight: 900; border-top: 2px solid #ddd; padding-top: 10px; margin-top: 10px; }
         
-        /* Dropdown & Toggle Styling */
-        .pay-box { margin-top: 10px; padding: 12px; background: #ebf5ff; border-radius: 8px; border: 1px solid #d0e7ff; }
-        .pay-box select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #abc; font-weight: bold; }
-
+        .btn-pay { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        
         .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 4px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--success); }
         input:checked + .slider:before { transform: translateX(12px); }
-
-        .btn-pay { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; }
     </style>
 </head>
 <body>
 
     <nav>
         <h2>Finex Pos</h2>
-        <div id="admin-menu">
-            <a href="index.html">📊 Dashboard</a>
-            <a href="produk.html">📦 Produk</a>
-            <a href="pengaturan.html">⚙️ Pengaturan</a>
-        </div>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
         <a href="pos.html" class="active">🛒 Kasir</a>
-        <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
+        <a href="pengaturan.html">⚙️ Pengaturan</a>
     </nav>
 
     <main>
         <section class="product-section">
-            <input type="text" id="search" class="search-box" placeholder="Cari nama barang..." onkeyup="filterProduk()">
+            <input type="text" id="search" style="width:100%; padding:12px; margin-bottom:15px; border-radius:10px; border:1px solid #ddd;" placeholder="Cari barang..." onkeyup="filterProduk()">
             <div id="daftar-produk" class="grid-produk"></div>
         </section>
 
         <section class="billing-section">
-            <h3 style="margin-top:0">🛒 Keranjang Belanja</h3>
+            <h3 style="margin-top:0">🛒 Keranjang</h3>
             <div id="cart-list" class="cart-list"></div>
 
             <div class="summary-area">
-                <div class="summary-row"><span>Subtotal</span><b id="sub-total">Rp 0</b></div>
-                <div class="summary-row" style="color: var(--danger);"><span>Diskon Bill (Global)</span>
-                    <select id="diskon-bill" onchange="updateBilling()" style="width: 80px;">
+                <div class="summary-row"><span>Subtotal (Kotor)</span><b id="sub-total">Rp 0</b></div>
+                
+                <div class="summary-row" style="color: var(--danger);">
+                    <span>Diskon Bill (%)</span>
+                    <select id="diskon-bill" onchange="updateBilling()">
                         <option value="0">0%</option>
                         <option value="5">5%</option>
                         <option value="10">10%</option>
-                        <option value="15">15%</option>
-                        <option value="20">20%</option>
                     </select>
                 </div>
 
-                <div class="summary-row" style="margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ddd;">
+                <div class="summary-row">
                     <span>Aktifkan PPN (<span id="tax-rate">0</span>%)</span>
                     <label class="switch">
                         <input type="checkbox" id="tax-status" checked onchange="updateBilling()">
                         <span class="slider"></span>
                     </label>
                 </div>
+                
                 <div class="summary-row"><span>Nilai Pajak</span><b id="val-pajak">Rp 0</b></div>
                 
-                <div class="pay-box">
-                    <label style="font-size: 10px; color: #5a7a9a; font-weight: bold; display: block; margin-bottom: 5px;">METODE PEMBAYARAN</label>
-                    <select id="metode-bayar"></select>
+                <div style="margin-top:10px;">
+                    <label style="font-size:11px; font-weight:bold;">METODE PEMBAYARAN</label>
+                    <select id="metode-bayar" style="width:100%; padding:8px; margin-top:5px;"></select>
                 </div>
 
                 <div class="total-row">
@@ -117,29 +104,20 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        let masterProduk = [], keranjang = [], ppnPersen = 0, daftarOpsiDiskon = [];
+        let masterProduk = [], keranjang = [], ppnPersen = 0;
 
         async function init() {
-            try {
-                // 1. Ambil PPN
-                const { data: p } = await supabaseClient.from('ppn').select('nilai').eq('id', 1).single();
-                ppnPersen = p ? parseFloat(p.nilai) : 0;
-                document.getElementById('tax-rate').innerText = ppnPersen;
+            const { data: p } = await supabaseClient.from('ppn').select('nilai').eq('id', 1).single();
+            ppnPersen = p ? parseFloat(p.nilai) : 0;
+            document.getElementById('tax-rate').innerText = ppnPersen;
 
-                // 2. Ambil Diskon
-                const { data: d } = await supabaseClient.from('diskon').select('*').order('persen', {ascending: true});
-                daftarOpsiDiskon = d || [];
+            const { data: m } = await supabaseClient.from('metode_pembayaran').select('*').eq('aktif', true);
+            const sel = document.getElementById('metode-bayar');
+            m?.forEach(v => sel.innerHTML += `<option value="${v.nama_metode}">${v.nama_metode}</option>`);
 
-                // 3. Ambil Metode Pembayaran Aktif
-                const { data: m } = await supabaseClient.from('metode_pembayaran').select('nama_metode').eq('aktif', true);
-                const sel = document.getElementById('metode-bayar');
-                m?.forEach(v => sel.innerHTML += `<option value="${v.nama_metode}">${v.nama_metode}</option>`);
-
-                // 4. Ambil Produk
-                const { data: prod } = await supabaseClient.from('produk').select('*').gt('stok_sekarang', 0);
-                masterProduk = prod || [];
-                renderProduk(masterProduk);
-            } catch (err) { console.error(err); }
+            const { data: prod } = await supabaseClient.from('produk').select('*').gt('stok_sekarang', 0);
+            masterProduk = prod || [];
+            renderProduk(masterProduk);
         }
 
         function renderProduk(list) {
@@ -147,11 +125,60 @@
             container.innerHTML = '';
             list.forEach(p => {
                 container.innerHTML += `<div class="item-card" onclick="tambahKeKeranjang('${p.id}')">
-                    <strong>${p.nama_barang}</strong>
-                    <span class="price">Rp ${p.harga_jual.toLocaleString()}</span>
-                    <small style="color:#999;font-size:10px">Stok: ${p.stok_sekarang}</small>
+                    <strong>${p.nama_barang}</strong><br>
+                    <span style="color:var(--success)">Rp ${p.harga_jual.toLocaleString()}</span>
                 </div>`;
             });
+        }
+
+        function tambahKeKeranjang(id) {
+            const p = masterProduk.find(x => x.id === id);
+            const ada = keranjang.find(x => x.id === id);
+            if (ada) ada.qty++;
+            else keranjang.push({ ...p, qty: 1 });
+            updateBilling();
+        }
+
+        function updateBilling() {
+            const listDiv = document.getElementById('cart-list');
+            listDiv.innerHTML = '';
+            
+            let subtotalKotor = 0;
+            keranjang.forEach((item, idx) => {
+                const totalItem = item.harga_jual * item.qty;
+                subtotalKotor += totalItem;
+                listDiv.innerHTML += `<div class="cart-item">
+                    <span>${item.nama_barang} (x${item.qty})</span>
+                    <b>Rp ${totalItem.toLocaleString()}</b>
+                </div>`;
+            });
+
+            // LOGIKA PERHITUNGAN
+            const persenDiskon = parseFloat(document.getElementById('diskon-bill').value);
+            const nominalDiskon = subtotalKotor * (persenDiskon / 100);
+            const setelahDiskon = subtotalKotor - nominalDiskon;
+            
+            const isTax = document.getElementById('tax-status').checked;
+            const nominalPajak = isTax ? (setelahDiskon * (ppnPersen / 100)) : 0;
+            const grandTotal = setelahDiskon + nominalPajak;
+
+            // UPDATE UI
+            document.getElementById('sub-total').innerText = "Rp " + subtotalKotor.toLocaleString();
+            document.getElementById('val-pajak').innerText = "Rp " + Math.round(nominalPajak).toLocaleString();
+            document.getElementById('grand-total').innerText = "Rp " + Math.round(grandTotal).toLocaleString();
+
+            // SIMPAN KE SESSION STORAGE (Penting untuk Struk!)
+            sessionStorage.setItem('pay_cart', JSON.stringify(keranjang));
+            sessionStorage.setItem('pay_subtotal', subtotalKotor);
+            sessionStorage.setItem('pay_diskon_global', Math.round(nominalDiskon));
+            sessionStorage.setItem('pay_pajak', Math.round(nominalPajak));
+            sessionStorage.setItem('pay_total', Math.round(grandTotal));
+        }
+
+        function lanjutKeBayar() {
+            if (keranjang.length === 0) return alert("Keranjang masih kosong!");
+            sessionStorage.setItem('pay_method', document.getElementById('metode-bayar').value);
+            window.location.href = "payment.html";
         }
 
         function filterProduk() {
@@ -159,71 +186,6 @@
             renderProduk(masterProduk.filter(p => p.nama_barang.toLowerCase().includes(q)));
         }
 
-        function tambahKeKeranjang(id) {
-            const p = masterProduk.find(x => x.id === id);
-            const ada = keranjang.find(x => x.id === id);
-            if (ada) {
-                if (ada.qty < p.stok_sekarang) ada.qty++;
-                else alert("Stok Habis!");
-            } else {
-                keranjang.push({ ...p, qty: 1, persen_diskon: 0 });
-            }
-            updateBilling();
-        }
-
-        function updateBilling() {
-            const listDiv = document.getElementById('cart-list');
-            if (keranjang.length === 0) {
-                listDiv.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:50px;">Kosong</p>';
-                resetUI(); return;
-            }
-
-            listDiv.innerHTML = '';
-            let subtotalKotor = 0, diskonItemTotal = 0;
-
-            keranjang.forEach((item, index) => {
-                const hargaAwal = item.harga_jual * item.qty;
-                const potItem = hargaAwal * (item.persen_diskon / 100);
-                subtotalKotor += hargaAwal; diskonItemTotal += potItem;
-
-                let opsiHtml = `<option value="0">Diskon Item (0%)</option>`;
-                daftarOpsiDiskon.forEach(d => {
-                    opsiHtml += `<option value="${d.persen}" ${item.persen_diskon == d.persen ? 'selected' : ''}>${d.nama_diskon} (${d.persen}%)</option>`;
-                });
-
-                listDiv.innerHTML += `<div class="cart-item">
-                    <div style="flex:1"><b>${item.nama_barang}</b><br>${item.qty} x Rp ${item.harga_jual.toLocaleString()}
-                    <select class="discount-select" onchange="ubahDiskonItem(${index}, this.value)">${opsiHtml}</select></div>
-                    <div style="text-align:right"><b>Rp ${(hargaAwal - potItem).toLocaleString()}</b><br>
-                    <button onclick="hapusItem(${index})" style="border:none;background:none;color:red;cursor:pointer;font-size:10px">Hapus</button></div>
-                </div>`;
-            });
-
-            const subSetelahItem = subtotalKotor - diskonItemTotal;
-            const nominalGlobal = subSetelahItem * (parseFloat(document.getElementById('diskon-bill').value) / 100);
-            const subFinal = subSetelahItem - nominalGlobal;
-            const pajak = document.getElementById('tax-status').checked ? (subFinal * (ppnPersen / 100)) : 0;
-            const totalAkhir = subFinal + pajak;
-
-            document.getElementById('sub-total').innerText = "Rp " + subtotalKotor.toLocaleString();
-            document.getElementById('val-pajak').innerText = "Rp " + Math.round(pajak).toLocaleString();
-            document.getElementById('grand-total').innerText = "Rp " + Math.round(totalAkhir).toLocaleString();
-
-            sessionStorage.setItem('pay_cart', JSON.stringify(keranjang));
-            sessionStorage.setItem('pay_total', Math.round(totalAkhir));
-        }
-
-        function ubahDiskonItem(idx, val) { keranjang[idx].persen_diskon = parseFloat(val); updateBilling(); }
-        function hapusItem(idx) { keranjang.splice(idx, 1); updateBilling(); }
-        function resetUI() { document.getElementById('sub-total').innerText = "Rp 0"; document.getElementById('val-pajak').innerText = "Rp 0"; document.getElementById('grand-total').innerText = "Rp 0"; }
-
-        function lanjutKeBayar() {
-            if (keranjang.length > 0) {
-                sessionStorage.setItem('pay_method', document.getElementById('metode-bayar').value);
-                window.location.href = "payment.html";
-            }
-        }
-        function logout() { localStorage.clear(); window.location.href = "login.html"; }
         window.onload = init;
     </script>
 </body>
