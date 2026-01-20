@@ -2,47 +2,78 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System | Produk</title>
+    <title>POS System | Manajemen Produk</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; display: flex; margin: 0; }
-        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; }
-        main { flex: 1; padding: 30px; background: #f4f7f6; }
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .form-group { margin-bottom: 20px; background: white; padding: 20px; border-radius: 8px; }
-        input { padding: 8px; margin-right: 5px; }
-        button { padding: 8px 15px; cursor: pointer; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
+        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
+        main { flex: 1; margin-left: 240px; padding: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background: #f8f9fa; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-save { background: #27ae60; }
+        .btn-export { background: #3498db; }
+        .btn-import { background: #f39c12; }
+        .search-box { width: 100%; padding: 12px; margin-bottom: 20px; box-sizing: border-box; border: 2px solid #3498db; border-radius: 8px; }
     </style>
 </head>
 <body>
     <nav>
         <h2>POS LITE</h2>
-        <a href="index.html" style="color:white">📊 Dashboard</a><br><br>
-        <a href="produk.html" style="color:white">📦 Produk</a>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
+        <a href="pos.html">🛒 Kasir</a>
     </nav>
     <main>
         <h1>Manajemen Produk</h1>
-        <div class="form-group">
-            <input type="text" id="kode" placeholder="Kode">
-            <input type="text" id="nama" placeholder="Nama Barang">
-            <input type="number" id="harga" placeholder="Harga">
-            <input type="number" id="stok" placeholder="Stok">
-            <button onclick="tambah()" style="background: #27ae60; color: white; border: none;">Simpan</button>
+
+        <div class="card">
+            <h3>➕ Tambah Produk Baru</h3>
+            <div class="form-row">
+                <input type="text" id="kode" placeholder="Kode">
+                <input type="text" id="nama" placeholder="Nama Barang">
+                <select id="kategori">
+                    <option value="Makanan">Makanan</option>
+                    <option value="Minuman">Minuman</option>
+                    <option value="Elektronik">Elektronik</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+                <input type="text" id="gudang" placeholder="Lokasi Gudang (A1/B2)">
+                <input type="number" id="harga" placeholder="Harga">
+                <input type="number" id="stok" placeholder="Stok">
+            </div>
+            <button class="btn btn-save" onclick="tambah()">Simpan Produk</button>
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Kode</th>
-                    <th>Nama</th>
-                    <th>Harga</th>
-                    <th>Stok</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-            <tbody id="tabel-produk"></tbody>
-        </table>
+        <div class="card" style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn btn-export" onclick="exportCSV()">📥 Export CSV</button>
+            <input type="file" id="importFile" accept=".csv" style="display:none" onchange="importCSV(event)">
+            <button class="btn btn-import" onclick="document.getElementById('importFile').click()">📤 Import CSV</button>
+        </div>
+
+        <input type="text" id="searchInput" class="search-box" placeholder="Cari nama barang atau kode..." onkeyup="filterTabel()">
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Kategori</th>
+                        <th>Gudang</th>
+                        <th>Harga</th>
+                        <th>Stok</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tabel-produk"></tbody>
+            </table>
+        </div>
     </main>
 
     <script>
@@ -51,7 +82,9 @@
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
         async function muatData() {
-            const { data } = await supabaseClient.from('produk').select('*').order('created_at', {ascending: false});
+            const { data, error } = await supabaseClient.from('produk').select('*').order('created_at', {ascending: false});
+            if (error) return console.error(error);
+
             const tbody = document.getElementById('tabel-produk');
             tbody.innerHTML = '';
             data.forEach(item => {
@@ -59,27 +92,75 @@
                     <tr>
                         <td>${item.kode_barang}</td>
                         <td>${item.nama_barang}</td>
-                        <td>Rp ${item.harga_jual}</td>
+                        <td>${item.kategori || '-'}</td>
+                        <td>${item.gudang || '-'}</td>
+                        <td>Rp ${item.harga_jual.toLocaleString()}</td>
                         <td>${item.stok_sekarang}</td>
-                        <td><button onclick="hapus('${item.id}')">Hapus</button></td>
+                        <td><button onclick="hapus('${item.id}')">❌</button></td>
                     </tr>`;
             });
         }
 
         async function tambah() {
-            const kode = document.getElementById('kode').value;
-            const nama = document.getElementById('nama').value;
-            const harga = document.getElementById('harga').value;
-            const stok = document.getElementById('stok').value;
+            const row = {
+                kode_barang: document.getElementById('kode').value,
+                nama_barang: document.getElementById('nama').value,
+                kategori: document.getElementById('kategori').value,
+                gudang: document.getElementById('gudang').value,
+                harga_jual: parseInt(document.getElementById('harga').value) || 0,
+                stok_sekarang: parseInt(document.getElementById('stok').value) || 0
+            };
 
-            await supabaseClient.from('produk').insert([{ 
-                kode_barang: kode, nama_barang: nama, harga_jual: harga, stok_sekarang: stok 
-            }]);
-            location.reload();
+            const { error } = await supabaseClient.from('produk').insert([row]);
+            if (error) alert(error.message);
+            else { alert("Produk berhasil ditambah!"); location.reload(); }
+        }
+
+        function filterTabel() {
+            let input = document.getElementById("searchInput").value.toUpperCase();
+            let tr = document.getElementById("tabel-produk").getElementsByTagName("tr");
+            for (let i = 0; i < tr.length; i++) {
+                let txtValue = tr[i].textContent || tr[i].innerText;
+                tr[i].style.display = txtValue.toUpperCase().indexOf(input) > -1 ? "" : "none";
+            }
+        }
+
+        async function exportCSV() {
+            const { data } = await supabaseClient.from('produk').select('kode_barang, nama_barang, kategori, gudang, harga_jual, stok_sekarang');
+            let csvContent = "data:text/csv;charset=utf-8,Kode,Nama,Kategori,Gudang,Harga,Stok\n";
+            data.forEach(r => {
+                csvContent += `${r.kode_barang},${r.nama_barang},${r.kategori},${r.gudang},${r.harga_jual},${r.stok_sekarang}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "data_produk.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function importCSV(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const rows = e.target.result.split("\n").slice(1); // skip header
+                for (let row of rows) {
+                    const cols = row.split(",");
+                    if (cols.length >= 6) {
+                        await supabaseClient.from('produk').insert([{
+                            kode_barang: cols[0], nama_barang: cols[1], kategori: cols[2], 
+                            gudang: cols[3], harga_jual: parseInt(cols[4]), stok_sekarang: parseInt(cols[5])
+                        }]);
+                    }
+                }
+                alert("Import Selesai!");
+                muatData();
+            };
+            reader.readAsText(file);
         }
 
         async function hapus(id) {
-            if(confirm('Hapus barang ini?')) {
+            if(confirm('Hapus produk?')) {
                 await supabaseClient.from('produk').delete().eq('id', id);
                 muatData();
             }
