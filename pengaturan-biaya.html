@@ -2,97 +2,122 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System | Pengaturan Admin</title>
+    <title>Finex Pos | Pengaturan Sistem</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
-        nav { width: 220px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; padding: 10px; border-radius: 5px; }
-        nav a:hover { background: #34495e; }
-        main { flex: 1; margin-left: 260px; padding: 40px; }
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 450px; }
-        .form-group { margin-bottom: 25px; }
-        label { display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50; font-size: 14px; }
-        .input-wrapper { position: relative; display: flex; align-items: center; }
-        input { width: 100%; padding: 12px; border: 2px solid #dfe6e9; border-radius: 8px; font-size: 18px; outline: none; transition: 0.3s; }
-        input:focus { border-color: #3498db; }
-        .unit { position: absolute; right: 15px; font-weight: bold; color: #b2bec3; }
-        .btn-save { background: #2ecc71; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; transition: 0.3s; }
-        .btn-save:hover { background: #27ae60; }
-        .header-title { color: #2c3e50; margin-bottom: 10px; }
-        .subtitle { color: #636e72; margin-bottom: 30px; font-size: 14px; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        /* Sidebar sama dengan halaman lain */
+        nav { width: 220px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-save { background: var(--success); color: white; }
+        .btn-del { background: var(--danger); color: white; padding: 5px 10px; font-size: 12px; }
     </style>
 </head>
 <body>
+
     <nav>
-    <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
+        <h2>Finex Pos</h2>
+        <a href="index.html">📊 Dashboard</a>
         <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-    
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
-</nav>
+        <a href="pos.html">🛒 Kasir</a>
+        <a href="pengaturan.html" class="active">⚙️ Pengaturan</a>
+    </nav>
+
     <main>
-        <h1 class="header-title">Pengaturan Biaya</h1>
-        <p class="subtitle">Input manual persentase pajak dan diskon yang akan diterapkan di halaman Kasir.</p>
-        
+        <h1>Pengaturan Sistem</h1>
+
         <div class="card">
-            <div class="form-group">
-                <label>Pajak Pertambahan Nilai (PPN)</label>
-                <div class="input-wrapper">
-                    <input type="number" id="input-pajak" placeholder="0">
-                    <span class="unit">%</span>
-                </div>
-            </div>
+            <h3>Tarif PPN (%)</h3>
+            <p>Tentukan besaran pajak PPN yang berlaku global.</p>
+            <input type="number" id="input-ppn" placeholder="Contoh: 11">
+            <button class="btn btn-save" onclick="updatePPN()">Simpan PPN</button>
+        </div>
 
-            <div class="form-group">
-                <label>Diskon Standar Toko</label>
-                <div class="input-wrapper">
-                    <input type="number" id="input-diskon" placeholder="0">
-                    <span class="unit">%</span>
-                </div>
+        <div class="card">
+            <h3>Kelola Pilihan Diskon</h3>
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <input type="text" id="nama-diskon" placeholder="Nama Promo (ex: Kantin)">
+                <input type="number" id="persen-diskon" placeholder="Persen (%)" style="width: 80px;">
+                <button class="btn btn-save" onclick="tambahDiskon()">+ Tambah Diskon</button>
             </div>
-
-            <button class="btn-save" onclick="simpanConfig()">Simpan Pengaturan</button>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Diskon</th>
+                        <th>Besaran</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="list-diskon">
+                    </tbody>
+            </table>
         </div>
     </main>
 
     <script>
-        // Saat halaman dibuka, ambil data yang sudah ada
-        window.onload = function() {
-            const currentPajak = localStorage.getItem('global_pajak') || 0;
-            const currentDiskon = localStorage.getItem('global_diskon') || 0;
-            
-            document.getElementById('input-pajak').value = currentPajak;
-            document.getElementById('input-diskon').value = currentDiskon;
-        };
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        function simpanConfig() {
-            const pjk = document.getElementById('input-pajak').value;
-            const dsk = document.getElementById('input-diskon').value;
+        async function loadData() {
+            // Load PPN
+            const { data: ppn } = await supabaseClient.from('ppn').select('*').eq('id', 1).single();
+            if(ppn) document.getElementById('input-ppn').value = ppn.nilai;
 
-            // Simpan ke localStorage agar bisa dibaca file lain
-            localStorage.setItem('global_pajak', pjk);
-            localStorage.setItem('global_diskon', dsk);
-
-            alert("✅ Pengaturan berhasil diperbarui!");
+            // Load Diskon
+            const { data: diskon } = await supabaseClient.from('diskon').select('*').order('persen', {ascending: true});
+            const tbody = document.getElementById('list-diskon');
+            tbody.innerHTML = '';
+            diskon.forEach(d => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${d.nama_diskon}</td>
+                        <td>${d.persen}%</td>
+                        <td><button class="btn btn-del" onclick="hapusDiskon('${d.id}')">Hapus</button></td>
+                    </tr>`;
+            });
         }
+
+        async function updatePPN() {
+            const n = document.getElementById('input-ppn').value;
+            const { error } = await supabaseClient.from('ppn').update({ nilai: n }).eq('id', 1);
+            if(!error) alert("PPN Berhasil diperbarui!");
+        }
+
+        async function tambahDiskon() {
+            const nama = document.getElementById('nama-diskon').value;
+            const persen = document.getElementById('persen-diskon').value;
+            if(!nama || !persen) return alert("Isi semua data!");
+
+            const { error } = await supabaseClient.from('diskon').insert([{ nama_diskon: nama, persen: persen }]);
+            if(!error) {
+                document.getElementById('nama-diskon').value = '';
+                document.getElementById('persen-diskon').value = '';
+                loadData();
+            }
+        }
+
+        async function hapusDiskon(id) {
+            if(confirm("Hapus pilihan diskon ini?")) {
+                await supabaseClient.from('diskon').delete().eq('id', id);
+                loadData();
+            }
+        }
+
+        window.onload = loadData;
     </script>
 </body>
 </html>
