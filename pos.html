@@ -2,141 +2,152 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System - Kasir Mandiri</title>
+    <title>POS System | Kasir</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; margin: 0; display: flex; background: #f0f2f5; }
-        .sidebar { width: 300px; background: white; padding: 20px; height: 100vh; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
-        .main { flex: 1; padding: 20px; }
-        .cart-table { width: 100%; background: white; border-collapse: collapse; border-radius: 8px; overflow: hidden; }
-        .cart-table th, .cart-table td { padding: 15px; border-bottom: 1px solid #eee; text-align: left; }
-        .total-section { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-top: 20px; text-align: right; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        .btn-pay { background: #27ae60; color: white; padding: 15px; width: 100%; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; }
+        body { font-family: sans-serif; display: flex; margin: 0; background: #f4f7f6; }
+        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; }
+        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
+        main { flex: 1; padding: 30px; display: grid; grid-template-columns: 1fr 350px; gap: 20px; }
+        
+        .produk-section, .cart-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .grid-produk { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .item-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .item-card:hover { border-color: #3498db; background: #ebf5fb; }
+        .item-card.habis { opacity: 0.5; cursor: not-allowed; background: #fceae9; }
+
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .total-bayar { font-size: 24px; font-weight: bold; margin-top: 20px; border-top: 2px solid #eee; padding-top: 10px; }
+        .btn-bayar { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <h3>🔑 Identitas Kasir</h3>
-    <input type="text" id="nik-kasir" placeholder="Masukkan NIK Staff...">
-    <div id="info-staff" style="margin-bottom: 20px; color: #666; font-size: 14px;"></div>
-    
-    <hr>
-    <h3>🛒 Input Barang</h3>
-    <input type="text" id="kode-barang" placeholder="Scan / Ketik Kode Barang..." onkeypress="handleKey(event)">
-    <p style="font-size: 12px; color: #888;">Tekan Enter untuk tambah ke keranjang</p>
-</div>
+    <nav>
+        <h2>POS LITE</h2>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
+        <a href="pos.html">🛒 Kasir</a>
+    </nav>
 
-<div class="main">
-    <h2>Keranjang Belanja</h2>
-    <table class="cart-table">
-        <thead>
-            <tr>
-                <th>Barang</th>
-                <th>Harga</th>
-                <th>Qty</th>
-                <th>Subtotal</th>
-            </tr>
-        </thead>
-        <tbody id="cart-items">
-            </tbody>
-    </table>
+    <main>
+        <div class="produk-section">
+            <h2>Pilih Produk</h2>
+            <div id="daftar-produk" class="grid-produk">
+                </div>
+        </div>
 
-    <div class="total-section">
-        <span style="font-size: 18px;">Total Bayar:</span>
-        <h1 id="grand-total">Rp 0</h1>
-        <button class="btn-pay" onclick="prosesBayar()">💵 PROSES BAYAR</button>
-    </div>
-</div>
+        <div class="cart-section">
+            <h2>Keranjang</h2>
+            <div id="isi-keranjang">
+                <p style="color: #888;">Belum ada item.</p>
+            </div>
+            <div class="total-bayar">
+                Total: Rp <span id="total-harga">0</span>
+            </div>
+            <button class="btn-bayar" onclick="prosesBayar()">Konfirmasi Bayar</button>
+        </div>
+    </main>
 
-<script>
-    const SB_URL = 'uojhjskgugghwxtdsfvm';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    <script>
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    let keranjang = [];
+        let keranjang = [];
+        let semuaProduk = [];
 
-    // 1. Fungsi Validasi NIK Otomatis
-    document.getElementById('nik-kasir').addEventListener('change', async (e) => {
-        const { data, error } = await supabase
-            .from('staff')
-            .select('nama, divisi')
-            .eq('nik', e.target.value)
-            .single();
-        
-        if (data) {
-            document.getElementById('info-staff').innerHTML = `Kasir: <b>${data.nama}</b> (${data.divisi})`;
-        } else {
-            alert("NIK Staff tidak ditemukan!");
-            e.target.value = '';
+        async function muatProduk() {
+            const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang');
+            if (error) return console.error(error);
+            
+            semuaProduk = data;
+            const container = document.getElementById('daftar-produk');
+            container.innerHTML = '';
+
+            data.forEach(item => {
+                const isHabis = item.stok_sekarang <= 0;
+                container.innerHTML += `
+                    <div class="item-card ${isHabis ? 'habis' : ''}" onclick="${isHabis ? '' : `tambahKeKeranjang('${item.id}')`}">
+                        <strong>${item.nama_barang}</strong><br>
+                        <small>Stok: ${item.stok_sekarang}</small><br>
+                        <span style="color: #27ae60">Rp ${item.harga_jual.toLocaleString()}</span>
+                    </div>
+                `;
+            });
         }
-    });
 
-    // 2. Tambah Barang ke Keranjang
-    async function handleKey(e) {
-        if (e.key === 'Enter') {
-            const kode = e.target.value;
-            const { data, error } = await supabase
-                .from('inventory')
-                .select('*')
-                .eq('kode_barang', kode)
-                .single();
+        function tambahKeKeranjang(id) {
+            const produk = semuaProduk.find(p => p.id === id);
+            const itemDiKeranjang = keranjang.find(k => k.id === id);
 
-            if (data) {
-                if (data.stok_sekarang <= 0) return alert("Stok Habis!");
-                
-                const index = keranjang.findIndex(item => item.id === data.id);
-                if (index > -1) {
-                    keranjang[index].qty++;
+            if (itemDiKeranjang) {
+                if (itemDiKeranjang.qty < produk.stok_sekarang) {
+                    itemDiKeranjang.qty++;
                 } else {
-                    keranjang.push({ ...data, qty: 1 });
+                    alert('Stok tidak mencukupi!');
                 }
-                e.target.value = '';
-                updateTampilan();
             } else {
-                alert("Barang tidak terdaftar!");
+                keranjang.push({ ...produk, qty: 1 });
+            }
+            updateTampilanKeranjang();
+        }
+
+        function updateTampilanKeranjang() {
+            const container = document.getElementById('isi-keranjang');
+            const totalLabel = document.getElementById('total-harga');
+            
+            if (keranjang.length === 0) {
+                container.innerHTML = '<p style="color: #888;">Belum ada item.</p>';
+                totalLabel.innerText = '0';
+                return;
+            }
+
+            let total = 0;
+            container.innerHTML = '';
+            keranjang.forEach((item, index) => {
+                const subtotal = item.harga_jual * item.qty;
+                total += subtotal;
+                container.innerHTML += `
+                    <div class="cart-item">
+                        <span>${item.nama_barang} (x${item.qty})</span>
+                        <span>Rp ${subtotal.toLocaleString()}</span>
+                    </div>
+                `;
+            });
+            totalLabel.innerText = total.toLocaleString();
+        }
+
+        async function prosesBayar() {
+            if (keranjang.length === 0) return alert('Keranjang masih kosong!');
+
+            const konfirmasi = confirm('Proses pembayaran sekarang?');
+            if (!konfirmasi) return;
+
+            try {
+                // Loop setiap item di keranjang untuk update stok satu per satu
+                for (const item of keranjang) {
+                    const stokBaru = item.stok_sekarang - item.qty;
+                    
+                    const { error } = await supabaseClient
+                        .from('produk')
+                        .update({ stok_sekarang: stokBaru })
+                        .eq('id', item.id);
+
+                    if (error) throw error;
+                }
+
+                alert('Pembayaran Berhasil! Stok telah diperbarui.');
+                keranjang = [];
+                updateTampilanKeranjang();
+                muatProduk(); // Refresh daftar produk untuk melihat stok terbaru
+
+            } catch (error) {
+                alert('Gagal memproses pembayaran: ' + error.message);
             }
         }
-    }
 
-    function updateTampilan() {
-        const tbody = document.getElementById('cart-items');
-        tbody.innerHTML = '';
-        let total = 0;
-
-        keranjang.forEach(item => {
-            let subtotal = item.harga_jual * item.qty;
-            total += subtotal;
-            tbody.innerHTML += `
-                <tr>
-                    <td>${item.nama_barang}</td>
-                    <td>Rp ${item.harga_jual.toLocaleString()}</td>
-                    <td>${item.qty}</td>
-                    <td>Rp ${subtotal.toLocaleString()}</td>
-                </tr>
-            `;
-        });
-        document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
-    }
-
-    // 3. Proses Bayar & Potong Stok
-    async function prosesBayar() {
-        if (keranjang.length === 0) return alert("Keranjang kosong!");
-        const nik = document.getElementById('nik-kasir').value;
-        if (!nik) return alert("Masukkan NIK Kasir dulu!");
-
-        for (const item of keranjang) {
-            const { error } = await supabase
-                .from('inventory')
-                .update({ stok_sekarang: item.stok_sekarang - item.qty })
-                .eq('id', item.id);
-        }
-
-        alert("Pembayaran Berhasil! Stok telah diperbarui.");
-        keranjang = [];
-        updateTampilan();
-    }
-</script>
+        window.onload = muatProduk;
+    </script>
 </body>
 </html>
