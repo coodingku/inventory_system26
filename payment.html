@@ -2,127 +2,125 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Pembayaran</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 350px; }
-        .total-box { text-align: center; margin-bottom: 25px; }
-        .total-box h1 { color: #27ae60; font-size: 32px; margin: 10px 0; }
-        input { width: 100%; padding: 15px; font-size: 20px; border: 2px solid #ddd; border-radius: 10px; box-sizing: border-box; text-align: center; }
-        .btn-finish { width: 100%; padding: 15px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        :root { --primary: #2c3e50; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .pay-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .total-label { font-size: 14px; color: #7f8c8d; }
+        .total-amount { font-size: 32px; font-weight: 900; color: var(--primary); margin: 10px 0 20px 0; }
+        .input-group { text-align: left; margin-bottom: 15px; }
+        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 18px; box-sizing: border-box; }
+        .kembalian-box { background: #f1f2f6; padding: 15px; border-radius: 10px; margin-top: 15px; display: none; }
+        .btn-finish { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
         .btn-finish:disabled { background: #bdc3c7; }
-        
-        #struk { display: none; font-family: 'Courier New', Courier, monospace; width: 300px; padding: 10px; }
-        @media print {
-            body * { visibility: hidden; }
-            #struk, #struk * { visibility: visible; }
-            #struk { display: block; position: absolute; left: 0; top: 0; }
-        }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div class="total-box">
-            <small>Total Tagihan (<span id="m-name"></span>)</small>
-            <h1 id="m-total">Rp 0</h1>
+    <div class="pay-card">
+        <h2>Pembayaran</h2>
+        <p id="display-method" style="font-weight: bold; color: var(--success);"></p>
+        
+        <div class="total-label">Total Tagihan</div>
+        <div class="total-amount" id="total-tagihan">Rp 0</div>
+
+        <div id="cash-area">
+            <div class="input-group">
+                <label>Uang Dibayar</label>
+                <input type="number" id="input-bayar" placeholder="0" onkeyup="hitungKembalian()">
+            </div>
+            <div class="kembalian-box" id="kembalian-box">
+                <small>Kembalian</small>
+                <div id="val-kembalian" style="font-size: 20px; font-weight: bold; color: #2980b9;">Rp 0</div>
+            </div>
         </div>
 
-        <label style="display:block; margin-bottom:10px; font-weight:bold;">Uang Diterima:</label>
-        <input type="number" id="m-bayar" placeholder="0" oninput="cekKembalian()">
-
-        <div id="box-kembali" style="margin-top:20px; text-align:center; padding:15px; background:#f8f9fa; border-radius:10px;">
-            <small>Kembalian</small>
-            <h2 id="m-kembali" style="margin:5px 0; color:#e67e22;">Rp 0</h2>
-        </div>
-
-        <button id="btn-done" class="btn-finish" onclick="selesaikan()" disabled>Bayar & Cetak Struk</button>
-        <button onclick="window.location.href='pos.html'" style="width:100%; background:none; border:none; color:#3498db; margin-top:10px; cursor:pointer;">Batal</button>
-    </div>
-
-    <div id="struk">
-        <center>
-            <h2>FINEX POS</h2>
-            <p>Terima Kasih Telah Berbelanja</p>
-            <hr>
-            <div id="struk-items" style="text-align:left"></div>
-            <hr>
-            <div id="struk-detail" style="text-align:right"></div>
-            <hr>
-            <p id="struk-tgl"></p>
-        </center>
+        <button class="btn-finish" id="btn-proses" onclick="prosesTransaksi()">SELESAIKAN TRANSAKSI</button>
+        <button onclick="window.history.back()" style="background:none; border:none; color:#999; margin-top:15px; cursor:pointer;">Kembali ke Kasir</button>
     </div>
 
     <script>
-        // 1. LETAKKAN DI SINI (PALING ATAS)
-        const userRole = localStorage.getItem('user_role');
-        const userPath = window.location.pathname;
-
-        if (!userRole) {
-            window.location.href = "login.html";
-        }
-
-        // Proteksi halaman admin dari kasir
-        const adminPages = ['index.html', 'pengaturan-biaya.html', 'metode-pembayaran.html', 'manajemen-user.html', 'produk.html'];
-        const isAdminPage = adminPages.some(page => userPath.includes(page));
-
-        if (userRole === 'kasir' && isAdminPage) {
-            alert("Akses Ditolak! Anda bukan Admin.");
-            window.location.href = "pos.html";
-        }
-        
         const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        const total = parseInt(sessionStorage.getItem('pay_total')) || 0;
-        const keranjang = JSON.parse(sessionStorage.getItem('pay_cart')) || [];
+        const cart = JSON.parse(sessionStorage.getItem('pay_cart') || '[]');
+        const total = parseInt(sessionStorage.getItem('pay_total') || '0');
         const metode = sessionStorage.getItem('pay_method') || 'Tunai';
 
-        window.onload = function() {
-            if(total === 0) window.location.href = "pos.html";
-            
-            document.getElementById('m-total').innerText = "Rp " + total.toLocaleString();
-            document.getElementById('m-name').innerText = metode;
+        document.getElementById('total-tagihan').innerText = "Rp " + total.toLocaleString();
+        document.getElementById('display-method').innerText = "Metode: " + metode;
 
-            if(metode !== 'Tunai') {
-                document.getElementById('m-bayar').value = total;
-                document.getElementById('m-bayar').readOnly = true;
-                cekKembalian();
-            }
-        };
-
-        function cekKembalian() {
-            const bayar = parseInt(document.getElementById('m-bayar').value) || 0;
-            const kembali = bayar - total;
-            document.getElementById('m-kembali').innerText = "Rp " + (kembali < 0 ? 0 : kembali).toLocaleString();
-            document.getElementById('btn-done').disabled = (bayar < total);
+        // Jika bukan tunai, sembunyikan input kembalian
+        if(metode !== 'Tunai') {
+            document.getElementById('cash-area').style.display = 'none';
         }
 
-        async function selesaikan() {
-            // 1. Potong Stok
-            for (const item of keranjang) {
-                const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+        function hitungKembalian() {
+            const bayar = parseInt(document.getElementById('input-bayar').value || 0);
+            const kembalian = bayar - total;
+            const box = document.getElementById('kembalian-box');
+            
+            if(bayar > 0) {
+                box.style.display = 'block';
+                document.getElementById('val-kembalian').innerText = "Rp " + (kembalian < 0 ? 0 : kembalian).toLocaleString();
+                document.getElementById('btn-proses').disabled = (kembalian < 0);
             }
+        }
 
-            // 2. Isi Struk
-            const itemsHtml = document.getElementById('struk-items');
-            keranjang.forEach(i => {
-                itemsHtml.innerHTML += `<div>${i.nama_barang} x${i.qty} <span style="float:right">${(i.harga_jual * i.qty).toLocaleString()}</span></div>`;
-            });
-            document.getElementById('struk-detail').innerHTML = `
-                TOTAL : ${total.toLocaleString()}<br>
-                BAYAR : ${parseInt(document.getElementById('m-bayar').value).toLocaleString()}<br>
-                KEMBALI : ${(parseInt(document.getElementById('m-bayar').value) - total).toLocaleString()}
-            `;
-            document.getElementById('struk-tgl').innerText = new Date().toLocaleString();
+        async function prosesTransaksi() {
+            const btn = document.getElementById('btn-proses');
+            btn.disabled = true;
+            btn.innerText = "Memproses...";
 
-            // 3. Cetak & Selesai
-            window.print();
-            sessionStorage.clear();
-            window.location.href = "pos.html";
+            try {
+                const noInvoice = "INV-" + Date.now();
+                
+                // 1. SIMPAN KE TABEL PENJUALAN
+                const { data: sales, error: errSales } = await supabaseClient
+                    .from('penjualan')
+                    .insert([{
+                        no_invoice: noInvoice,
+                        grand_total: total,
+                        metode_pembayaran: metode,
+                        subtotal: total // Anda bisa kembangkan dengan data detail pajak/diskon global
+                    }])
+                    .select()
+                    .single();
+
+                if (errSales) throw errSales;
+
+                // 2. SIMPAN DETAIL & UPDATE STOK (LOOPING)
+                for (const item of cart) {
+                    // Masukkan ke detail
+                    await supabaseClient.from('penjualan_detail').insert([{
+                        penjualan_id: sales.id,
+                        produk_id: item.id,
+                        nama_barang: item.nama_barang,
+                        harga_satuan: item.harga_jual,
+                        qty: item.qty,
+                        subtotal_item: (item.harga_jual * item.qty)
+                    }]);
+
+                    // Potong Stok di tabel produk
+                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                    const stokBaru = p.stok_sekarang - item.qty;
+                    
+                    await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+                }
+
+                alert("Transaksi Berhasil!\nNomor Invoice: " + noInvoice);
+                sessionStorage.clear();
+                window.location.href = "pos.html";
+
+            } catch (error) {
+                alert("Terjadi kesalahan: " + error.message);
+                btn.disabled = false;
+                btn.innerText = "SELESAIKAN TRANSAKSI";
+            }
         }
     </script>
 </body>
