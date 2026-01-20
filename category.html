@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>POS System | Kategori</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
+        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
+        main { flex: 1; margin-left: 240px; padding: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 250px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+        .btn-add { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>POS LITE</h2>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
+        <a href="category.html" style="color:#3498db">📁 Kategori</a>
+        <a href="gudang.html">🏠 Gudang</a>
+        <a href="pos.html">🛒 Kasir</a>
+    </nav>
+    <main>
+        <h1>Manajemen Kategori</h1>
+        <div class="card">
+            <input type="text" id="namaKategori" placeholder="Nama Kategori Baru...">
+            <button class="btn-add" onclick="tambahKategori()">Tambah</button>
+            <table id="tabelKategori">
+                <thead>
+                    <tr><th>Nama Kategori</th><th>Aksi</th></tr>
+                </thead>
+                <tbody id="isiTabel"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        async function muatKategori() {
+            const { data } = await supabaseClient.from('kategori').select('*').order('nama_kategori');
+            const tbody = document.getElementById('isiTabel');
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                tbody.innerHTML += `<tr><td>${item.nama_kategori}</td><td><button onclick="hapus('${item.id}')">Hapus</button></td></tr>`;
+            });
+        }
+
+        async function tambahKategori() {
+            const nama = document.getElementById('namaKategori').value;
+            if(!nama) return;
+            await supabaseClient.from('kategori').insert([{ nama_kategori: nama }]);
+            document.getElementById('namaKategori').value = '';
+            muatKategori();
+        }
+
+        async function hapus(id) {
+            if(confirm('Hapus kategori?')) {
+                await supabaseClient.from('kategori').delete().eq('id', id);
+                muatKategori();
+            }
+        }
+        window.onload = muatKategori;
+    </script>
+</body>
+</html>
