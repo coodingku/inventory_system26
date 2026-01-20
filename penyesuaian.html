@@ -2,54 +2,71 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System | Penyesuaian Stok</title>
+    <title>Finex Pos | Penyesuaian Stok</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
-        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
-        main { flex: 1; margin-left: 240px; padding: 30px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .form-group { display: flex; flex-direction: column; gap: 10px; max-width: 400px; }
-        input, select, textarea { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .btn-submit { background: #3498db; color: white; border: none; padding: 12px; cursor: pointer; font-weight: bold; border-radius: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
-        .badge-masuk { color: #27ae60; font-weight: bold; }
-        .badge-keluar { color: #e74c3c; font-weight: bold; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --danger: #e74c3c; --success: #2ecc71; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        input, select, textarea { padding: 12px; border: 1px solid #ddd; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        
+        .btn-submit { padding: 15px 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; margin-top: 15px; transition: 0.3s; }
+        .btn-in { background: var(--success); }
+        .btn-out { background: var(--danger); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-in { background: #eafaf1; color: #2ecc71; }
+        .badge-out { background: #fdedec; color: #e74c3c; }
     </style>
 </head>
 <body>
+
     <nav>
-        <h2>POS LITE</h2>
+        <h2>Finex Pos</h2>
         <a href="index.html">📊 Dashboard</a>
         <a href="produk.html">📦 Produk</a>
-        <a href="penyesuaian.html" style="color:#3498db">🔄 Stok In/Out</a>
+        <a href="penyesuaian.html" class="active">🔄 Stok In/Out</a>
+        <a href="manajemen-user.html">👥 Manajemen User</a>
         <a href="pos.html">🛒 Kasir</a>
     </nav>
+
     <main>
-        <h1>Penyesuaian Stok (In/Out)</h1>
+        <h1>Penyesuaian Stok (Stok In/Out)</h1>
 
         <div class="card">
             <h3>Input Mutasi Stok</h3>
-            <div class="form-group">
-                <label>Pilih Produk:</label>
-                <select id="sel-produk"><option value="">-- Pilih Barang --</option></select>
-                
-                <label>Tipe Penyesuaian:</label>
-                <select id="tipe">
-                    <option value="Masuk">Barang Masuk (+)</option>
-                    <option value="Keluar">Barang Keluar (-)</option>
-                </select>
-
-                <label>Jumlah:</label>
-                <input type="number" id="jumlah" placeholder="Contoh: 10">
-
-                <label>Keterangan:</label>
-                <textarea id="ket" placeholder="Alasan (Contoh: Restock atau Barang Rusak)"></textarea>
-
-                <button class="btn-submit" onclick="prosesPenyesuaian()">Simpan Penyesuaian</button>
+            <div class="form-grid">
+                <div>
+                    <label>Pilih Produk</label>
+                    <select id="select-produk"></select>
+                </div>
+                <div>
+                    <label>Jumlah</label>
+                    <input type="number" id="input-jumlah" placeholder="0">
+                </div>
+                <div>
+                    <label>Tipe Transaksi</label>
+                    <select id="select-tipe">
+                        <option value="IN">Stok Masuk (Barang Baru/Retur)</option>
+                        <option value="OUT">Stok Keluar (Rusak/Hilang/Expired)</option>
+                    </select>
+                </div>
             </div>
+            <div style="margin-top:15px;">
+                <label>Keterangan / Alasan</label>
+                <textarea id="input-keterangan" rows="2" placeholder="Contoh: Barang datang dari supplier A"></textarea>
+            </div>
+            <button class="btn-submit btn-in" id="btn-proses" onclick="prosesMutasi()">Proses Penyesuaian</button>
         </div>
 
         <div class="card">
@@ -57,14 +74,16 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Waktu</th>
+                        <th>Tanggal</th>
                         <th>Produk</th>
                         <th>Tipe</th>
                         <th>Jumlah</th>
                         <th>Keterangan</th>
+                        <th>Oleh</th>
                     </tr>
                 </thead>
-                <tbody id="tabel-riwayat"></tbody>
+                <tbody id="tabel-riwayat">
+                    </tbody>
             </table>
         </div>
     </main>
@@ -75,10 +94,12 @@
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
         async function init() {
-            // Muat Dropdown Produk
-            const { data: produk } = await supabaseClient.from('produk').select('id, nama_barang, stok_sekarang').order('nama_barang');
-            const sel = document.getElementById('sel-produk');
-            produk.forEach(p => sel.innerHTML += `<option value="${p.id}" data-stok="${p.stok_sekarang}">${p.nama_barang} (Sisa: ${p.stok_sekarang})</option>`);
+            // Load Produk ke Dropdown
+            const { data: produk } = await supabaseClient.from('produk').select('id, nama_barang, stok_sekarang');
+            const select = document.getElementById('select-produk');
+            produk.forEach(p => {
+                select.innerHTML += `<option value="${p.id}">${p.nama_barang} (Stok: ${p.stok_sekarang})</option>`;
+            });
 
             muatRiwayat();
         }
@@ -89,49 +110,54 @@
                 .select('*, produk(nama_barang)')
                 .order('created_at', { ascending: false })
                 .limit(10);
-
+            
             const tbody = document.getElementById('tabel-riwayat');
             tbody.innerHTML = '';
             data.forEach(r => {
                 const tgl = new Date(r.created_at).toLocaleString('id-ID');
+                const badge = r.tipe === 'IN' ? 'badge-in' : 'badge-out';
                 tbody.innerHTML += `
                     <tr>
                         <td>${tgl}</td>
-                        <td>${r.produk.nama_barang}</td>
-                        <td><span class="${r.tipe === 'Masuk' ? 'badge-masuk' : 'badge-keluar'}">${r.tipe}</span></td>
+                        <td><b>${r.produk.nama_barang}</b></td>
+                        <td><span class="badge ${badge}">${r.tipe}</span></td>
                         <td>${r.jumlah}</td>
                         <td>${r.keterangan || '-'}</td>
+                        <td>${r.admin_nama}</td>
                     </tr>`;
             });
         }
 
-        async function prosesPenyesuaian() {
-            const pId = document.getElementById('sel-produk').value;
-            const tipe = document.getElementById('tipe').value;
-            const jumlah = parseInt(document.getElementById('jumlah').value);
-            const ket = document.getElementById('ket').value;
+        async function prosesMutasi() {
+            const produkId = document.getElementById('select-produk').value;
+            const jumlah = parseInt(document.getElementById('input-jumlah').value);
+            const tipe = document.getElementById('select-tipe').value;
+            const ket = document.getElementById('input-keterangan').value;
+            const admin = localStorage.getItem('user_name') || 'System';
 
-            if (!pId || !jumlah) return alert("Pilih produk dan isi jumlah!");
+            if (!jumlah || jumlah <= 0) return alert("Jumlah harus lebih dari 0");
 
-            // 1. Ambil stok saat ini
-            const option = document.querySelector(`#sel-produk option[value="${pId}"]`);
-            const stokSekarang = parseInt(option.getAttribute('data-stok'));
+            // 1. Ambil stok sekarang
+            const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', produkId).single();
             
             // 2. Hitung stok baru
-            let stokBaru = (tipe === 'Masuk') ? stokSekarang + jumlah : stokSekarang - jumlah;
-            if (stokBaru < 0) return alert("Stok tidak cukup untuk pengurangan ini!");
+            let stokBaru = (tipe === 'IN') ? p.stok_sekarang + jumlah : p.stok_sekarang - jumlah;
+            if (stokBaru < 0) return alert("Gagal! Stok tidak cukup untuk dikurangi.");
 
-            // 3. Update Tabel Produk & Insert Riwayat (Transaction-like)
-            const updateProd = await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', pId);
-            const insertLog = await supabaseClient.from('riwayat_stok').insert([{
-                produk_id: pId, tipe: tipe, jumlah: jumlah, keterangan: ket
+            // 3. Update tabel produk
+            await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', produkId);
+
+            // 4. Catat di riwayat_stok
+            await supabaseClient.from('riwayat_stok').insert([{
+                produk_id: produkId,
+                tipe: tipe,
+                jumlah: jumlah,
+                keterangan: ket,
+                admin_nama: admin
             }]);
 
-            if (updateProd.error || insertLog.error) alert("Gagal proses!");
-            else {
-                alert("Stok Berhasil Diperbarui!");
-                location.reload();
-            }
+            alert("Stok Berhasil Diperbarui!");
+            location.reload();
         }
 
         window.onload = init;
