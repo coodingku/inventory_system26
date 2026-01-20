@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Manajemen User</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        .form-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #7f8c8d; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        
+        .btn-save { background: #27ae60; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; color: #2c3e50; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-admin { background: #e8f4fd; color: #3498db; }
+        .badge-kasir { background: #eafaf1; color: #2ecc71; }
+        
+        .btn-delete { background: #ebedef; color: #e74c3c; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-delete:hover { background: #e74c3c; color: white; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <h2>Finex Pos</h2>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
+        <a href="manajemen-user.html" class="active">👥 Manajemen User</a>
+        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
+        <a href="pos.html">🛒 Kasir</a>
+        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
+    </nav>
+
+    <main>
+        <h1>Manajemen Pengguna</h1>
+
+        <div class="card">
+            <h3>Tambah Pengguna Baru</h3>
+            <div class="form-inline">
+                <div class="form-group">
+                    <label>Nama Lengkap</label>
+                    <input type="text" id="nama" placeholder="Contoh: Budi Santoso">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="budi123">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="******">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="role">
+                        <option value="kasir">Kasir</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <button class="btn-save" onclick="tambahUser()">Simpan User</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Daftar Pengguna Aktif</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Lengkap</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="user-table">
+                    </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        // Cek Keamanan: Hanya Admin yang boleh masuk
+        if (localStorage.getItem('user_role') !== 'admin') {
+            alert("Akses Ditolak!");
+            window.location.href = "pos.html";
+        }
+
+        async function muatUser() {
+            const { data, error } = await supabaseClient.from('users').select('*').order('created_at', { ascending: false });
+            if (error) return;
+
+            const tbody = document.getElementById('user-table');
+            tbody.innerHTML = '';
+
+            data.forEach(user => {
+                const badgeClass = user.role === 'admin' ? 'badge-admin' : 'badge-kasir';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${user.nama_lengkap}</b></td>
+                        <td>${user.username}</td>
+                        <td><span class="badge ${badgeClass}">${user.role}</span></td>
+                        <td>
+                            <button class="btn-delete" onclick="hapusUser('${user.id}', '${user.username}')">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function tambahUser() {
+            const nama = document.getElementById('nama').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+
+            if (!nama || !username || !password) return alert("Mohon isi semua data!");
+
+            const { error } = await supabaseClient.from('users').insert([
+                { username, password, role, nama_lengkap: nama }
+            ]);
+
+            if (error) {
+                alert("Gagal menambah user: " + error.message);
+            } else {
+                alert("User berhasil ditambahkan!");
+                location.reload();
+            }
+        }
+
+        async function hapusUser(id, uname) {
+            // Cegah hapus diri sendiri (opsional)
+            if (confirm(`Apakah Anda yakin ingin menghapus akun ${uname}?`)) {
+                const { error } = await supabaseClient.from('users').delete().eq('id', id);
+                if (!error) muatUser();
+            }
+        }
+
+        window.onload = muatUser;
+    </script>
+</body>
+</html>
