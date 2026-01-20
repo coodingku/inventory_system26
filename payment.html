@@ -2,63 +2,55 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Pembayaran | Finex POS</title>
+    <title>Finex Pos | Pembayaran</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .payment-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 18px; }
-        .total-amount { font-weight: bold; color: #27ae60; font-size: 24px; }
-        input { width: 100%; padding: 15px; font-size: 20px; border: 2px solid #dfe6e9; border-radius: 8px; box-sizing: border-box; outline: none; }
-        .btn-finish { width: 100%; padding: 15px; background: #2ecc71; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 350px; }
+        .total-box { text-align: center; margin-bottom: 25px; }
+        .total-box h1 { color: #27ae60; font-size: 32px; margin: 10px 0; }
+        input { width: 100%; padding: 15px; font-size: 20px; border: 2px solid #ddd; border-radius: 10px; box-sizing: border-box; text-align: center; }
+        .btn-finish { width: 100%; padding: 15px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
         .btn-finish:disabled { background: #bdc3c7; }
         
-        /* Gaya Struk */
-        #struk-cetak { display: none; font-family: monospace; width: 300px; }
+        #struk { display: none; font-family: 'Courier New', Courier, monospace; width: 300px; padding: 10px; }
         @media print {
             body * { visibility: hidden; }
-            #struk-cetak, #struk-cetak * { visibility: visible; }
-            #struk-cetak { display: block; position: absolute; left: 0; top: 0; }
+            #struk, #struk * { visibility: visible; }
+            #struk { display: block; position: absolute; left: 0; top: 0; }
         }
     </style>
 </head>
 <body>
 
-    <div class="payment-card">
-        <h2 style="text-align:center">Finalisasi Bayar</h2>
-        <div class="row">
-            <span>Total Tagihan:</span>
-            <span class="total-amount" id="disp-total">Rp 0</span>
-        </div>
-        <div class="row" style="font-size:14px; color:#7f8c8d;">
-            <span>Metode:</span>
-            <span id="disp-method">-</span>
+    <div class="card">
+        <div class="total-box">
+            <small>Total Tagihan (<span id="m-name"></span>)</small>
+            <h1 id="m-total">Rp 0</h1>
         </div>
 
-        <div style="margin-top: 20px;">
-            <label style="font-weight:bold; display:block; margin-bottom:5px;">Uang Tunai Diterima:</label>
-            <input type="number" id="input-uang" placeholder="0" oninput="hitungKembalian()">
+        <label style="display:block; margin-bottom:10px; font-weight:bold;">Uang Diterima:</label>
+        <input type="number" id="m-bayar" placeholder="0" oninput="cekKembalian()">
+
+        <div id="box-kembali" style="margin-top:20px; text-align:center; padding:15px; background:#f8f9fa; border-radius:10px;">
+            <small>Kembalian</small>
+            <h2 id="m-kembali" style="margin:5px 0; color:#e67e22;">Rp 0</h2>
         </div>
 
-        <div id="box-kembalian" style="background:#f8f9fa; padding:15px; margin-top:20px; border-radius:8px; text-align:center;">
-            <div style="font-size:14px; color:#636e72;">Kembalian:</div>
-            <div style="font-size:22px; font-weight:bold; color:#e67e22;" id="disp-kembalian">Rp 0</div>
-        </div>
-
-        <button id="btn-selesai" class="btn-finish" onclick="prosesSelesai()" disabled>Selesaikan & Cetak</button>
+        <button id="btn-done" class="btn-finish" onclick="selesaikan()" disabled>Bayar & Cetak Struk</button>
         <button onclick="window.location.href='pos.html'" style="width:100%; background:none; border:none; color:#3498db; margin-top:10px; cursor:pointer;">Batal</button>
     </div>
 
-    <div id="struk-cetak">
+    <div id="struk">
         <center>
-            <h3>KANTIN KAMI</h3>
-            <p>Jl. Raya Kantin No. 1</p>
+            <h2>FINEX POS</h2>
+            <p>Terima Kasih Telah Berbelanja</p>
             <hr>
             <div id="struk-items" style="text-align:left"></div>
             <hr>
             <div id="struk-detail" style="text-align:right"></div>
             <hr>
-            <p>Terima Kasih</p>
+            <p id="struk-tgl"></p>
         </center>
     </div>
 
@@ -67,68 +59,53 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        // Ambil data dari POS
-        const total = parseInt(sessionStorage.getItem('temp_total')) || 0;
-        const keranjang = JSON.parse(sessionStorage.getItem('temp_cart')) || [];
-        const metode = sessionStorage.getItem('temp_method') || 'Tunai';
+        const total = parseInt(sessionStorage.getItem('pay_total')) || 0;
+        const keranjang = JSON.parse(sessionStorage.getItem('pay_cart')) || [];
+        const metode = sessionStorage.getItem('pay_method') || 'Tunai';
 
         window.onload = function() {
-            if (total === 0) {
-                alert("Tidak ada transaksi aktif!");
-                window.location.href = "pos.html";
-                return;
-            }
-            document.getElementById('disp-total').innerText = "Rp " + total.toLocaleString();
-            document.getElementById('disp-method').innerText = metode;
+            if(total === 0) window.location.href = "pos.html";
             
-            // Jika non-tunai, anggap uang pas
+            document.getElementById('m-total').innerText = "Rp " + total.toLocaleString();
+            document.getElementById('m-name').innerText = metode;
+
             if(metode !== 'Tunai') {
-                document.getElementById('input-uang').value = total;
-                hitungKembalian();
+                document.getElementById('m-bayar').value = total;
+                document.getElementById('m-bayar').readOnly = true;
+                cekKembalian();
             }
         };
 
-        function hitungKembalian() {
-            const bayar = parseInt(document.getElementById('input-uang').value) || 0;
+        function cekKembalian() {
+            const bayar = parseInt(document.getElementById('m-bayar').value) || 0;
             const kembali = bayar - total;
-            document.getElementById('disp-kembalian').innerText = "Rp " + (kembali < 0 ? 0 : kembali).toLocaleString();
-            document.getElementById('btn-selesai').disabled = (bayar < total);
+            document.getElementById('m-kembali').innerText = "Rp " + (kembali < 0 ? 0 : kembali).toLocaleString();
+            document.getElementById('btn-done').disabled = (bayar < total);
         }
 
-        async function prosesSelesai() {
-            const btn = document.getElementById('btn-selesai');
-            btn.innerText = "Memproses...";
-            btn.disabled = true;
-
-            try {
-                // 1. Potong Stok di Supabase
-                for (const item of keranjang) {
-                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                    await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
-                }
-
-                // 2. Siapkan Struk
-                const itemDiv = document.getElementById('struk-items');
-                keranjang.forEach(i => {
-                    itemDiv.innerHTML += `<div>${i.nama_barang} x${i.qty} <span style="float:right">${(i.harga_jual * i.qty).toLocaleString()}</span></div>`;
-                });
-                document.getElementById('struk-detail').innerHTML = `
-                    TOTAL: ${total.toLocaleString()}<br>
-                    BAYAR: ${parseInt(document.getElementById('input-uang').value).toLocaleString()}<br>
-                    KEMBALI: ${(parseInt(document.getElementById('input-uang').value) - total).toLocaleString()}
-                `;
-
-                // 3. Cetak & Reset
-                window.print();
-                sessionStorage.clear();
-                alert("Transaksi Selesai!");
-                window.location.href = "pos.html";
-
-            } catch (e) {
-                alert("Gagal: " + e.message);
-                btn.disabled = false;
-                btn.innerText = "Selesaikan & Cetak";
+        async function selesaikan() {
+            // 1. Potong Stok
+            for (const item of keranjang) {
+                const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
             }
+
+            // 2. Isi Struk
+            const itemsHtml = document.getElementById('struk-items');
+            keranjang.forEach(i => {
+                itemsHtml.innerHTML += `<div>${i.nama_barang} x${i.qty} <span style="float:right">${(i.harga_jual * i.qty).toLocaleString()}</span></div>`;
+            });
+            document.getElementById('struk-detail').innerHTML = `
+                TOTAL : ${total.toLocaleString()}<br>
+                BAYAR : ${parseInt(document.getElementById('m-bayar').value).toLocaleString()}<br>
+                KEMBALI : ${(parseInt(document.getElementById('m-bayar').value) - total).toLocaleString()}
+            `;
+            document.getElementById('struk-tgl').innerText = new Date().toLocaleString();
+
+            // 3. Cetak & Selesai
+            window.print();
+            sessionStorage.clear();
+            window.location.href = "pos.html";
         }
     </script>
 </body>
