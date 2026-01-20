@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>POS System | Gudang</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
+        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
+        main { flex: 1; margin-left: 240px; padding: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .form-row { margin-bottom: 15px; display: flex; gap: 10px; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>POS LITE</h2>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
+        <a href="category.html">📁 Kategori</a>
+        <a href="gudang.html" style="color:#3498db">🏠 Gudang</a>
+        <a href="pos.html">🛒 Kasir</a>
+    </nav>
+    <main>
+        <h1>Manajemen Gudang</h1>
+        <div class="card">
+            <div class="form-row">
+                <input type="text" id="namaGudang" placeholder="Nama Gudang (Gudang Utama/A)...">
+                <input type="text" id="lokasi" placeholder="Alamat/Detail Lokasi...">
+                <button onclick="tambahGudang()" style="background:#27ae60; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer">Tambah Gudang</button>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>Nama Gudang</th><th>Lokasi</th><th>Aksi</th></tr>
+                </thead>
+                <tbody id="isiTabel"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        async function muatGudang() {
+            const { data } = await supabaseClient.from('gudang').select('*').order('nama_gudang');
+            const tbody = document.getElementById('isiTabel');
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                tbody.innerHTML += `<tr><td>${item.nama_gudang}</td><td>${item.lokasi || '-'}</td><td><button onclick="hapus('${item.id}')">Hapus</button></td></tr>`;
+            });
+        }
+
+        async function tambahGudang() {
+            const nama = document.getElementById('namaGudang').value;
+            const lokasi = document.getElementById('lokasi').value;
+            if(!nama) return;
+            await supabaseClient.from('gudang').insert([{ nama_gudang: nama, lokasi: lokasi }]);
+            document.getElementById('namaGudang').value = '';
+            document.getElementById('lokasi').value = '';
+            muatGudang();
+        }
+
+        async function hapus(id) {
+            if(confirm('Hapus gudang?')) {
+                await supabaseClient.from('gudang').delete().eq('id', id);
+                muatGudang();
+            }
+        }
+        window.onload = muatGudang;
+    </script>
+</body>
+</html>
