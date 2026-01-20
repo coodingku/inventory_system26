@@ -2,20 +2,27 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Pembayaran</title>
+    <title>Finex Pos | Pembayaran & Struk</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --success: #27ae60; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .pay-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        .total-label { font-size: 14px; color: #7f8c8d; }
-        .total-amount { font-size: 32px; font-weight: 900; color: var(--primary); margin: 10px 0 20px 0; }
-        .input-group { text-align: left; margin-bottom: 15px; }
-        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 18px; box-sizing: border-box; }
-        .kembalian-box { background: #f1f2f6; padding: 15px; border-radius: 10px; margin-top: 15px; display: none; }
+        .pay-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 18px; box-sizing: border-box; margin-top: 10px; }
         .btn-finish { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        .btn-finish:disabled { background: #bdc3c7; }
+        
+        /* Styling Struk (Print-Friendly) */
+        #receipt-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; }
+        .receipt-paper { background: white; width: 300px; padding: 20px; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; }
+        .receipt-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+        .receipt-line { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-modal, #receipt-modal * { visibility: visible; }
+            #receipt-modal { position: absolute; left: 0; top: 0; background: white; }
+            .btn-print-action { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -23,23 +30,41 @@
     <div class="pay-card">
         <h2>Pembayaran</h2>
         <p id="display-method" style="font-weight: bold; color: var(--success);"></p>
-        
-        <div class="total-label">Total Tagihan</div>
-        <div class="total-amount" id="total-tagihan">Rp 0</div>
+        <div style="font-size: 14px; color: #7f8c8d;">Total Tagihan</div>
+        <div style="font-size: 32px; font-weight: 900;" id="total-tagihan">Rp 0</div>
 
         <div id="cash-area">
-            <div class="input-group">
-                <label>Uang Dibayar</label>
-                <input type="number" id="input-bayar" placeholder="0" onkeyup="hitungKembalian()">
-            </div>
-            <div class="kembalian-box" id="kembalian-box">
+            <input type="number" id="input-bayar" placeholder="Masukkan Uang Tunai" onkeyup="hitungKembalian()">
+            <div id="kembalian-box" style="margin-top:15px; display:none;">
                 <small>Kembalian</small>
                 <div id="val-kembalian" style="font-size: 20px; font-weight: bold; color: #2980b9;">Rp 0</div>
             </div>
         </div>
 
-        <button class="btn-finish" id="btn-proses" onclick="prosesTransaksi()">SELESAIKAN TRANSAKSI</button>
-        <button onclick="window.history.back()" style="background:none; border:none; color:#999; margin-top:15px; cursor:pointer;">Kembali ke Kasir</button>
+        <button class="btn-finish" id="btn-proses" onclick="prosesTransaksi()">SELESAIKAN</button>
+    </div>
+
+    <div id="receipt-modal">
+        <div class="receipt-paper" id="printable-receipt">
+            <div class="receipt-header">
+                <h3 style="margin:0">FINEX POS</h3>
+                <p style="margin:5px 0">Jl. Raya Kantin No. 01</p>
+                <small id="rcp-inv"></small>
+            </div>
+            <div id="rcp-items" style="border-bottom: 1px dashed #000; padding-bottom: 10px;"></div>
+            <div style="margin-top:10px">
+                <div class="receipt-line"><span>Total</span><span id="rcp-total"></span></div>
+                <div class="receipt-line"><span>Bayar</span><span id="rcp-bayar"></span></div>
+                <div class="receipt-line"><span>Kembali</span><span id="rcp-kembali"></span></div>
+            </div>
+            <div style="text-align:center; margin-top:20px;">
+                <p>Terima Kasih Atas Kunjungan Anda</p>
+                <div class="btn-print-action">
+                    <button onclick="window.print()" style="padding:5px 10px;">Cetak Struk</button>
+                    <button onclick="window.location.href='pos.html'" style="padding:5px 10px;">Selesai</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -53,74 +78,49 @@
 
         document.getElementById('total-tagihan').innerText = "Rp " + total.toLocaleString();
         document.getElementById('display-method').innerText = "Metode: " + metode;
-
-        // Jika bukan tunai, sembunyikan input kembalian
-        if(metode !== 'Tunai') {
-            document.getElementById('cash-area').style.display = 'none';
-        }
+        if(metode !== 'Tunai') document.getElementById('cash-area').style.display = 'none';
 
         function hitungKembalian() {
             const bayar = parseInt(document.getElementById('input-bayar').value || 0);
             const kembalian = bayar - total;
-            const box = document.getElementById('kembalian-box');
-            
-            if(bayar > 0) {
-                box.style.display = 'block';
-                document.getElementById('val-kembalian').innerText = "Rp " + (kembalian < 0 ? 0 : kembalian).toLocaleString();
-                document.getElementById('btn-proses').disabled = (kembalian < 0);
-            }
+            document.getElementById('kembalian-box').style.display = bayar > 0 ? 'block' : 'none';
+            document.getElementById('val-kembalian').innerText = "Rp " + (kembalian < 0 ? 0 : kembalian).toLocaleString();
         }
 
         async function prosesTransaksi() {
-            const btn = document.getElementById('btn-proses');
-            btn.disabled = true;
-            btn.innerText = "Memproses...";
+            const bayar = parseInt(document.getElementById('input-bayar').value || total);
+            if (metode === 'Tunai' && bayar < total) return alert("Uang tidak cukup!");
 
             try {
-                const noInvoice = "INV-" + Date.now();
-                
-                // 1. SIMPAN KE TABEL PENJUALAN
-                const { data: sales, error: errSales } = await supabaseClient
-                    .from('penjualan')
-                    .insert([{
-                        no_invoice: noInvoice,
-                        grand_total: total,
-                        metode_pembayaran: metode,
-                        subtotal: total // Anda bisa kembangkan dengan data detail pajak/diskon global
-                    }])
-                    .select()
-                    .single();
+                const noInv = "INV-" + Date.now();
+                // 1. Simpan Penjualan
+                const { data: sales } = await supabaseClient.from('penjualan').insert([{
+                    no_invoice: noInv, grand_total: total, metode_pembayaran: metode, subtotal: total
+                }]).select().single();
 
-                if (errSales) throw errSales;
-
-                // 2. SIMPAN DETAIL & UPDATE STOK (LOOPING)
+                // 2. Simpan Detail & Update Stok
+                let itemHtml = '';
                 for (const item of cart) {
-                    // Masukkan ke detail
                     await supabaseClient.from('penjualan_detail').insert([{
-                        penjualan_id: sales.id,
-                        produk_id: item.id,
-                        nama_barang: item.nama_barang,
-                        harga_satuan: item.harga_jual,
-                        qty: item.qty,
-                        subtotal_item: (item.harga_jual * item.qty)
+                        penjualan_id: sales.id, produk_id: item.id, nama_barang: item.nama_barang,
+                        harga_satuan: item.harga_jual, qty: item.qty, subtotal_item: (item.harga_jual * item.qty)
                     }]);
-
-                    // Potong Stok di tabel produk
-                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                    const stokBaru = p.stok_sekarang - item.qty;
                     
-                    await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                    await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                    
+                    itemHtml += `<div class="receipt-line"><span>${item.nama_barang} x${item.qty}</span><span>${(item.harga_jual * item.qty).toLocaleString()}</span></div>`;
                 }
 
-                alert("Transaksi Berhasil!\nNomor Invoice: " + noInvoice);
-                sessionStorage.clear();
-                window.location.href = "pos.html";
+                // Tampilkan Struk
+                document.getElementById('rcp-inv').innerText = noInv;
+                document.getElementById('rcp-items').innerHTML = itemHtml;
+                document.getElementById('rcp-total').innerText = total.toLocaleString();
+                document.getElementById('rcp-bayar').innerText = bayar.toLocaleString();
+                document.getElementById('rcp-kembali').innerText = (bayar - total).toLocaleString();
+                document.getElementById('receipt-modal').style.display = 'flex';
 
-            } catch (error) {
-                alert("Terjadi kesalahan: " + error.message);
-                btn.disabled = false;
-                btn.innerText = "SELESAIKAN TRANSAKSI";
-            }
+            } catch (err) { alert(err.message); }
         }
     </script>
 </body>
