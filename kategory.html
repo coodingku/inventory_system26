@@ -2,101 +2,70 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System | Kategori</title>
+    <title>Finex Pos | Kategori</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
-        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
-        main { flex: 1; margin-left: 240px; padding: 30px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 250px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
-        .btn-add { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn-save { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        .btn-del { color: #e74c3c; cursor: pointer; border: none; background: none; }
     </style>
 </head>
 <body>
-   <nav>
-    <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
+    <nav>
+        <h2>Finex Pos</h2>
+        <a href="index.html">📊 Dashboard</a>
         <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
+        <a href="kategori.html" class="active">📁 Kategori</a>
         <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-    
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
-</nav>
+        <a href="pos.html">🛒 Kasir</a>
+    </nav>
     <main>
         <h1>Manajemen Kategori</h1>
         <div class="card">
-            <input type="text" id="namaKategori" placeholder="Nama Kategori Baru...">
-            <button class="btn-add" onclick="tambahKategori()">Tambah</button>
-            <table id="tabelKategori">
-                <thead>
-                    <tr><th>Nama Kategori</th><th>Aksi</th></tr>
-                </thead>
-                <tbody id="isiTabel"></tbody>
+            <div class="form-group">
+                <input type="text" id="nama-kat" placeholder="Nama Kategori Baru (misal: Minuman)">
+                <button class="btn-save" onclick="tambahKategori()">Tambah</button>
+            </div>
+            <table>
+                <thead><tr><th>Nama Kategori</th><th>Aksi</th></tr></thead>
+                <tbody id="list-kat"></tbody>
             </table>
         </div>
     </main>
-
     <script>
-        // 1. LETAKKAN DI SINI (PALING ATAS)
-        const userRole = localStorage.getItem('user_role');
-        const userPath = window.location.pathname;
-
-        if (!userRole) {
-            window.location.href = "login.html";
-        }
-
-        // Proteksi halaman admin dari kasir
-        const adminPages = ['index.html', 'pengaturan-biaya.html', 'metode-pembayaran.html', 'manajemen-user.html', 'produk.html'];
-        const isAdminPage = adminPages.some(page => userPath.includes(page));
-
-        if (userRole === 'kasir' && isAdminPage) {
-            alert("Akses Ditolak! Anda bukan Admin.");
-            window.location.href = "pos.html";
-        }
-        
         const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
         async function muatKategori() {
             const { data } = await supabaseClient.from('kategori').select('*').order('nama_kategori');
-            const tbody = document.getElementById('isiTabel');
+            const tbody = document.getElementById('list-kat');
             tbody.innerHTML = '';
-            data.forEach(item => {
-                tbody.innerHTML += `<tr><td>${item.nama_kategori}</td><td><button onclick="hapus('${item.id}')">Hapus</button></td></tr>`;
+            data.forEach(k => {
+                tbody.innerHTML += `<tr><td>${k.nama_kategori}</td><td><button class="btn-del" onclick="hapusKategori('${k.id}')">Hapus</button></td></tr>`;
             });
         }
 
         async function tambahKategori() {
-            const nama = document.getElementById('namaKategori').value;
+            const nama = document.getElementById('nama-kat').value;
             if(!nama) return;
             await supabaseClient.from('kategori').insert([{ nama_kategori: nama }]);
-            document.getElementById('namaKategori').value = '';
+            document.getElementById('nama-kat').value = '';
             muatKategori();
         }
 
-        async function hapus(id) {
-            if(confirm('Hapus kategori?')) {
+        async function hapusKategori(id) {
+            if(confirm('Hapus kategori ini? Produk dengan kategori ini mungkin akan terpengaruh.')) {
                 await supabaseClient.from('kategori').delete().eq('id', id);
                 muatKategori();
             }
