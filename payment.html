@@ -2,67 +2,91 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Pembayaran & Struk</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --success: #27ae60; --bg: #f4f7f6; }
+        :root { --primary: #2c3e50; --success: #27ae60; --bg: #f4f7f6; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .pay-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 350px; text-align: center; }
-        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 18px; box-sizing: border-box; margin-top: 10px; }
-        .btn-finish { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
         
-        /* Styling Struk (Print-Friendly) */
-        #receipt-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; }
-        .receipt-paper { background: white; width: 300px; padding: 20px; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; }
-        .receipt-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-        .receipt-line { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .pay-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .total-amount { font-size: 36px; font-weight: 900; color: var(--primary); margin: 10px 0 20px 0; }
+        input { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 12px; font-size: 20px; box-sizing: border-box; margin-top: 10px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--success); }
         
+        .btn-finish { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn-finish:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Receipt Modal */
+        #receipt-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000; overflow-y: auto; }
+        .receipt-paper { background: white; width: 300px; padding: 25px; font-family: 'Courier New', monospace; color: #000; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .receipt-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 15px; margin-bottom: 15px; }
+        .receipt-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+        .receipt-total { border-top: 1px dashed #000; margin-top: 10px; padding-top: 10px; font-weight: bold; }
+
         @media print {
             body * { visibility: hidden; }
             #receipt-modal, #receipt-modal * { visibility: visible; }
-            #receipt-modal { position: absolute; left: 0; top: 0; background: white; }
-            .btn-print-action { display: none; }
+            #receipt-modal { position: absolute; left: 0; top: 0; background: white; display: flex !important; }
+            .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
 
     <div class="pay-card">
-        <h2>Pembayaran</h2>
-        <p id="display-method" style="font-weight: bold; color: var(--success);"></p>
-        <div style="font-size: 14px; color: #7f8c8d;">Total Tagihan</div>
-        <div style="font-size: 32px; font-weight: 900;" id="total-tagihan">Rp 0</div>
+        <h2 style="margin:0">Pembayaran</h2>
+        <p id="display-method" style="color: var(--success); font-weight: bold; margin-top: 5px;"></p>
+        
+        <div style="margin-top: 20px; color: #7f8c8d; font-size: 14px;">Total Tagihan</div>
+        <div class="total-amount" id="total-tagihan">Rp 0</div>
 
         <div id="cash-area">
-            <input type="number" id="input-bayar" placeholder="Masukkan Uang Tunai" onkeyup="hitungKembalian()">
-            <div id="kembalian-box" style="margin-top:15px; display:none;">
-                <small>Kembalian</small>
-                <div id="val-kembalian" style="font-size: 20px; font-weight: bold; color: #2980b9;">Rp 0</div>
+            <label style="display:block; text-align:left; font-size:14px; color:#555;">Uang Diterima:</label>
+            <input type="number" id="input-bayar" placeholder="0" onkeyup="hitungKembalian()">
+            <div id="kembalian-box" style="margin-top:20px; display:none; background:#f9f9f9; padding:15px; border-radius:10px;">
+                <span style="font-size:13px; color:#666;">Kembalian</span>
+                <div id="val-kembalian" style="font-size: 24px; font-weight: bold; color: #2980b9;">Rp 0</div>
             </div>
         </div>
 
-        <button class="btn-finish" id="btn-proses" onclick="prosesTransaksi()">SELESAIKAN</button>
+        <button class="btn-finish" id="btn-proses" onclick="prosesTransaksi()">SELESAIKAN TRANSAKSI</button>
+        <button class="no-print" onclick="window.history.back()" style="background:none; border:none; color:#999; margin-top:15px; cursor:pointer;">Batal / Kembali</button>
     </div>
 
     <div id="receipt-modal">
-        <div class="receipt-paper" id="printable-receipt">
+        <div class="receipt-paper">
             <div class="receipt-header">
-                <h3 style="margin:0">FINEX POS</h3>
-                <p style="margin:5px 0">Jl. Raya Kantin No. 01</p>
-                <small id="rcp-inv"></small>
+                <h2 style="margin:0">FINEX POS</h2>
+                <p style="margin:5px 0">Kantin Sekolah</p>
+                <small id="rcp-inv"></small><br>
+                <small id="rcp-date"></small>
             </div>
-            <div id="rcp-items" style="border-bottom: 1px dashed #000; padding-bottom: 10px;"></div>
-            <div style="margin-top:10px">
-                <div class="receipt-line"><span>Total</span><span id="rcp-total"></span></div>
+            
+            <div id="rcp-items" style="margin-bottom:10px;"></div>
+            
+            <div class="receipt-total">
+                <div class="receipt-line"><span>Subtotal</span><span id="rcp-subtotal"></span></div>
+                <div class="receipt-line" id="row-rcp-diskon" style="display:none; color:red;">
+                    <span>Diskon</span><span id="rcp-diskon"></span>
+                </div>
+                <div class="receipt-line" id="row-rcp-pajak" style="display:none;">
+                    <span>Pajak (PPN)</span><span id="rcp-pajak"></span>
+                </div>
+                <div class="receipt-line" style="font-size:16px; margin-top:5px;">
+                    <span>TOTAL</span><span id="rcp-grand-total"></span>
+                </div>
+            </div>
+
+            <div style="margin-top:10px; border-top: 1px solid #eee; padding-top:10px;">
+                <div class="receipt-line"><span>Metode</span><span id="rcp-metode"></span></div>
                 <div class="receipt-line"><span>Bayar</span><span id="rcp-bayar"></span></div>
                 <div class="receipt-line"><span>Kembali</span><span id="rcp-kembali"></span></div>
             </div>
-            <div style="text-align:center; margin-top:20px;">
-                <p>Terima Kasih Atas Kunjungan Anda</p>
-                <div class="btn-print-action">
-                    <button onclick="window.print()" style="padding:5px 10px;">Cetak Struk</button>
-                    <button onclick="window.location.href='pos.html'" style="padding:5px 10px;">Selesai</button>
-                </div>
+
+            <div style="text-align:center; margin-top:25px;" class="no-print">
+                <button onclick="window.print()" style="padding:10px 20px; background:#34495e; color:white; border:none; border-radius:5px; cursor:pointer;">Cetak Struk</button>
+                <button onclick="window.location.href='pos.html'" style="padding:10px 20px; background:var(--success); color:white; border:none; border-radius:5px; cursor:pointer; margin-left:5px;">Selesai</button>
             </div>
         </div>
     </div>
@@ -72,55 +96,107 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
+        // Ambil data dari POS
         const cart = JSON.parse(sessionStorage.getItem('pay_cart') || '[]');
-        const total = parseInt(sessionStorage.getItem('pay_total') || '0');
-        const metode = sessionStorage.getItem('pay_method') || 'Tunai';
+        const grandTotal = parseInt(sessionStorage.getItem('pay_total') || '0');
+        const payMethod = sessionStorage.getItem('pay_method') || 'Tunai';
+        const subtotalKotor = parseInt(sessionStorage.getItem('pay_subtotal') || '0');
+        const diskonGlobal = parseInt(sessionStorage.getItem('pay_diskon_global') || '0');
+        const pajakNominal = parseInt(sessionStorage.getItem('pay_pajak') || '0');
 
-        document.getElementById('total-tagihan').innerText = "Rp " + total.toLocaleString();
-        document.getElementById('display-method').innerText = "Metode: " + metode;
-        if(metode !== 'Tunai') document.getElementById('cash-area').style.display = 'none';
+        document.getElementById('total-tagihan').innerText = "Rp " + grandTotal.toLocaleString();
+        document.getElementById('display-method').innerText = "Metode: " + payMethod;
+
+        if (payMethod !== 'Tunai') {
+            document.getElementById('cash-area').style.display = 'none';
+        }
 
         function hitungKembalian() {
             const bayar = parseInt(document.getElementById('input-bayar').value || 0);
-            const kembalian = bayar - total;
+            const kembalian = bayar - grandTotal;
             document.getElementById('kembalian-box').style.display = bayar > 0 ? 'block' : 'none';
             document.getElementById('val-kembalian').innerText = "Rp " + (kembalian < 0 ? 0 : kembalian).toLocaleString();
+            document.getElementById('btn-proses').disabled = (bayar < grandTotal);
         }
 
         async function prosesTransaksi() {
-            const bayar = parseInt(document.getElementById('input-bayar').value || total);
-            if (metode === 'Tunai' && bayar < total) return alert("Uang tidak cukup!");
+            const btn = document.getElementById('btn-proses');
+            const bayarManual = parseInt(document.getElementById('input-bayar').value || grandTotal);
+            
+            btn.disabled = true;
+            btn.innerText = "Menyimpan...";
 
             try {
                 const noInv = "INV-" + Date.now();
-                // 1. Simpan Penjualan
-                const { data: sales } = await supabaseClient.from('penjualan').insert([{
-                    no_invoice: noInv, grand_total: total, metode_pembayaran: metode, subtotal: total
+                
+                // 1. Simpan ke tabel Penjualan
+                const { data: sale, error: errSale } = await supabaseClient.from('penjualan').insert([{
+                    no_invoice: noInv,
+                    subtotal: subtotalKotor,
+                    diskon_global: diskonGlobal,
+                    pajak_ppn: pajakNominal,
+                    grand_total: grandTotal,
+                    metode_pembayaran: payMethod
                 }]).select().single();
 
-                // 2. Simpan Detail & Update Stok
-                let itemHtml = '';
+                if (errSale) throw errSale;
+
+                // 2. Loop Detail & Potong Stok
+                let itemRows = '';
                 for (const item of cart) {
+                    // Simpan Detail
                     await supabaseClient.from('penjualan_detail').insert([{
-                        penjualan_id: sales.id, produk_id: item.id, nama_barang: item.nama_barang,
-                        harga_satuan: item.harga_jual, qty: item.qty, subtotal_item: (item.harga_jual * item.qty)
+                        penjualan_id: sale.id,
+                        produk_id: item.id,
+                        nama_barang: item.nama_barang,
+                        harga_satuan: item.harga_jual,
+                        qty: item.qty,
+                        diskon_item_persen: item.persen_diskon,
+                        subtotal_item: (item.harga_jual * item.qty)
                     }]);
-                    
-                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                    await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
-                    
-                    itemHtml += `<div class="receipt-line"><span>${item.nama_barang} x${item.qty}</span><span>${(item.harga_jual * item.qty).toLocaleString()}</span></div>`;
+
+                    // Update Stok
+                    const { data: prod } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                    await supabaseClient.from('produk').update({ stok_sekarang: prod.stok_sekarang - item.qty }).eq('id', item.id);
+
+                    // Baris Struk
+                    itemRows += `<div class="receipt-line">
+                        <span>${item.nama_barang} (x${item.qty})</span>
+                        <span>${(item.harga_jual * item.qty).toLocaleString()}</span>
+                    </div>`;
                 }
 
-                // Tampilkan Struk
-                document.getElementById('rcp-inv').innerText = noInv;
-                document.getElementById('rcp-items').innerHTML = itemHtml;
-                document.getElementById('rcp-total').innerText = total.toLocaleString();
-                document.getElementById('rcp-bayar').innerText = bayar.toLocaleString();
-                document.getElementById('rcp-kembali').innerText = (bayar - total).toLocaleString();
-                document.getElementById('receipt-modal').style.display = 'flex';
+                // 3. Tampilkan Struk
+                tampilkanStruk(noInv, itemRows, bayarManual);
 
-            } catch (err) { alert(err.message); }
+            } catch (err) {
+                alert("Gagal: " + err.message);
+                btn.disabled = false;
+                btn.innerText = "SELESAIKAN TRANSAKSI";
+            }
+        }
+
+        function tampilkanStruk(inv, items, bayar) {
+            document.getElementById('rcp-inv').innerText = inv;
+            document.getElementById('rcp-date').innerText = new Date().toLocaleString('id-ID');
+            document.getElementById('rcp-items').innerHTML = items;
+            document.getElementById('rcp-subtotal').innerText = subtotalKotor.toLocaleString();
+            
+            if(diskonGlobal > 0) {
+                document.getElementById('row-rcp-diskon').style.display = 'flex';
+                document.getElementById('rcp-diskon').innerText = "-" + diskonGlobal.toLocaleString();
+            }
+            if(pajakNominal > 0) {
+                document.getElementById('row-rcp-pajak').style.display = 'flex';
+                document.getElementById('rcp-pajak').innerText = pajakNominal.toLocaleString();
+            }
+
+            document.getElementById('rcp-grand-total').innerText = grandTotal.toLocaleString();
+            document.getElementById('rcp-metode').innerText = payMethod;
+            document.getElementById('rcp-bayar').innerText = bayar.toLocaleString();
+            document.getElementById('rcp-kembali').innerText = (bayar - grandTotal).toLocaleString();
+
+            document.getElementById('receipt-modal').style.display = 'flex';
         }
     </script>
 </body>
