@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>POS System | Penyesuaian Stok</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
+        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
+        main { flex: 1; margin-left: 240px; padding: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 10px; max-width: 400px; }
+        input, select, textarea { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn-submit { background: #3498db; color: white; border: none; padding: 12px; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+        .badge-masuk { color: #27ae60; font-weight: bold; }
+        .badge-keluar { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>POS LITE</h2>
+        <a href="index.html">📊 Dashboard</a>
+        <a href="produk.html">📦 Produk</a>
+        <a href="penyesuaian.html" style="color:#3498db">🔄 Stok In/Out</a>
+        <a href="pos.html">🛒 Kasir</a>
+    </nav>
+    <main>
+        <h1>Penyesuaian Stok (In/Out)</h1>
+
+        <div class="card">
+            <h3>Input Mutasi Stok</h3>
+            <div class="form-group">
+                <label>Pilih Produk:</label>
+                <select id="sel-produk"><option value="">-- Pilih Barang --</option></select>
+                
+                <label>Tipe Penyesuaian:</label>
+                <select id="tipe">
+                    <option value="Masuk">Barang Masuk (+)</option>
+                    <option value="Keluar">Barang Keluar (-)</option>
+                </select>
+
+                <label>Jumlah:</label>
+                <input type="number" id="jumlah" placeholder="Contoh: 10">
+
+                <label>Keterangan:</label>
+                <textarea id="ket" placeholder="Alasan (Contoh: Restock atau Barang Rusak)"></textarea>
+
+                <button class="btn-submit" onclick="prosesPenyesuaian()">Simpan Penyesuaian</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Riwayat Mutasi Terakhir</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Produk</th>
+                        <th>Tipe</th>
+                        <th>Jumlah</th>
+                        <th>Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody id="tabel-riwayat"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        async function init() {
+            // Muat Dropdown Produk
+            const { data: produk } = await supabaseClient.from('produk').select('id, nama_barang, stok_sekarang').order('nama_barang');
+            const sel = document.getElementById('sel-produk');
+            produk.forEach(p => sel.innerHTML += `<option value="${p.id}" data-stok="${p.stok_sekarang}">${p.nama_barang} (Sisa: ${p.stok_sekarang})</option>`);
+
+            muatRiwayat();
+        }
+
+        async function muatRiwayat() {
+            const { data } = await supabaseClient
+                .from('riwayat_stok')
+                .select('*, produk(nama_barang)')
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            const tbody = document.getElementById('tabel-riwayat');
+            tbody.innerHTML = '';
+            data.forEach(r => {
+                const tgl = new Date(r.created_at).toLocaleString('id-ID');
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${tgl}</td>
+                        <td>${r.produk.nama_barang}</td>
+                        <td><span class="${r.tipe === 'Masuk' ? 'badge-masuk' : 'badge-keluar'}">${r.tipe}</span></td>
+                        <td>${r.jumlah}</td>
+                        <td>${r.keterangan || '-'}</td>
+                    </tr>`;
+            });
+        }
+
+        async function prosesPenyesuaian() {
+            const pId = document.getElementById('sel-produk').value;
+            const tipe = document.getElementById('tipe').value;
+            const jumlah = parseInt(document.getElementById('jumlah').value);
+            const ket = document.getElementById('ket').value;
+
+            if (!pId || !jumlah) return alert("Pilih produk dan isi jumlah!");
+
+            // 1. Ambil stok saat ini
+            const option = document.querySelector(`#sel-produk option[value="${pId}"]`);
+            const stokSekarang = parseInt(option.getAttribute('data-stok'));
+            
+            // 2. Hitung stok baru
+            let stokBaru = (tipe === 'Masuk') ? stokSekarang + jumlah : stokSekarang - jumlah;
+            if (stokBaru < 0) return alert("Stok tidak cukup untuk pengurangan ini!");
+
+            // 3. Update Tabel Produk & Insert Riwayat (Transaction-like)
+            const updateProd = await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', pId);
+            const insertLog = await supabaseClient.from('riwayat_stok').insert([{
+                produk_id: pId, tipe: tipe, jumlah: jumlah, keterangan: ket
+            }]);
+
+            if (updateProd.error || insertLog.error) alert("Gagal proses!");
+            else {
+                alert("Stok Berhasil Diperbarui!");
+                location.reload();
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
