@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System | Manajemen Produk</title>
+    <title>POS System | Manajemen Produk Lengkap</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
@@ -10,8 +10,8 @@
         nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
         main { flex: 1; margin-left: 240px; padding: 30px; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 100%; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
         th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
         th { background: #f8f9fa; }
@@ -19,44 +19,44 @@
         .btn-save { background: #27ae60; }
         .btn-export { background: #3498db; }
         .btn-import { background: #f39c12; }
-        .search-box { width: 100%; padding: 12px; margin-bottom: 20px; box-sizing: border-box; border: 2px solid #3498db; border-radius: 8px; }
+        .btn-edit { background: #f1c40f; color: black; padding: 5px 8px; }
+        .btn-delete { background: #e74c3c; padding: 5px 8px; }
+        .search-box { width: 100%; padding: 12px; margin-bottom: 20px; border: 2px solid #3498db; border-radius: 8px; font-size: 16px; }
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <nav>
         <h2>POS LITE</h2>
         <a href="index.html">📊 Dashboard</a>
-        <a href="produk.html">📦 Produk</a>
+        <a href="produk.html" style="color:#3498db">📦 Produk</a>
+        <a href="category.html">📁 Kategori</a>
+        <a href="gudang.html">🏠 Gudang</a>
         <a href="pos.html">🛒 Kasir</a>
     </nav>
     <main>
         <h1>Manajemen Produk</h1>
 
         <div class="card">
-            <h3>➕ Tambah Produk Baru</h3>
+            <h3>➕ Tambah / Edit Produk</h3>
             <div class="form-row">
-                <input type="text" id="kode" placeholder="Kode">
+                <input type="hidden" id="edit-id"> <input type="text" id="kode" placeholder="Kode Barang">
                 <input type="text" id="nama" placeholder="Nama Barang">
-                <select id="kategori">
-                    <option value="Makanan">Makanan</option>
-                    <option value="Minuman">Minuman</option>
-                    <option value="Elektronik">Elektronik</option>
-                    <option value="Lainnya">Lainnya</option>
-                </select>
-                <input type="text" id="gudang" placeholder="Lokasi Gudang (A1/B2)">
-                <input type="number" id="harga" placeholder="Harga">
+                <select id="sel-kategori"><option value="">-- Kategori --</option></select>
+                <select id="sel-gudang"><option value="">-- Gudang --</option></select>
+                <input type="number" id="harga" placeholder="Harga Jual">
                 <input type="number" id="stok" placeholder="Stok">
             </div>
-            <button class="btn btn-save" onclick="tambah()">Simpan Produk</button>
+            <button class="btn btn-save" id="btn-aksi" onclick="simpanProduk()">Simpan Produk</button>
+            <button class="btn" id="btn-batal" style="background:#95a5a6; display:none;" onclick="resetForm()">Batal</button>
         </div>
 
-        <div class="card" style="display: flex; gap: 10px; align-items: center;">
-            <button class="btn btn-export" onclick="exportCSV()">📥 Export CSV</button>
+        <div class="action-bar">
+            <input type="text" id="searchInput" class="search-box" style="margin-bottom:0;" placeholder="Cari nama, kode, kategori..." onkeyup="filterTabel()">
+            <button class="btn btn-export" onclick="exportCSV()">Export CSV</button>
             <input type="file" id="importFile" accept=".csv" style="display:none" onchange="importCSV(event)">
-            <button class="btn btn-import" onclick="document.getElementById('importFile').click()">📤 Import CSV</button>
+            <button class="btn btn-import" onclick="document.getElementById('importFile').click()">Import CSV</button>
         </div>
-
-        <input type="text" id="searchInput" class="search-box" placeholder="Cari nama barang atau kode..." onkeyup="filterTabel()">
 
         <div class="card">
             <table>
@@ -81,10 +81,17 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        async function muatData() {
-            const { data, error } = await supabaseClient.from('produk').select('*').order('created_at', {ascending: false});
-            if (error) return console.error(error);
+        // --- 1. INISIALISASI ---
+        async function muatDropdown() {
+            const resKat = await supabaseClient.from('kategori').select('nama_kategori').order('nama_kategori');
+            const resGud = await supabaseClient.from('gudang').select('nama_gudang').order('nama_gudang');
+            
+            resKat.data.forEach(k => document.getElementById('sel-kategori').innerHTML += `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`);
+            resGud.data.forEach(g => document.getElementById('sel-gudang').innerHTML += `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`);
+        }
 
+        async function muatData() {
+            const { data } = await supabaseClient.from('produk').select('*').order('created_at', {ascending: false});
             const tbody = document.getElementById('tabel-produk');
             tbody.innerHTML = '';
             data.forEach(item => {
@@ -96,67 +103,60 @@
                         <td>${item.gudang || '-'}</td>
                         <td>Rp ${item.harga_jual.toLocaleString()}</td>
                         <td>${item.stok_sekarang}</td>
-                        <td><button onclick="hapus('${item.id}')">❌</button></td>
+                        <td>
+                            <button class="btn btn-edit" onclick="isiFormEdit('${item.id}', '${item.kode_barang}', '${item.nama_barang}', '${item.kategori}', '${item.gudang}', ${item.harga_jual}, ${item.stok_sekarang})">✎</button>
+                            <button class="btn btn-delete" onclick="hapus('${item.id}')">🗑</button>
+                        </td>
                     </tr>`;
             });
         }
 
-        async function tambah() {
+        // --- 2. FUNGSI CRUD ---
+        async function simpanProduk() {
+            const id = document.getElementById('edit-id').value;
             const row = {
                 kode_barang: document.getElementById('kode').value,
                 nama_barang: document.getElementById('nama').value,
-                kategori: document.getElementById('kategori').value,
-                gudang: document.getElementById('gudang').value,
+                kategori: document.getElementById('sel-kategori').value,
+                gudang: document.getElementById('sel-gudang').value,
                 harga_jual: parseInt(document.getElementById('harga').value) || 0,
                 stok_sekarang: parseInt(document.getElementById('stok').value) || 0
             };
 
-            const { error } = await supabaseClient.from('produk').insert([row]);
-            if (error) alert(error.message);
-            else { alert("Produk berhasil ditambah!"); location.reload(); }
-        }
-
-        function filterTabel() {
-            let input = document.getElementById("searchInput").value.toUpperCase();
-            let tr = document.getElementById("tabel-produk").getElementsByTagName("tr");
-            for (let i = 0; i < tr.length; i++) {
-                let txtValue = tr[i].textContent || tr[i].innerText;
-                tr[i].style.display = txtValue.toUpperCase().indexOf(input) > -1 ? "" : "none";
+            let res;
+            if (id) {
+                // Update
+                res = await supabaseClient.from('produk').update(row).eq('id', id);
+            } else {
+                // Insert
+                res = await supabaseClient.from('produk').insert([row]);
             }
+
+            if (res.error) alert(res.error.message);
+            else { alert("Berhasil disimpan!"); resetForm(); muatData(); }
         }
 
-        async function exportCSV() {
-            const { data } = await supabaseClient.from('produk').select('kode_barang, nama_barang, kategori, gudang, harga_jual, stok_sekarang');
-            let csvContent = "data:text/csv;charset=utf-8,Kode,Nama,Kategori,Gudang,Harga,Stok\n";
-            data.forEach(r => {
-                csvContent += `${r.kode_barang},${r.nama_barang},${r.kategori},${r.gudang},${r.harga_jual},${r.stok_sekarang}\n`;
-            });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "data_produk.csv");
-            document.body.appendChild(link);
-            link.click();
+        function isiFormEdit(id, kode, nama, kat, gud, harga, stok) {
+            document.getElementById('edit-id').value = id;
+            document.getElementById('kode').value = kode;
+            document.getElementById('nama').value = nama;
+            document.getElementById('sel-kategori').value = kat;
+            document.getElementById('sel-gudang').value = gud;
+            document.getElementById('harga').value = harga;
+            document.getElementById('stok').value = stok;
+            
+            document.getElementById('btn-aksi').innerText = "Update Produk";
+            document.getElementById('btn-batal').style.display = "inline-block";
         }
 
-        function importCSV(event) {
-            const file = event.target.files[0];
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const rows = e.target.result.split("\n").slice(1); // skip header
-                for (let row of rows) {
-                    const cols = row.split(",");
-                    if (cols.length >= 6) {
-                        await supabaseClient.from('produk').insert([{
-                            kode_barang: cols[0], nama_barang: cols[1], kategori: cols[2], 
-                            gudang: cols[3], harga_jual: parseInt(cols[4]), stok_sekarang: parseInt(cols[5])
-                        }]);
-                    }
-                }
-                alert("Import Selesai!");
-                muatData();
-            };
-            reader.readAsText(file);
+        function resetForm() {
+            document.getElementById('edit-id').value = "";
+            document.getElementById('kode').value = "";
+            document.getElementById('nama').value = "";
+            document.getElementById('harga').value = "";
+            document.getElementById('stok').value = "";
+            document.getElementById('btn-aksi').innerText = "Simpan Produk";
+            document.getElementById('btn-batal').style.display = "none";
         }
 
         async function hapus(id) {
@@ -166,7 +166,49 @@
             }
         }
 
-        window.onload = muatData;
+        // --- 3. SEARCH & IMPORT/EXPORT ---
+        function filterTabel() {
+            let filter = document.getElementById("searchInput").value.toUpperCase();
+            let tr = document.getElementById("tabel-produk").getElementsByTagName("tr");
+            for (let i = 0; i < tr.length; i++) {
+                tr[i].style.display = (tr[i].innerText.toUpperCase().indexOf(filter) > -1) ? "" : "none";
+            }
+        }
+
+        async function exportCSV() {
+            const { data } = await supabaseClient.from('produk').select('kode_barang,nama_barang,kategori,gudang,harga_jual,stok_sekarang');
+            let csv = "Kode,Nama,Kategori,Gudang,Harga,Stok\n";
+            data.forEach(r => csv += `${r.kode_barang},${r.nama_barang},${r.kategori},${r.gudang},${r.harga_jual},${r.stok_sekarang}\n`);
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'data_produk.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function importCSV(event) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const lines = e.target.result.split("\n").slice(1);
+                for (let line of lines) {
+                    const c = line.split(",");
+                    if (c.length >= 6) {
+                        await supabaseClient.from('produk').insert([{
+                            kode_barang: c[0], nama_barang: c[1], kategori: c[2], gudang: c[3], harga_jual: parseInt(c[4]), stok_sekarang: parseInt(c[5])
+                        }]);
+                    }
+                }
+                alert("Import Berhasil!"); muatData();
+            };
+            reader.readAsText(event.target.files[0]);
+        }
+
+        window.onload = () => { muatDropdown(); muatData(); };
     </script>
 </body>
 </html>
