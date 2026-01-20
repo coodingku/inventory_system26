@@ -36,10 +36,14 @@
 
         /* Summary Area */
         .summary-area { background: #f8f9fa; padding: 15px; border-radius: 12px; margin-top: 10px; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #555; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #555; align-items: center; }
         .summary-row b { color: #333; }
         .total-row { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; color: var(--primary); border-top: 2px solid #dee2e6; margin-top: 10px; padding-top: 10px; }
         
+        /* Payment Method Select */
+        .payment-method-box { margin-top: 10px; padding: 10px; background: #ebf5ff; border-radius: 8px; border: 1px solid #d0e7ff; }
+        .payment-method-box select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #abc; font-weight: bold; color: var(--primary); }
+
         /* Toggle Switch */
         .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -75,7 +79,7 @@
             <div id="cart-list" class="cart-list"></div>
 
             <div class="summary-area">
-                <div class="summary-row"><span>Subtotal (Kotor)</span><b id="sub-total">Rp 0</b></div>
+                <div class="summary-row"><span>Subtotal</span><b id="sub-total">Rp 0</b></div>
                 <div class="summary-row"><span>Potongan Item</span><b id="val-diskon-item">Rp 0</b></div>
                 
                 <div class="summary-row" style="color: var(--danger); font-weight: bold;">
@@ -89,15 +93,24 @@
                     </select>
                 </div>
 
-                <div class="summary-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd;">
+                <div class="summary-row" style="margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ddd;">
                     <span>Aktifkan PPN (<span id="tax-rate">0</span>%)</span>
                     <label class="switch">
                         <input type="checkbox" id="tax-status" checked onchange="updateBilling()">
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div class="summary-row"><span>Nilai Pajak</span><b id="val-pajak">Rp 0</b></div>
+                <div class="summary-row"><span>Pajak</span><b id="val-pajak">Rp 0</b></div>
                 
+                <div class="payment-method-box">
+                    <label style="font-size: 11px; color: #5a7a9a; font-weight: bold; display: block; margin-bottom: 5px;">METODE PEMBAYARAN</label>
+                    <select id="metode-bayar">
+                        <option value="Tunai">💵 Tunai</option>
+                        <option value="QRIS">📱 QRIS</option>
+                        <option value="Transfer">🏦 Transfer Bank</option>
+                    </select>
+                </div>
+
                 <div class="total-row">
                     <span>TOTAL</span>
                     <span id="grand-total">Rp 0</span>
@@ -118,23 +131,19 @@
         let ppnPersen = 0;
         let daftarOpsiDiskon = [];
 
-        // Proteksi Role
         const role = localStorage.getItem('user_role');
         if (!role) window.location.href = "login.html";
         if (role !== 'admin') document.getElementById('admin-menu').style.display = 'none';
 
         async function init() {
             try {
-                // Ambil PPN
                 const { data: p } = await supabaseClient.from('ppn').select('nilai').eq('id', 1).single();
-                ppnPersen = p ? parseFloat(p.nilai) : 0;
+                ppnPersen = p ? parseFloat(p.nilai) : 11;
                 document.getElementById('tax-rate').innerText = ppnPersen;
 
-                // Ambil Diskon Dinamis
                 const { data: d } = await supabaseClient.from('diskon').select('*').order('persen', {ascending: true});
                 daftarOpsiDiskon = d || [];
 
-                // Ambil Produk
                 const { data: prod } = await supabaseClient.from('produk').select('*').gt('stok_sekarang', 0).order('nama_barang', {ascending: true});
                 masterProduk = prod || [];
                 renderProduk(masterProduk);
@@ -164,7 +173,7 @@
             const ada = keranjang.find(x => x.id === id);
             if (ada) {
                 if (ada.qty < p.stok_sekarang) ada.qty++;
-                else alert("Stok Habis!");
+                else alert("Stok tidak cukup!");
             } else {
                 keranjang.push({ ...p, qty: 1, persen_diskon: 0 });
             }
@@ -210,25 +219,22 @@
                     </div>`;
             });
 
-            // Hitung Diskon Bill (Global)
             const subSetelahItem = subtotalKotor - diskonItemTotal;
             const persenGlobal = parseFloat(document.getElementById('diskon-bill').value);
             const nominalGlobal = subSetelahItem * (persenGlobal / 100);
             
-            // Hitung Pajak (Jika Aktif)
             const subFinal = subSetelahItem - nominalGlobal;
             const isTax = document.getElementById('tax-status').checked;
             const pajak = isTax ? (subFinal * (ppnPersen / 100)) : 0;
 
             const totalAkhir = subFinal + pajak;
 
-            // Render ke UI
             document.getElementById('sub-total').innerText = "Rp " + subtotalKotor.toLocaleString();
             document.getElementById('val-diskon-item').innerText = "- Rp " + (diskonItemTotal + nominalGlobal).toLocaleString();
             document.getElementById('val-pajak').innerText = "Rp " + Math.round(pajak).toLocaleString();
             document.getElementById('grand-total').innerText = "Rp " + Math.round(totalAkhir).toLocaleString();
 
-            // Simpan Session
+            // Simpan ke Session Storage
             sessionStorage.setItem('pay_cart', JSON.stringify(keranjang));
             sessionStorage.setItem('pay_total', Math.round(totalAkhir));
         }
@@ -243,7 +249,11 @@
         }
 
         function lanjutKeBayar() {
-            if (keranjang.length > 0) window.location.href = "payment.html";
+            if (keranjang.length === 0) return alert("Keranjang kosong!");
+            // Ambil metode bayar dari dropdown
+            const metode = document.getElementById('metode-bayar').value;
+            sessionStorage.setItem('pay_method', metode);
+            window.location.href = "payment.html";
         }
 
         function logout() {
