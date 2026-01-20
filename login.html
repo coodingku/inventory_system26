@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 350px; text-align: center; }
+        .login-card h2 { color: #2c3e50; margin-bottom: 30px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #2980b9; }
+        .error { color: #e74c3c; font-size: 14px; margin-bottom: 15px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>FINEX POS</h2>
+        <div id="error-msg" class="error">Username atau Password salah!</div>
+        <input type="text" id="user" placeholder="Username">
+        <input type="password" id="pass" placeholder="Password">
+        <button onclick="prosesLogin()">MASUK</button>
+    </div>
+
+    <script>
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        async function prosesLogin() {
+            const u = document.getElementById('user').value;
+            const p = document.getElementById('pass').value;
+
+            const { data, error } = await supabaseClient
+                .from('users')
+                .select('*')
+                .eq('username', u)
+                .eq('password', p)
+                .single();
+
+            if (data) {
+                // Simpan data login ke session
+                localStorage.setItem('user_role', data.role);
+                localStorage.setItem('user_name', data.nama_lengkap);
+                
+                // Redirect berdasarkan Role
+                if(data.role === 'admin') {
+                    window.location.href = "index.html";
+                } else {
+                    window.location.href = "pos.html";
+                }
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
