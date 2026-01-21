@@ -2,18 +2,18 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Master Produk</title>
+    <title>Finex Pos | Master Produk Terintegrasi</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f1c40f; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
         
         /* Sidebar */
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 10; }
         nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
-        nav a.active { background: var(--accent); color: white; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
 
         /* Main Content */
         main { flex: 1; margin-left: 260px; padding: 30px; }
@@ -24,25 +24,27 @@
         .search-box { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; min-width: 250px; }
         
         /* Buttons */
-        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; }
         .btn-add { background: var(--accent); color: white; }
         .btn-export { background: #607d8b; color: white; }
         .btn-import { background: #8e44ad; color: white; }
         .btn-template { background: #95a5a6; color: white; }
-        .btn:hover { opacity: 0.9; }
 
-        /* Table */
+        /* Table Card */
         .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
 
-        /* Modal */
+        /* Modal Styles */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; position: relative; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 450px; max-height: 90vh; overflow-y: auto; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        
+        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .stock-low { background: #ffebee; color: #c62828; }
     </style>
 </head>
 <body>
@@ -54,13 +56,14 @@
     <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
     <a href="produk.html" class="active">📦 Produk</a>
     <a href="kategori.html">📁 Kategori</a>
+    <a href="gudang.html">🏠 Gudang</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
     <a href="pos.html" style="background: var(--success); color: white; text-align:center;">🛒 Kasir</a>
 </nav>
 
 <main>
     <div class="header-section">
-        <h1>📦 Daftar Produk Kantin</h1>
+        <h1>📦 Management Produk</h1>
         <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
     </div>
 
@@ -79,15 +82,14 @@
             <thead>
                 <tr>
                     <th>Barcode</th>
-                    <th>Nama Produk</th>
-                    <th>Kategori</th>
-                    <th>Harga Jual</th>
+                    <th>Produk</th>
+                    <th>Kategori / Gudang</th>
+                    <th>Harga</th>
                     <th>Stok</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
-            <tbody id="product-list">
-                </tbody>
+            <tbody id="product-list"></tbody>
         </table>
     </div>
 </main>
@@ -99,22 +101,24 @@
             <input type="hidden" id="prod-id">
             <div class="form-group">
                 <label>Kode / Barcode</label>
-                <input type="text" id="prod-kode" placeholder="Misal: 899..." required>
+                <input type="text" id="prod-kode" placeholder="Scan atau ketik kode barang" required>
             </div>
             <div class="form-group">
                 <label>Nama Produk</label>
-                <input type="text" id="prod-nama" placeholder="Misal: Nasi Goreng" required>
+                <input type="text" id="prod-nama" placeholder="Contoh: Kopi Susu Kantin" required>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label>Kategori</label>
+                    <select id="prod-kategori"></select>
+                </div>
+                <div class="form-group">
+                    <label>Gudang</label>
+                    <select id="prod-gudang"></select>
+                </div>
             </div>
             <div class="form-group">
-                <label>Kategori</label>
-                <select id="prod-kategori">
-                    <option value="Makanan">Makanan</option>
-                    <option value="Minuman">Minuman</option>
-                    <option value="Snack">Snack</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Harga Jual</label>
+                <label>Harga Jual (Rp)</label>
                 <input type="number" id="prod-harga" required>
             </div>
             <div class="form-group">
@@ -123,7 +127,7 @@
             </div>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button type="button" class="btn" style="background:#eee; flex:1" onclick="closeModal()">Batal</button>
-                <button type="submit" class="btn btn-add" style="flex:2; justify-content:center;">Simpan Produk</button>
+                <button type="submit" class="btn btn-add" style="flex:2; justify-content:center;">Simpan Data</button>
             </div>
         </form>
     </div>
@@ -136,38 +140,48 @@
 
     let masterData = [];
 
+    // 1. Inisialisasi Data
+    window.onload = async () => {
+        await Promise.all([fetchProduk(), loadDropdowns()]);
+    };
+
     async function fetchProduk() {
-        const { data } = await supabaseClient.from('produk').select('*').order('nama_barang');
+        const { data } = await supabaseClient.from('produk').select('*').order('created_at', { ascending: false });
         masterData = data || [];
         renderTable(masterData);
+    }
+
+    async function loadDropdowns() {
+        const [resKat, resGud] = await Promise.all([
+            supabaseClient.from('kategori').select('nama_kategori'),
+            supabaseClient.from('gudang').select('nama_gudang')
+        ]);
+        
+        document.getElementById('prod-kategori').innerHTML = resKat.data?.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`).join('') || '<option>Umum</option>';
+        document.getElementById('prod-gudang').innerHTML = resGud.data?.map(g => `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`).join('') || '<option>Gudang Utama</option>';
     }
 
     function renderTable(data) {
         const tbody = document.getElementById('product-list');
         tbody.innerHTML = '';
         data.forEach(p => {
+            const stockClass = p.stok_sekarang < 10 ? 'stock-low' : '';
             tbody.innerHTML += `
                 <tr>
                     <td><small>${p.kode_barang || '-'}</small></td>
                     <td><b>${p.nama_barang}</b></td>
-                    <td>${p.kategori}</td>
+                    <td><small>${p.kategori} | ${p.gudang || 'Utama'}</small></td>
                     <td>Rp ${parseFloat(p.harga_jual).toLocaleString()}</td>
-                    <td>${p.stok_sekarang}</td>
+                    <td><span class="badge-stock ${stockClass}">${p.stok_sekarang}</span></td>
                     <td>
-                        <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button>
+                        <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button> |
+                        <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">Hapus</button>
                     </td>
-                </tr>
-            `;
+                </tr>`;
         });
     }
 
-    function filterProduk() {
-        const q = document.getElementById('searchBar').value.toLowerCase();
-        const filtered = masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || (p.kode_barang && p.kode_barang.includes(q)));
-        renderTable(filtered);
-    }
-
-    // MODAL LOGIC
+    // 2. Logika Modal & Form
     function openModal() {
         document.getElementById('productForm').reset();
         document.getElementById('prod-id').value = '';
@@ -184,14 +198,13 @@
             kode_barang: document.getElementById('prod-kode').value,
             nama_barang: document.getElementById('prod-nama').value,
             kategori: document.getElementById('prod-kategori').value,
+            gudang: document.getElementById('prod-gudang').value,
             harga_jual: document.getElementById('prod-harga').value,
             stok_sekarang: document.getElementById('prod-stok').value
         };
 
-        if(id) await supabaseClient.from('produk').update(payload).eq('id', id);
-        else await supabaseClient.from('produk').insert([payload]);
-
-        closeModal(); fetchProduk();
+        const res = id ? await supabaseClient.from('produk').update(payload).eq('id', id) : await supabaseClient.from('produk').insert([payload]);
+        if (!res.error) { closeModal(); fetchProduk(); }
     };
 
     async function editProduk(id) {
@@ -200,53 +213,63 @@
         document.getElementById('prod-kode').value = p.kode_barang;
         document.getElementById('prod-nama').value = p.nama_barang;
         document.getElementById('prod-kategori').value = p.kategori;
+        document.getElementById('prod-gudang').value = p.gudang;
         document.getElementById('prod-harga').value = p.harga_jual;
         document.getElementById('prod-stok').value = p.stok_sekarang;
         document.getElementById('modalTitle').innerText = "Edit Produk";
         document.getElementById('productModal').style.display = 'flex';
     }
 
-    // EXPORT, IMPORT, TEMPLATE
+    async function hapusProduk(id) {
+        if (confirm("Hapus produk ini secara permanen?")) {
+            await supabaseClient.from('produk').delete().eq('id', id);
+            fetchProduk();
+        }
+    }
+
+    function filterProduk() {
+        const q = document.getElementById('searchBar').value.toLowerCase();
+        renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || p.kode_barang?.includes(q)));
+    }
+
+    // 3. Export & Import
     function downloadTemplate() {
-        const data = [{"Kode Barang": "1001", "Nama Produk": "Contoh Makanan", "Kategori": "Makanan", "Harga Jual": 15000, "Stok": 50}];
-        const ws = XLSX.utils.json_to_sheet(data);
+        const template = [{"Kode Barang": "1001", "Nama Produk": "Nasi Kuning", "Kategori": "Makanan", "Gudang": "Kantin", "Harga Jual": 10000, "Stok": 20}];
+        const ws = XLSX.utils.json_to_sheet(template);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Template");
-        XLSX.writeFile(wb, "Template_Import_Produk.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Produk");
+        XLSX.writeFile(wb, "Template_Produk_FinexPos.xlsx");
     }
 
     function exportExcel() {
         const ws = XLSX.utils.json_to_sheet(masterData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "DataProduk");
-        XLSX.writeFile(wb, "Data_Produk_FinexPos.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Database_Produk");
+        XLSX.writeFile(wb, "Data_Produk_Lengkap.xlsx");
     }
 
     function importExcel(event) {
-        const file = event.target.files[0];
         const reader = new FileReader();
         reader.onload = async (e) => {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
             const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            
-            if(confirm(`Import ${json.length} data produk?`)) {
+            if(confirm(`Import ${json.length} produk?`)) {
                 for(let item of json) {
                     await supabaseClient.from('produk').upsert({
-                        kode_barang: item["Kode Barang"],
+                        kode_barang: String(item["Kode Barang"]),
                         nama_barang: item["Nama Produk"],
                         kategori: item["Kategori"],
+                        gudang: item["Gudang"],
                         harga_jual: item["Harga Jual"],
                         stok_sekarang: item["Stok"]
                     }, { onConflict: 'nama_barang' });
                 }
-                alert("Import Selesai!"); fetchProduk();
+                alert("Import Berhasil!"); fetchProduk();
             }
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(event.target.files[0]);
     }
-
-    window.onload = fetchProduk;
 </script>
 </body>
 </html>
