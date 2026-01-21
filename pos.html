@@ -100,83 +100,93 @@
     <div id="print-section"></div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(URL_DB, KEY_DB);
+   // 1. Inisialisasi Database (Pastikan tidak duplikat)
+const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+const supabase = window.supabase.createClient(URL_DB, KEY_DB);
 
-    let cart = [];
-    let state = { sub: 0, disc: 0, taxRate: 0, taxVal: 0, total: 0 };
-    let currentLogId = null; 
-    const namaKasir = "Admin Kantin"; // Ganti dengan sistem login jika ada
+let cart = [];
+let state = { sub: 0, disc: 0, taxRate: 0, taxVal: 0, total: 0 };
+let currentLogId = null; 
+const namaKasir = "Admin Kantin"; 
 
-    window.onload = async () => {
-        await checkOpening();
-        loadMenu();
-        getSettings();
-        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
-    };
+// 2. Jalankan Fungsi Saat Halaman Dimuat
+window.onload = async () => {
+    await checkOpening();
+    loadMenu();
+    getSettings();
+    setInterval(() => { 
+        const clockEl = document.getElementById('clock');
+        if(clockEl) clockEl.innerText = new Date().toLocaleTimeString('id-ID'); 
+    }, 1000);
+};
 
-    // --- FITUR OPENING KASIR ---
-    async function checkOpening() {
+// 3. Fungsi Opening Kasir
+async function checkOpening() {
+    try {
         const { data: log } = await supabase.from('kasir_log')
             .select('*').eq('kasir_nama', namaKasir).eq('status', 'Open').maybeSingle();
 
         if (!log) {
-            let modal = prompt("KASIR BELUM DIBUKA\nMasukkan Saldo Awal (Uang di Laci):", "0");
+            let modal = prompt("LOG KASIR BELUM DIBUKA\nMasukkan Saldo Awal (Modal):", "0");
             if (modal === null) { window.location.href = 'index.html'; return; }
             
-            const { data: newLog } = await supabase.from('kasir_log').insert([{
+            const { data: newLog, error } = await supabase.from('kasir_log').insert([{
                 tanggal: new Date().toISOString().split('T')[0],
                 waktu_buka: new Date().toISOString(),
                 saldo_awal: parseFloat(modal),
                 status: 'Open',
                 kasir_nama: namaKasir
             }]).select().single();
-            currentLogId = newLog.id;
+            
+            if(newLog) currentLogId = newLog.id;
         } else {
             currentLogId = log.id;
         }
         document.getElementById('user-display').innerText = namaKasir;
+    } catch (err) {
+        console.error("Error opening session:", err);
     }
+}
 
-    // --- FITUR CLOSING KASIR (TERPERINCI) ---
-    async function closingKasir() {
-        if (!confirm("Akhiri shift dan lakukan Closing sekarang?")) return;
+// 4. Fungsi Closing Kasir (Sesuai nama yang dipanggil di HTML)
+async function closingKasir() {
+    if (!currentLogId) return alert("Sesi kasir tidak ditemukan!");
+    if (!confirm("Akhiri shift dan lakukan Closing sekarang?")) return;
 
-        // Tarik data penjualan berdasarkan kasir_id (sesi ini)
-        const { data: sales } = await supabase.from('penjualan')
-            .select('grand_total, metode_pembayaran, diskon_global, pajak_ppn')
-            .eq('kasir_id', currentLogId);
+    const { data: sales } = await supabase.from('penjualan')
+        .select('grand_total, metode_pembayaran')
+        .eq('kasir_id', currentLogId);
 
-        let report = { tunai: 0, nonTunai: 0, disc: 0, tax: 0, total: 0 };
+    let report = { tunai: 0, total: 0 };
+    if(sales) {
         sales.forEach(s => {
             if(s.metode_pembayaran === 'Tunai') report.tunai += parseFloat(s.grand_total);
-            else report.nonTunai += parseFloat(s.grand_total);
-            report.disc += parseFloat(s.diskon_global || 0);
-            report.tax += parseFloat(s.pajak_ppn || 0);
             report.total += parseFloat(s.grand_total);
         });
-
-        let fisik = prompt(`DETAIL SISTEM:\n- Omzet Tunai: Rp ${report.tunai.toLocaleString()}\n- Omzet Non-Tunai: Rp ${report.nonTunai.toLocaleString()}\n- Total Diskon: Rp ${report.disc.toLocaleString()}\n- Total Pajak: Rp ${report.tax.toLocaleString()}\n\nMASUKKAN TOTAL UANG FISIK (TUNAI) DI LACI:`, "0");
-        
-        if (fisik === null) return;
-
-        const tunaiFisik = parseFloat(fisik);
-        const selisih = tunaiFisik - report.tunai;
-
-        const { error } = await supabase.from('kasir_log').update({
-            waktu_tutup: new Date().toISOString(),
-            total_tunai_sistem: report.tunai,
-            total_tunai_fisik: tunaiFisik,
-            selisih: selisih,
-            status: 'Closed'
-        }).eq('id', currentLogId);
-
-        if(!error) {
-            alert(`Closing Berhasil!\nSelisih: Rp ${selisih.toLocaleString()}`);
-            window.location.href = 'index.html';
-        }
     }
+
+    let fisik = prompt(`RINGKASAN:\nTotal Tunai Sistem: Rp ${report.tunai.toLocaleString()}\n\nMASUKKAN TOTAL TUNAI FISIK DI LACI:`, "0");
+    if (fisik === null) return;
+
+    const tunaiFisik = parseFloat(fisik);
+    const selisih = tunaiFisik - report.tunai;
+
+    const { error } = await supabase.from('kasir_log').update({
+        waktu_tutup: new Date().toISOString(),
+        total_tunai_sistem: report.tunai,
+        total_tunai_fisik: tunaiFisik,
+        selisih: selisih,
+        status: 'Closed'
+    }).eq('id', currentLogId);
+
+    if(!error) {
+        alert("Closing Berhasil!");
+        window.location.href = 'index.html';
+    }
+}
+
+// Tambahkan fungsi loadMenu, calculate, submitTransaction di bawah sini...
 
     // --- LOGIKA TRANSAKSI ---
     async function getSettings() {
