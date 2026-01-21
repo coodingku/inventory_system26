@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Laporan Penjualan</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        
+        /* Sidebar (Sesuai Struktur Anda) */
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-filter { background: var(--accent); color: white; }
+        .btn-export { background: var(--success); color: white; }
+        button:hover { opacity: 0.8; }
+
+        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .total-row { background: #f1f2f6; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="index.html">📊 Dashboard</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">LAPORAN</div>
+    <a href="laporan-penjualan.html" class="active">📑 Penjualan Harian</a>
+    <a href="laporan-produk.html">📦 Laporan Stok</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="pos.html" style="background: #27ae60; color: white; text-align: center;">🛒 Kasir</a>
+</nav>
+
+<main>
+    <h1>Laporan Penjualan Penjualan</h1>
+    
+    <div class="filter-card">
+        <div class="input-group">
+            <label>Dari Tanggal</label>
+            <input type="date" id="date-from">
+        </div>
+        <div class="input-group">
+            <label>Sampai Tanggal</label>
+            <input type="date" id="date-to">
+        </div>
+        <div class="input-group">
+            <label>Metode Bayar</label>
+            <select id="filter-method">
+                <option value="all">Semua Metode</option>
+                <option value="Tunai">Tunai</option>
+                <option value="QRIS">QRIS</option>
+                <option value="Transfer">Transfer</option>
+            </select>
+        </div>
+        <button class="btn-filter" onclick="fetchLaporan()">🔍 Tampilkan</button>
+        <button class="btn-export" onclick="exportKeExcel()">Excel 📥</button>
+    </div>
+
+    <div class="table-container">
+        <table id="table-laporan">
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Invoice</th>
+                    <th>Metode</th>
+                    <th>Subtotal</th>
+                    <th>Diskon</th>
+                    <th>Pajak</th>
+                    <th>Grand Total</th>
+                </tr>
+            </thead>
+            <tbody id="report-body">
+                </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="6" style="text-align: right;">TOTAL PENDAPATAN:</td>
+                    <td id="total-sum">Rp 0</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</main>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+    // Set tanggal default ke hari ini
+    window.onload = () => {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date-from').value = today;
+        document.getElementById('date-to').value = today;
+        fetchLaporan();
+    };
+
+    async function fetchLaporan() {
+        const from = document.getElementById('date-from').value + "T00:00:00";
+        const to = document.getElementById('date-to').value + "T23:59:59";
+        const method = document.getElementById('filter-method').value;
+
+        let query = supabaseClient.from('penjualan')
+            .select('*')
+            .gte('created_at', from)
+            .lte('created_at', to)
+            .order('created_at', { ascending: false });
+
+        if (method !== 'all') {
+            query = query.eq('metode_pembayaran', method);
+        }
+
+        const { data, error } = await query;
+        if (error) return alert("Gagal mengambil data");
+
+        renderTable(data);
+    }
+
+    function renderTable(data) {
+        const body = document.getElementById('report-body');
+        let totalAll = 0;
+        body.innerHTML = '';
+
+        data.forEach(item => {
+            totalAll += parseFloat(item.grand_total);
+            body.innerHTML += `
+                <tr>
+                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
+                    <td><b>${item.no_invoice}</b></td>
+                    <td>${item.metode_pembayaran}</td>
+                    <td>${parseFloat(item.subtotal).toLocaleString()}</td>
+                    <td style="color:red">${parseFloat(item.diskon_global).toLocaleString()}</td>
+                    <td>${parseFloat(item.pajak_ppn).toLocaleString()}</td>
+                    <td><b>${parseFloat(item.grand_total).toLocaleString()}</b></td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
+    }
+
+    function exportKeExcel() {
+        const table = document.getElementById("table-laporan");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Penjualan" });
+        const fileName = `Laporan_FinexPos_${document.getElementById('date-from').value}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    }
+</script>
+</body>
+</html>
