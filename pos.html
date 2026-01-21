@@ -2,39 +2,40 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Kasir Kantin</title>
+    <title>Finex Pos | Struk Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); height: 100vh; overflow: hidden; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; }
+        body { font-family: sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        nav { width: 220px; background: var(--primary); color: white; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; cursor: pointer; }
-        nav a.active { background: var(--accent); color: white; }
-
-        main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
-        .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
-        .card { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-
-        .sidebar-pos { width: 380px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
-        .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
+        /* Layouting */
+        nav { width: 220px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; }
+        main { flex: 1; padding: 20px; overflow-y: auto; }
+        .sidebar { width: 380px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        
+        /* UI Components */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; }
+        .card { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .cart-list { flex: 1; padding: 15px; overflow-y: auto; }
         .summary { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
-        .btn-pay { background: var(--success); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-pay { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
+        /* Modal */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 320px; text-align: center; }
 
-        /* AREA STRUK - KRUSIAL UNTUK FIX KOSONG */
-        #print-section { display: none; }
+        /* PRINT STYLE - PENTING AGAR TIDAK KOSONG */
+        #print-area { display: none; }
         @media print {
             body * { display: none !important; }
-            #print-section { 
+            #print-area { 
                 display: block !important; 
                 width: 58mm; 
                 font-family: monospace; 
-                font-size: 10px; 
+                padding: 10px;
                 color: black;
             }
+            #print-area hr { border: none; border-top: 1px dashed black; }
         }
     </style>
 </head>
@@ -42,160 +43,198 @@
 
     <nav>
         <h2>Finex Pos</h2>
-        <a href="dashboard.html">📊 Dashboard</a>
-        <a href="pos.html" class="active">🛒 Kasir POS</a>
-        <a onclick="doClosing()">🏁 Closing Kantin</a>
-        <div style="margin-top:auto; font-size:11px; color:#888;">KASIR: <b id="cashier-display">Admin Kantin</b></div>
+        <div id="cashier-info" style="font-size: 12px; color: #bdc3c7;">Memuat Sesi...</div>
     </nav>
 
     <main>
-        <input type="text" id="search" class="search-bar" placeholder="Cari menu..." onkeyup="loadMenu()" style="width:100%; padding:10px; margin-bottom:20px;">
-        <div id="displayMenu" class="grid-menu"></div>
+        <input type="text" id="search" placeholder="Cari menu..." onkeyup="loadMenu()" style="width:100%; padding:12px; margin-bottom:20px; border-radius:8px; border:1px solid #ddd;">
+        <div id="displayMenu" class="grid"></div>
     </main>
 
-    <aside class="sidebar-pos">
+    <aside class="sidebar">
+        <div style="padding:15px; font-weight:bold; border-bottom:1px solid #eee;">Keranjang Belanja</div>
         <div id="displayCart" class="cart-list"></div>
         <div class="summary">
-            <div>Subtotal: <span id="txt-sub">Rp 0</span></div>
-            <div>Diskon: <select id="discSelect" onchange="renderBill()"></select></div>
-            <div style="font-size: 20px; font-weight: bold;">TOTAL: <span id="txt-total">Rp 0</span></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span>Subtotal</span>
+                <span id="txt-sub">Rp 0</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span>Diskon</span>
+                <select id="discSelect" onchange="updateCalculations()"></select>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:20px; font-weight:bold; margin-bottom:15px;">
+                <span>TOTAL</span>
+                <span id="txt-total">Rp 0</span>
+            </div>
             <button class="btn-pay" onclick="openPay()">PROSES BAYAR</button>
         </div>
     </aside>
 
     <div id="payModal" class="modal">
         <div class="modal-content">
-            <h3 id="pay-total-label"></h3>
-            <input type="number" id="cashIn" placeholder="Uang Tunai" style="width:100%; padding:10px; font-size:18px;">
-            <button class="btn-pay" id="btnConfirm" onclick="saveTransaction()" style="margin-top:10px;">CETAK NOTA</button>
-            <button onclick="closePay()" style="margin-top:5px; background:none; border:none; cursor:pointer;">Batal</button>
+            <h3 id="label-total" style="color: var(--success); margin-bottom:15px;"></h3>
+            <input type="number" id="cashIn" placeholder="Jumlah Tunai" style="width:100%; padding:15px; font-size:20px; text-align:center; border:2px solid #ddd; border-radius:10px;">
+            <button id="btnConfirm" class="btn-pay" onclick="saveTransaction()" style="margin-top:15px;">CETAK & SIMPAN</button>
+            <button onclick="closePay()" style="margin-top:10px; border:none; background:none; color:gray; cursor:pointer;">Batal</button>
         </div>
     </div>
 
-    <div id="print-section"></div>
+    <div id="print-area"></div>
 
 <script>
+    // Konfigurasi Supabase
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Gunakan Key Anda
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+    const KEY_DB = 'MASUKKAN_ANON_KEY_ANDA_DISINI';
+    const supabase = window.supabase.createClient(URL_DB, KEY_DB);
 
     let cart = [];
-    let state = { sub: 0, disc: 0, taxVal: 0, total: 0 };
-    let currentLogId = null;
+    let state = { sub: 0, discVal: 0, total: 0 };
+    let activeSessionId = null;
     let isSaving = false;
 
     window.onload = async () => {
-        await checkOpening();
-        loadMenu();
-        loadDiscounts();
+        await checkSession();
+        await loadMenu();
+        await loadDiscounts();
     };
 
-    // Ambil daftar diskon dari tabel 'diskon'
+    // 1. Cek Sesi Kasir
+    async function checkSession() {
+        const { data, error } = await supabase.from('kasir_log')
+            .select('*').eq('status', 'Open').maybeSingle();
+        
+        if (data) {
+            activeSessionId = data.id;
+            document.getElementById('cashier-info').innerText = "Kasir: " + data.kasir_nama;
+        } else {
+            alert("Tidak ada sesi kasir yang terbuka!");
+            window.location.href = 'dashboard.html';
+        }
+    }
+
+    // 2. Load Diskon dari tabel diskon
     async function loadDiscounts() {
-        const { data } = await FinexDB.from('diskon').select('nama_diskon, persen');
-        let opt = '<option value="0">0%</option>';
-        if (data) opt += data.map(d => `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
-        document.getElementById('discSelect').innerHTML = opt;
+        const { data } = await supabase.from('diskon').select('nama_diskon, persen');
+        let html = '<option value="0">Tanpa Diskon</option>';
+        if (data) {
+            data.forEach(d => {
+                html += `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`;
+            });
+        }
+        document.getElementById('discSelect').innerHTML = html;
     }
 
-    async function checkOpening() {
-        const { data } = await FinexDB.from('kasir_log').select('id').eq('status', 'Open').maybeSingle();
-        if (data) currentLogId = data.id;
-        else { alert("Buka shift dulu di Dashboard!"); window.location.href='dashboard.html'; }
-    }
-
+    // 3. Simpan Transaksi ke tabel penjualan
     async function saveTransaction() {
         if (isSaving) return;
-        const cash = parseFloat(document.getElementById('cashIn').value);
-        if (cash < state.total) return alert("Uang kurang!");
+        const cash = parseFloat(document.getElementById('cashIn').value || 0);
+        
+        if (cash < state.total) return alert("Uang tunai tidak cukup!");
 
         isSaving = true;
+        const btn = document.getElementById('btnConfirm');
+        btn.innerText = "Menyimpan...";
+        
         const inv = `INV-${Date.now()}`;
         const kembali = cash - state.total;
 
         try {
-            // Simpan ke tabel penjualan sesuai kolom Anda
-            const { data: jual, error } = await FinexDB.from('penjualan').insert([{
+            // INSERT sesuai nama kolom tabel pnj.PNG
+            const { data, error } = await supabase.from('penjualan').insert([{
                 no_invoice: inv,
                 subtotal: state.sub,
-                diskon_global: state.disc,
-                pajak_ppn: 0, 
+                diskon_global: state.discVal,
+                pajak_ppn: 0,
                 grand_total: state.total,
                 bayar: cash,
                 kembali: kembali,
-                kasir_id: currentLogId,
+                kasir_id: activeSessionId,
                 metode_pembayaran: 'Tunai'
             }]).select().single();
 
             if (error) throw error;
 
-            // Render Struk ke elemen hidden
-            renderReceipt(inv, cash, kembali);
+            // Render Struk SEBELUM dibersihkan
+            renderStruk(inv, cash, kembali);
 
-            // JEDA PENTING: Memberi waktu DOM untuk render sebelum print
+            // Jeda agar DOM terupdate sebelum print
             setTimeout(() => {
                 window.print();
+                alert("Transaksi Berhasil!");
                 location.reload();
             }, 800);
 
         } catch (e) {
-            alert("Error: " + e.message);
+            alert("Gagal: " + e.message);
             isSaving = false;
+            btn.innerText = "CETAK & SIMPAN";
         }
     }
 
-    function renderReceipt(inv, bayar, kembali) {
-        let items = cart.map(i => `${i.nama_barang.padEnd(15)} x${i.qty} Rp${(i.qty*i.harga).toLocaleString()}`).join('\n');
-        
-        document.getElementById('print-section').innerHTML = `
-            <div style="text-align:center;"><b>FINEX POS</b><br>KANTIN</div>
-            <hr>
-            <pre style="white-space:pre-wrap;">
-Nota: ${inv}
-Kasir: Admin Kantin
+    function renderStruk(inv, bayar, kembali) {
+        let itemRows = cart.map(i => 
+            `${i.nama.padEnd(15)} x${i.qty} Rp${(i.qty * i.harga).toLocaleString()}`
+        ).join('\n');
+
+        document.getElementById('print-area').innerHTML = `
+            <div style="text-align:center;"><b>FINEX POS KANTIN</b><br><hr></div>
+            <pre style="white-space: pre-wrap; font-size: 11px;">
+Nota   : ${inv}
+Tanggal: ${new Date().toLocaleDateString()}
 ----------------------------
-${items}
+${itemRows}
 ----------------------------
 Subtotal: Rp${state.sub.toLocaleString()}
-Diskon  : Rp${state.disc.toLocaleString()}
+Diskon  : Rp${state.discVal.toLocaleString()}
 TOTAL   : Rp${state.total.toLocaleString()}
 BAYAR   : Rp${bayar.toLocaleString()}
 KEMBALI : Rp${kembali.toLocaleString()}
             </pre>
-            <hr>
-            <div style="text-align:center;">Terima Kasih</div>
+            <hr><div style="text-align:center;">Terima Kasih</div>
         `;
     }
 
-    // Fungsi pembantu lainnya (loadMenu, addCart, dll sama seperti sebelumnya)
+    // Fungsi Pembantu UI
     async function loadMenu() {
-        const { data } = await FinexDB.from('produk').select('*');
-        document.getElementById('displayMenu').innerHTML = data.map(p => `
-            <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
-                <b>${p.nama_barang}</b><br>Rp${p.harga_jual.toLocaleString()}
-            </div>`).join('');
+        const { data } = await supabase.from('produk').select('*').gt('stok_sekarang', 0);
+        if (data) {
+            document.getElementById('displayMenu').innerHTML = data.map(p => `
+                <div class="card" onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
+                    <div style="font-weight:bold; font-size:14px;">${p.nama_barang}</div>
+                    <div style="color:var(--success); font-size:13px;">Rp ${p.harga_jual.toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
     }
 
-    function addCart(id, nama, harga) {
-        const idx = cart.findIndex(i => i.id === id);
-        if(idx > -1) cart[idx].qty++;
-        else cart.push({ id, nama_barang: nama, harga, qty: 1 });
-        renderBill();
+    function addToCart(id, nama, harga) {
+        const exist = cart.find(c => c.id === id);
+        if (exist) exist.qty++;
+        else cart.push({ id, nama, harga, qty: 1 });
+        updateCalculations();
     }
 
-    function renderBill() {
+    function updateCalculations() {
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
         const p = parseFloat(document.getElementById('discSelect').value);
-        state.disc = (state.sub * p) / 100;
-        state.total = state.sub - state.disc;
+        state.discVal = (state.sub * p) / 100;
+        state.total = state.sub - state.discVal;
 
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-        document.getElementById('displayCart').innerHTML = cart.map(i => `<div>${i.nama_barang} x${i.qty}</div>`).join('');
+        
+        document.getElementById('displayCart').innerHTML = cart.map((i, idx) => `
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+                <span>${i.nama} (x${i.qty})</span>
+                <span>Rp ${(i.qty * i.harga).toLocaleString()}</span>
+            </div>
+        `).join('');
     }
 
     function openPay() { 
-        document.getElementById('pay-total-label').innerText = "Total: Rp " + state.total.toLocaleString();
+        if (cart.length === 0) return alert("Keranjang masih kosong!");
+        document.getElementById('label-total').innerText = "Total: Rp " + state.total.toLocaleString();
         document.getElementById('payModal').style.display = 'flex'; 
     }
     function closePay() { document.getElementById('payModal').style.display = 'none'; }
