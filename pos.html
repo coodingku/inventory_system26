@@ -8,34 +8,47 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); height: 100vh; overflow: hidden; }
         
-        /* Sidebar */
+        /* Sidebar Navigasi */
         nav { width: 220px; background: var(--primary); color: white; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
         nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; cursor: pointer; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        /* Main Content */
+        /* Area Katalog */
         main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
-        .search-bar { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px; font-size: 16px; }
-        .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
-        .card { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; border-bottom: 3px solid transparent; }
-        .card:hover { border-bottom-color: var(--accent); transform: translateY(-3px); }
+        .search-bar { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px; font-size: 16px; box-sizing: border-box; }
+        .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        .card { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-bottom: 3px solid transparent; transition: 0.2s; }
+        .card:hover { border-bottom-color: var(--accent); transform: translateY(-2px); }
 
-        /* Cart Sidebar */
+        /* Sidebar Kasir */
         .sidebar-pos { width: 380px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .cart-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; font-size: 14px; }
+        
+        /* Summary Section */
         .summary { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
-        .total-row { font-size: 22px; font-weight: bold; color: var(--primary); border-top: 2px solid #ddd; padding-top: 10px; margin-top: 10px; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .total-row { font-size: 22px; font-weight: bold; color: var(--primary); margin-top: 10px; padding-top: 10px; border-top: 2px solid #ddd; }
         .btn-pay { background: var(--success); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
         /* Modal */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 320px; text-align: center; }
-        
+
+        /* CSS KHUSUS CETAK STRUK */
         #print-section { display: none; }
-        @media print { body * { display: none !important; } #print-section { display: block !important; width: 80mm; font-family: monospace; font-size: 12px; } }
+        @media print {
+            body * { display: none !important; }
+            #print-section { 
+                display: block !important; 
+                width: 58mm; /* Ukuran standar kertas thermal kasir */
+                font-family: 'Courier New', Courier, monospace; 
+                font-size: 12px;
+                padding: 5px;
+            }
+            #print-section hr { border: none; border-top: 1px dashed #000; }
+        }
     </style>
 </head>
 <body>
@@ -46,42 +59,41 @@
         <a href="pos.html" class="active">🛒 Kasir POS</a>
         <a onclick="doClosing()">🏁 Closing Kantin</a>
         <div style="margin-top: auto;">
-            <div style="padding: 10px; font-size: 11px; color: #888;">KASIR AKTIF:<br><b id="cashier-display">Memuat...</b></div>
+            <div style="padding: 10px; font-size: 11px; color: #888;">KANTIN KASIR: <br><b id="cashier-display">Admin Kantin</b></div>
             <a onclick="logout()" style="color: var(--danger);">🚪 Keluar</a>
         </div>
     </nav>
 
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h1>Menu Kantin</h1>
-            <div id="current-time" style="font-weight: bold; color: var(--accent);"></div>
+            <h1>Kasir Kantin</h1>
+            <div id="current-time" style="color: var(--accent); font-weight: bold;"></div>
         </div>
-        <input type="text" id="search" class="search-bar" placeholder="Cari makanan atau minuman..." onkeyup="loadMenu()">
+        <input type="text" id="search" class="search-bar" placeholder="Cari menu..." onkeyup="loadMenu()">
         <div id="displayMenu" class="grid-menu"></div>
     </main>
 
     <aside class="sidebar-pos">
-        <div style="padding:20px; background:var(--primary); color:white; font-weight:bold;">Keranjang Belanja</div>
+        <div style="padding:20px; background:var(--primary); color:white; font-weight:bold;">Keranjang</div>
         <div id="displayCart" class="cart-list"></div>
-        
         <div class="summary">
             <div class="summary-row"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
             <div class="summary-row">
-                <span>Diskon Global</span>
-                <select id="discSelect" onchange="renderBill()" style="padding:4px; border-radius:4px;"></select>
+                <span>Diskon</span>
+                <select id="discSelect" onchange="renderBill()"></select>
             </div>
             <div class="summary-row" style="color:var(--danger);"><span>Potongan</span><span id="txt-disc">Rp 0</span></div>
             <div class="summary-row"><span>PPN (<span id="tax-rate">0</span>%)</span><span id="txt-tax">Rp 0</span></div>
             <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
-            <button class="btn-pay" onclick="openPay()">BAYAR SEKARANG</button>
+            <button class="btn-pay" onclick="openPay()">BAYAR</button>
         </div>
     </aside>
 
     <div id="payModal" class="modal">
         <div class="modal-content">
             <h3 id="pay-total-label" style="color: var(--success);"></h3>
-            <select id="payMethod" style="width:100%; padding:10px; margin-bottom:10px; border-radius:5px; border:1px solid #ddd;"></select>
-            <input type="number" id="cashIn" placeholder="Jumlah Bayar" style="width:100%; padding:15px; font-size:20px; text-align:center; border:2px solid #ddd; border-radius:10px;">
+            <select id="payMethod" style="width:100%; padding:10px; margin-bottom:10px;"></select>
+            <input type="number" id="cashIn" placeholder="Uang Tunai" style="width:100%; padding:15px; font-size:20px; text-align:center;">
             <button class="btn-pay" id="btnConfirm" onclick="saveTransaction()" style="margin-top:15px;">KONFIRMASI</button>
             <button onclick="closePay()" style="background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">Batal</button>
         </div>
@@ -107,7 +119,6 @@
         setInterval(() => { document.getElementById('current-time').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
     };
 
-    // --- FIX FOREIGN KEY: Memastikan ID Sesi Valid ---
     async function checkOpening() {
         const { data: activeLog } = await FinexDB.from('kasir_log')
             .select('id').eq('kasir_nama', cashierName).eq('status', 'Open').maybeSingle();
@@ -115,7 +126,6 @@
         if (!activeLog) {
             let modal = prompt("OPENING KANTIN: Masukkan Saldo Awal:", "0");
             if (modal === null) { window.location.href = 'dashboard.html'; return; }
-            
             const { data: newLog, error } = await FinexDB.from('kasir_log').insert([{
                 tanggal: new Date().toISOString().split('T')[0],
                 waktu_buka: new Date().toISOString(),
@@ -123,34 +133,30 @@
                 status: 'Open',
                 kasir_nama: cashierName
             }]).select().single();
-            
             if (error) { alert("Gagal Sinkron: " + error.message); return; }
             currentLogId = newLog.id;
         } else {
             currentLogId = activeLog.id;
         }
         document.getElementById('cashier-display').innerText = cashierName;
-        console.log("Session ID Loaded:", currentLogId);
     }
 
-    // --- ANTI-DUPLIKAT & SAVE DATA ---
+    // --- FUNGSI UTAMA: SAVE & PRINT ---
     async function saveTransaction() {
         if (isSaving) return;
-        if (!currentLogId) return alert("Sesi Kasir Error! Harap Refresh.");
+        if (!currentLogId) return alert("Sesi Kasir Tidak Valid!");
 
         const cash = parseFloat(document.getElementById('cashIn').value);
-        if(isNaN(cash) || cash < state.total) return alert("Uang pembayaran tidak cukup!");
+        if(isNaN(cash) || cash < state.total) return alert("Uang pembayaran kurang!");
 
         isSaving = true;
         const btn = document.getElementById('btnConfirm');
-        btn.innerText = "Menyimpan...";
-        btn.disabled = true;
-
-        // Gunakan timestamp milidetik agar no_invoice BENAR-BENAR unik (Cegah 409 Conflict)
+        btn.innerText = "Processing...";
+        
         const inv = `INV-${Date.now()}`;
 
         try {
-            // 1. Simpan Header
+            // 1. Simpan Header Penjualan
             const { data: jual, error: errJual } = await FinexDB.from('penjualan').insert([{
                 no_invoice: inv,
                 subtotal: state.sub,
@@ -159,7 +165,7 @@
                 grand_total: state.total,
                 bayar: cash,
                 metode_pembayaran: document.getElementById('payMethod').value,
-                kasir_id: currentLogId // Pastikan FK di Supabase sudah benar merujuk ke kasir_log
+                kasir_id: currentLogId 
             }]).select().single();
 
             if (errJual) throw errJual;
@@ -177,53 +183,64 @@
                 await FinexDB.rpc('kurangi_stok', { row_id: item.id, jml_kurang: item.qty });
             }
 
-            // 3. Cetak Struk
+            // 3. RENDER STRUK (Dilakukan SEBELUM variabel cart dihapus)
             renderReceipt(inv, cash);
-            alert("Transaksi Berhasil Disimpan!");
-            window.print();
-            location.reload();
+
+            // 4. BERIKAN JEDA UNTUK RENDER LALU PRINT
+            setTimeout(() => {
+                window.print();
+                alert("Transaksi Selesai!");
+                location.reload(); 
+            }, 700);
 
         } catch (e) {
             alert("Gagal Simpan: " + e.message);
-            console.error(e);
-        } finally {
             isSaving = false;
             btn.innerText = "KONFIRMASI";
-            btn.disabled = false;
         }
     }
 
-    // --- CLOSING KANTIN ---
-    async function doClosing() {
-        if (!confirm("Tutup shift kantin sekarang?")) return;
-        
-        const { data: sales } = await FinexDB.from('penjualan').select('grand_total').eq('kasir_id', currentLogId).eq('metode_pembayaran', 'Tunai');
-        const systemCash = (sales || []).reduce((acc, s) => acc + parseFloat(s.grand_total), 0);
-        
-        let physical = prompt(`Tunai di Sistem: Rp ${systemCash.toLocaleString()}\nMasukkan Uang Fisik di Laci:`, "0");
-        if (physical === null) return;
+    // --- RENDER STRUK DETAIL ---
+    function renderReceipt(inv, bayar) {
+        const tgl = new Date().toLocaleString('id-ID');
+        let itemsStr = cart.map(i => {
+            return `${i.nama_barang}\n  ${i.qty} x ${i.harga_satuan.toLocaleString()} = ${(i.qty * i.harga_satuan).toLocaleString()}`;
+        }).join('\n');
 
-        const { error } = await FinexDB.from('kasir_log').update({
-            waktu_tutup: new Date().toISOString(),
-            total_tunai_sistem: systemCash,
-            total_tunai_fisik: parseFloat(physical),
-            selisih: parseFloat(physical) - systemCash,
-            status: 'Closed'
-        }).eq('id', currentLogId);
-
-        if(!error) { alert("Shift ditutup. Kembali ke dashboard."); window.location.href = 'dashboard.html'; }
+        const strukHTML = `
+            <div style="text-align:center;">
+                <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+                ----------------------------<br>
+            </div>
+            <pre style="font-family:monospace; margin:0;">
+No. Nota: ${inv}
+Kasir   : ${cashierName}
+Tanggal : ${tgl}
+----------------------------
+${itemsStr}
+----------------------------
+Subtotal: Rp ${state.sub.toLocaleString()}
+Diskon  : Rp ${state.disc.toLocaleString()}
+PPN     : Rp ${state.taxVal.toLocaleString()}
+TOTAL   : Rp ${state.total.toLocaleString()}
+BAYAR   : Rp ${bayar.toLocaleString()}
+KEMBALI : Rp ${(bayar - state.total).toLocaleString()}
+            </pre>
+            <div style="text-align:center;">
+                <br>Terima Kasih Atas<br>Kunjungan Anda
+            </div>
+        `;
+        document.getElementById('print-section').innerHTML = strukHTML;
     }
 
-    // --- INTEGRASI DISKON & SETTINGS ---
+    // --- SISANYA FUNGSI STANDAR ---
     async function getSettings() {
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('nama_metode');
         if (mtd) document.getElementById('payMethod').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
-        
         const { data: pjk } = await FinexDB.from('ppn').select('nilai').maybeSingle();
         if (pjk) { state.taxRate = pjk.nilai; document.getElementById('tax-rate').innerText = pjk.nilai; }
-
         const { data: dsk } = await FinexDB.from('diskon').select('nama_diskon, persen');
-        let opt = '<option value="0">Tanpa Diskon</option>';
+        let opt = '<option value="0">Pilih Diskon (0%)</option>';
         if (dsk) opt += dsk.map(d => `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
         document.getElementById('discSelect').innerHTML = opt;
     }
@@ -235,8 +252,8 @@
         const { data } = await req;
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
-                <strong style="font-size:14px;">${p.nama_barang}</strong><br>
-                <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
+                <strong>${p.nama_barang}</strong><br>
+                <span style="color:var(--success);">Rp ${p.harga_jual.toLocaleString()}</span>
             </div>`).join('');
     }
 
@@ -259,27 +276,32 @@
         document.getElementById('txt-tax').innerText = "Rp " + state.taxVal.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
         
-        document.getElementById('displayCart').innerHTML = cart.length === 0 ? '<p style="text-align:center; color:gray; margin-top:20px;">Kosong</p>' : 
-        cart.map((item, i) => `
+        document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
             <div class="cart-item">
                 <span>${item.nama_barang} (x${item.qty})</span>
-                <span>Rp ${(item.qty * item.harga_satuan).toLocaleString()} <b onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:5px;">×</b></span>
+                <span>Rp ${(item.qty * item.harga_satuan).toLocaleString()} <b onclick="delItem(${i})" style="color:red; cursor:pointer;">×</b></span>
             </div>`).join('');
-    }
-
-    function renderReceipt(inv, bayar) {
-        let items = cart.map(i => `${i.nama_barang.padEnd(15)} x${i.qty}  Rp${(i.qty*i.harga_satuan).toLocaleString()}`).join('\n');
-        document.getElementById('print-section').innerHTML = `
-            <div style="text-align:center;"><b>FINEX POS KANTIN</b><hr></div>
-            <pre>${inv}\nKasir: ${cashierName}\n---\n${items}\n---\nTOTAL: Rp${state.total.toLocaleString()}\nBAYAR: Rp${bayar.toLocaleString()}\nKEMBALI: Rp${(bayar-state.total).toLocaleString()}</pre>
-            <div style="text-align:center;"><hr>Terima Kasih</div>
-        `;
     }
 
     function delItem(i) { cart.splice(i, 1); renderBill(); }
     function openPay() { if(cart.length > 0) { document.getElementById('pay-total-label').innerText = "Total: Rp " + state.total.toLocaleString(); document.getElementById('payModal').style.display = 'flex'; } }
     function closePay() { document.getElementById('payModal').style.display = 'none'; }
-    function logout() { if(confirm("Keluar?")) window.location.href = 'login.html'; }
+    function logout() { window.location.href = 'login.html'; }
+    async function doClosing() {
+        if (!confirm("Tutup shift?")) return;
+        const { data: sales } = await FinexDB.from('penjualan').select('grand_total').eq('kasir_id', currentLogId).eq('metode_pembayaran', 'Tunai');
+        const systemCash = (sales || []).reduce((acc, s) => acc + parseFloat(s.grand_total), 0);
+        let physical = prompt(`Sistem: Rp ${systemCash.toLocaleString()}\nFisik:`, "0");
+        if (physical === null) return;
+        await FinexDB.from('kasir_log').update({
+            waktu_tutup: new Date().toISOString(),
+            total_tunai_sistem: systemCash,
+            total_tunai_fisik: parseFloat(physical),
+            selisih: parseFloat(physical) - systemCash,
+            status: 'Closed'
+        }).eq('id', currentLogId);
+        window.location.href = 'dashboard.html';
+    }
 </script>
 </body>
 </html>
