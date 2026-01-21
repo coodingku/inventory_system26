@@ -15,31 +15,27 @@
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         .nav-group-title { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; }
 
-        /* Area Katalog Tengah */
+        /* Konten Tengah */
         main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
         .search-bar { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px; font-size: 16px; box-sizing: border-box; }
         .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
-        .card { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-bottom: 3px solid transparent; transition: 0.2s; }
+        .card { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; border-bottom: 3px solid transparent; }
         .card:hover { border-bottom-color: var(--accent); transform: translateY(-2px); }
 
-        /* Sidebar Kasir Kanan */
-        .sidebar-pos { width: 380px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; box-shadow: -2px 0 10px rgba(0,0,0,0.05); }
-        .sidebar-header { padding: 20px; background: var(--primary); color: white; font-weight: bold; display: flex; justify-content: space-between; }
+        /* Sidebar Transaksi Kanan */
+        .sidebar-pos { width: 380px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; background: var(--primary); color: white; font-weight: bold; }
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
         .cart-item { display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; font-size: 14px; }
         
-        /* Summary Section */
         .summary { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
         .total-row { font-size: 22px; font-weight: bold; color: var(--primary); margin-top: 10px; padding-top: 10px; border-top: 2px solid #ddd; }
-        .btn-pay { background: var(--success); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-pay { background: var(--success); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
         /* Modal */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 350px; text-align: center; }
-        
-        #print-section { display: none; }
-        @media print { body * { display: none !important; } #print-section { display: block !important; width: 80mm; font-family: monospace; } }
     </style>
 </head>
 <body>
@@ -49,10 +45,9 @@
         <div class="nav-group-title">Menu Utama</div>
         <a href="index.html">📊 Dashboard</a>
         <a href="pos.html" class="active">🛒 Kasir POS</a>
-        <a onclick="closingKasir()">🏁 Closing Kasir</a>
-        
+        <a onclick="handleClosing()">🏁 Closing Kasir</a>
         <div style="margin-top: auto;">
-            <div style="padding: 10px; font-size: 11px; color: #888;">KASIR AKTIF: <br><b id="user-display">Admin</b></div>
+            <div style="padding: 10px; font-size: 11px; color: #888;">USER: <b id="user-display">Admin</b></div>
             <hr style="border: 0.5px solid #555; margin-bottom: 10px;">
             <a onclick="logout()" style="color: var(--danger);">🚪 Keluar</a>
         </div>
@@ -68,195 +63,168 @@
     </main>
 
     <aside class="sidebar-pos">
-        <div class="sidebar-header">
-            <span>Keranjang</span>
-            <span id="item-count" style="font-size: 12px; background: var(--accent); padding: 2px 8px; border-radius: 10px;">0</span>
-        </div>
+        <div class="sidebar-header">Item Pesanan</div>
         <div id="displayCart" class="cart-list"></div>
-        
         <div class="summary">
             <div class="summary-row"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
-            <div class="summary-row">
-                <span>Diskon (%)</span>
-                <select id="discSelect" onchange="calculate()" style="padding:2px; border-radius:4px;"></select>
-            </div>
-            <div class="summary-row" style="color:var(--danger)"><span>Potongan</span><span id="txt-disc">Rp 0</span></div>
-            <div class="summary-row"><span>PPN (<span id="tax-rate">0</span>%)</span><span id="txt-tax">Rp 0</span></div>
+            <div class="summary-row"><span>Diskon</span><span id="txt-disc">Rp 0</span></div>
+            <div class="summary-row"><span>PPN</span><span id="txt-tax">Rp 0</span></div>
             <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
-            <button class="btn-pay" onclick="openPay()">BAYAR SEKARANG</button>
+            <button class="btn-pay" onclick="openPay()">BAYAR</button>
         </div>
     </aside>
 
     <div id="payModal" class="modal">
         <div class="modal-content">
-            <h2 id="modal-total" style="color: var(--success);"></h2>
+            <h2 id="modal-total"></h2>
             <select id="payMethod" style="width:100%; padding:10px; margin-bottom:10px;"></select>
-            <input type="number" id="cashIn" placeholder="Uang Bayar" style="width:100%; padding:15px; font-size:20px; text-align:center; border:2px solid #ddd; border-radius:8px;">
-            <button class="btn-pay" onclick="submitTransaction()">PROSES & CETAK</button>
+            <input type="number" id="cashIn" placeholder="Uang Tunai" style="width:100%; padding:15px; font-size:20px; text-align:center; border:1px solid #ddd;">
+            <button class="btn-pay" style="margin-top:15px;" onclick="submitTransaction()">PROSES</button>
             <button onclick="closePay()" style="background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">Batal</button>
         </div>
     </div>
 
-    <div id="print-section"></div>
-
 <script>
-// 1. Inisialisasi Supabase (Cukup SATU kali deklarasi)
-const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    // --- KONFIGURASI SUPABASE (Hanya Satu Deklarasi) ---
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
-// 2. State Global
-let cart = [];
-let state = { sub: 0, disc: 0, taxRate: 0, taxVal: 0, total: 0 };
-let currentLogId = null; 
-const namaKasir = "Admin Kantin"; 
+    let cart = [];
+    let state = { sub: 0, disc: 0, taxRate: 0, taxVal: 0, total: 0 };
+    let currentLogId = null; 
+    const namaKasir = "Admin Kantin"; 
 
-// 3. Fungsi Utama saat Load
-window.onload = async () => {
-    await checkOpening();
-    loadMenu();
-    getSettings();
-    setInterval(() => { 
-        const clockEl = document.getElementById('clock');
-        if(clockEl) clockEl.innerText = new Date().toLocaleTimeString('id-ID'); 
-    }, 1000);
-};
+    window.onload = async () => {
+        await checkOpening();
+        loadMenu();
+        getSettings();
+        setInterval(() => { 
+            const clock = document.getElementById('clock');
+            if(clock) clock.innerText = new Date().toLocaleTimeString('id-ID'); 
+        }, 1000);
+    };
 
-// 4. Fitur Opening (Menggunakan tabel kasir_log)
-async function checkOpening() {
-    try {
+    // --- FITUR OPENING ---
+    async function checkOpening() {
         const { data: log } = await supabase.from('kasir_log')
             .select('*').eq('kasir_nama', namaKasir).eq('status', 'Open').maybeSingle();
 
         if (!log) {
-            let modal = prompt("LOG KASIR BELUM DIBUKA\nMasukkan Saldo Awal (Modal):", "0");
+            let modal = prompt("OPENING KASIR\nMasukkan Saldo Awal (Uang Tunai):", "0");
             if (modal === null) { window.location.href = 'index.html'; return; }
             
-            const { data: newLog, error } = await supabase.from('kasir_log').insert([{
+            const { data: newLog } = await supabase.from('kasir_log').insert([{
                 tanggal: new Date().toISOString().split('T')[0],
                 waktu_buka: new Date().toISOString(),
                 saldo_awal: parseFloat(modal),
                 status: 'Open',
                 kasir_nama: namaKasir
             }]).select().single();
-            
-            if(newLog) currentLogId = newLog.id;
+            currentLogId = newLog.id;
         } else {
             currentLogId = log.id;
         }
         document.getElementById('user-display').innerText = namaKasir;
-    } catch (err) {
-        console.error("Gagal memproses opening:", err);
-    }
-}
-
-// 5. Fitur Closing (Mencatat detail ke kasir_log)
-async function closingKasir() {
-    if (!currentLogId) return alert("Sesi kasir tidak aktif!");
-    if (!confirm("Akhiri shift dan lakukan Closing sekarang?")) return;
-
-    // Ambil semua transaksi tunai untuk sesi ini
-    const { data: sales } = await supabase.from('penjualan')
-        .select('grand_total, metode_pembayaran')
-        .eq('kasir_id', currentLogId);
-
-    let totalTunaiSistem = 0;
-    if(sales) {
-        totalTunaiSistem = sales
-            .filter(s => s.metode_pembayaran === 'Tunai')
-            .reduce((acc, curr) => acc + parseFloat(curr.grand_total), 0);
     }
 
-    let fisik = prompt(`CLOSING SHIFT\nTotal Tunai Sistem: Rp ${totalTunaiSistem.toLocaleString()}\n\nMASUKKAN TOTAL TUNAI FISIK:`, "0");
-    if (fisik === null) return;
+    // --- FITUR CLOSING ---
+    async function handleClosing() {
+        if (!confirm("Akhiri shift dan hitung uang fisik?")) return;
 
-    const tunaiFisik = parseFloat(fisik);
-    const selisih = tunaiFisik - totalTunaiSistem;
+        // Hitung total tunai di sistem dari tabel penjualan
+        const { data: sales } = await supabase.from('penjualan')
+            .select('grand_total, metode_pembayaran')
+            .eq('kasir_id', currentLogId);
 
-    const { error } = await supabase.from('kasir_log').update({
-        waktu_tutup: new Date().toISOString(),
-        total_tunai_sistem: totalTunaiSistem,
-        total_tunai_fisik: tunaiFisik,
-        selisih: selisih,
-        status: 'Closed'
-    }).eq('id', currentLogId);
+        let tunaiSistem = 0;
+        sales?.forEach(s => { if(s.metode_pembayaran === 'Tunai') tunaiSistem += parseFloat(s.grand_total); });
 
-    if(!error) {
-        alert("Closing Berhasil! Sesi telah ditutup.");
-        window.location.href = 'index.html';
+        let fisik = prompt(`CLOSING\nTotal Tunai Sistem: Rp ${tunaiSistem.toLocaleString()}\n\nMASUKKAN TOTAL UANG FISIK:`, "0");
+        if (fisik === null) return;
+
+        const tunaiFisik = parseFloat(fisik);
+        const selisih = tunaiFisik - tunaiSistem;
+
+        const { error } = await supabase.from('kasir_log').update({
+            waktu_tutup: new Date().toISOString(),
+            total_tunai_sistem: tunaiSistem,
+            total_tunai_fisik: tunaiFisik,
+            selisih: selisih,
+            status: 'Closed'
+        }).eq('id', currentLogId);
+
+        if(!error) { alert("Closing Berhasil!"); window.location.href = 'index.html'; }
     }
-}
 
-// 6. Fungsi Katalog & Kasir (Pastikan nama fungsi sesuai dengan yang dipanggil HTML)
-async function loadMenu() {
-    const { data: products } = await supabase.from('produk').select('*').gt('stok_sekarang', 0);
-    const displayMenu = document.getElementById('displayMenu');
-    if(displayMenu) {
-        displayMenu.innerHTML = (products || []).map(p => `
+    // --- LOGIKA KASIR ---
+    async function getSettings() {
+        const { data: mtd } = await supabase.from('metode_pembayaran').select('*');
+        document.getElementById('payMethod').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
+        const { data: pjk } = await supabase.from('ppn').select('nilai').maybeSingle();
+        if (pjk) state.taxRate = pjk.nilai;
+    }
+
+    async function loadMenu() {
+        const key = document.getElementById('search').value;
+        let q = supabase.from('produk').select('*').gt('stok_sekarang', 0);
+        if(key) q = q.ilike('nama_barang', `%${key}%`);
+        const { data } = await q;
+        document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
             <div class="card" onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
                 <b>${p.nama_barang}</b><br>
-                <span>Rp ${p.harga_jual.toLocaleString()}</span>
+                <span style="color:var(--success)">Rp ${p.harga_jual.toLocaleString()}</span>
             </div>`).join('');
     }
-}
 
-function addToCart(id, nama, harga) {
-    const item = cart.find(i => i.id === id);
-    if(item) item.qty++; 
-    else cart.push({ id, nama_barang: nama, harga_satuan: harga, qty: 1 });
-    renderCart();
-}
-
-function renderCart() {
-    state.sub = cart.reduce((a, b) => a + (b.qty * b.harga_satuan), 0);
-    state.total = state.sub; // Sederhanakan tanpa pajak/diskon untuk tes
-    document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-    
-    document.getElementById('displayCart').innerHTML = cart.map(i => `
-        <div class="cart-item">
-            <span>${i.nama_barang} x${i.qty}</span>
-            <span>Rp ${(i.qty * i.harga_satuan).toLocaleString()}</span>
-        </div>`).join('');
-}
-
-function openPay() { 
-    if(cart.length === 0) return alert("Keranjang kosong!");
-    document.getElementById('modal-total').innerText = "Total: Rp " + state.total.toLocaleString();
-    document.getElementById('payModal').style.display = 'flex'; 
-}
-
-function closePay() { document.getElementById('payModal').style.display = 'none'; }
-
-async function submitTransaction() {
-    const cash = parseFloat(document.getElementById('cashIn').value || 0);
-    const method = document.getElementById('payMethod').value;
-    
-    // Simpan ke tabel penjualan
-    const { data: jual } = await supabase.from('penjualan').insert([{
-        no_invoice: `INV-${Date.now()}`,
-        grand_total: state.total,
-        metode_pembayaran: method,
-        kasir_id: currentLogId, // Relasi ke kasir_log
-        bayar: cash
-    }]).select().single();
-
-    // Simpan detail
-    for(let itm of cart) {
-        await supabase.from('penjualan_detail').insert([{
-            penjualan_id: jual.id,
-            produk_id: itm.id,
-            nama_barang: itm.nama_barang,
-            harga_satuan: itm.harga_satuan,
-            qty: itm.qty,
-            subtotal_item: itm.qty * itm.harga_satuan
-        }]);
+    function addToCart(id, nama, harga) {
+        const item = cart.find(i => i.id === id);
+        if(item) item.qty++; else cart.push({ id, nama_barang: nama, harga_satuan: harga, qty: 1 });
+        renderCart();
     }
 
-    alert("Transaksi Berhasil!");
-    location.reload();
-}
+    function renderCart() {
+        state.sub = cart.reduce((a, b) => a + (b.qty * b.harga_satuan), 0);
+        state.taxVal = Math.round(state.sub * (state.taxRate / 100));
+        state.total = state.sub + state.taxVal;
 
-function logout() { if(confirm("Keluar dari Finex Pos?")) window.location.href='login.html'; }
+        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
+        document.getElementById('txt-tax').innerText = "Rp " + state.taxVal.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
+        document.getElementById('displayCart').innerHTML = cart.map(i => `
+            <div class="cart-item"><span>${i.nama_barang} x${i.qty}</span><span>Rp ${(i.qty*i.harga_satuan).toLocaleString()}</span></div>
+        `).join('');
+    }
+
+    function openPay() { 
+        if(!cart.length) return;
+        document.getElementById('modal-total').innerText = "Total: Rp " + state.total.toLocaleString();
+        document.getElementById('payModal').style.display = 'flex'; 
+    }
+    function closePay() { document.getElementById('payModal').style.display = 'none'; }
+
+    async function submitTransaction() {
+        const method = document.getElementById('payMethod').value;
+        const { data: jual } = await supabase.from('penjualan').insert([{
+            no_invoice: `INV-${Date.now()}`,
+            grand_total: state.total,
+            pajak_ppn: state.taxVal,
+            metode_pembayaran: method,
+            kasir_id: currentLogId,
+            bayar: parseFloat(document.getElementById('cashIn').value || 0)
+        }]).select().single();
+
+        for(let itm of cart) {
+            await supabase.from('penjualan_detail').insert([{
+                penjualan_id: jual.id, produk_id: itm.id, nama_barang: itm.nama_barang,
+                harga_satuan: itm.harga_satuan, qty: itm.qty, subtotal_item: itm.qty * itm.harga_satuan
+            }]);
+            await supabase.rpc('kurangi_stok', { row_id: itm.id, jml_kurang: itm.qty });
+        }
+        alert("Berhasil!"); location.reload();
+    }
+
+    function logout() { if(confirm("Keluar?")) window.location.href='login.html'; }
 </script>
 </body>
 </html>
