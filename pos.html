@@ -77,18 +77,18 @@
     <div id="payModal" class="modal">
         <div class="modal-content">
             <h2 id="modal-total"></h2>
-            <select id="payMethod" style="width:100%; padding:10px; margin-bottom:10px;"></select>
-            <input type="number" id="cashIn" placeholder="Uang Tunai" style="width:100%; padding:15px; font-size:20px; text-align:center; border:1px solid #ddd;">
+            <select id="payMethod" style="width:100%; padding:10px; margin-bottom:10px; border-radius: 5px;"></select>
+            <input type="number" id="cashIn" placeholder="Uang Tunai" style="width:100%; padding:15px; font-size:20px; text-align:center; border:1px solid #ddd; border-radius: 8px;">
             <button class="btn-pay" style="margin-top:15px;" onclick="submitTransaction()">PROSES</button>
             <button onclick="closePay()" style="background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">Batal</button>
         </div>
     </div>
 
 <script>
-    // --- KONFIGURASI SUPABASE (Hanya Satu Deklarasi) ---
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    // --- KONFIGURASI SUPABASE (HANYA ADA SATU DI SINI) ---
+    const URL_SUPA = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_SUPA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabase = window.supabase.createClient(URL_SUPA, KEY_SUPA);
 
     let cart = [];
     let state = { sub: 0, disc: 0, taxRate: 0, taxVal: 0, total: 0 };
@@ -114,13 +114,15 @@
             let modal = prompt("OPENING KASIR\nMasukkan Saldo Awal (Uang Tunai):", "0");
             if (modal === null) { window.location.href = 'index.html'; return; }
             
-            const { data: newLog } = await supabase.from('kasir_log').insert([{
+            const { data: newLog, error } = await supabase.from('kasir_log').insert([{
                 tanggal: new Date().toISOString().split('T')[0],
                 waktu_buka: new Date().toISOString(),
                 saldo_awal: parseFloat(modal),
                 status: 'Open',
                 kasir_nama: namaKasir
             }]).select().single();
+            
+            if(error) { alert("Gagal buka kasir: " + error.message); return; }
             currentLogId = newLog.id;
         } else {
             currentLogId = log.id;
@@ -130,9 +132,9 @@
 
     // --- FITUR CLOSING ---
     async function handleClosing() {
-        if (!confirm("Akhiri shift dan hitung uang fisik?")) return;
+        if (!currentLogId) return alert("Sesi kasir tidak ditemukan!");
+        if (!confirm("Akhiri shift dan hitung uang fisik sekarang?")) return;
 
-        // Hitung total tunai di sistem dari tabel penjualan
         const { data: sales } = await supabase.from('penjualan')
             .select('grand_total, metode_pembayaran')
             .eq('kasir_id', currentLogId);
@@ -140,7 +142,7 @@
         let tunaiSistem = 0;
         sales?.forEach(s => { if(s.metode_pembayaran === 'Tunai') tunaiSistem += parseFloat(s.grand_total); });
 
-        let fisik = prompt(`CLOSING\nTotal Tunai Sistem: Rp ${tunaiSistem.toLocaleString()}\n\nMASUKKAN TOTAL UANG FISIK:`, "0");
+        let fisik = prompt(`CLOSING\nTotal Tunai Sistem: Rp ${tunaiSistem.toLocaleString()}\n\nMASUKKAN TOTAL UANG FISIK DI LACI:`, "0");
         if (fisik === null) return;
 
         const tunaiFisik = parseFloat(fisik);
@@ -155,12 +157,14 @@
         }).eq('id', currentLogId);
 
         if(!error) { alert("Closing Berhasil!"); window.location.href = 'index.html'; }
+        else { alert("Error saat closing: " + error.message); }
     }
 
     // --- LOGIKA KASIR ---
     async function getSettings() {
         const { data: mtd } = await supabase.from('metode_pembayaran').select('*');
-        document.getElementById('payMethod').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
+        if(mtd) document.getElementById('payMethod').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
+        
         const { data: pjk } = await supabase.from('ppn').select('nilai').maybeSingle();
         if (pjk) state.taxRate = pjk.nilai;
     }
@@ -170,11 +174,14 @@
         let q = supabase.from('produk').select('*').gt('stok_sekarang', 0);
         if(key) q = q.ilike('nama_barang', `%${key}%`);
         const { data } = await q;
-        document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
-            <div class="card" onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
-                <b>${p.nama_barang}</b><br>
-                <span style="color:var(--success)">Rp ${p.harga_jual.toLocaleString()}</span>
-            </div>`).join('');
+        const menuBox = document.getElementById('displayMenu');
+        if(menuBox) {
+            menuBox.innerHTML = (data || []).map(p => `
+                <div class="card" onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
+                    <b>${p.nama_barang}</b><br>
+                    <span style="color:var(--success)">Rp ${p.harga_jual.toLocaleString()}</span>
+                </div>`).join('');
+        }
     }
 
     function addToCart(id, nama, harga) {
@@ -191,28 +198,40 @@
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
         document.getElementById('txt-tax').innerText = "Rp " + state.taxVal.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-        document.getElementById('displayCart').innerHTML = cart.map(i => `
-            <div class="cart-item"><span>${i.nama_barang} x${i.qty}</span><span>Rp ${(i.qty*i.harga_satuan).toLocaleString()}</span></div>
-        `).join('');
+        
+        const cartBox = document.getElementById('displayCart');
+        if(cartBox) {
+            cartBox.innerHTML = cart.map((i, index) => `
+                <div class="cart-item">
+                    <span>${i.nama_barang} x${i.qty}</span>
+                    <span>Rp ${(i.qty*i.harga_satuan).toLocaleString()} <b onclick="cart.splice(${index},1);renderCart();" style="color:red;cursor:pointer">×</b></span>
+                </div>
+            `).join('');
+        }
     }
 
     function openPay() { 
-        if(!cart.length) return;
+        if(!cart.length) return alert("Pilih produk dulu!");
         document.getElementById('modal-total').innerText = "Total: Rp " + state.total.toLocaleString();
         document.getElementById('payModal').style.display = 'flex'; 
     }
     function closePay() { document.getElementById('payModal').style.display = 'none'; }
 
     async function submitTransaction() {
+        if(!currentLogId) return alert("Sesi kasir tidak aktif!");
         const method = document.getElementById('payMethod').value;
-        const { data: jual } = await supabase.from('penjualan').insert([{
+        const cashInValue = parseFloat(document.getElementById('cashIn').value || 0);
+
+        const { data: jual, error: errJual } = await supabase.from('penjualan').insert([{
             no_invoice: `INV-${Date.now()}`,
             grand_total: state.total,
             pajak_ppn: state.taxVal,
             metode_pembayaran: method,
             kasir_id: currentLogId,
-            bayar: parseFloat(document.getElementById('cashIn').value || 0)
+            bayar: cashInValue
         }]).select().single();
+
+        if(errJual) { alert("Gagal Simpan Penjualan: " + errJual.message); return; }
 
         for(let itm of cart) {
             await supabase.from('penjualan_detail').insert([{
@@ -221,10 +240,11 @@
             }]);
             await supabase.rpc('kurangi_stok', { row_id: itm.id, jml_kurang: itm.qty });
         }
-        alert("Berhasil!"); location.reload();
+        alert("Transaksi Berhasil!"); 
+        location.reload();
     }
 
-    function logout() { if(confirm("Keluar?")) window.location.href='login.html'; }
+    function logout() { if(confirm("Keluar dari Finex Pos?")) window.location.href='login.html'; }
 </script>
 </body>
 </html>
