@@ -2,252 +2,251 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POS System | Manajemen Produk Lengkap</title>
+    <title>Finex Pos | Master Produk</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #f4f7f6; }
-        nav { width: 200px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: white; text-decoration: none; display: block; margin-bottom: 15px; }
-        main { flex: 1; margin-left: 240px; padding: 30px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 15px; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 100%; box-sizing: border-box; }
-        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
-        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
-        th { background: #f8f9fa; }
-        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
-        .btn-save { background: #27ae60; }
-        .btn-export { background: #3498db; }
-        .btn-import { background: #f39c12; }
-        .btn-edit { background: #f1c40f; color: black; padding: 5px 8px; }
-        .btn-delete { background: #e74c3c; padding: 5px 8px; }
-        .search-box { width: 100%; padding: 12px; margin-bottom: 20px; border: 2px solid #3498db; border-radius: 8px; font-size: 16px; }
-        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f1c40f; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
+        
+        /* Sidebar */
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        /* Action Bar */
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .search-box { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; min-width: 250px; }
+        
+        /* Buttons */
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .btn-add { background: var(--accent); color: white; }
+        .btn-export { background: #607d8b; color: white; }
+        .btn-import { background: #8e44ad; color: white; }
+        .btn-template { background: #95a5a6; color: white; }
+        .btn:hover { opacity: 0.9; }
+
+        /* Table */
+        .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; position: relative; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
     </style>
 </head>
 <body>
-   <nav>
+
+<nav>
     <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
-        <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="adjusment.html">🔄Adjusment Stok</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-              <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">Laporan</div>
-        <a href="laporan-penjualan.html">📑 Laporan Penjualan</a>
-        <a href="closing.html">🏁 Closing Shift</a>
-    </div>
-    
+    <a href="index.html">📊 Dashboard</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
+    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
+    <a href="produk.html" class="active">📦 Produk</a>
+    <a href="kategori.html">📁 Kategori</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="pos.html" style="background: var(--success); color: white; text-align:center;">🛒 Kasir</a>
 </nav>
-    <main>
-        <h1>Manajemen Produk</h1>
 
-        <div class="card">
-            <h3>➕ Tambah / Edit Produk</h3>
-            <div class="form-row">
-                <input type="hidden" id="edit-id"> <input type="text" id="kode" placeholder="Kode Barang">
-                <input type="text" id="nama" placeholder="Nama Barang">
-                <select id="sel-kategori"><option value="">-- Kategori --</option></select>
-                <select id="sel-gudang"><option value="">-- Gudang --</option></select>
-                <input type="number" id="harga" placeholder="Harga Jual">
-                <input type="number" id="stok" placeholder="Stok">
+<main>
+    <div class="header-section">
+        <h1>📦 Daftar Produk Kantin</h1>
+        <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
+    </div>
+
+    <div class="action-bar">
+        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk atau barcode..." onkeyup="filterProduk()">
+        <button class="btn btn-template" onclick="downloadTemplate()">📄 Template</button>
+        <button class="btn btn-export" onclick="exportExcel()">📥 Export</button>
+        <label class="btn btn-import">
+            📤 Import
+            <input type="file" id="importFile" hidden accept=".xlsx, .xls" onchange="importExcel(event)">
+        </label>
+    </div>
+
+    <div class="card-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Barcode</th>
+                    <th>Nama Produk</th>
+                    <th>Kategori</th>
+                    <th>Harga Jual</th>
+                    <th>Stok</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="product-list">
+                </tbody>
+        </table>
+    </div>
+</main>
+
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle" style="margin-top:0">Tambah Produk</h3>
+        <form id="productForm">
+            <input type="hidden" id="prod-id">
+            <div class="form-group">
+                <label>Kode / Barcode</label>
+                <input type="text" id="prod-kode" placeholder="Misal: 899..." required>
             </div>
-            <button class="btn btn-save" id="btn-aksi" onclick="simpanProduk()">Simpan Produk</button>
-            <button class="btn" id="btn-batal" style="background:#95a5a6; display:none;" onclick="resetForm()">Batal</button>
-        </div>
+            <div class="form-group">
+                <label>Nama Produk</label>
+                <input type="text" id="prod-nama" placeholder="Misal: Nasi Goreng" required>
+            </div>
+            <div class="form-group">
+                <label>Kategori</label>
+                <select id="prod-kategori">
+                    <option value="Makanan">Makanan</option>
+                    <option value="Minuman">Minuman</option>
+                    <option value="Snack">Snack</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Harga Jual</label>
+                <input type="number" id="prod-harga" required>
+            </div>
+            <div class="form-group">
+                <label>Stok Saat Ini</label>
+                <input type="number" id="prod-stok" required>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn" style="background:#eee; flex:1" onclick="closeModal()">Batal</button>
+                <button type="submit" class="btn btn-add" style="flex:2; justify-content:center;">Simpan Produk</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-        <div class="action-bar">
-            <input type="text" id="searchInput" class="search-box" style="margin-bottom:0;" placeholder="Cari nama, kode, kategori..." onkeyup="filterTabel()">
-            <button class="btn btn-export" onclick="exportCSV()">Export CSV</button>
-            <input type="file" id="importFile" accept=".csv" style="display:none" onchange="importCSV(event)">
-            <button class="btn btn-import" onclick="document.getElementById('importFile').click()">Import CSV</button>
-        </div>
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        <div class="card">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Kode</th>
-                        <th>Nama</th>
-                        <th>Kategori</th>
-                        <th>Gudang</th>
-                        <th>Harga</th>
-                        <th>Stok</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody id="tabel-produk"></tbody>
-            </table>
-        </div>
-    </main>
+    let masterData = [];
 
-    <script>
-        // 1. LETAKKAN DI SINI (PALING ATAS)
-        const userRole = localStorage.getItem('user_role');
-        const userPath = window.location.pathname;
+    async function fetchProduk() {
+        const { data } = await supabaseClient.from('produk').select('*').order('nama_barang');
+        masterData = data || [];
+        renderTable(masterData);
+    }
 
-        if (!userRole) {
-            window.location.href = "login.html";
-        }
+    function renderTable(data) {
+        const tbody = document.getElementById('product-list');
+        tbody.innerHTML = '';
+        data.forEach(p => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><small>${p.kode_barang || '-'}</small></td>
+                    <td><b>${p.nama_barang}</b></td>
+                    <td>${p.kategori}</td>
+                    <td>Rp ${parseFloat(p.harga_jual).toLocaleString()}</td>
+                    <td>${p.stok_sekarang}</td>
+                    <td>
+                        <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
 
-        // Proteksi halaman admin dari kasir
-        const adminPages = ['index.html', 'pengaturan-biaya.html', 'metode-pembayaran.html', 'manajemen-user.html', 'produk.html'];
-        const isAdminPage = adminPages.some(page => userPath.includes(page));
+    function filterProduk() {
+        const q = document.getElementById('searchBar').value.toLowerCase();
+        const filtered = masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || (p.kode_barang && p.kode_barang.includes(q)));
+        renderTable(filtered);
+    }
 
-        if (userRole === 'kasir' && isAdminPage) {
-            alert("Akses Ditolak! Anda bukan Admin.");
-            window.location.href = "pos.html";
-        }
-        
-        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+    // MODAL LOGIC
+    function openModal() {
+        document.getElementById('productForm').reset();
+        document.getElementById('prod-id').value = '';
+        document.getElementById('modalTitle').innerText = "Tambah Produk";
+        document.getElementById('productModal').style.display = 'flex';
+    }
 
-        // --- 1. INISIALISASI ---
-        async function muatDropdown() {
-            const resKat = await supabaseClient.from('kategori').select('nama_kategori').order('nama_kategori');
-            const resGud = await supabaseClient.from('gudang').select('nama_gudang').order('nama_gudang');
+    function closeModal() { document.getElementById('productModal').style.display = 'none'; }
+
+    document.getElementById('productForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prod-id').value;
+        const payload = {
+            kode_barang: document.getElementById('prod-kode').value,
+            nama_barang: document.getElementById('prod-nama').value,
+            kategori: document.getElementById('prod-kategori').value,
+            harga_jual: document.getElementById('prod-harga').value,
+            stok_sekarang: document.getElementById('prod-stok').value
+        };
+
+        if(id) await supabaseClient.from('produk').update(payload).eq('id', id);
+        else await supabaseClient.from('produk').insert([payload]);
+
+        closeModal(); fetchProduk();
+    };
+
+    async function editProduk(id) {
+        const p = masterData.find(x => x.id === id);
+        document.getElementById('prod-id').value = p.id;
+        document.getElementById('prod-kode').value = p.kode_barang;
+        document.getElementById('prod-nama').value = p.nama_barang;
+        document.getElementById('prod-kategori').value = p.kategori;
+        document.getElementById('prod-harga').value = p.harga_jual;
+        document.getElementById('prod-stok').value = p.stok_sekarang;
+        document.getElementById('modalTitle').innerText = "Edit Produk";
+        document.getElementById('productModal').style.display = 'flex';
+    }
+
+    // EXPORT, IMPORT, TEMPLATE
+    function downloadTemplate() {
+        const data = [{"Kode Barang": "1001", "Nama Produk": "Contoh Makanan", "Kategori": "Makanan", "Harga Jual": 15000, "Stok": 50}];
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "Template_Import_Produk.xlsx");
+    }
+
+    function exportExcel() {
+        const ws = XLSX.utils.json_to_sheet(masterData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "DataProduk");
+        XLSX.writeFile(wb, "Data_Produk_FinexPos.xlsx");
+    }
+
+    function importExcel(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
             
-            resKat.data.forEach(k => document.getElementById('sel-kategori').innerHTML += `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`);
-            resGud.data.forEach(g => document.getElementById('sel-gudang').innerHTML += `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`);
-        }
-
-        async function muatData() {
-            const { data } = await supabaseClient.from('produk').select('*').order('created_at', {ascending: false});
-            const tbody = document.getElementById('tabel-produk');
-            tbody.innerHTML = '';
-            data.forEach(item => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${item.kode_barang}</td>
-                        <td>${item.nama_barang}</td>
-                        <td>${item.kategori || '-'}</td>
-                        <td>${item.gudang || '-'}</td>
-                        <td>Rp ${item.harga_jual.toLocaleString()}</td>
-                        <td>${item.stok_sekarang}</td>
-                        <td>
-                            <button class="btn btn-edit" onclick="isiFormEdit('${item.id}', '${item.kode_barang}', '${item.nama_barang}', '${item.kategori}', '${item.gudang}', ${item.harga_jual}, ${item.stok_sekarang})">✎</button>
-                            <button class="btn btn-delete" onclick="hapus('${item.id}')">🗑</button>
-                        </td>
-                    </tr>`;
-            });
-        }
-
-        // --- 2. FUNGSI CRUD ---
-        async function simpanProduk() {
-            const id = document.getElementById('edit-id').value;
-            const row = {
-                kode_barang: document.getElementById('kode').value,
-                nama_barang: document.getElementById('nama').value,
-                kategori: document.getElementById('sel-kategori').value,
-                gudang: document.getElementById('sel-gudang').value,
-                harga_jual: parseInt(document.getElementById('harga').value) || 0,
-                stok_sekarang: parseInt(document.getElementById('stok').value) || 0
-            };
-
-            let res;
-            if (id) {
-                // Update
-                res = await supabaseClient.from('produk').update(row).eq('id', id);
-            } else {
-                // Insert
-                res = await supabaseClient.from('produk').insert([row]);
-            }
-
-            if (res.error) alert(res.error.message);
-            else { alert("Berhasil disimpan!"); resetForm(); muatData(); }
-        }
-
-        function isiFormEdit(id, kode, nama, kat, gud, harga, stok) {
-            document.getElementById('edit-id').value = id;
-            document.getElementById('kode').value = kode;
-            document.getElementById('nama').value = nama;
-            document.getElementById('sel-kategori').value = kat;
-            document.getElementById('sel-gudang').value = gud;
-            document.getElementById('harga').value = harga;
-            document.getElementById('stok').value = stok;
-            
-            document.getElementById('btn-aksi').innerText = "Update Produk";
-            document.getElementById('btn-batal').style.display = "inline-block";
-        }
-
-        function resetForm() {
-            document.getElementById('edit-id').value = "";
-            document.getElementById('kode').value = "";
-            document.getElementById('nama').value = "";
-            document.getElementById('harga').value = "";
-            document.getElementById('stok').value = "";
-            document.getElementById('btn-aksi').innerText = "Simpan Produk";
-            document.getElementById('btn-batal').style.display = "none";
-        }
-
-        async function hapus(id) {
-            if(confirm('Hapus produk?')) {
-                await supabaseClient.from('produk').delete().eq('id', id);
-                muatData();
-            }
-        }
-
-        // --- 3. SEARCH & IMPORT/EXPORT ---
-        function filterTabel() {
-            let filter = document.getElementById("searchInput").value.toUpperCase();
-            let tr = document.getElementById("tabel-produk").getElementsByTagName("tr");
-            for (let i = 0; i < tr.length; i++) {
-                tr[i].style.display = (tr[i].innerText.toUpperCase().indexOf(filter) > -1) ? "" : "none";
-            }
-        }
-
-        async function exportCSV() {
-            const { data } = await supabaseClient.from('produk').select('kode_barang,nama_barang,kategori,gudang,harga_jual,stok_sekarang');
-            let csv = "Kode,Nama,Kategori,Gudang,Harga,Stok\n";
-            data.forEach(r => csv += `${r.kode_barang},${r.nama_barang},${r.kategori},${r.gudang},${r.harga_jual},${r.stok_sekarang}\n`);
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('hidden', '');
-            a.setAttribute('href', url);
-            a.setAttribute('download', 'data_produk.csv');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
-        function importCSV(event) {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const lines = e.target.result.split("\n").slice(1);
-                for (let line of lines) {
-                    const c = line.split(",");
-                    if (c.length >= 6) {
-                        await supabaseClient.from('produk').insert([{
-                            kode_barang: c[0], nama_barang: c[1], kategori: c[2], gudang: c[3], harga_jual: parseInt(c[4]), stok_sekarang: parseInt(c[5])
-                        }]);
-                    }
+            if(confirm(`Import ${json.length} data produk?`)) {
+                for(let item of json) {
+                    await supabaseClient.from('produk').upsert({
+                        kode_barang: item["Kode Barang"],
+                        nama_barang: item["Nama Produk"],
+                        kategori: item["Kategori"],
+                        harga_jual: item["Harga Jual"],
+                        stok_sekarang: item["Stok"]
+                    }, { onConflict: 'nama_barang' });
                 }
-                alert("Import Berhasil!"); muatData();
-            };
-            reader.readAsText(event.target.files[0]);
-        }
+                alert("Import Selesai!"); fetchProduk();
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
 
-        window.onload = () => { muatDropdown(); muatData(); };
-    </script>
+    window.onload = fetchProduk;
+</script>
 </body>
 </html>
