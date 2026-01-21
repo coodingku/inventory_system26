@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finex Pos | Kasir Kantin</title>
+    <title>Finex Pos | Kantin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
@@ -61,10 +61,12 @@
 </div>
 
 <script>
-    // DEKLARASI DATABASE (Hanya boleh 1x di sini)
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    // TAHAP 1: Ganti nama variabel deklarasi
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    
+    // Sekarang kita menggunakan FinexDB, bukan supabase
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
     let cart = [];
     let state = { sub: 0, disc: 0, tax: 0, total: 0, taxRate: 0, useTax: false };
@@ -74,21 +76,26 @@
         await getSettings();
     };
 
+    // TAHAP 2: Pastikan semua fungsi memanggil FinexDB
     async function getSettings() {
-        const { data: mtd } = await supabase.from('metode_pembayaran').select('nama_metode');
+        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('nama_metode');
         if (mtd) document.getElementById('payMethod').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
-        const { data: pjk } = await supabase.from('pajak').select('persentase').eq('aktif', true).maybeSingle();
+        
+        const { data: pjk } = await FinexDB.from('pajak').select('persentase').eq('aktif', true).maybeSingle();
         if (pjk) state.taxRate = pjk.persentase;
-        const { data: dsk } = await supabase.from('diskon').select('nominal').eq('aktif', true).maybeSingle();
+        
+        const { data: dsk } = await FinexDB.from('diskon').select('nominal').eq('aktif', true).maybeSingle();
         if (dsk) state.disc = dsk.nominal;
+        
         renderBill();
     }
 
     async function loadMenu() {
         const q = document.getElementById('search').value;
-        let req = supabase.from('produk').select('*').gt('stok_sekarang', 0).order('nama_barang');
+        let req = FinexDB.from('produk').select('*').gt('stok_sekarang', 0).order('nama_barang');
         if(q) req = req.ilike('nama_barang', `%${q}%`);
         const { data } = await req;
+        
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
                 <h4>${p.nama_barang}</h4>
@@ -128,18 +135,22 @@
         const cash = parseFloat(document.getElementById('cashIn').value);
         if(isNaN(cash) || cash < state.total) return alert("Uang kurang!");
         const noNota = `FP-${Date.now().toString().slice(-8)}`;
-        const { data: jual, error } = await supabase.from('penjualan').insert([{
+        
+        // Menggunakan FinexDB untuk insert
+        const { data: jual, error } = await FinexDB.from('penjualan').insert([{
             no_nota: noNota, subtotal: state.sub, diskon: state.disc, pajak: state.tax,
             grand_total: state.total, bayar: cash, kembali: cash - state.total,
             metode_pembayaran: document.getElementById('payMethod').value
         }]).select();
+        
         if(error) return alert(error.message);
+        
         for(let item of cart) {
-            await supabase.from('penjualan_detail').insert([{
+            await FinexDB.from('penjualan_detail').insert([{
                 penjualan_id: jual[0].id, produk_id: item.id, nama_barang: item.nama_barang,
                 qty: item.qty, harga: item.harga_jual, subtotal_item: item.qty * item.harga_jual
             }]);
-            await supabase.rpc('kurangi_stok', { row_id: item.id, jml_kurang: item.qty });
+            await FinexDB.rpc('kurangi_stok', { row_id: item.id, jml_kurang: item.qty });
         }
         alert("Berhasil!");
         location.reload();
