@@ -2,371 +2,198 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Terminal Kasir</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Finex Pos | Kasir Tablet</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --bg: #f4f7f6; --danger: #e74c3c; --white: #ffffff; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
+        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; overflow: hidden; }
         
-        /* Sidebar Nav */
-        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; display: flex; flex-direction: column; position: fixed; }
-        nav h2 { color: var(--accent); border-bottom: 2px solid #34495e; padding-bottom: 10px; margin-top: 0; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 8px; transition: 0.3s; }
-        nav a.active { background: var(--accent); color: white; }
-
-        /* Main Layout */
-        main { flex: 1; margin-left: 280px; padding: 20px; display: grid; grid-template-columns: 1fr 450px; gap: 20px; height: 100vh; box-sizing: border-box; }
-
-        /* Product Section */
-        .product-section { background: var(--white); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
-        .search-box { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 15px; outline: none; }
-        .grid-produk { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; overflow-y: auto; }
-        .item-card { background: white; border: 1px solid #eee; border-radius: 10px; padding: 10px; cursor: pointer; text-align: center; transition: 0.2s; }
-        .item-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-        .item-card b { display: block; font-size: 13px; height: 35px; overflow: hidden; }
-        .item-card span { color: var(--success); font-weight: bold; font-size: 14px; }
-
-        /* Billing Section */
-        .billing-section { background: var(--white); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 25px rgba(0,0,0,0.1); }
-        .cart-list { flex: 1; overflow-y: auto; }
-        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-
-        /* Summary Area */
-        .summary-area { background: #f8f9fa; padding: 15px; border-radius: 12px; margin-top: 10px; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; align-items: center; }
-        .total-row { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; color: var(--primary); border-top: 2px solid #dee2e6; margin-top: 10px; padding-top: 10px; }
+        /* Kiri: Katalog Produk */
+        .catalog { flex: 1; display: flex; flex-direction: column; padding: 20px; border-right: 2px solid #ddd; }
+        .search-area { margin-bottom: 20px; }
+        .search-input { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd; font-size: 18px; box-sizing: border-box; }
         
-        .btn-pay { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; overflow-y: auto; }
+        .product-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; text-align: center; border: 2px solid transparent; transition: 0.2s; }
+        .product-card:active { transform: scale(0.95); border-color: var(--accent); }
+        .product-card h4 { margin: 10px 0 5px; font-size: 14px; }
+        .product-card p { margin: 0; color: var(--accent); font-weight: bold; }
 
-        /* Modal Style */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; }
-        .modal-box { background: white; padding: 30px; border-radius: 15px; width: 320px; text-align: center; }
+        /* Kanan: Keranjang Belanja */
+        .sidebar { width: 400px; background: white; display: flex; flex-direction: column; box-shadow: -5px 0 15px rgba(0,0,0,0.05); }
+        .cart-header { padding: 20px; background: var(--primary); color: white; }
+        .cart-items { flex: 1; overflow-y: auto; padding: 10px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
         
-        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 4px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--success); }
-        input:checked + .slider:before { transform: translateX(12px); }
+        .cart-footer { padding: 20px; border-top: 2px solid #eee; }
+        .total-box { display: flex; justify-content: space-between; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+        .btn-pay { width: 100%; padding: 20px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; }
+
+        /* Modal Pembayaran */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; width: 500px; text-align: center; }
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .num-btn { padding: 15px; background: #eee; border: none; border-radius: 10px; font-size: 20px; cursor: pointer; }
+        .input-pay { width: 100%; padding: 15px; font-size: 30px; text-align: center; margin-bottom: 15px; border: 2px solid #ddd; border-radius: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="modal-opening" class="modal-overlay" style="display:none;">
-        <div class="modal-box">
-            <h3>Mulai Shift Kasir</h3>
-            <p style="color: #666; font-size: 14px;">Masukkan Saldo Awal Laci</p>
-            <input type="number" id="input-opening" style="width:100%; padding:12px; margin-bottom:20px; border-radius:8px; border:1px solid #ddd;" placeholder="Rp 0">
-            <button onclick="simpanOpening()" style="width:100%; padding:12px; background:var(--success); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">BUKA KASIR</button>
+<div class="catalog">
+    <div class="search-area">
+        <input type="text" id="searchInput" class="search-input" placeholder="Cari menu atau scan barcode..." onkeyup="loadProduk()">
+    </div>
+    <div id="productGrid" class="product-grid">
+        </div>
+</div>
+
+<div class="sidebar">
+    <div class="cart-header">
+        <h3>🛒 Keranjang Kasir</h3>
+        <small id="nota-preview">Nota: FP-AUTO-GENERATING</small>
+    </div>
+    <div id="cartItems" class="cart-items">
+        </div>
+    <div class="cart-footer">
+        <div class="total-box">
+            <span>TOTAL</span>
+            <span id="displayTotal">Rp 0</span>
+        </div>
+        <button class="btn-pay" onclick="openPayment()">PROSES BAYAR (F8)</button>
+    </div>
+</div>
+
+<div id="paymentModal" class="modal">
+    <div class="modal-content">
+        <h2>Pembayaran</h2>
+        <h1 id="payTotalLabel" style="color: var(--success);">Rp 0</h1>
+        <select id="select-payment" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px;">
+            <option value="Tunai">Tunai</option>
+            <option value="QRIS">QRIS</option>
+            <option value="Transfer">Transfer</option>
+        </select>
+        <input type="number" id="inputNominal" class="input-pay" placeholder="Uang Bayar">
+        <div class="numpad">
+            <button class="num-btn" onclick="addNominal(5000)">+5rb</button>
+            <button class="num-btn" onclick="addNominal(10000)">+10rb</button>
+            <button class="num-btn" onclick="addNominal(50000)">+50rb</button>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button onclick="closeModal()" style="flex:1; padding:15px; border-radius:10px; border:none; background:#ccc;">Batal</button>
+            <button onclick="panggilProses()" style="flex:2; padding:15px; border-radius:10px; border:none; background:var(--success); color:white; font-weight:bold;">KONFIRMASI BAYAR</button>
         </div>
     </div>
-
-   <nav>
-    <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="dashboard.html" class="active">📊 Dashboard</a>
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        <a href="laporan.html">📑 Laporan Penjualan</a>
-        <a href="closing.html">🏁 Closing Shift</a>
-    </div>
-    <div class="logout-btn">
-        <a href="pos.html" style="background: var(--success); color: white; margin-bottom: 10px;">🛒 Masuk Kasir</a>
-        <div onclick="logout()" style="color:var(--danger); cursor:pointer; padding: 12px;">🚪 Keluar</div>
-    </div>
-</nav>
-
-    <main>
-        <section class="product-section">
-            <input type="text" id="search" class="search-box" placeholder="Cari nama barang..." onkeyup="filterProduk()">
-            <div id="daftar-produk" class="grid-produk"></div>
-        </section>
-
-        <section class="billing-section">
-            <h3 style="margin-top:0">🛒 Keranjang</h3>
-            <div id="cart-list" class="cart-list"></div>
-
-            <div class="summary-area">
-                <div class="summary-row"><span>Subtotal (Gross)</span><b id="sub-total">Rp 0</b></div>
-                
-                <div class="summary-row" style="color: var(--danger);">
-                    <span>Diskon Bill</span>
-                    <select id="diskon-bill" onchange="updateBilling()">
-                        <option value="0">0%</option>
-                        <option value="5">5%</option>
-                        <option value="10">10%</option>
-                        <option value="15">15%</option>
-                    </select>
-                </div>
-
-                <div class="summary-row">
-                    <span>Aktifkan PPN (<span id="tax-rate">0</span>%)</span>
-                    <label class="switch">
-                        <input type="checkbox" id="tax-status" checked onchange="updateBilling()">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                
-                <div class="summary-row"><span>Nilai Pajak</span><b id="val-pajak">Rp 0</b></div>
-                
-                <div style="margin-top:10px; padding-top:10px; border-top: 1px solid #eee;">
-                    <label style="font-size:10px; font-weight:bold; color:#7f8c8d;">METODE PEMBAYARAN</label>
-                    <select id="metode-bayar" style="width:100%; padding:10px; margin-top:5px; border-radius:8px;"></select>
-                </div>
-
-                <div class="total-row">
-                    <span>TOTAL</span>
-                    <span id="grand-total">Rp 0</span>
-                </div>
-            </div>
-
-            <button class="btn-pay" onclick="lanjutKeBayar()">KONFIRMASI BAYAR</button>
-        </section>
-    </main>
-
-    <script>
-        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
-        let masterProduk = [], keranjang = [], ppnPersen = 0;
-
-        async function init() {
-            // 1. Cek Kasir Log (Shift)
-            const { data: shift } = await supabaseClient.from('kasir_log').select('*').eq('status', 'Buka').single();
-            if (!shift) {
-                document.getElementById('modal-opening').style.display = 'flex';
-            } else {
-                localStorage.setItem('shift_id', shift.id);
-            }
-
-            // 2. Ambil PPN
-            const { data: p } = await supabaseClient.from('ppn').select('nilai').eq('id', 1).single();
-            ppnPersen = p ? parseFloat(p.nilai) : 0;
-            document.getElementById('tax-rate').innerText = ppnPersen;
-
-            // 3. Ambil Metode Pembayaran
-            const { data: m } = await supabaseClient.from('metode_pembayaran').select('*').eq('aktif', true);
-            const sel = document.getElementById('metode-bayar');
-            m?.forEach(v => sel.innerHTML += `<option value="${v.nama_metode}">${v.nama_metode}</option>`);
-
-            // 4. Ambil Produk
-            const { data: prod } = await supabaseClient.from('produk').select('*').gt('stok_sekarang', 0);
-            masterProduk = prod || [];
-            renderProduk(masterProduk);
-        }
-
-        async function simpanOpening() {
-            const saldo = document.getElementById('input-opening').value;
-            if(!saldo) return alert("Saldo awal harus diisi!");
-
-            const { data, error } = await supabaseClient.from('kasir_log').insert([{
-                saldo_awal: saldo,
-                status: 'Buka'
-            }]).select().single();
-
-            if (data) {
-                localStorage.setItem('shift_id', data.id);
-                document.getElementById('modal-opening').style.display = 'none';
-            }
-        }
-
-        function renderProduk(list) {
-            const container = document.getElementById('daftar-produk');
-            container.innerHTML = '';
-            list.forEach(p => {
-                container.innerHTML += `<div class="item-card" onclick="tambahKeKeranjang('${p.id}')">
-                    <b>${p.nama_barang}</b>
-                    <span>Rp ${p.harga_jual.toLocaleString()}</span><br>
-                    <small style="color:#999; font-size:10px;">Stok: ${p.stok_sekarang}</small>
-                </div>`;
-            });
-        }
-
-        function filterProduk() {
-            const q = document.getElementById('search').value.toLowerCase();
-            renderProduk(masterProduk.filter(p => p.nama_barang.toLowerCase().includes(q)));
-        }
-
-        function tambahKeKeranjang(id) {
-            const p = masterProduk.find(x => x.id === id);
-            const ada = keranjang.find(x => x.id === id);
-            if (ada) {
-                if (ada.qty < p.stok_sekarang) ada.qty++;
-                else alert("Stok tidak mencukupi!");
-            } else {
-                keranjang.push({ ...p, qty: 1 });
-            }
-            updateBilling();
-        }
-
-        function updateBilling() {
-            const listDiv = document.getElementById('cart-list');
-            listDiv.innerHTML = '';
-            
-            let subtotalKotor = 0;
-            keranjang.forEach((item, idx) => {
-                const totalItem = item.harga_jual * item.qty;
-                subtotalKotor += totalItem;
-                listDiv.innerHTML += `<div class="cart-item">
-                    <div style="flex:1"><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga_jual.toLocaleString()}</small></div>
-                    <div style="text-align:right"><b>Rp ${totalItem.toLocaleString()}</b><br>
-                    <button onclick="hapusItem(${idx})" style="color:red; border:none; background:none; cursor:pointer; font-size:10px;">Hapus</button></div>
-                </div>`;
-            });
-
-            // PERHITUNGAN SESSION (Agar Struk Benar)
-            const persenDiskon = parseFloat(document.getElementById('diskon-bill').value);
-            const nominalDiskon = subtotalKotor * (persenDiskon / 100);
-            const setelahDiskon = subtotalKotor - nominalDiskon;
-            
-            const isTax = document.getElementById('tax-status').checked;
-            const nominalPajak = isTax ? (setelahDiskon * (ppnPersen / 100)) : 0;
-            const grandTotal = setelahDiskon + nominalPajak;
-
-            // Tampilkan ke UI
-            document.getElementById('sub-total').innerText = "Rp " + subtotalKotor.toLocaleString();
-            document.getElementById('val-pajak').innerText = "Rp " + Math.round(nominalPajak).toLocaleString();
-            document.getElementById('grand-total').innerText = "Rp " + Math.round(grandTotal).toLocaleString();
-
-            // SIMPAN DATA LENGKAP KE SESSION
-            sessionStorage.setItem('pay_cart', JSON.stringify(keranjang));
-            sessionStorage.setItem('pay_subtotal', subtotalKotor);
-            sessionStorage.setItem('pay_diskon_global', Math.round(nominalDiskon));
-            sessionStorage.setItem('pay_pajak', Math.round(nominalPajak));
-            sessionStorage.setItem('pay_total', Math.round(grandTotal));
-        }
-
-        function hapusItem(idx) {
-            keranjang.splice(idx, 1);
-            updateBilling();
-        }
-
-        function lanjutKeBayar() {
-            if (keranjang.length === 0) return alert("Keranjang kosong!");
-            sessionStorage.setItem('pay_method', document.getElementById('metode-bayar').value);
-            window.location.href = "payment.html";
-        }
-
-        
-        function logout() {
-            localStorage.clear();
-            window.location.href = "login.html";
-        }
-        async function generateNoNota() {
-    const now = new Date();
-    const tgl = now.getFullYear() + 
-                String(now.getMonth() + 1).padStart(2, '0') + 
-                String(now.getDate()).padStart(2, '0');
-    
-    // Cari jumlah transaksi hari ini untuk menentukan urutan
-    const startOfDay = new Date().setHours(0,0,0,0);
-    const { count, error } = await supabaseClient
-        .from('penjualan')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', new Date(startOfDay).toISOString());
-
-    if (error) {
-        console.error("Gagal hitung nota:", error);
-        return `FP-${tgl}-ERR`;
-    }
-
-    const urutan = String(count + 1).padStart(3, '0');
-    return `FP-${tgl}-${urutan}`;
-}
-
-        // ... kode-kode Anda yang lain ...
-
-// FUNGSI PROSES TRANSAKSI
-async function prosesTransaksi(dataKeranjang, totalBayar, nominalUang) {
-    const noNota = await generateNoNota();
-    const kembalian = nominalUang - totalBayar;
-
-    // Menampilkan loading (optional)
-    console.log("Sedang memproses nota: " + noNota);
-
-    try {
-        // 1. Simpan Header Penjualan ke Supabase
-        const { data: jual, error: errJual } = await supabaseClient
-            .from('penjualan')
-            .insert([{
-                no_nota: noNota,
-                grand_total: totalBayar,
-                bayar: nominalUang,
-                kembali: kembalian,
-                metode_pembayaran: document.getElementById('select-payment').value,
-                shift_id: localStorage.getItem('shift_id'),
-                kasir_nama: localStorage.getItem('user_name') || 'Kasir Kantin'
-            }])
-            .select();
-
-        if (errJual) throw errJual;
-
-        // 2. Simpan Detail & Update Stok
-        for (const item of dataKeranjang) {
-            await supabaseClient.from('penjualan_detail').insert([{
-                penjualan_id: jual[0].id,
-                produk_id: item.id,
-                nama_barang: item.nama_barang,
-                qty: item.qty,
-                harga: item.harga_jual,
-                subtotal_item: item.qty * item.harga_jual
-            }]);
-
-            // RPC untuk kurangi stok di database
-            await supabaseClient.rpc('kurangi_stok', { 
-                row_id: item.id, 
-                jml_kurang: item.qty 
-            });
-        }
-
-        // 3. Eksekusi Cetak Struk ke Printer Bluetooth
-        const dataStruk = {
-            no_nota: noNota,
-            total: totalBayar,
-            bayar: nominalUang,
-            kembali: kembalian,
-            items: dataKeranjang.map(i => ({
-                nama_barang: i.nama_barang,
-                qty: i.qty,
-                harga: i.harga_jual,
-                subtotal: i.qty * i.harga_jual
-            }))
-        };
-
-        await cetakStrukBluetooth(dataStruk);
-        
-        alert("Transaksi Berhasil!");
-        location.reload(); // Refresh halaman untuk transaksi baru
-
-    } catch (error) {
-        console.error("Gagal transaksi:", error);
-        alert("Terjadi kesalahan sistem, silakan coba lagi.");
-    }
-}
-
-<button onclick="panggilProses()">KONFIRMASI PEMBAYARAN</button>
+</div>
 
 <script>
-function panggilProses() {
-    // Ambil data dari variabel keranjang Anda
-    const keranjang = dataKeranjang; 
-    const total = totalBelanja;
-    const bayar = parseFloat(document.getElementById('input-nominal-bayar').value);
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    if (bayar < total) {
-        alert("Uang tidak cukup!");
-        return;
+    let keranjang = [];
+    let totalBelanja = 0;
+
+    // 1. Load Produk dari Database
+    async function loadProduk() {
+        const q = document.getElementById('searchInput').value;
+        let query = supabaseClient.from('produk').select('*').gt('stok_sekarang', 0);
+        if (q) query = query.ilike('nama_barang', `%${q}%`);
+
+        const { data } = await query;
+        const grid = document.getElementById('productGrid');
+        grid.innerHTML = '';
+        data.forEach(p => {
+            grid.innerHTML += `
+                <div class="product-card" onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
+                    <h4>${p.nama_barang}</h4>
+                    <p>Rp ${p.harga_jual.toLocaleString()}</p>
+                    <small>Stok: ${p.stok_sekarang}</small>
+                </div>`;
+        });
     }
 
-    // Panggil fungsi utama
-    prosesTransaksi(keranjang, total, bayar);
-}
+    // 2. Logika Keranjang
+    function addToCart(id, nama, harga) {
+        const index = keranjang.findIndex(item => item.id === id);
+        if (index > -1) {
+            keranjang[index].qty++;
+        } else {
+            keranjang.push({ id, nama_barang: nama, harga_jual: harga, qty: 1 });
+        }
+        updateCartUI();
+    }
+
+    function updateCartUI() {
+        const container = document.getElementById('cartItems');
+        container.innerHTML = '';
+        totalBelanja = 0;
+        keranjang.forEach((item, i) => {
+            const subtotal = item.qty * item.harga_jual;
+            totalBelanja += subtotal;
+            container.innerHTML += `
+                <div class="cart-item">
+                    <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga_jual}</small></div>
+                    <div>Rp ${subtotal.toLocaleString()} <button onclick="removeItem(${i})" style="color:red; border:none; background:none;">×</button></div>
+                </div>`;
+        });
+        document.getElementById('displayTotal').innerText = "Rp " + totalBelanja.toLocaleString();
+    }
+
+    function removeItem(i) { keranjang.splice(i, 1); updateCartUI(); }
+
+    // 3. Logika Pembayaran
+    function openPayment() {
+        if (keranjang.length === 0) return alert("Keranjang kosong!");
+        document.getElementById('payTotalLabel').innerText = "Rp " + totalBelanja.toLocaleString();
+        document.getElementById('paymentModal').style.display = 'flex';
+        document.getElementById('inputNominal').value = '';
+    }
+
+    function closeModal() { document.getElementById('paymentModal').style.display = 'none'; }
+    function addNominal(val) { 
+        const current = parseFloat(document.getElementById('inputNominal').value || 0);
+        document.getElementById('inputNominal').value = current + val; 
+    }
+
+    // 4. Generator & Proses Akhir
+    async function generateNoNota() {
+        const tgl = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const { count } = await supabaseClient.from('penjualan').select('*', { count: 'exact', head: true });
+        return `FP-${tgl}-${String(count + 1).padStart(3, '0')}`;
+    }
+
+    async function panggilProses() {
+        const nominal = parseFloat(document.getElementById('inputNominal').value);
+        if (nominal < totalBelanja) return alert("Uang kurang!");
         
-        window.onload = init;
-    </script>
+        await prosesTransaksi(keranjang, totalBelanja, nominal);
+    }
+
+    async function prosesTransaksi(dataK, total, bayar) {
+        const noNota = await generateNoNota();
+        
+        // Simpan Header
+        const { data: jual } = await supabaseClient.from('penjualan').insert([{
+            no_nota: noNota, grand_total: total, bayar: bayar, kembali: bayar - total,
+            metode_pembayaran: document.getElementById('select-payment').value,
+            kasir_nama: 'Admin Kantin'
+        }]).select();
+
+        // Simpan Detail & Potong Stok
+        for (const itm of dataK) {
+            await supabaseClient.from('penjualan_detail').insert([{
+                penjualan_id: jual[0].id, produk_id: itm.id, nama_barang: itm.nama_barang,
+                qty: itm.qty, harga: itm.harga_jual, subtotal_item: itm.qty * itm.harga_jual
+            }]);
+            await supabaseClient.rpc('kurangi_stok', { row_id: itm.id, jml_kurang: itm.qty });
+        }
+
+        alert("Transaksi Berhasil! Mencetak Struk...");
+        location.reload();
+    }
+
+    window.onload = loadProduk;
+</script>
 </body>
 </html>
