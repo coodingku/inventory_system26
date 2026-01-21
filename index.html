@@ -10,14 +10,14 @@
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
         
         /* Sidebar */
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; overflow-y: auto; }
         nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
-        .nav-group-title { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; }
         nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
+        .nav-group-title { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Main Content */
-        main { flex: 1; margin-left: 260px; padding: 30px; }
+        main { flex: 1; margin-left: 260px; padding: 30px; width: calc(100% - 260px); }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         
         /* Stats Grid */
@@ -34,46 +34,45 @@
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
         .badge-qty { background: #e8f4fd; color: var(--accent); padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+
+        @media (max-width: 1024px) {
+            .grid-charts { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
- <nav>
+<nav>
     <h2>Finex Pos</h2>
     <div id="admin-menu">
         <a href="index.html" class="active">📊 Dashboard</a>
         
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
+        <div class="nav-group-title">MASTER DATA</div>
         <a href="produk.html">📦 Produk</a>
         <a href="kategori.html">📁 Kategori</a>
         <a href="gudang.html">🏠 Gudang</a>
         <a href="metode-pembayaran.html">💳 Metode Bayar</a>
         
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
+        <div class="nav-group-title">OPERASIONAL</div>
         <a href="penyesuaian.html">🔄 Stok In/Out</a>
         <a href="manajemen-user.html">👥 Manajemen User</a>
         <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-              <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        <a href="laporan-penjualan.html">📑 Laporan Penjualan</a>
-      <a href="laporan-stok.html">📑 Laporan Stok</a>
+        
+        <div class="nav-group-title">LAPORAN</div>
+        <a href="laporan-penjualan.html">📑 Penjualan</a>
+        <a href="laporan-stok.html">📑 Stok Barang</a>
         <a href="closing.html">🏁 Closing Shift</a>
     </div>
     
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
+    <hr style="border: 0.5px solid #555; margin: 15px 0;">
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; font-weight: bold;">🛒 MASUK KASIR</a>
+    <div onclick="logout()" style="color:var(--danger); cursor:pointer; padding: 12px; font-size: 14px; text-align: center;">🚪 Keluar</div>
 </nav>
-
 
 <main>
     <div class="header">
         <h1>Overview Bisnis</h1>
-        <div id="current-date" style="color: #7f8c8d;"></div>
+        <div id="current-date" style="color: #7f8c8d; font-weight: 500;"></div>
     </div>
 
     <div class="grid-stats">
@@ -95,10 +94,12 @@
         </div>
     </div>
 
+    
+
     <div class="grid-charts">
         <div class="card">
             <h4>📈 Tren Penjualan 7 Hari Terakhir</h4>
-            <canvas id="salesChart" height="120"></canvas>
+            <canvas id="salesChart" height="100"></canvas>
         </div>
         <div class="card">
             <h4>💳 Metode Pembayaran</h4>
@@ -108,7 +109,7 @@
 
     <div class="grid-charts">
         <div class="card">
-            <h4>📦 Produk Terlaris</h4>
+            <h4>📦 Produk Terlaris (Kantin)</h4>
             <table id="top-products-table">
                 <thead>
                     <tr>
@@ -121,7 +122,7 @@
             </table>
         </div>
         <div class="card">
-            <h4>📊 Komposisi Stok Produk</h4>
+            <h4>📊 Komposisi Stok per Kategori</h4>
             <canvas id="stockPieChart"></canvas>
         </div>
     </div>
@@ -135,30 +136,38 @@
     async function loadDashboard() {
         document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-        // 1. Ambil Data Produk
-        const { data: products } = await supabaseClient.from('produk').select('*');
-        const totalStock = products.reduce((acc, p) => acc + p.stok_sekarang, 0);
-        const lowStock = products.filter(p => p.stok_sekarang < 5).length;
-        document.getElementById('stat-stock').innerText = totalStock;
-        document.getElementById('stat-low').innerText = lowStock;
+        try {
+            // 1. Ambil Data Produk
+            const { data: products } = await supabaseClient.from('produk').select('*');
+            if(products) {
+                const totalStock = products.reduce((acc, p) => acc + (p.stok_sekarang || 0), 0);
+                const lowStock = products.filter(p => p.stok_sekarang < 5).length;
+                document.getElementById('stat-stock').innerText = totalStock;
+                document.getElementById('stat-low').innerText = lowStock;
+                renderStockChart(products);
+            }
 
-        // 2. Ambil Data Penjualan
-        const today = new Date().toISOString().split('T')[0];
-        const { data: sales } = await supabaseClient.from('penjualan').select('*');
-        const todaySales = sales.filter(s => s.created_at.startsWith(today));
-        const totalOmzet = todaySales.reduce((acc, s) => acc + parseFloat(s.grand_total), 0);
-        
-        document.getElementById('stat-sales').innerText = "Rp " + totalOmzet.toLocaleString();
-        document.getElementById('stat-trx').innerText = todaySales.length;
+            // 2. Ambil Data Penjualan
+            const { data: sales } = await supabaseClient.from('penjualan').select('*');
+            if(sales) {
+                const today = new Date().toISOString().split('T')[0];
+                const todaySales = sales.filter(s => s.created_at && s.created_at.startsWith(today));
+                const totalOmzet = todaySales.reduce((acc, s) => acc + parseFloat(s.grand_total || 0), 0);
+                
+                document.getElementById('stat-sales').innerText = "Rp " + totalOmzet.toLocaleString('id-ID');
+                document.getElementById('stat-trx').innerText = todaySales.length;
 
-        // 3. Render Top Produk
-        const { data: details } = await supabaseClient.from('penjualan_detail').select('*');
-        renderTopProducts(details);
+                renderSalesChart(sales);
+                renderPaymentChart(sales);
+            }
 
-        // 4. Render Charts
-        renderSalesChart(sales);
-        renderPaymentChart(sales);
-        renderStockChart(products);
+            // 3. Ambil Detail Penjualan untuk Top Produk
+            const { data: details } = await supabaseClient.from('penjualan_detail').select('*');
+            if(details) renderTopProducts(details);
+
+        } catch (error) {
+            console.error("Dashboard Load Error:", error);
+        }
     }
 
     function renderTopProducts(details) {
@@ -166,13 +175,14 @@
         details.forEach(d => {
             if (!summary[d.nama_barang]) summary[d.nama_barang] = { qty: 0, total: 0 };
             summary[d.nama_barang].qty += d.qty;
-            summary[d.nama_barang].total += parseFloat(d.subtotal_item);
+            summary[d.nama_barang].total += parseFloat(d.subtotal_item || 0);
         });
 
         const sorted = Object.entries(summary).sort((a,b) => b[1].qty - a[1].qty).slice(0, 5);
         const tbody = document.querySelector('#top-products-table tbody');
+        tbody.innerHTML = ""; // Clear before render
         sorted.forEach(([name, data]) => {
-            tbody.innerHTML += `<tr><td>${name}</td><td><span class="badge-qty">${data.qty}</span></td><td>Rp ${data.total.toLocaleString()}</td></tr>`;
+            tbody.innerHTML += `<tr><td>${name}</td><td><span class="badge-qty">${data.qty}</span></td><td>Rp ${data.total.toLocaleString('id-ID')}</td></tr>`;
         });
     }
 
@@ -182,45 +192,51 @@
             const d = new Date(); d.setDate(d.getDate() - i);
             const dateStr = d.toISOString().split('T')[0];
             labels.push(d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
-            const total = sales.filter(s => s.created_at.startsWith(dateStr)).reduce((a, b) => a + parseFloat(b.grand_total), 0);
+            const total = sales.filter(s => s.created_at && s.created_at.startsWith(dateStr))
+                               .reduce((a, b) => a + parseFloat(b.grand_total || 0), 0);
             values.push(total);
         }
         new Chart(document.getElementById('salesChart'), {
             type: 'line',
-            data: { labels, datasets: [{ label: 'Omzet', data: values, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', fill: true, tension: 0.3 }] },
-            options: { plugins: { legend: { display: false } } }
+            data: { labels, datasets: [{ label: 'Omzet (Rp)', data: values, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', fill: true, tension: 0.4 }] },
+            options: { responsive: true, plugins: { legend: { display: false } } }
         });
     }
 
     function renderPaymentChart(sales) {
         const counts = {};
-        sales.forEach(s => counts[s.metode_pembayaran] = (counts[s.metode_pembayaran] || 0) + 1);
+        sales.forEach(s => {
+            const method = s.metode_pembayaran || 'Tunai';
+            counts[method] = (counts[method] || 0) + 1;
+        });
         new Chart(document.getElementById('paymentChart'), {
             type: 'doughnut',
-            data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c'] }] },
+            data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6'] }] },
             options: { plugins: { legend: { position: 'bottom' } } }
         });
     }
 
     function renderStockChart(products) {
         const catCounts = {};
-        products.forEach(p => catCounts[p.kategori || 'Umum'] = (catCounts[p.kategori || 'Umum'] || 0) + p.stok_sekarang);
+        products.forEach(p => {
+            const cat = p.kategori || 'Lainnya';
+            catCounts[cat] = (catCounts[cat] || 0) + (p.stok_sekarang || 0);
+        });
         new Chart(document.getElementById('stockPieChart'), {
             type: 'bar',
-            data: { labels: Object.keys(catCounts), datasets: [{ label: 'Qty Stok', data: Object.values(catCounts), backgroundColor: '#9b59b6' }] },
+            data: { 
+                labels: Object.keys(catCounts), 
+                datasets: [{ label: 'Stok', data: Object.values(catCounts), backgroundColor: '#9b59b6' }] 
+            },
             options: { indexAxis: 'y', plugins: { legend: { display: false } } }
         });
     }
 
-        function logout() {
-    if (confirm("Apakah Anda yakin ingin keluar dari Finex Pos?")) {
-        // Jika Anda menggunakan autentikasi Supabase:
-        // FinexDB.auth.signOut(); 
-        
-        // Arahkan kembali ke halaman login
-        window.location.href = 'login.html'; 
+    function logout() {
+        if (confirm("Apakah Anda yakin ingin keluar dari Finex Pos?")) {
+            window.location.href = 'login.html'; 
+        }
     }
-}
     
     window.onload = loadDashboard;
 </script>
