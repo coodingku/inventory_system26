@@ -256,7 +256,29 @@
             localStorage.clear();
             window.location.href = "login.html";
         }
+        async function generateNoNota() {
+    const now = new Date();
+    const tgl = now.getFullYear() + 
+                String(now.getMonth() + 1).padStart(2, '0') + 
+                String(now.getDate()).padStart(2, '0');
+    
+    // Cari jumlah transaksi hari ini untuk menentukan urutan
+    const startOfDay = new Date().setHours(0,0,0,0);
+    const { count, error } = await supabaseClient
+        .from('penjualan')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', new Date(startOfDay).toISOString());
 
+    if (error) {
+        console.error("Gagal hitung nota:", error);
+        return `FP-${tgl}-ERR`;
+    }
+
+    const urutan = String(count + 1).padStart(3, '0');
+    return `FP-${tgl}-${urutan}`;
+}
+
+        
         window.onload = init;
     </script>
 </body>
