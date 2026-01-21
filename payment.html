@@ -207,12 +207,10 @@
 
             document.getElementById('receipt-modal').style.display = 'flex';
         }
-            // Fungsi Kirim Data ke Printer Bluetooth
-async function cetakStrukBluetooth(dataTransaksi) {
+          async function cetakStrukBluetooth(dataTransaksi) {
     try {
-        // 1. Request perangkat bluetooth
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }], // Service printer thermal umum
+            filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
             optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
         });
 
@@ -220,38 +218,64 @@ async function cetakStrukBluetooth(dataTransaksi) {
         const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
         const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
 
-        // 2. Format Struk (ESC/POS)
-        let struk = "\x1B\x61\x01"; // Align Center
-        struk += "FINEX POS - KANTIN\n";
-        struk += "--------------------------------\n";
-        struk += "\x1B\x61\x00"; // Align Left
-        struk += `No: ${dataTransaksi.no_nota}\n`;
-        struk += `Kasir: ${localStorage.getItem('user_name')}\n`;
-        struk += `Tgl: ${new Date().toLocaleString()}\n`;
-        struk += "--------------------------------\n";
+        const encoder = new TextEncoder();
+        
+        // --- PERINTAH ESC/POS ---
+        const init = "\x1B\x40";           // Reset printer
+        const center = "\x1B\x61\x01";     // Rata Tengah
+        const left = "\x1B\x61\x00";       // Rata Kiri
+        const boldOn = "\x1B\x45\x01";     // Bold Aktif
+        const boldOff = "\x1B\x45\x00";    // Bold Nonaktif
+        const sizeBig = "\x1D\x21\x11";    // Ukuran Double (Logo)
+        const sizeNorm = "\x1D\x21\x00";   // Ukuran Normal
 
+        // 1. Header & Logo Teks
+        let header = init + center + sizeBig + boldOn + "FINEX POS\n" + sizeNorm + "KANTIN SEKOLAH\n" + boldOff;
+        header += "Jl. Pendidikan No. 123\n";
+        header += "--------------------------------\n";
+
+        // 2. Info Transaksi
+        let body = left + `No  : ${dataTransaksi.no_nota}\n`;
+        body += `Tgl : ${new Date().toLocaleString('id-ID')}\n`;
+        body += `Ksr : ${localStorage.getItem('user_name') || 'Kasir'}\n`;
+        body += "--------------------------------\n";
+
+        // 3. Item List
         dataTransaksi.items.forEach(item => {
-            struk += `${item.nama_barang}\n`;
-            struk += `${item.qty} x ${item.harga.toLocaleString()} = ${item.subtotal.toLocaleString()}\n`;
+            body += `${item.nama_barang.substring(0, 31)}\n`; // Potong jika nama terlalu panjang
+            let detail = `${item.qty} x ${item.harga.toLocaleString()}`;
+            let subtotal = item.subtotal.toLocaleString();
+            // Spasi dinamis agar harga rata kanan
+            let spaceCount = 32 - (detail.length + subtotal.length);
+            body += detail + " ".repeat(spaceCount > 0 ? spaceCount : 1) + subtotal + "\n";
         });
 
-        struk += "--------------------------------\n";
-        struk += `TOTAL: Rp ${dataTransaksi.total.toLocaleString()}\n`;
-        struk += `BAYAR: Rp ${dataTransaksi.bayar.toLocaleString()}\n`;
-        struk += `KEMBALI: Rp ${dataTransaksi.kembali.toLocaleString()}\n`;
-        struk += "--------------------------------\n";
-        struk += "\x1B\x61\x01"; // Center
-        struk += "Terima Kasih!\n\n\n\n"; // Beri ruang potong kertas
+        // 4. Footer & Total
+        let footer = "--------------------------------\n" + boldOn;
+        let totalStr = `TOTAL: Rp ${dataTransaksi.total.toLocaleString()}`;
+        footer += center + sizeBig + totalStr + "\n" + sizeNorm + boldOff;
+        footer += `Bayar: Rp ${dataTransaksi.bayar.toLocaleString()}\n`;
+        footer += `Kembali: Rp ${dataTransaksi.kembali.toLocaleString()}\n`;
+        footer += "--------------------------------\n";
+        footer += center + "Terima Kasih Atas Kunjungannya\n\n";
 
-        // 3. Kirim ke Printer
-        const encoder = new TextEncoder();
-        const data = encoder.encode(struk);
-        await characteristic.writeValue(data);
+        // 5. Perintah Barcode (GS k) - Tipe CODE39
+        // Format: GS k [tipe] [panjang] [data]
+        const barcodeData = dataTransaksi.no_nota;
+        let barcode = "\x1D\x68\x50";      // Tinggi barcode (80px)
+        barcode += "\x1D\x77\x02";         // Lebar barcode
+        barcode += "\x1D\x6B\x04";         // Tipe CODE39
+        barcode += barcodeData + "\x00";   // Data Barcode diakhiri NULL
+
+        const end = "\n\n\n\n\x1D\x56\x41"; // Feed paper & Cut (untuk printer auto-cut)
+
+        // Gabungkan semua & Kirim
+        const finalBuffer = encoder.encode(header + body + footer + barcode + end);
+        await characteristic.writeValue(finalBuffer);
         
-        alert("Struk berhasil dicetak!");
     } catch (error) {
-        console.error("Printer Error: ", error);
-        alert("Gagal cetak struk: Pastikan Bluetooth aktif & pilih printer yang benar.");
+        console.error("Print Error: ", error);
+        alert("Printer tidak terhubung atau tidak didukung.");
     }
 }
         
