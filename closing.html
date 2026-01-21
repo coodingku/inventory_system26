@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <title>Finex Pos | Closing Kasir</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; display: flex; justify-content: center; padding: 50px; }
+        .card { background: white; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        input { width: 100%; padding: 10px; margin-top: 10px; font-size: 18px; }
+        .btn-close { width: 100%; padding: 15px; background: #e74c3c; color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Tutup Kasir (Closing)</h2>
+        <div class="row"><span>Saldo Awal:</span><b id="txt-awal">0</b></div>
+        <div class="row"><span>Penjualan Tunai:</span><b id="txt-tunai">0</b></div>
+        <div class="row" style="background: #e8f5e9;"><span>Total Saldo Sistem:</span><b id="txt-total-sistem">0</b></div>
+        
+        <div style="margin-top: 20px;">
+            <label>Total Uang Fisik di Laci:</label>
+            <input type="number" id="input-fisik" onkeyup="hitungSelisih()" placeholder="0">
+        </div>
+
+        <div class="row" style="margin-top:20px;"><span>Selisih:</span><b id="txt-selisih">0</b></div>
+        <button class="btn-close" onclick="prosesClosing()">TUTUP KASIR SEKARANG</button>
+    </div>
+
+    <script>
+        // ... Inisialisasi Supabase Client (SB_URL, SB_KEY) ...
+
+        let totalSistem = 0;
+        let shiftId = localStorage.getItem('shift_id');
+
+        async function loadDataClosing() {
+            // 1. Ambil data log yang buka
+            const { data: log } = await supabaseClient.from('kasir_log').select('*').eq('id', shiftId).single();
+            
+            // 2. Hitung total penjualan tunai sejak waktu_buka
+            const { data: sales } = await supabaseClient.from('penjualan')
+                .select('grand_total')
+                .eq('metode_pembayaran', 'Tunai')
+                .gte('created_at', log.waktu_buka);
+
+            let totalTunaiSales = sales.reduce((sum, item) => sum + parseFloat(item.grand_total), 0);
+            totalSistem = parseFloat(log.saldo_awal) + totalTunaiSales;
+
+            document.getElementById('txt-awal').innerText = "Rp " + parseFloat(log.saldo_awal).toLocaleString();
+            document.getElementById('txt-tunai').innerText = "Rp " + totalTunaiSales.toLocaleString();
+            document.getElementById('txt-total-sistem').innerText = "Rp " + totalSistem.toLocaleString();
+        }
+
+        function hitungSelisih() {
+            const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
+            const selisih = fisik - totalSistem;
+            document.getElementById('txt-selisih').innerText = "Rp " + selisih.toLocaleString();
+            document.getElementById('txt-selisih').style.color = selisih < 0 ? 'red' : 'green';
+        }
+
+        async function prosesClosing() {
+            const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
+            if(confirm("Apakah Anda yakin ingin menutup kasir?")) {
+                await supabaseClient.from('kasir_log').update({
+                    waktu_tutup: new Date(),
+                    total_tunai_sistem: totalSistem,
+                    total_tunai_fisik: fisik,
+                    selisih: fisik - totalSistem,
+                    status: 'Tutup'
+                }).eq('id', shiftId);
+
+                localStorage.removeItem('shift_id');
+                alert("Kasir Berhasil Ditutup!");
+                window.location.href = "index.html";
+            }
+        }
+        loadDataClosing();
+    </script>
+</body>
+</html>
