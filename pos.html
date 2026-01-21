@@ -278,6 +278,93 @@
     return `FP-${tgl}-${urutan}`;
 }
 
+        // ... kode-kode Anda yang lain ...
+
+// FUNGSI PROSES TRANSAKSI
+async function prosesTransaksi(dataKeranjang, totalBayar, nominalUang) {
+    const noNota = await generateNoNota();
+    const kembalian = nominalUang - totalBayar;
+
+    // Menampilkan loading (optional)
+    console.log("Sedang memproses nota: " + noNota);
+
+    try {
+        // 1. Simpan Header Penjualan ke Supabase
+        const { data: jual, error: errJual } = await supabaseClient
+            .from('penjualan')
+            .insert([{
+                no_nota: noNota,
+                grand_total: totalBayar,
+                bayar: nominalUang,
+                kembali: kembalian,
+                metode_pembayaran: document.getElementById('select-payment').value,
+                shift_id: localStorage.getItem('shift_id'),
+                kasir_nama: localStorage.getItem('user_name') || 'Kasir Kantin'
+            }])
+            .select();
+
+        if (errJual) throw errJual;
+
+        // 2. Simpan Detail & Update Stok
+        for (const item of dataKeranjang) {
+            await supabaseClient.from('penjualan_detail').insert([{
+                penjualan_id: jual[0].id,
+                produk_id: item.id,
+                nama_barang: item.nama_barang,
+                qty: item.qty,
+                harga: item.harga_jual,
+                subtotal_item: item.qty * item.harga_jual
+            }]);
+
+            // RPC untuk kurangi stok di database
+            await supabaseClient.rpc('kurangi_stok', { 
+                row_id: item.id, 
+                jml_kurang: item.qty 
+            });
+        }
+
+        // 3. Eksekusi Cetak Struk ke Printer Bluetooth
+        const dataStruk = {
+            no_nota: noNota,
+            total: totalBayar,
+            bayar: nominalUang,
+            kembali: kembalian,
+            items: dataKeranjang.map(i => ({
+                nama_barang: i.nama_barang,
+                qty: i.qty,
+                harga: i.harga_jual,
+                subtotal: i.qty * i.harga_jual
+            }))
+        };
+
+        await cetakStrukBluetooth(dataStruk);
+        
+        alert("Transaksi Berhasil!");
+        location.reload(); // Refresh halaman untuk transaksi baru
+
+    } catch (error) {
+        console.error("Gagal transaksi:", error);
+        alert("Terjadi kesalahan sistem, silakan coba lagi.");
+    }
+}
+
+<button onclick="panggilProses()">KONFIRMASI PEMBAYARAN</button>
+
+<script>
+function panggilProses() {
+    // Ambil data dari variabel keranjang Anda
+    const keranjang = dataKeranjang; 
+    const total = totalBelanja;
+    const bayar = parseFloat(document.getElementById('input-nominal-bayar').value);
+
+    if (bayar < total) {
+        alert("Uang tidak cukup!");
+        return;
+    }
+
+    // Panggil fungsi utama
+    prosesTransaksi(keranjang, total, bayar);
+}
         
         window.onload = init;
     </script>
