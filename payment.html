@@ -207,6 +207,54 @@
 
             document.getElementById('receipt-modal').style.display = 'flex';
         }
+            // Fungsi Kirim Data ke Printer Bluetooth
+async function cetakStrukBluetooth(dataTransaksi) {
+    try {
+        // 1. Request perangkat bluetooth
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }], // Service printer thermal umum
+            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+        });
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+        const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+
+        // 2. Format Struk (ESC/POS)
+        let struk = "\x1B\x61\x01"; // Align Center
+        struk += "FINEX POS - KANTIN\n";
+        struk += "--------------------------------\n";
+        struk += "\x1B\x61\x00"; // Align Left
+        struk += `No: ${dataTransaksi.no_nota}\n`;
+        struk += `Kasir: ${localStorage.getItem('user_name')}\n`;
+        struk += `Tgl: ${new Date().toLocaleString()}\n`;
+        struk += "--------------------------------\n";
+
+        dataTransaksi.items.forEach(item => {
+            struk += `${item.nama_barang}\n`;
+            struk += `${item.qty} x ${item.harga.toLocaleString()} = ${item.subtotal.toLocaleString()}\n`;
+        });
+
+        struk += "--------------------------------\n";
+        struk += `TOTAL: Rp ${dataTransaksi.total.toLocaleString()}\n`;
+        struk += `BAYAR: Rp ${dataTransaksi.bayar.toLocaleString()}\n`;
+        struk += `KEMBALI: Rp ${dataTransaksi.kembali.toLocaleString()}\n`;
+        struk += "--------------------------------\n";
+        struk += "\x1B\x61\x01"; // Center
+        struk += "Terima Kasih!\n\n\n\n"; // Beri ruang potong kertas
+
+        // 3. Kirim ke Printer
+        const encoder = new TextEncoder();
+        const data = encoder.encode(struk);
+        await characteristic.writeValue(data);
+        
+        alert("Struk berhasil dicetak!");
+    } catch (error) {
+        console.error("Printer Error: ", error);
+        alert("Gagal cetak struk: Pastikan Bluetooth aktif & pilih printer yang benar.");
+    }
+}
+        
     </script>
 </body>
 </html>
