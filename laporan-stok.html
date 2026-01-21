@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Laporan Riwayat Stok</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f1c40f; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        
+        /* Sidebar */
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+
+        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-in { background: #e8f5e9; color: #2e7d32; }
+        .badge-out { background: #ffebee; color: #c62828; }
+        .badge-warning { background: #fff3e0; color: #e67e22; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="index.html">📊 Dashboard</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">LAPORAN</div>
+    <a href="laporan-penjualan.html">📑 Penjualan</a>
+    <a href="laporan-stok.html" class="active">🔄 Riwayat Stok</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="penyesuaian.html">⚙️ Kelola Stok</a>
+</nav>
+
+<main>
+    <div class="header-flex">
+        <h1>Laporan In/Out Stok</h1>
+        <button class="btn-export" onclick="exportExcel()">Export Excel 📥</button>
+    </div>
+
+    <div class="filter-card">
+        <div class="input-group">
+            <label>Cari Produk</label>
+            <input type="text" id="filter-nama" placeholder="Ketik nama barang..." onkeyup="fetchRiwayat()">
+        </div>
+        <div class="input-group">
+            <label>Jenis Perubahan</label>
+            <select id="filter-tipe" onchange="fetchRiwayat()">
+                <option value="all">Semua</option>
+                <option value="Masuk">Stok Masuk (+)</option>
+                <option value="Keluar">Stok Keluar (-)</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Urutkan</label>
+            <select id="filter-sort" onchange="fetchRiwayat()">
+                <option value="desc">Terbaru</option>
+                <option value="asc">Terlama</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table id="stok-table">
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Nama Barang</th>
+                    <th>Tipe</th>
+                    <th>Qty</th>
+                    <th>Stok Akhir</th>
+                    <th>Petugas</th>
+                    <th>Keterangan</th>
+                </tr>
+            </thead>
+            <tbody id="stok-body">
+                </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+    async function fetchRiwayat() {
+        const nama = document.getElementById('filter-nama').value;
+        const tipe = document.getElementById('filter-tipe').value;
+        const sort = document.getElementById('filter-sort').value;
+
+        // Catatan: Pastikan Anda sudah membuat tabel 'stok_log' di Supabase
+        // Jika belum, laporan ini akan kosong.
+        let query = supabaseClient.from('stok_log')
+            .select('*')
+            .order('created_at', { ascending: sort === 'asc' });
+
+        if (nama) query = query.ilike('nama_barang', `%${nama}%`);
+        if (tipe !== 'all') query = query.eq('tipe', tipe);
+
+        const { data, error } = await query;
+        if (error) {
+            console.error("Gagal mengambil data riwayat stok");
+            return;
+        }
+
+        renderTable(data);
+    }
+
+    function renderTable(data) {
+        const body = document.getElementById('stok-body');
+        body.innerHTML = '';
+
+        if (data.length === 0) {
+            body.innerHTML = '<tr><td colspan="7" style="text-align:center">Tidak ada riwayat perubahan stok.</td></tr>';
+            return;
+        }
+
+        data.forEach(item => {
+            const badgeClass = item.tipe === 'Masuk' ? 'badge-in' : 'badge-out';
+            const qtySign = item.tipe === 'Masuk' ? `+${item.qty}` : `-${item.qty}`;
+            
+            body.innerHTML += `
+                <tr>
+                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
+                    <td><b>${item.nama_barang}</b></td>
+                    <td><span class="badge ${badgeClass}">${item.tipe}</span></td>
+                    <td style="font-weight:bold; color: ${item.tipe === 'Masuk' ? '#2e7d32' : '#c62828'}">${qtySign}</td>
+                    <td>${item.stok_akhir}</td>
+                    <td>${item.petugas || 'System'}</td>
+                    <td style="color:#666; font-style:italic">${item.keterangan || '-'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function exportExcel() {
+        const table = document.getElementById("stok-table");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Riwayat Stok" });
+        XLSX.writeFile(wb, "Laporan_Riwayat_Stok_Kantin.xlsx");
+    }
+
+    window.onload = fetchRiwayat;
+</script>
+</body>
+</html>
