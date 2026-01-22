@@ -153,93 +153,102 @@
         renderTable(data);
     }
 
-    function renderTable(data) {
-        const body = document.getElementById('report-body');
-        let totalAll = 0;
-        body.innerHTML = '';
+  function renderTable(data) {
+    const body = document.getElementById('report-body');
+    let totalAll = 0;
+    body.innerHTML = '';
 
-        data.forEach(item => {
-            totalAll += parseFloat(item.grand_total);
-            body.innerHTML += `
-                <tr>
-                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                    <td><b>${item.no_invoice}</b></td>
-                    <td>${item.metode_pembayaran}</td>
-                    <td>${parseFloat(item.subtotal).toLocaleString()}</td>
-                    <td style="color:red">${parseFloat(item.diskon_global).toLocaleString()}</td>
-                    <td><b>${parseFloat(item.grand_total).toLocaleString()}</b></td>
-                    <td style="text-align: center;">
-                        <button class="btn-print" onclick="reprintBill('${item.no_invoice}')">🖨️</button>
-                        <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')">🗑️</button>
-                    </td>
-                </tr>
-            `;
-        });
+    data.forEach(item => {
+        totalAll += parseFloat(item.grand_total);
+        body.innerHTML += `
+            <tr>
+                <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
+                <td><b>${item.no_invoice}</b></td>
+                <td><span style="background:#eee; padding:2px 6px; border-radius:4px;">${item.metode_pembayaran}</span></td>
+                <td>${parseFloat(item.subtotal).toLocaleString()}</td>
+                <td style="color:red">-${parseFloat(item.diskon_global).toLocaleString()}</td>
+                <td><b>${parseFloat(item.grand_total).toLocaleString()}</b></td>
+                <td style="text-align: center;">
+                    <button class="btn-print" onclick="reprintBill('${item.no_invoice}')" title="Cetak Ulang">🖨️</button>
+                    <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')" title="Batalkan Transaksi">🗑️ Void</button>
+                </td>
+            </tr>
+        `;
+    });
+    document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
+}
 
-        document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
-    }
-
-   // FUNGSI CETAK ULANG DENGAN DETAIL BARANG
 async function reprintBill(invoiceNo) {
-    const { data: b, error } = await supabaseClient
-        .from('penjualan')
-        .select('*')
-        .eq('no_invoice', invoiceNo)
-        .single();
-
+    const { data: b, error } = await supabaseClient.from('penjualan').select('*').eq('no_invoice', invoiceNo).single();
     if (error || !b) return alert("Data tidak ditemukan");
 
-    // Mengolah daftar barang dari JSON
+    // Mengolah daftar barang dari kolom JSON 'items'
     let itemRows = "";
     if (b.items && Array.isArray(b.items)) {
-        b.items.forEach(item => {
-            const subtotalItem = item.qty * item.harga;
-            itemRows += `${item.nama.substring(0, 20)}\n`;
-            itemRows += `${item.qty.toString().padStart(3)} x ${item.harga.toLocaleString().padStart(7)} = ${subtotalItem.toLocaleString().padStart(9)}\n`;
+        b.items.forEach(it => {
+            const sub = it.qty * it.harga;
+            itemRows += `${it.nama.substring(0, 20)}\n`;
+            itemRows += `${it.qty.toString().padStart(3)} x ${it.harga.toLocaleString().padStart(7)} = ${sub.toLocaleString().padStart(10)}\n`;
         });
     } else {
-        itemRows = "Detail barang tidak tersedia\n";
+        itemRows = "Detail barang tidak ditemukan.\n";
     }
 
     document.getElementById('print-area').innerHTML = `
-        <div style="text-align:center; font-family:monospace; width:58mm; padding:5px;">
-            <b style="font-size:14px;">FINEX POS</b><br>
-            <small>Salinan Nota Resmi</small><br>
+        <div style="text-align:center; font-family:monospace; width:58mm; padding:2px;">
+            <b>FINEX POS KANTIN</b><br>
+            ** SALINAN NOTA **<br>
             <hr style="border-top:1px dashed #000">
-            <div style="text-align:left; font-size:11px;">
-                Nota  : ${b.no_invoice}<br>
-                Tgl   : ${new Date(b.created_at).toLocaleString('id-ID')}<br>
-                Metode: ${b.metode_pembayaran}
+            <div style="text-align:left; font-size:10px;">
+                Nota : ${b.no_invoice}<br>
+                Tgl  : ${new Date(b.created_at).toLocaleString('id-ID')}
             </div>
             <hr style="border-top:1px dashed #000">
-            <pre style="text-align:left; font-family:monospace; font-size:11px; margin:0;">${itemRows}</pre>
+            <pre style="text-align:left; font-family:monospace; font-size:10px; margin:0;">${itemRows}</pre>
             <hr style="border-top:1px dashed #000">
-            <div style="text-align:right; font-size:11px;">
-                Subtotal: Rp ${parseFloat(b.subtotal).toLocaleString()}<br>
-                Diskon  : Rp ${parseFloat(b.diskon_global).toLocaleString()}<br>
-                <b style="font-size:12px;">TOTAL : Rp ${parseFloat(b.grand_total).toLocaleString()}</b>
+            <div style="text-align:right; font-size:10px;">
+                TOTAL: Rp ${parseFloat(b.grand_total).toLocaleString()}
             </div>
             <hr style="border-top:1px dashed #000">
-            <small>Terima Kasih - Finex Pos</small>
+            <center><small>Dicetak Ulang: ${new Date().toLocaleTimeString()}</small></center>
         </div>
     `;
-
-    setTimeout(() => { window.print(); }, 500);
+    window.print();
 }
 
-    // FUNGSI VOID (HAPUS)
-    async function voidBill(id, invoiceNo) {
-        if (confirm(`Yakin ingin membatalkan (VOID) transaksi ${invoiceNo}?`)) {
-            const { error } = await supabaseClient.from('penjualan').delete().eq('id', id);
-            if (error) {
-                alert("Gagal menghapus: " + error.message);
-            } else {
-                alert("Transaksi berhasil dihapus");
-                fetchLaporan();
+  async function voidBill(id, invoiceNo) {
+    const alasan = prompt(`Batal transaksi ${invoiceNo}?\nMasukkan alasan pembatalan:`, "Salah Input");
+    if (alasan === null) return;
+
+    try {
+        // 1. Ambil detail item dulu untuk tahu apa saja yang harus dikembalikan stoknya
+        const { data: b } = await supabaseClient.from('penjualan').select('items').eq('id', id).single();
+
+        if (b && b.items) {
+            // 2. Proses pengembalian stok per produk
+            for (const it of b.items) {
+                // Ambil stok saat ini dari tabel produk
+                const { data: prod } = await supabaseClient.from('produk').select('stok').eq('id', it.id).single();
+                
+                if (prod) {
+                    const stokBaru = prod.stok + it.qty;
+                    await supabaseClient.from('produk').update({ stok: stokBaru }).eq('id', it.id);
+                }
             }
         }
-    }
 
+        // 3. Hapus data penjualan
+        const { error: errDel } = await supabaseClient.from('penjualan').delete().eq('id', id);
+        if (errDel) throw errDel;
+
+        alert(`Sukses! Bill ${invoiceNo} di-void & stok dikembalikan.`);
+        fetchLaporan(); // Refresh tabel
+
+    } catch (err) {
+        alert("Gagal Void: " + err.message);
+        console.error(err);
+    }
+}
     function exportKeExcel() {
         const table = document.getElementById("table-laporan");
         const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Penjualan" });
