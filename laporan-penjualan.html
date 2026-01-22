@@ -199,69 +199,11 @@
 
 function showPreview(invoiceNo) {
     const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-    if (!item) return alert("Data tidak ditemukan");
-
-    // CARA CEK: Coba ambil dari kolom 'items', jika kosong coba kolom lain
-    // Ganti 'item.items' di bawah ini sesuai nama kolom di database Anda
-    const dataProduk = item.items || item.detail_penjualan || item.produk_list || [];
-
-    let itemsHtml = "";
     
-    if (dataProduk && dataProduk.length > 0) {
-        dataProduk.forEach(it => {
-            // Kita gunakan nama_barang sesuai instruksi Anda
-            const namaDisplay = it.nama_barang || it.nama || "Produk";
-            const qty = it.qty || 0;
-            const harga = it.harga || it.harga_jual || 0;
-            const subtotalItem = qty * harga;
-            
-            itemsHtml += `
-                <div class="detail-row">
-                    <span>${namaDisplay} (x${qty})</span>
-                    <span>Rp ${subtotalItem.toLocaleString()}</span>
-                </div>
-            `;
-        });
-    } else {
-        // Jika masih kosong, tampilkan pesan error yang lebih detail
-        itemsHtml = `<div class="detail-row"><span style="color:red">Data barang tidak ditemukan di kolom 'items'. Cek nama kolom di database Anda.</span></div>`;
-    }
-
-    document.getElementById('preview-body').innerHTML = `
-        <div style="font-size: 13px; margin-bottom: 10px; color: #333;">
-            <b>No. Nota :</b> ${item.no_invoice}<br>
-            <b>Tanggal  :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
-            <b>Kasir    :</b> Admin Kantin<br>
-            <b>Metode   :</b> ${item.metode_pembayaran}
-        </div>
-        
-        <div style="border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; margin: 10px 0;">
-            <div style="font-weight: bold; font-size: 12px; margin-bottom: 8px; color: #888;">RINCIAN PESANAN</div>
-            ${itemsHtml}
-        </div>
-
-        <div style="font-size: 14px;">
-            <div class="detail-row" style="border:none">
-                <span>Subtotal</span>
-                <span>Rp ${parseFloat(item.subtotal || 0).toLocaleString()}</span>
-            </div>
-            <div class="detail-row" style="border:none; color: var(--danger)">
-                <span>Diskon</span>
-                <span>-Rp ${parseFloat(item.diskon_global || 0).toLocaleString()}</span>
-            </div>
-            <div class="detail-row" style="border:none; font-weight:bold; font-size: 16px; margin-top: 5px; color: var(--primary);">
-                <span>TOTAL AKHIR</span>
-                <span>Rp ${parseFloat(item.grand_total || 0).toLocaleString()}</span>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('confirm-print-btn').onclick = () => { 
-        reprintBill(invoiceNo); 
-        closePreview(); 
-    };
-
-    document.getElementById('modal-preview').style.display = 'flex';
+    // Tampilkan semua kunci kolom yang ada di database dalam bentuk pesan pop-up
+    alert("Kolom yang ada di database: " + Object.keys(item).join(", "));
+    
+    // ... sisa kode lainnya
 }
     async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
