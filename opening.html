@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .card-status { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-weight: bold; }
+        .status-open { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-closed { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; margin-top: 10px; }
+        .btn-open { background: var(--primary); color: white; }
+        .btn-pos { background: var(--success); color: white; }
+        .btn-close { background: var(--danger); color: white; }
+        .btn-open:hover { background: #1a252f; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 style="margin-bottom: 5px;">Finex Pos</h2>
+        <p style="color: #666; margin-bottom: 25px;">Sistem Manajemen Kantin</p>
+
+        <div id="loader">Memeriksa status kantin...</div>
+
+        <div id="view-closed" style="display: none;">
+            <div class="card-status status-closed">KANTIN SEDANG TUTUP</div>
+            <p style="font-size: 14px; color: #555;">Silakan masukkan saldo modal awal untuk mulai berjualan:</p>
+            <input type="number" id="inputSaldoAwal" placeholder="Contoh: 200000" min="0">
+            <button class="btn-open" onclick="handleBukaShift()">BUKA SHIFT SEKARANG</button>
+        </div>
+
+        <div id="view-open" style="display: none;">
+            <div class="card-status status-open">KANTIN SEDANG BUKA</div>
+            <p>Kasir Aktif: <b id="namaKasir"></b></p>
+            <p>Mulai Sejak: <br><small id="waktuBuka"></small></p>
+            <button class="btn-pos" onclick="location.href='pos.html'">MASUK KE KASIR (POS)</button>
+            <button class="btn-close" onclick="handleTutupShift()">TUTUP SHIFT (CLOSING)</button>
+        </div>
+    </div>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    let activeId = null;
+
+    window.onload = checkStatus;
+
+    async function checkStatus() {
+        try {
+            const { data, error } = await FinexDB.from('kasir_log')
+                .select('*')
+                .eq('status', 'Open')
+                .maybeSingle();
+
+            document.getElementById('loader').style.display = 'none';
+
+            if (data) {
+                // Jika ada shift Open
+                activeId = data.id;
+                document.getElementById('view-open').style.display = 'block';
+                document.getElementById('view-closed').style.display = 'none';
+                document.getElementById('namaKasir').innerText = data.kasir_nama;
+                document.getElementById('waktuBuka').innerText = new Date(data.waktu_buka).toLocaleString('id-ID');
+            } else {
+                // Jika tidak ada shift Open
+                document.getElementById('view-open').style.display = 'none';
+                document.getElementById('view-closed').style.display = 'block';
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Terjadi kesalahan koneksi database.");
+        }
+    }
+
+    async function handleBukaShift() {
+        const saldo = document.getElementById('inputSaldoAwal').value;
+        if (!saldo || saldo < 0) return alert("Masukkan saldo awal yang valid!");
+
+        const { data, error } = await FinexDB.from('kasir_log').insert([{
+            tanggal: new Date().toISOString().split('T')[0],
+            waktu_buka: new Date().toISOString(),
+            saldo_awal: parseFloat(saldo),
+            kasir_nama: 'Admin Kantin',
+            status: 'Open'
+        }]).select();
+
+        if (error) {
+            alert("Gagal Buka Shift: " + error.message);
+        } else {
+            alert("Shift Berhasil Dibuka!");
+            location.reload();
+        }
+    }
+
+    async function handleTutupShift() {
+    // 1. Ambil data penjualan tunai dari sistem untuk sesi ini
+    const { data: sales } = await FinexDB
+        .from('penjualan')
+        .select('grand_total')
+        .eq('kasir_id', activeId)
+        .eq('metode_pembayaran', 'Tunai');
+
+    const totalTunaiSistem = sales.reduce((acc, curr) => acc + curr.grand_total, 0);
+
+    // 2. Minta Kasir input uang fisik
+    const uangFisik = prompt(`TOTAL TUNAI DI SISTEM: Rp ${totalTunaiSistem.toLocaleString()}\n\nMasukkan TOTAL UANG FISIK di laci saat ini:`, "0");
+    
+    if (uangFisik === null) return; // Batal closing
+
+    const fisikNum = parseFloat(uangFisik);
+    const selisih = fisikNum - totalTunaiSistem;
+
+    if (!confirm(`Detail Closing:\nSistem: Rp ${totalTunaiSistem.toLocaleString()}\nFisik: Rp ${fisikNum.toLocaleString()}\nSelisih: Rp ${selisih.toLocaleString()}\n\nLanjutkan tutup shift?`)) return;
+
+    // 3. Update tabel kasir_log sesuai kolom di pnj.PNG
+    const { error } = await FinexDB.from('kasir_log')
+        .update({ 
+            status: 'Closed', 
+            waktu_tutup: new Date().toISOString(),
+            total_tunai_sistem: totalTunaiSistem,
+            total_tunai_fisik: fisikNum,
+            selisih: selisih
+        })
+        .eq('id', activeId);
+
+    if (!error) {
+        alert("Shift Berhasil Ditutup. Laporan Closing Tersimpan.");
+        location.reload();
+    } else {
+        alert("Gagal Tutup Shift: " + error.message);
+    }
+}
+    
+    async function handleTutupShift() {
+        if (!confirm("Apakah Anda yakin ingin menutup shift? Pastikan semua transaksi sudah selesai.")) return;
+
+        const { error } = await FinexDB.from('kasir_log')
+            .update({ status: 'Closed', waktu_tutup: new Date().toISOString() })
+            .eq('id', activeId);
+
+        if (!error) {
+            alert("Shift Berhasil Ditutup.");
+            location.reload();
+        } else {
+            alert("Gagal Tutup Shift: " + error.message);
+        }
+    }
+</script>
+</body>
+</html>
