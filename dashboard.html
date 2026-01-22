@@ -100,6 +100,45 @@
     }
 
     async function handleTutupShift() {
+    // 1. Ambil data penjualan tunai dari sistem untuk sesi ini
+    const { data: sales } = await FinexDB
+        .from('penjualan')
+        .select('grand_total')
+        .eq('kasir_id', activeId)
+        .eq('metode_pembayaran', 'Tunai');
+
+    const totalTunaiSistem = sales.reduce((acc, curr) => acc + curr.grand_total, 0);
+
+    // 2. Minta Kasir input uang fisik
+    const uangFisik = prompt(`TOTAL TUNAI DI SISTEM: Rp ${totalTunaiSistem.toLocaleString()}\n\nMasukkan TOTAL UANG FISIK di laci saat ini:`, "0");
+    
+    if (uangFisik === null) return; // Batal closing
+
+    const fisikNum = parseFloat(uangFisik);
+    const selisih = fisikNum - totalTunaiSistem;
+
+    if (!confirm(`Detail Closing:\nSistem: Rp ${totalTunaiSistem.toLocaleString()}\nFisik: Rp ${fisikNum.toLocaleString()}\nSelisih: Rp ${selisih.toLocaleString()}\n\nLanjutkan tutup shift?`)) return;
+
+    // 3. Update tabel kasir_log sesuai kolom di pnj.PNG
+    const { error } = await FinexDB.from('kasir_log')
+        .update({ 
+            status: 'Closed', 
+            waktu_tutup: new Date().toISOString(),
+            total_tunai_sistem: totalTunaiSistem,
+            total_tunai_fisik: fisikNum,
+            selisih: selisih
+        })
+        .eq('id', activeId);
+
+    if (!error) {
+        alert("Shift Berhasil Ditutup. Laporan Closing Tersimpan.");
+        location.reload();
+    } else {
+        alert("Gagal Tutup Shift: " + error.message);
+    }
+}
+    
+    async function handleTutupShift() {
         if (!confirm("Apakah Anda yakin ingin menutup shift? Pastikan semua transaksi sudah selesai.")) return;
 
         const { error } = await FinexDB.from('kasir_log')
