@@ -226,59 +226,74 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-    async function executeTransaction() {
-        if (isSaving) return;
-        const cash = parseFloat(document.getElementById('cashInput').value || 0);
-        const method = document.getElementById('payMethodSelect').value;
-        if (cash < state.total && method === "Tunai") return alert("Uang kurang!");
+   async function executeTransaction() {
+    if (isSaving) return;
+    const cash = parseFloat(document.getElementById('cashInput').value || 0);
+    const method = document.getElementById('payMethodSelect').value;
+    if (cash < state.total && method === "Tunai") return alert("Uang kurang!");
 
-        isSaving = true;
-        const inv = `INV-${Date.now()}`;
-        const kembali = cash - state.total;
+    isSaving = true;
+    const inv = `INV-${Date.now()}`;
+    const kembali = cash - state.total;
 
-        // Persiapkan JSON items
-        const itemsJSON = cart.map(it => ({
-            id: it.id,
-            nama_barang: it.nama_barang,
-            qty: it.qty,
-            harga: it.harga
-        }));
+    // Persiapkan JSON items
+    const itemsJSON = cart.map(it => ({
+        id: it.id,
+        nama_barang: it.nama_barang,
+        qty: it.qty,
+        harga: it.harga
+    }));
 
-        try {
-            // 1. Simpan Penjualan
-            const { error: errJual } = await FinexDB.from('penjualan').insert([{
-                no_invoice: inv,
-                items: itemsJSON, // KOLOM JSONB BARU
-                subtotal: state.sub,
-                diskon_global: state.disc,
-                grand_total: state.total,
-                bayar: cash,
-                kembali: kembali > 0 ? kembali : 0,
-                kasir_id: currentLogId,
-                metode_pembayaran: method
-            }]);
-            if (errJual) throw errJual;
+    try {
+        // 1. Simpan Penjualan
+        const { error: errJual } = await FinexDB.from('penjualan').insert([{
+            no_invoice: inv,
+            items: itemsJSON,
+            subtotal: state.sub,
+            diskon_global: state.disc,
+            grand_total: state.total,
+            bayar: cash,
+            kembali: kembali > 0 ? kembali : 0,
+            kasir_id: currentLogId,
+            metode_pembayaran: method
+        }]);
+        if (errJual) throw errJual;
 
-            // 2. Update Stok Otomatis
-            for (const item of cart) {
-                const { data: p } = await FinexDB.from('produk').select('stok').eq('id', item.id).single();
-                await FinexDB.from('produk').update({ stok: p.stok - item.qty }).eq('id', item.id);
+        // 2. Update Stok Otomatis (VERSI AMAN)
+        for (const item of cart) {
+            // Kita ambil stok terbaru dulu
+            const { data: p, error: errCek } = await FinexDB
+                .from('produk')
+                .select('stok')
+                .eq('id', item.id)
+                .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika null
+
+            if (p) {
+                const stokBaru = p.stok - item.qty;
+                await FinexDB
+                    .from('produk')
+                    .update({ stok: stokBaru })
+                    .eq('id', item.id);
+            } else {
+                console.warn(`Produk ID ${item.id} tidak ditemukan saat update stok.`);
             }
-
-            // 3. Cetak & Selesai
-            renderReceipt(inv, cash, kembali, method);
-            setTimeout(() => {
-                window.print();
-                alert("Berhasil!");
-                location.reload();
-            }, 500);
-
-        } catch (e) {
-            alert("Simpan Gagal: " + e.message);
-            isSaving = false;
         }
-    }
 
+        // 3. Cetak & Selesai
+        renderReceipt(inv, cash, kembali, method);
+        setTimeout(() => {
+            window.print();
+            alert("Transaksi Berhasil!");
+            location.reload();
+        }, 500);
+
+    } catch (e) {
+        alert("Simpan Gagal: " + e.message);
+        isSaving = false;
+        const btn = document.getElementById('btnConfirm');
+        if(btn) btn.innerText = "KONFIRMASI & CETAK";
+    }
+}
     function renderReceipt(inv, bayar, kembali, mtd) {
         let itemsStr = cart.map(i => `${i.nama_barang.slice(0,18)}\n${i.qty} x ${i.harga.toLocaleString()} = ${(i.qty*i.harga).toLocaleString()}`).join('\n');
         document.getElementById('print-area').innerHTML = `
