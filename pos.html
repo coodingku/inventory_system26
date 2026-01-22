@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
         /* Sidebar Navigasi */
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
@@ -20,8 +20,9 @@
         main { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; }
         .search-bar { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 25px; font-size: 16px; outline: none; }
         .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
-        .card { background: white; padding: 15px; border-radius: 15px; text-align: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; border-bottom: 4px solid transparent; }
+        .card { background: white; padding: 15px; border-radius: 15px; text-align: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; border-bottom: 4px solid transparent; position: relative; }
         .card:hover { transform: translateY(-5px); border-bottom-color: var(--accent); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+        .stok-badge { position: absolute; top: 5px; right: 5px; background: #eee; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
 
         /* Sidebar Keranjang */
         .sidebar-pos { width: 400px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
@@ -41,19 +42,12 @@
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 350px; text-align: center; }
         .modal-content select, .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
 
-        /* CSS KHUSUS STRUK NOTA */
+        /* CSS STRUK NOTA */
         #print-area { display: none; }
         @media print {
             body * { display: none !important; }
-            #print-area { 
-                display: block !important; 
-                width: 58mm; 
-                font-family: 'Courier New', Courier, monospace; 
-                font-size: 11px; 
-                color: black; 
-                padding: 5px;
-            }
-            #print-area hr { border: none; border-top: 1px dashed black; margin: 10px 0; }
+            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; color: black; line-height: 1.2; }
+            #print-area hr { border: none; border-top: 1px dashed black; margin: 5px 0; }
         }
     </style>
 </head>
@@ -63,8 +57,7 @@
         <h2>Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html" class="active">🛒 Kasir POS</a>
-        <a href="laporan-bill.html">📄 Riwayat Bill</a>
-        <a href="laporan-opening-closing.html">🏁 Laporan Shift</a>
+        <a href="laporan-penjualan.html">📄 Laporan Penjualan</a>
         <a onclick="doClosing()">🏁 Closing Kantin</a>
         <div style="margin-top: 20px; font-size: 11px; color: #888; padding: 10px;">
             KASIR AKTIF:<br><b id="cashier-display" style="color: var(--accent);">Memuat...</b>
@@ -74,10 +67,10 @@
 
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h1 style="margin:0;">Katalog Menu</h1>
+            <h1 style="margin:0;">Katalog Kantin</h1>
             <div id="clock" style="font-weight:bold; color:var(--accent);"></div>
         </div>
-        <input type="text" id="search" class="search-bar" placeholder="Cari makanan atau minuman..." onkeyup="loadMenu()">
+        <input type="text" id="search" class="search-bar" placeholder="Cari menu..." onkeyup="loadMenu()">
         <div id="displayMenu" class="grid-menu"></div>
     </main>
 
@@ -101,10 +94,8 @@
             <h3 id="label-total-modal" style="color: var(--success); margin-bottom: 20px;"></h3>
             <label style="display:block; text-align:left; font-size:12px; margin-bottom:5px;">Metode Pembayaran:</label>
             <select id="payMethodSelect"></select>
-            
             <label style="display:block; text-align:left; font-size:12px; margin-bottom:5px;">Uang Tunai (Rp):</label>
             <input type="number" id="cashInput" placeholder="0" style="font-size: 24px; font-weight: bold; text-align: center;">
-            
             <button id="btnConfirm" class="btn-pay" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
             <button onclick="closePayment()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Batal</button>
         </div>
@@ -113,7 +104,6 @@
     <div id="print-area"></div>
 
 <script>
-    // --- KONFIGURASI DB ---
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
@@ -130,56 +120,50 @@
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
     };
 
-    // --- FITUR AUTH & SESI ---
     async function checkSession() {
-        const { data, error } = await FinexDB.from('kasir_log').select('*').eq('status', 'Open').maybeSingle();
+        const { data } = await FinexDB.from('kasir_log').select('*').eq('status', 'Open').maybeSingle();
         if (data) {
             currentLogId = data.id;
             document.getElementById('cashier-display').innerText = data.kasir_nama;
         } else {
-            alert("Sesi belum dibuka! Silakan login/buka shift di Dashboard.");
+            alert("Buka shift dulu di Dashboard!");
             window.location.href = 'dashboard.html';
         }
     }
 
-    function logout() {
-        if(confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
-            window.location.href = 'login.html'; 
-        }
-    }
-
-    // --- LOAD DATA DROPDOWN ---
     async function loadSettings() {
-        // Load Metode Pembayaran (Sesuai tabel Anda)
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').eq('aktif', true);
         if (mtd) document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
 
-        // Load Diskon (Sesuai tabel Anda)
         const { data: dsk } = await FinexDB.from('diskon').select('*');
-        let optDsk = '<option value="0">0% (Tanpa Diskon)</option>';
+        let optDsk = '<option value="0">0%</option>';
         if (dsk) optDsk += dsk.map(d => `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
         document.getElementById('discSelect').innerHTML = optDsk;
     }
 
-    // --- KATALOG & KERANJANG ---
     async function loadMenu() {
         const q = document.getElementById('search').value;
-        let query = FinexDB.from('produk').select('*').gt('stok_sekarang', 0);
+        let query = FinexDB.from('produk').select('*').gt('stok', 0); // Kolom 'stok'
         if(q) query = query.ilike('nama_barang', `%${q}%`);
         
         const { data } = await query;
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
-            <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
+            <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok})">
+                <span class="stok-badge">Stok: ${p.stok}</span>
                 <strong style="font-size:14px;">${p.nama_barang}</strong><br>
                 <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
             </div>
         `).join('');
     }
 
-    function addCart(id, nama, harga) {
+    function addCart(id, nama, harga, stokMaks) {
         const idx = cart.findIndex(c => c.id === id);
-        if(idx > -1) cart[idx].qty++;
-        else cart.push({ id, nama, harga, qty: 1 });
+        if(idx > -1) {
+            if(cart[idx].qty < stokMaks) cart[idx].qty++;
+            else alert("Stok habis!");
+        } else {
+            cart.push({ id, nama_barang: nama, harga, qty: 1 });
+        }
         calculateTotal();
     }
 
@@ -195,17 +179,18 @@
         
         document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
             <div class="cart-item">
-                <div><b>${item.nama}</b><br><small>${item.qty} x Rp ${item.harga.toLocaleString()}</small></div>
-                <div style="font-weight:bold;">Rp ${(item.qty * item.harga).toLocaleString()} <span onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
+                <div><b>${item.nama_barang}</b><br><small>${item.qty} x Rp ${item.harga.toLocaleString()}</small></div>
+                <div style="font-weight:bold;">Rp ${(item.qty * item.harga).toLocaleString()} 
+                    <span onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:10px;">&times;</span>
+                </div>
             </div>
         `).join('');
     }
 
     function delItem(i) { cart.splice(i, 1); calculateTotal(); }
 
-    // --- TRANSAKSI & STRUK ---
     function openPayment() {
-        if(cart.length === 0) return alert("Pilih menu terlebih dahulu!");
+        if(cart.length === 0) return alert("Pilih menu!");
         document.getElementById('label-total-modal').innerText = "TOTAL: Rp " + state.total.toLocaleString();
         document.getElementById('payModal').style.display = 'flex';
         document.getElementById('cashInput').focus();
@@ -213,167 +198,83 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-   async function executeTransaction() {
-    if (isSaving) return;
-    const cash = parseFloat(document.getElementById('cashInput').value || 0);
-    const method = document.getElementById('payMethodSelect').value;
+    async function executeTransaction() {
+        if (isSaving) return;
+        const cash = parseFloat(document.getElementById('cashInput').value || 0);
+        const method = document.getElementById('payMethodSelect').value;
+        if (cash < state.total && method === "Tunai") return alert("Uang kurang!");
 
-    if (cash < state.total && method === "Tunai") return alert("Uang tunai kurang!");
+        isSaving = true;
+        const inv = `INV-${Date.now()}`;
+        const kembali = cash - state.total;
 
-    isSaving = true;
-    const btn = document.getElementById('btnConfirm');
-    btn.innerText = "Proses...";
-    
-    const inv = `INV-${Date.now()}`;
-    const kembali = cash - state.total;
+        // Persiapkan JSON items
+        const itemsJSON = cart.map(it => ({
+            id: it.id,
+            nama_barang: it.nama_barang,
+            qty: it.qty,
+            harga: it.harga
+        }));
 
-    // --- PEMBAHARUAN: MENYIAPKAN DATA DETAIL BARANG ---
-    const itemsData = cart.map(it => ({
-        id: it.id,
-        nama_barang: it.nama, // Sesuai dengan properti 'nama' di addCart
-        qty: it.qty,
-        harga: it.harga
-    }));
+        try {
+            // 1. Simpan Penjualan
+            const { error: errJual } = await FinexDB.from('penjualan').insert([{
+                no_invoice: inv,
+                items: itemsJSON, // KOLOM JSONB BARU
+                subtotal: state.sub,
+                diskon_global: state.disc,
+                grand_total: state.total,
+                bayar: cash,
+                kembali: kembali > 0 ? kembali : 0,
+                kasir_id: currentLogId,
+                metode_pembayaran: method
+            }]);
+            if (errJual) throw errJual;
 
-    try {
-        // 1. Simpan Header Penjualan BESERTA Detail Items
-        const { error: errJual } = await FinexDB.from('penjualan').insert([{
-            no_invoice: inv,
-            subtotal: state.sub,
-            diskon_global: state.disc,
-            pajak_ppn: 0,
-            grand_total: state.total,
-            bayar: cash,
-            kembali: kembali > 0 ? kembali : 0,
-            kasir_id: currentLogId,
-            metode_pembayaran: method,
-            items: itemsData // <--- SEKARANG DETAIL BARANG IKUT TERSIMPAN
-        }]);
-
-        if (errJual) throw errJual;
-
-        // --- 2. UPDATE STOK PRODUK DI DATABASE ---
-        for (const item of cart) {
-            // Ambil stok saat ini
-            const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-            if (p) {
-                const stokBaru = p.stok_sekarang - item.qty;
-                await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+            // 2. Update Stok Otomatis
+            for (const item of cart) {
+                const { data: p } = await FinexDB.from('produk').select('stok').eq('id', item.id).single();
+                await FinexDB.from('produk').update({ stok: p.stok - item.qty }).eq('id', item.id);
             }
+
+            // 3. Cetak & Selesai
+            renderReceipt(inv, cash, kembali, method);
+            setTimeout(() => {
+                window.print();
+                alert("Berhasil!");
+                location.reload();
+            }, 500);
+
+        } catch (e) {
+            alert("Simpan Gagal: " + e.message);
+            isSaving = false;
         }
-
-        // 3. Render Struk
-        renderReceipt(inv, cash, kembali, method);
-
-        // 4. Jeda & Cetak
-        setTimeout(() => {
-            window.print();
-            alert("Transaksi Berhasil Disimpan!");
-            location.reload(); 
-        }, 800);
-
-    } catch (e) {
-        alert("Error: " + e.message);
-        isSaving = false;
-        btn.innerText = "KONFIRMASI & CETAK";
     }
-}
- function renderReceipt(inv, bayar, kembali, mtd) {
-    let itemsHTML = cart.map(i => {
-        const subtotal = (i.qty * i.harga).toLocaleString();
-        // Membatasi nama barang agar tidak merusak baris (max 18 karakter)
-        const nama = i.nama.slice(0, 18).padEnd(18, ' ');
-        return `${nama} x${i.qty}  ${subtotal.padStart(8, ' ')}`;
-    }).join('\n');
-    
-    // ... sisa kode renderReceipt Anda
-}
 
+    function renderReceipt(inv, bayar, kembali, mtd) {
+        let itemsStr = cart.map(i => `${i.nama_barang.slice(0,18)}\n${i.qty} x ${i.harga.toLocaleString()} = ${(i.qty*i.harga).toLocaleString()}`).join('\n');
         document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center;">
-                <b style="font-size:14px;">FINEX POS KANTIN</b><br>
-                ----------------------------
-            </div>
-            <pre style="white-space: pre-wrap; font-family: monospace; margin:0;">
-Nota   : ${inv}
-Kasir  : ${document.getElementById('cashier-display').innerText}
-Metode : ${mtd}
-Tgl    : ${new Date().toLocaleDateString('id-ID')}
+            <div style="text-align:center;"><b>FINEX POS KANTIN</b><br>----------------------------</div>
+            <pre style="white-space:pre-wrap;">
+Nota : ${inv}
+Kasir: ${document.getElementById('cashier-display').innerText}
+Tgl  : ${new Date().toLocaleString()}
 ----------------------------
-${itemsHTML}
+${itemsStr}
 ----------------------------
-TOTAL    : Rp${state.total.toLocaleString()}
-BAYAR    : Rp${bayar.toLocaleString()}
-KEMBALI  : Rp${(kembali > 0 ? kembali : 0).toLocaleString()}
+TOTAL   : Rp ${state.total.toLocaleString()}
+BAYAR   : Rp ${bayar.toLocaleString()}
+KEMBALI : Rp ${(kembali > 0 ? kembali : 0).toLocaleString()}
             </pre>
-            <div style="text-align:center;">
-                ----------------------------<br>
-                Terima Kasih Atas<br>Kunjungan Anda
-            </div>
+            <div style="text-align:center;">----------------------------<br>Terima Kasih</div>
         `;
     }
 
-    // Fungsi untuk mencetak Ringkasan Penjualan (X-Report) sebelum closing
-async function cetakLaporanBill() {
-    const { data: sales, error } = await FinexDB
-        .from('penjualan')
-        .select('grand_total, metode_pembayaran')
-        .eq('kasir_id', currentLogId);
-
-    if (error) return alert("Gagal memuat data: " + error.message);
-
-    let totalTunai = 0;
-    let totalNonTunai = 0;
-    sales.forEach(s => {
-        if(s.metode_pembayaran === 'Tunai') totalTunai += s.grand_total;
-        else totalNonTunai += s.grand_total;
-    });
-
-    const reportHTML = `
-        <div style="text-align:center; font-family:monospace; width:58mm;">
-            <b>REKAP BILL KANTIN</b><br>
-            ----------------------------<br>
-            Kasir: ${document.getElementById('cashier-display').innerText}<br>
-            Waktu: ${new Date().toLocaleString('id-ID')}<br>
-            ----------------------------<br>
-            <div style="text-align:left;">
-            Total Tunai    : Rp${totalTunai.toLocaleString()}<br>
-            Total Non-Tunai: Rp${totalNonTunai.toLocaleString()}<br>
-            ----------------------------<br>
-            <b>GRAND TOTAL: Rp${(totalTunai + totalNonTunai).toLocaleString()}</b>
-            </div>
-            <br>--- Dokumen Internal ---
-        </div>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(reportHTML);
-    printWindow.print();
-    printWindow.close();
-}
-
-// Contoh logika simpan di pos.html
-const dataKeSupabase = {
-    no_invoice: "INV-12345",
-    items: keranjang.map(p => ({
-        id: p.id,
-        nama_barang: p.nama_barang, // Pastikan namanya sama
-        qty: p.qty,
-        harga: p.harga_jual
-    })),
-    subtotal: totalSemua,
-    grand_total: totalSetelahDiskon
-};
-    
-
+    function logout() { if(confirm("Keluar?")) window.location.href = 'login.html'; }
     async function doClosing() {
-        if(!confirm("Lakukan closing kantin sekarang?")) return;
-        // Logika closing (update kasir_log status menjadi Closed)
-        const { error } = await FinexDB.from('kasir_log').update({ 
-            waktu_tutup: new Date().toISOString(), 
-            status: 'Closed' 
-        }).eq('id', currentLogId);
-        if(!error) window.location.href = 'dashboard.html';
+        if(!confirm("Closing Kantin?")) return;
+        await FinexDB.from('kasir_log').update({ waktu_tutup: new Date().toISOString(), status: 'Closed' }).eq('id', currentLogId);
+        window.location.href = 'dashboard.html';
     }
 </script>
 </body>
