@@ -199,11 +199,25 @@
 
 function showPreview(invoiceNo) {
     const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-    
-    // Tampilkan semua kunci kolom yang ada di database dalam bentuk pesan pop-up
-    alert("Kolom yang ada di database: " + Object.keys(item).join(", "));
-    
-    // ... sisa kode lainnya
+    if (!item) return;
+
+    // Sekarang sistem akan mencari di kolom 'items' yang baru kita buat
+    const dataBarang = item.items || [];
+
+    let itemsHtml = "";
+    if (dataBarang.length > 0) {
+        dataBarang.forEach(it => {
+            itemsHtml += `
+                <div class="detail-row">
+                    <span>${it.nama_barang} (x${it.qty})</span>
+                    <span>Rp ${(it.qty * it.harga).toLocaleString()}</span>
+                </div>`;
+        });
+    } else {
+        itemsHtml = `<div style="color:orange">Data lama tidak memiliki detail barang.</div>`;
+    }
+
+    // ... sisa kode modal sama seperti sebelumnya
 }
     async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
