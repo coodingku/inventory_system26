@@ -179,26 +179,53 @@
         document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
     }
 
-    // FUNGSI CETAK ULANG
-    async function reprintBill(invoiceNo) {
-        const { data: b, error } = await supabaseClient.from('penjualan').select('*').eq('no_invoice', invoiceNo).single();
-        if (error || !b) return alert("Data tidak ditemukan");
+   // FUNGSI CETAK ULANG DENGAN DETAIL BARANG
+async function reprintBill(invoiceNo) {
+    const { data: b, error } = await supabaseClient
+        .from('penjualan')
+        .select('*')
+        .eq('no_invoice', invoiceNo)
+        .single();
 
-        document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center;"><b>FINEX POS</b><br>*** SALINAN NOTA ***<br><hr></div>
-            <pre style="white-space: pre-wrap; margin:0; font-family:monospace;">
-Nota   : ${b.no_invoice}
-Tgl    : ${new Date(b.created_at).toLocaleString('id-ID')}
-Metode : ${b.metode_pembayaran}
-----------------------------
-SUBTOTAL : Rp${parseFloat(b.subtotal).toLocaleString()}
-DISKON   : Rp${parseFloat(b.diskon_global).toLocaleString()}
-TOTAL    : Rp${parseFloat(b.grand_total).toLocaleString()}
-            </pre>
-            <div style="text-align:center;"><hr>Terima Kasih</div>
-        `;
-        window.print();
+    if (error || !b) return alert("Data tidak ditemukan");
+
+    // Mengolah daftar barang dari JSON
+    let itemRows = "";
+    if (b.items && Array.isArray(b.items)) {
+        b.items.forEach(item => {
+            const subtotalItem = item.qty * item.harga;
+            itemRows += `${item.nama.substring(0, 20)}\n`;
+            itemRows += `${item.qty.toString().padStart(3)} x ${item.harga.toLocaleString().padStart(7)} = ${subtotalItem.toLocaleString().padStart(9)}\n`;
+        });
+    } else {
+        itemRows = "Detail barang tidak tersedia\n";
     }
+
+    document.getElementById('print-area').innerHTML = `
+        <div style="text-align:center; font-family:monospace; width:58mm; padding:5px;">
+            <b style="font-size:14px;">FINEX POS</b><br>
+            <small>Salinan Nota Resmi</small><br>
+            <hr style="border-top:1px dashed #000">
+            <div style="text-align:left; font-size:11px;">
+                Nota  : ${b.no_invoice}<br>
+                Tgl   : ${new Date(b.created_at).toLocaleString('id-ID')}<br>
+                Metode: ${b.metode_pembayaran}
+            </div>
+            <hr style="border-top:1px dashed #000">
+            <pre style="text-align:left; font-family:monospace; font-size:11px; margin:0;">${itemRows}</pre>
+            <hr style="border-top:1px dashed #000">
+            <div style="text-align:right; font-size:11px;">
+                Subtotal: Rp ${parseFloat(b.subtotal).toLocaleString()}<br>
+                Diskon  : Rp ${parseFloat(b.diskon_global).toLocaleString()}<br>
+                <b style="font-size:12px;">TOTAL : Rp ${parseFloat(b.grand_total).toLocaleString()}</b>
+            </div>
+            <hr style="border-top:1px dashed #000">
+            <small>Terima Kasih - Finex Pos</small>
+        </div>
+    `;
+
+    setTimeout(() => { window.print(); }, 500);
+}
 
     // FUNGSI VOID (HAPUS)
     async function voidBill(id, invoiceNo) {
