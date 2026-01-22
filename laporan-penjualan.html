@@ -144,7 +144,7 @@
 <div id="print-area"></div>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+  const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
@@ -194,106 +194,93 @@
         document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
     }
 
-function showPreview(invoiceNo) {
-    // Cari data di variabel local currentLaporan
-    const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-    
-    if (!item) {
-        return alert("Data transaksi tidak ditemukan!");
-    }
+    // --- FUNGSI PREVIEW ---
+    function showPreview(invoiceNo) {
+        const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
+        if (!item) return alert("Data transaksi tidak ditemukan!");
 
-    // Pastikan kita mengambil data dari kolom 'items'
-    // Jika kolom 'items' berupa string (karena format DB), kita parse ke JSON
-    let daftarBarang = [];
-    try {
-        daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
-    } catch (e) {
-        console.error("Gagal parsing data items:", e);
-        daftarBarang = [];
-    }
+        let daftarBarang = [];
+        try {
+            daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
+        } catch (e) {
+            console.error("Gagal parsing data items:", e);
+            daftarBarang = [];
+        }
 
-    let itemsHtml = "";
-    if (daftarBarang.length > 0) {
-        daftarBarang.forEach(it => {
-            // Gunakan nama_barang sesuai instruksi Anda
-            const nama = it.nama_barang || it.nama || "Produk";
-            const qty = it.qty || 0;
-            const harga = it.harga || 0;
-            const subtotal = qty * harga;
-            
-            itemsHtml += `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px;">
-                    <span>${nama} (x${qty})</span>
-                    <span>Rp ${subtotal.toLocaleString()}</span>
-                </div>
-            `;
-        });
-    } else {
-        itemsHtml = `<div style="color: #e74c3c; font-size: 12px; text-align: center; padding: 10px;">
-                        Detail barang tidak ditemukan.<br>
-                        <small>(Hanya transaksi baru yang memiliki detail barang)</small>
-                     </div>`;
-    }
+        let itemsHtml = "";
+        if (daftarBarang.length > 0) {
+            daftarBarang.forEach(it => {
+                const nama = it.nama_barang || it.nama || "Produk";
+                const qty = it.qty || 0;
+                const harga = it.harga || 0;
+                itemsHtml += `
+                    <div class="detail-row">
+                        <span>${nama} (x${qty})</span>
+                        <span>Rp ${(qty * harga).toLocaleString()}</span>
+                    </div>`;
+            });
+        } else {
+            itemsHtml = `<div style="color:orange; font-size:11px; text-align:center;">Detail barang tidak tersedia (Data Lama)</div>`;
+        }
 
-    // Isi konten ke dalam Modal Preview
-    document.getElementById('preview-body').innerHTML = `
-        <div style="text-align: center; margin-bottom: 15px;">
-            <h3 style="margin: 0;">FINEX POS </h3>
-            <small>Salinan Nota Penjualan</small>
-        </div>
-        <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
-            <b>No. Nota :</b> ${item.no_invoice}<br>
-            <b>Tanggal  :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
-            <b>Metode   :</b> ${item.metode_pembayaran || '-'}<br>
-            <b>Kasir    :</b> ${item.kasir_nama || 'Admin Kantin'}
-        </div>
-        
-        <div style="min-height: 50px;">
-            ${itemsHtml}
-        </div>
-
-        <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px; font-size: 14px;">
-            <div style="display: flex; justify-content: space-between;">
-                <span>Subtotal</span>
-                <span>Rp ${parseFloat(item.subtotal || 0).toLocaleString()}</span>
+        document.getElementById('preview-body').innerHTML = `
+            <div style="text-align: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">FINEX POS</h3>
+                <small>Salinan Nota Penjualan</small>
             </div>
-            <div style="display: flex; justify-content: space-between; color: #e74c3c;">
-                <span>Diskon</span>
-                <span>-Rp ${parseFloat(item.diskon_global || 0).toLocaleString()}</span>
+            <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
+                <b>No. Nota :</b> ${item.no_invoice}<br>
+                <b>Tanggal  :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
+                <b>Metode   :</b> ${item.metode_pembayaran || '-'}<br>
+                <b>Kasir    :</b> ${item.kasir_nama || 'Admin Kantin'}
             </div>
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 5px; color: #2c3e50;">
-                <span>TOTAL AKHIR</span>
-                <span>Rp ${parseFloat(item.grand_total || 0).toLocaleString()}</span>
+            <div style="min-height: 50px;">${itemsHtml}</div>
+            <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px; font-size: 14px;">
+                <div style="display: flex; justify-content: space-between;"><span>Subtotal</span><span>Rp ${parseFloat(item.subtotal || 0).toLocaleString()}</span></div>
+                <div style="display: flex; justify-content: space-between; color: var(--danger);"><span>Diskon</span><span>-Rp ${parseFloat(item.diskon_global || 0).toLocaleString()}</span></div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 5px; color: var(--primary);"><span>TOTAL</span><span>Rp ${parseFloat(item.grand_total || 0).toLocaleString()}</span></div>
             </div>
-        </div>
-    `;
+        `;
 
-// Bagian akhir fungsi showPreview sebelum tanda tutup kurawal }
-document.getElementById('confirm-print-btn').onclick = () => { 
-    if (typeof reprintBill === 'function') {
-        reprintBill(invoiceNo); 
+        document.getElementById('confirm-print-btn').onclick = () => { 
+            reprintBill(invoiceNo); 
+            closePreview(); 
+        };
+        document.getElementById('modal-preview').style.display = 'flex';
     }
-    closePreview(); 
-};
 
-// Pastikan baris ini ada untuk menampilkan modalnya
-document.getElementById('modal-preview').style.display = 'flex';
-    // Tampilkan Modal
-    document.getElementById('modal-preview').style.display = 'flex';
-}
+    // --- FUNGSI NAVIGASI MODAL ---
+    function closePreview() {
+        document.getElementById('modal-preview').style.display = 'none';
+    }
+
+    // --- FUNGSI CETAK ULANG ---
     async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-        let itemRows = (item.items || []).map(it => `${it.nama.substring(0,20)}\n${it.qty} x ${it.harga.toLocaleString()} = ${(it.qty*it.harga).toLocaleString()}\n`).join('');
-        document.getElementById('print-area').innerHTML = `<div style="text-align:center"><b>FINEX POS </b><br>* SALINAN NOTA *<hr></div><pre>${itemRows}<hr>TOTAL: Rp ${parseFloat(item.grand_total).toLocaleString()}</pre>`;
+        if (!item) return;
+
+        let daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
+        let itemRows = daftarBarang.map(it => {
+            const nama = (it.nama_barang || it.nama || "Produk").substring(0, 20);
+            return `${nama}\n${it.qty} x ${it.harga.toLocaleString()} = ${(it.qty * it.harga).toLocaleString()}\n`;
+        }).join('');
+
+        document.getElementById('print-area').innerHTML = `
+            <div style="text-align:center"><b>FINEX POS</b><br>* SALINAN NOTA *<hr></div>
+            <pre style="font-family:monospace;">${itemRows}<hr>TOTAL: Rp ${parseFloat(item.grand_total).toLocaleString()}</pre>
+            <div style="text-align:center"><hr>Terima Kasih</div>
+        `;
         window.print();
     }
 
+    // --- FUNGSI VOID ---
     async function voidBill(id, invoiceNo) {
         if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan otomatis.`)) return;
         const dataBill = currentLaporan.find(i => i.id == id);
         
         if (dataBill && dataBill.items) {
-            for (const it of dataBill.items) {
+            let daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : dataBill.items;
+            for (const it of daftarBarang) {
                 const { data: p } = await supabaseClient.from('produk').select('stok').eq('id', it.id).single();
                 if (p) await supabaseClient.from('produk').update({ stok: p.stok + it.qty }).eq('id', it.id);
             }
@@ -303,17 +290,27 @@ document.getElementById('modal-preview').style.display = 'flex';
         fetchLaporan();
     }
 
+    // --- EXPORT EXCEL ---
     function exportKeExcel() {
-        const dataExcel = currentLaporan.map(i => ({
-            "Waktu": new Date(i.created_at).toLocaleString('id-ID'),
-            "Invoice": i.no_invoice,
-            "Items": (i.items || []).map(it => `${it.nama}(${it.qty})`).join(", "),
-            "Total": i.grand_total
-        }));
+        const dataExcel = currentLaporan.map(i => {
+            let daftarBarang = typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []);
+            return {
+                "Waktu": new Date(i.created_at).toLocaleString('id-ID'),
+                "Invoice": i.no_invoice,
+                "Items": daftarBarang.map(it => `${it.nama_barang || it.nama}(${it.qty})`).join(", "),
+                "Total": i.grand_total
+            };
+        });
         const ws = XLSX.utils.json_to_sheet(dataExcel);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Laporan");
         XLSX.writeFile(wb, `Laporan_Penjualan.xlsx`);
+    }
+
+    // Tutup modal jika klik di luar area modal
+    window.onclick = function(event) {
+        const modal = document.getElementById('modal-preview');
+        if (event.target == modal) closePreview();
     }
 </script>
 </body>
