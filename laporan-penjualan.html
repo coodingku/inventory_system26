@@ -10,36 +10,45 @@
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
         
         /* Sidebar */
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
-        nav a.active { background: var(--accent); color: white; }
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 100; }
+        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
 
         /* Main Content */
-        main { flex: 1; margin-left: 260px; padding: 30px; }
+        main { flex: 1; margin-left: 260px; padding: 30px; width: calc(100% - 260px); }
         .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
         
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
         
-        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 12px; }
+        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; display: flex; align-items: center; gap: 5px; }
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
-        .btn-print { background: #95a5a6; color: white; }
-        .btn-void { background: var(--danger); color: white; }
-        button:hover { opacity: 0.8; }
+        .btn-print { background: #95a5a6; color: white; padding: 6px 10px; }
+        .btn-void { background: var(--danger); color: white; padding: 6px 10px; }
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
 
+        /* Table */
         .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); }
         td { padding: 12px; border-bottom: 1px solid #eee; }
-        .total-row { background: #f1f2f6; font-weight: bold; }
+        .total-row { background: #f1f2f6; font-weight: bold; font-size: 16px; }
 
-        /* Print Area Styling */
+        /* Modal Pop-up */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-header { border-bottom: 2px solid #f4f4f4; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
+        .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+        /* Print Area */
         #print-area { display: none; }
         @media print {
             body * { display: none !important; }
-            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; }
+            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; color: black; }
+            #print-area hr { border: none; border-top: 1px dashed black; }
         }
     </style>
 </head>
@@ -48,7 +57,7 @@
 <nav>
     <h2>Finex Pos</h2>
     <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
+        <a href="index.html">📊 Dashboard</a>
         <hr style="border: 0.5px solid #555; margin: 10px 0;">
         <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
         <a href="produk.html">📦 Produk</a>
@@ -59,17 +68,15 @@
         <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
         <a href="penyesuaian.html">🔄 Stok In/Out</a>
         <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-        <a href="laporan-penjualan.html">📑 Laporan Penjualan</a>
+        <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
         <a href="closing.html">🏁 Closing Shift</a>
     </div>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
+    <a href="pos.html" style="background: #27ae60; color: white; text-align: center;">🛒 Masuk Kasir</a>
 </nav>
 
 <main>
-    <h1>Laporan Penjualan</h1>
+    <h1>📑 Laporan Penjualan</h1>
     
     <div class="filter-card">
         <div class="input-group">
@@ -81,12 +88,11 @@
             <input type="date" id="date-to">
         </div>
         <div class="input-group">
-            <label>Metode Bayar</label>
+            <label>Metode</label>
             <select id="filter-method">
-                <option value="all">Semua Metode</option>
+                <option value="all">Semua</option>
                 <option value="Tunai">Tunai</option>
                 <option value="QRIS">QRIS</option>
-                <option value="Transfer">Transfer</option>
             </select>
         </div>
         <button class="btn-filter" onclick="fetchLaporan()">🔍 Tampilkan</button>
@@ -94,7 +100,7 @@
     </div>
 
     <div class="table-container">
-        <table id="table-laporan">
+        <table>
             <thead>
                 <tr>
                     <th>Waktu</th>
@@ -118,12 +124,28 @@
     </div>
 </main>
 
+<div id="modal-preview" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="margin:0">Pratinjau Bill</h3>
+            <span style="cursor:pointer" onclick="closePreview()">✖</span>
+        </div>
+        <div id="preview-body"></div>
+        <div class="modal-footer">
+            <button style="background:#bdc3c7; color:white" onclick="closePreview()">Tutup</button>
+            <button class="btn-filter" id="confirm-print-btn">🖨️ Cetak</button>
+        </div>
+    </div>
+</div>
+
 <div id="print-area"></div>
 
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let currentLaporan = [];
 
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
@@ -137,122 +159,89 @@
         const to = document.getElementById('date-to').value + "T23:59:59";
         const method = document.getElementById('filter-method').value;
 
-        let query = supabaseClient.from('penjualan')
-            .select('*')
-            .gte('created_at', from)
-            .lte('created_at', to)
-            .order('created_at', { ascending: false });
-
-        if (method !== 'all') {
-            query = query.eq('metode_pembayaran', method);
-        }
+        let query = supabaseClient.from('penjualan').select('*').gte('created_at', from).lte('created_at', to).order('created_at', { ascending: false });
+        if (method !== 'all') query = query.eq('metode_pembayaran', method);
 
         const { data, error } = await query;
-        if (error) return alert("Gagal mengambil data");
-
+        if (error) return alert("Gagal ambil data");
+        currentLaporan = data;
         renderTable(data);
     }
 
-  function renderTable(data) {
-    const body = document.getElementById('report-body');
-    let totalAll = 0;
-    body.innerHTML = '';
-
-    data.forEach(item => {
-        totalAll += parseFloat(item.grand_total);
-        body.innerHTML += `
-            <tr>
-                <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                <td><b>${item.no_invoice}</b></td>
-                <td><span style="background:#eee; padding:2px 6px; border-radius:4px;">${item.metode_pembayaran}</span></td>
-                <td>${parseFloat(item.subtotal).toLocaleString()}</td>
-                <td style="color:red">-${parseFloat(item.diskon_global).toLocaleString()}</td>
-                <td><b>${parseFloat(item.grand_total).toLocaleString()}</b></td>
-                <td style="text-align: center;">
-                    <button class="btn-print" onclick="reprintBill('${item.no_invoice}')" title="Cetak Ulang">🖨️</button>
-                    <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')" title="Batalkan Transaksi">🗑️ Void</button>
-                </td>
-            </tr>
-        `;
-    });
-    document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
-}
-
-async function reprintBill(invoiceNo) {
-    const { data: b, error } = await supabaseClient.from('penjualan').select('*').eq('no_invoice', invoiceNo).single();
-    if (error || !b) return alert("Data tidak ditemukan");
-
-    // Mengolah daftar barang dari kolom JSON 'items'
-    let itemRows = "";
-    if (b.items && Array.isArray(b.items)) {
-        b.items.forEach(it => {
-            const sub = it.qty * it.harga;
-            itemRows += `${it.nama.substring(0, 20)}\n`;
-            itemRows += `${it.qty.toString().padStart(3)} x ${it.harga.toLocaleString().padStart(7)} = ${sub.toLocaleString().padStart(10)}\n`;
+    function renderTable(data) {
+        const body = document.getElementById('report-body');
+        let totalAll = 0;
+        body.innerHTML = '';
+        data.forEach(item => {
+            totalAll += parseFloat(item.grand_total);
+            body.innerHTML += `
+                <tr>
+                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
+                    <td><b>${item.no_invoice}</b></td>
+                    <td>${item.metode_pembayaran}</td>
+                    <td>${parseFloat(item.subtotal).toLocaleString()}</td>
+                    <td style="color:red">-${parseFloat(item.diskon_global).toLocaleString()}</td>
+                    <td><b>${parseFloat(item.grand_total).toLocaleString()}</b></td>
+                    <td style="text-align: center; display: flex; gap: 5px; justify-content: center;">
+                        <button class="btn-print" onclick="showPreview('${item.no_invoice}')">👁️ 🖨️</button>
+                        <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')">🗑️ Void</button>
+                    </td>
+                </tr>`;
         });
-    } else {
-        itemRows = "Detail barang tidak ditemukan.\n";
+        document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
     }
 
-    document.getElementById('print-area').innerHTML = `
-        <div style="text-align:center; font-family:monospace; width:58mm; padding:2px;">
-            <b>FINEX POS KANTIN</b><br>
-            ** SALINAN NOTA **<br>
-            <hr style="border-top:1px dashed #000">
-            <div style="text-align:left; font-size:10px;">
-                Nota : ${b.no_invoice}<br>
-                Tgl  : ${new Date(b.created_at).toLocaleString('id-ID')}
-            </div>
-            <hr style="border-top:1px dashed #000">
-            <pre style="text-align:left; font-family:monospace; font-size:10px; margin:0;">${itemRows}</pre>
-            <hr style="border-top:1px dashed #000">
-            <div style="text-align:right; font-size:10px;">
-                TOTAL: Rp ${parseFloat(b.grand_total).toLocaleString()}
-            </div>
-            <hr style="border-top:1px dashed #000">
-            <center><small>Dicetak Ulang: ${new Date().toLocaleTimeString()}</small></center>
-        </div>
-    `;
-    window.print();
-}
+    function showPreview(invoiceNo) {
+        const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
+        if (!item) return;
+        let itemsHtml = (item.items || []).map(it => `
+            <div class="detail-row"><span>${it.nama} (x${it.qty})</span><span>Rp ${(it.qty * it.harga).toLocaleString()}</span></div>
+        `).join('');
 
-  async function voidBill(id, invoiceNo) {
-    const alasan = prompt(`Batal transaksi ${invoiceNo}?\nMasukkan alasan pembatalan:`, "Salah Input");
-    if (alasan === null) return;
+        document.getElementById('preview-body').innerHTML = `
+            <p><small>${item.no_invoice} | ${new Date(item.created_at).toLocaleString('id-ID')}</small></p>
+            <hr>${itemsHtml}<hr>
+            <div class="detail-row"><b>TOTAL</b><b>Rp ${parseFloat(item.grand_total).toLocaleString()}</b></div>`;
+        
+        document.getElementById('confirm-print-btn').onclick = () => { reprintBill(invoiceNo); closePreview(); };
+        document.getElementById('modal-preview').style.display = 'flex';
+    }
 
-    try {
-        // 1. Ambil detail item dulu untuk tahu apa saja yang harus dikembalikan stoknya
-        const { data: b } = await supabaseClient.from('penjualan').select('items').eq('id', id).single();
+    function closePreview() { document.getElementById('modal-preview').style.display = 'none'; }
 
-        if (b && b.items) {
-            // 2. Proses pengembalian stok per produk
-            for (const it of b.items) {
-                // Ambil stok saat ini dari tabel produk
-                const { data: prod } = await supabaseClient.from('produk').select('stok').eq('id', it.id).single();
-                
-                if (prod) {
-                    const stokBaru = prod.stok + it.qty;
-                    await supabaseClient.from('produk').update({ stok: stokBaru }).eq('id', it.id);
-                }
+    async function reprintBill(invoiceNo) {
+        const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
+        let itemRows = (item.items || []).map(it => `${it.nama.substring(0,20)}\n${it.qty} x ${it.harga.toLocaleString()} = ${(it.qty*it.harga).toLocaleString()}\n`).join('');
+        document.getElementById('print-area').innerHTML = `<div style="text-align:center"><b>FINEX POS KANTIN</b><br>* SALINAN NOTA *<hr></div><pre>${itemRows}<hr>TOTAL: Rp ${parseFloat(item.grand_total).toLocaleString()}</pre>`;
+        window.print();
+    }
+
+    async function voidBill(id, invoiceNo) {
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan otomatis.`)) return;
+        const dataBill = currentLaporan.find(i => i.id == id);
+        
+        if (dataBill && dataBill.items) {
+            for (const it of dataBill.items) {
+                const { data: p } = await supabaseClient.from('produk').select('stok').eq('id', it.id).single();
+                if (p) await supabaseClient.from('produk').update({ stok: p.stok + it.qty }).eq('id', it.id);
             }
         }
-
-        // 3. Hapus data penjualan
-        const { error: errDel } = await supabaseClient.from('penjualan').delete().eq('id', id);
-        if (errDel) throw errDel;
-
-        alert(`Sukses! Bill ${invoiceNo} di-void & stok dikembalikan.`);
-        fetchLaporan(); // Refresh tabel
-
-    } catch (err) {
-        alert("Gagal Void: " + err.message);
-        console.error(err);
+        await supabaseClient.from('penjualan').delete().eq('id', id);
+        alert("Berhasil di-void");
+        fetchLaporan();
     }
-}
+
     function exportKeExcel() {
-        const table = document.getElementById("table-laporan");
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Penjualan" });
-        XLSX.writeFile(wb, `Laporan_FinexPos_${document.getElementById('date-from').value}.xlsx`);
+        const dataExcel = currentLaporan.map(i => ({
+            "Waktu": new Date(i.created_at).toLocaleString('id-ID'),
+            "Invoice": i.no_invoice,
+            "Items": (i.items || []).map(it => `${it.nama}(${it.qty})`).join(", "),
+            "Total": i.grand_total
+        }));
+        const ws = XLSX.utils.json_to_sheet(dataExcel);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+        XLSX.writeFile(wb, `Laporan_Penjualan.xlsx`);
     }
 </script>
 </body>
