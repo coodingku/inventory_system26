@@ -142,31 +142,65 @@
     }
 
     async function loadMenu() {
-        const q = document.getElementById('search').value;
-        let query = FinexDB.from('produk').select('*').gt('stok', 0); // Kolom 'stok'
-        if(q) query = query.ilike('nama_barang', `%${q}%`);
-        
-        const { data } = await query;
-        document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
-            <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok})">
-                <span class="stok-badge">Stok: ${p.stok}</span>
-                <strong style="font-size:14px;">${p.nama_barang}</strong><br>
-                <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
-            </div>
-        `).join('');
+    const q = document.getElementById('search').value;
+    
+    // Gunakan filter yang lebih aman
+    let query = FinexDB
+        .from('produk')
+        .select('*')
+        .not('stok', 'is', null) // Memastikan kolom stok tidak null
+        .gt('stok', 0);           // Hanya ambil yang stoknya di atas 0
+
+    // Jika ada pencarian
+    if (q) {
+        query = query.ilike('nama_barang', `%${q}%`);
     }
 
-    function addCart(id, nama, harga, stokMaks) {
-        const idx = cart.findIndex(c => c.id === id);
-        if(idx > -1) {
-            if(cart[idx].qty < stokMaks) cart[idx].qty++;
-            else alert("Stok habis!");
+    const { data, error } = await query;
+
+    if (error) {
+        console.error("Error Load Menu:", error);
+        return;
+    }
+
+    const displayContainer = document.getElementById('displayMenu');
+    if (data.length === 0) {
+        displayContainer.innerHTML = '<p style="text-align:center; width:100%;">Menu tidak ditemukan atau stok habis.</p>';
+        return;
+    }
+
+    displayContainer.innerHTML = data.map(p => `
+        <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok})">
+            <span class="stok-badge">Stok: ${p.stok}</span>
+            <strong style="font-size:14px;">${p.nama_barang}</strong><br>
+            <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
+        </div>
+    `).join('');
+}
+
+   function addCart(id, nama, harga, stokMaks) {
+    // Cari apakah item sudah ada di keranjang
+    const idx = cart.findIndex(c => c.id === id);
+    
+    if (idx > -1) {
+        // Jika sudah ada, cek apakah qty masih boleh ditambah berdasarkan stok
+        if (cart[idx].qty < stokMaks) {
+            cart[idx].qty++;
         } else {
-            cart.push({ id, nama_barang: nama, harga, qty: 1 });
+            alert("Maaf, stok " + nama + " tidak mencukupi.");
         }
-        calculateTotal();
+    } else {
+        // Jika belum ada, tambahkan sebagai item baru
+        cart.push({ 
+            id: id, 
+            nama_barang: nama, 
+            harga: harga, 
+            qty: 1, 
+            stok_max: stokMaks 
+        });
     }
-
+    calculateTotal();
+}
     function calculateTotal() {
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
         const p = parseFloat(document.getElementById('discSelect').value);
