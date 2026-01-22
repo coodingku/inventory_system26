@@ -9,27 +9,17 @@
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
-        
         table { width: 100%; border-collapse: collapse; }
         th { background: #f8f9fa; color: var(--primary); padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-        
         .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-back { background: var(--primary); color: white; text-decoration: none; font-size: 13px; }
+        .btn-back { background: var(--primary); color: white; text-decoration: none; font-size: 13px; display: inline-block; }
         .btn-print { background: var(--accent); color: white; font-size: 12px; }
-        .btn-print:hover { background: #2980b9; }
 
-        /* STYLE KHUSUS STRUK REPRINT */
         #print-area { display: none; }
         @media print {
             body * { display: none !important; }
-            #print-area { 
-                display: block !important; 
-                width: 58mm; 
-                font-family: monospace; 
-                font-size: 11px; 
-                color: black;
-            }
+            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 11px; color: black; }
             #print-area hr { border: none; border-top: 1px dashed black; }
         }
     </style>
@@ -47,14 +37,13 @@
                 <tr>
                     <th>Waktu</th>
                     <th>No. Invoice</th>
-                    <th>Kasir</th>
                     <th>Total</th>
                     <th>Metode</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody id="billList">
-                <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                <tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr>
             </tbody>
         </table>
     </div>
@@ -63,58 +52,62 @@
 
 <script>
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'YOUR_ANON_KEY'; // Ganti dengan anon key Anda
+    // GANTI KEY DI BAWAH INI DENGAN ANON KEY PROYEK ANDA
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
     window.onload = loadBills;
 
     async function loadBills() {
-        // Ambil data penjualan dan join dengan nama kasir dari kasir_log
-        const { data, error } = await FinexDB
-            .from('penjualan')
-            .select('*, kasir_log(kasir_nama)')
-            .order('created_at', { ascending: false })
-            .limit(50);
+        try {
+            const { data, error } = await FinexDB
+                .from('penjualan')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
 
-        if (error) return console.error(error);
+            if (error) {
+                console.error("Supabase Error:", error);
+                document.getElementById('billList').innerHTML = `<tr><td colspan="5" style="color:red; text-align:center;">Error 401: Akses Ditolak. Pastikan RLS Policy di Supabase aktif.</td></tr>`;
+                return;
+            }
 
-        const list = document.getElementById('billList');
-        list.innerHTML = data.map(b => `
-            <tr>
-                <td>${new Date(b.created_at).toLocaleString('id-ID')}</td>
-                <td><b>${b.no_invoice}</b></td>
-                <td>${b.kasir_log ? b.kasir_log.kasir_nama : 'Admin'}</td>
-                <td>Rp ${b.grand_total.toLocaleString()}</td>
-                <td>${b.metode_pembayaran}</td>
-                <td>
-                    <button class="btn btn-print" onclick="reprintBill('${b.no_invoice}')">
-                        🖨️ Cetak Ulang
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+            const list = document.getElementById('billList');
+            if (data.length === 0) {
+                list.innerHTML = `<tr><td colspan="5" style="text-align:center;">Belum ada transaksi.</td></tr>`;
+                return;
+            }
+
+            list.innerHTML = data.map(b => `
+                <tr>
+                    <td>${new Date(b.created_at).toLocaleString('id-ID')}</td>
+                    <td><b>${b.no_invoice}</b></td>
+                    <td>Rp ${b.grand_total.toLocaleString()}</td>
+                    <td>${b.metode_pembayaran}</td>
+                    <td><button class="btn btn-print" onclick="reprintBill('${b.no_invoice}')">🖨️ Cetak</button></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error("System Error:", err);
+        }
     }
 
     async function reprintBill(invoiceNo) {
-        // 1. Ambil data lengkap invoice tersebut
         const { data: b, error } = await FinexDB
             .from('penjualan')
-            .select('*, kasir_log(kasir_nama)')
+            .select('*')
             .eq('no_invoice', invoiceNo)
             .single();
 
         if (error || !b) return alert("Gagal mengambil data struk.");
 
-        // 2. Render Struk Copy
         document.getElementById('print-area').innerHTML = `
             <div style="text-align:center;">
                 <b>FINEX POS KANTIN</b><br>
-                *** SALINAN NOTA ***<br>
-                <hr>
+                *** SALINAN NOTA ***<br><hr>
             </div>
-            <pre style="white-space: pre-wrap; margin:0;">
+            <pre style="white-space: pre-wrap; margin:0; font-family: monospace;">
 Nota   : ${b.no_invoice}
-Kasir  : ${b.kasir_log ? b.kasir_log.kasir_nama : 'Admin'}
 Tgl    : ${new Date(b.created_at).toLocaleString('id-ID')}
 Metode : ${b.metode_pembayaran}
 ----------------------------
@@ -124,17 +117,10 @@ TOTAL    : Rp${b.grand_total.toLocaleString()}
 TUNAI    : Rp${b.bayar.toLocaleString()}
 KEMBALI  : Rp${b.kembali.toLocaleString()}
             </pre>
-            <div style="text-align:center;">
-                <hr>
-                Dicetak ulang pada:<br>
-                ${new Date().toLocaleString('id-ID')}
-            </div>
+            <div style="text-align:center;"><hr>Dicetak ulang pada:<br>${new Date().toLocaleString('id-ID')}</div>
         `;
 
-        // 3. Jalankan Perintah Cetak
-        setTimeout(() => {
-            window.print();
-        }, 500);
+        setTimeout(() => { window.print(); }, 500);
     }
 </script>
 </body>
