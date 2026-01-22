@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Laporan Shift | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 15px; }
+        .grid-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
+        .stat-card { padding: 20px; border-radius: 10px; color: white; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .selisih-plus { color: #27ae60; font-weight: bold; }
+        .selisih-minus { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🏁 Laporan Opening & Closing Kantin</h2>
+        
+        <div class="grid-stats">
+            <div class="stat-card" style="background:#2ecc71">Total Saldo Awal<br><b id="sumSaldoAwal">Rp 0</b></div>
+            <div class="stat-card" style="background:#3498db">Total Tunai Fisik<br><b id="sumTunaiFisik">Rp 0</b></div>
+            <div class="stat-card" style="background:#e67e22">Total Selisih<br><b id="sumSelisih">Rp 0</b></div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Kasir</th>
+                    <th>Buka</th>
+                    <th>Tutup</th>
+                    <th>Sistem</th>
+                    <th>Fisik</th>
+                    <th>Selisih</th>
+                </tr>
+            </thead>
+            <tbody id="listLog"></tbody>
+        </table>
+    </div>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'YOUR_ANON_KEY';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    window.onload = loadLogs;
+
+    async function loadLogs() {
+        const { data, error } = await FinexDB.from('kasir_log')
+            .select('*')
+            .order('waktu_buka', { ascending: false });
+
+        if (data) {
+            let totalAwal = 0, totalFisik = 0, totalSelisih = 0;
+
+            document.getElementById('listLog').innerHTML = data.map(l => {
+                totalAwal += l.saldo_awal || 0;
+                totalFisik += l.total_tunai_fisik || 0;
+                totalSelisih += l.selisih || 0;
+
+                return `
+                    <tr>
+                        <td><b>${l.kasir_nama}</b></td>
+                        <td><small>${new Date(l.waktu_buka).toLocaleString()}</small></td>
+                        <td><small>${l.waktu_tutup ? new Date(l.waktu_tutup).toLocaleString() : '-'}</small></td>
+                        <td>Rp ${(l.total_tunai_sistem || 0).toLocaleString()}</td>
+                        <td>Rp ${(l.total_tunai_fisik || 0).toLocaleString()}</td>
+                        <td class="${l.selisih < 0 ? 'selisih-minus' : 'selisih-plus'}">
+                            Rp ${(l.selisih || 0).toLocaleString()}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('sumSaldoAwal').innerText = "Rp " + totalAwal.toLocaleString();
+            document.getElementById('sumTunaiFisik').innerText = "Rp " + totalFisik.toLocaleString();
+            document.getElementById('sumSelisih').innerText = "Rp " + totalSelisih.toLocaleString();
+        }
+    }
+</script>
+</body>
+</html>
