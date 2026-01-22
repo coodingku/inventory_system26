@@ -201,25 +201,30 @@ function showPreview(invoiceNo) {
     const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
     if (!item) return alert("Data tidak ditemukan");
 
-    let itemsHtml = "";
-    // Pastikan mengambil dari item.items (atau sesuaikan jika nama kolom JSON Anda berbeda)
-    const daftarBarang = item.items || [];
+    // CARA CEK: Coba ambil dari kolom 'items', jika kosong coba kolom lain
+    // Ganti 'item.items' di bawah ini sesuai nama kolom di database Anda
+    const dataProduk = item.items || item.detail_penjualan || item.produk_list || [];
 
-    if (daftarBarang.length > 0) {
-        daftarBarang.forEach(it => {
-            // Menggunakan it.nama_barang sesuai struktur tabel Anda
-            const namaDisplay = it.nama_barang || "Produk Tidak Dikenal";
-            const subtotalItem = (it.qty || 0) * (it.harga || 0);
+    let itemsHtml = "";
+    
+    if (dataProduk && dataProduk.length > 0) {
+        dataProduk.forEach(it => {
+            // Kita gunakan nama_barang sesuai instruksi Anda
+            const namaDisplay = it.nama_barang || it.nama || "Produk";
+            const qty = it.qty || 0;
+            const harga = it.harga || it.harga_jual || 0;
+            const subtotalItem = qty * harga;
             
             itemsHtml += `
                 <div class="detail-row">
-                    <span>${namaDisplay} (x${it.qty})</span>
+                    <span>${namaDisplay} (x${qty})</span>
                     <span>Rp ${subtotalItem.toLocaleString()}</span>
                 </div>
             `;
         });
     } else {
-        itemsHtml = `<div class="detail-row"><span style="color:red">Detail barang kosong di database</span></div>`;
+        // Jika masih kosong, tampilkan pesan error yang lebih detail
+        itemsHtml = `<div class="detail-row"><span style="color:red">Data barang tidak ditemukan di kolom 'items'. Cek nama kolom di database Anda.</span></div>`;
     }
 
     document.getElementById('preview-body').innerHTML = `
