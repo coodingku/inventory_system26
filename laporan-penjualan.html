@@ -198,26 +198,87 @@
     }
 
 function showPreview(invoiceNo) {
+    // Cari data di variabel local currentLaporan
     const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-    if (!item) return;
-
-    // Sekarang sistem akan mencari di kolom 'items' yang baru kita buat
-    const dataBarang = item.items || [];
-
-    let itemsHtml = "";
-    if (dataBarang.length > 0) {
-        dataBarang.forEach(it => {
-            itemsHtml += `
-                <div class="detail-row">
-                    <span>${it.nama_barang} (x${it.qty})</span>
-                    <span>Rp ${(it.qty * it.harga).toLocaleString()}</span>
-                </div>`;
-        });
-    } else {
-        itemsHtml = `<div style="color:orange">Data lama tidak memiliki detail barang.</div>`;
+    
+    if (!item) {
+        return alert("Data transaksi tidak ditemukan!");
     }
 
-    // ... sisa kode modal sama seperti sebelumnya
+    // Pastikan kita mengambil data dari kolom 'items'
+    // Jika kolom 'items' berupa string (karena format DB), kita parse ke JSON
+    let daftarBarang = [];
+    try {
+        daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
+    } catch (e) {
+        console.error("Gagal parsing data items:", e);
+        daftarBarang = [];
+    }
+
+    let itemsHtml = "";
+    if (daftarBarang.length > 0) {
+        daftarBarang.forEach(it => {
+            // Gunakan nama_barang sesuai instruksi Anda
+            const nama = it.nama_barang || it.nama || "Produk";
+            const qty = it.qty || 0;
+            const harga = it.harga || 0;
+            const subtotal = qty * harga;
+            
+            itemsHtml += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px;">
+                    <span>${nama} (x${qty})</span>
+                    <span>Rp ${subtotal.toLocaleString()}</span>
+                </div>
+            `;
+        });
+    } else {
+        itemsHtml = `<div style="color: #e74c3c; font-size: 12px; text-align: center; padding: 10px;">
+                        Detail barang tidak ditemukan.<br>
+                        <small>(Hanya transaksi baru yang memiliki detail barang)</small>
+                     </div>`;
+    }
+
+    // Isi konten ke dalam Modal Preview
+    document.getElementById('preview-body').innerHTML = `
+        <div style="text-align: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">FINEX POS </h3>
+            <small>Salinan Nota Penjualan</small>
+        </div>
+        <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
+            <b>No. Nota :</b> ${item.no_invoice}<br>
+            <b>Tanggal  :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
+            <b>Metode   :</b> ${item.metode_pembayaran || '-'}<br>
+            <b>Kasir    :</b> ${item.kasir_nama || 'Admin Kantin'}
+        </div>
+        
+        <div style="min-height: 50px;">
+            ${itemsHtml}
+        </div>
+
+        <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px; font-size: 14px;">
+            <div style="display: flex; justify-content: space-between;">
+                <span>Subtotal</span>
+                <span>Rp ${parseFloat(item.subtotal || 0).toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: #e74c3c;">
+                <span>Diskon</span>
+                <span>-Rp ${parseFloat(item.diskon_global || 0).toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 5px; color: #2c3e50;">
+                <span>TOTAL AKHIR</span>
+                <span>Rp ${parseFloat(item.grand_total || 0).toLocaleString()}</span>
+            </div>
+        </div>
+    `;
+
+    // Pasang fungsi cetak ke tombol konfirmasi di dalam modal
+    document.getElementById('confirm-print-btn').onclick = () => { 
+        reprintBill(invoiceNo); 
+        closePreview(); 
+    };
+
+    // Tampilkan Modal
+    document.getElementById('modal-preview').style.display = 'flex';
 }
     async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
