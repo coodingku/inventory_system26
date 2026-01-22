@@ -271,19 +271,23 @@ function showPreview(invoiceNo) {
         </div>
     `;
 
-    // Pasang fungsi cetak ke tombol konfirmasi di dalam modal
-    document.getElementById('confirm-print-btn').onclick = () => { 
+// Bagian akhir fungsi showPreview sebelum tanda tutup kurawal }
+document.getElementById('confirm-print-btn').onclick = () => { 
+    if (typeof reprintBill === 'function') {
         reprintBill(invoiceNo); 
-        closePreview(); 
-    };
+    }
+    closePreview(); 
+};
 
+// Pastikan baris ini ada untuk menampilkan modalnya
+document.getElementById('modal-preview').style.display = 'flex';
     // Tampilkan Modal
     document.getElementById('modal-preview').style.display = 'flex';
 }
     async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
         let itemRows = (item.items || []).map(it => `${it.nama.substring(0,20)}\n${it.qty} x ${it.harga.toLocaleString()} = ${(it.qty*it.harga).toLocaleString()}\n`).join('');
-        document.getElementById('print-area').innerHTML = `<div style="text-align:center"><b>FINEX POS KANTIN</b><br>* SALINAN NOTA *<hr></div><pre>${itemRows}<hr>TOTAL: Rp ${parseFloat(item.grand_total).toLocaleString()}</pre>`;
+        document.getElementById('print-area').innerHTML = `<div style="text-align:center"><b>FINEX POS </b><br>* SALINAN NOTA *<hr></div><pre>${itemRows}<hr>TOTAL: Rp ${parseFloat(item.grand_total).toLocaleString()}</pre>`;
         window.print();
     }
 
