@@ -144,6 +144,34 @@
         loadChartData();
     }
 
+    // Fungsi untuk keluar dari sistem
+function logout() {
+    if (confirm("Apakah Anda yakin ingin keluar?")) {
+        // Jika Anda menggunakan sistem login, hapus session di sini
+        // localStorage.removeItem('user_session'); 
+        window.location.href = 'login.html';
+    }
+}
+
+    async function checkActiveCashier() {
+    // Mencari log kasir yang statusnya masih 'Open'
+    const { data, error } = await FinexDB
+        .from('kasir_log')
+        .select('kasir_nama')
+        .eq('status', 'Open')
+        .maybeSingle();
+
+    const display = document.getElementById('cashier-display');
+    if (data && display) {
+        display.innerText = data.kasir_nama;
+    } else if (display) {
+        display.innerText = "Tidak ada shift aktif";
+    }
+}
+
+// Panggil fungsi ini saat load
+checkActiveCashier();
+
     async function loadChartData() {
         const last7Days = [...Array(7)].map((_, i) => {
             const d = new Date();
