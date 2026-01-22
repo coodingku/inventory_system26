@@ -141,17 +141,15 @@
         document.getElementById('discSelect').innerHTML = optDsk;
     }
 
-    async function loadMenu() {
+   async function loadMenu() {
     const q = document.getElementById('search').value;
     
-    // Gunakan filter yang lebih aman
+    // GANTI 'stok' menjadi 'stok_sekarang' (atau sesuai nama di DB)
     let query = FinexDB
         .from('produk')
         .select('*')
-        .not('stok', 'is', null) // Memastikan kolom stok tidak null
-        .gt('stok', 0);           // Hanya ambil yang stoknya di atas 0
+        .gt('stok_sekarang', 0); // Ubah di sini
 
-    // Jika ada pencarian
     if (q) {
         query = query.ilike('nama_barang', `%${q}%`);
     }
@@ -160,24 +158,20 @@
 
     if (error) {
         console.error("Error Load Menu:", error);
+        // Jika error muncul lagi, kita tampilkan alert agar tahu nama kolom yang salah
+        alert("Gagal memuat menu: Kolom stok tidak ditemukan di database.");
         return;
     }
 
     const displayContainer = document.getElementById('displayMenu');
-    if (data.length === 0) {
-        displayContainer.innerHTML = '<p style="text-align:center; width:100%;">Menu tidak ditemukan atau stok habis.</p>';
-        return;
-    }
-
-    displayContainer.innerHTML = data.map(p => `
-        <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok})">
-            <span class="stok-badge">Stok: ${p.stok}</span>
+    displayContainer.innerHTML = (data || []).map(p => `
+        <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
+            <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
             <strong style="font-size:14px;">${p.nama_barang}</strong><br>
             <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
         </div>
     `).join('');
 }
-
    function addCart(id, nama, harga, stokMaks) {
     // Cari apakah item sudah ada di keranjang
     const idx = cart.findIndex(c => c.id === id);
