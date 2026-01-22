@@ -197,57 +197,60 @@
         document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
     }
 
-  function showPreview(invoiceNo) {
+function showPreview(invoiceNo) {
     const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-    if (!item) return;
+    if (!item) return alert("Data tidak ditemukan");
 
-    // Mengurai detail item (barang)
     let itemsHtml = "";
-    if (item.items && Array.isArray(item.items)) {
-        item.items.forEach(it => {
-            const subtotalItem = it.qty * it.harga;
+    // Pastikan mengambil dari item.items (atau sesuaikan jika nama kolom JSON Anda berbeda)
+    const daftarBarang = item.items || [];
+
+    if (daftarBarang.length > 0) {
+        daftarBarang.forEach(it => {
+            // Menggunakan it.nama_barang sesuai struktur tabel Anda
+            const namaDisplay = it.nama_barang || "Produk Tidak Dikenal";
+            const subtotalItem = (it.qty || 0) * (it.harga || 0);
+            
             itemsHtml += `
                 <div class="detail-row">
-                    <span>${it.nama} (x${it.qty})</span>
+                    <span>${namaDisplay} (x${it.qty})</span>
                     <span>Rp ${subtotalItem.toLocaleString()}</span>
                 </div>
             `;
         });
     } else {
-        itemsHtml = `<div class="detail-row"><span>Detail tidak tersedia</span></div>`;
+        itemsHtml = `<div class="detail-row"><span style="color:red">Detail barang kosong di database</span></div>`;
     }
 
-    // Mengisi konten pratinjau lengkap
     document.getElementById('preview-body').innerHTML = `
-        <div style="font-size: 13px; margin-bottom: 10px; color: #333; line-height: 1.6;">
+        <div style="font-size: 13px; margin-bottom: 10px; color: #333;">
             <b>No. Nota :</b> ${item.no_invoice}<br>
             <b>Tanggal  :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
-            <b>Kasir    :</b> ${item.kasir_nama || 'Admin'}<br>
+            <b>Kasir    :</b> Admin Kantin<br>
             <b>Metode   :</b> ${item.metode_pembayaran}
         </div>
         
-        <div style="border-top: 2px solid #eee; border-bottom: 2px solid #eee; padding: 10px 0; margin: 10px 0;">
-            <div style="font-weight: bold; font-size: 12px; margin-bottom: 8px; color: #888;">DETAIL ITEM</div>
+        <div style="border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; margin: 10px 0;">
+            <div style="font-weight: bold; font-size: 12px; margin-bottom: 8px; color: #888;">RINCIAN PESANAN</div>
             ${itemsHtml}
         </div>
 
         <div style="font-size: 14px;">
             <div class="detail-row" style="border:none">
                 <span>Subtotal</span>
-                <span>Rp ${parseFloat(item.subtotal).toLocaleString()}</span>
+                <span>Rp ${parseFloat(item.subtotal || 0).toLocaleString()}</span>
             </div>
             <div class="detail-row" style="border:none; color: var(--danger)">
                 <span>Diskon</span>
                 <span>-Rp ${parseFloat(item.diskon_global || 0).toLocaleString()}</span>
             </div>
             <div class="detail-row" style="border:none; font-weight:bold; font-size: 16px; margin-top: 5px; color: var(--primary);">
-                <span>TOTAL</span>
-                <span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span>
+                <span>TOTAL AKHIR</span>
+                <span>Rp ${parseFloat(item.grand_total || 0).toLocaleString()}</span>
             </div>
         </div>
     `;
 
-    // Pasang fungsi ke tombol cetak di modal
     document.getElementById('confirm-print-btn').onclick = () => { 
         reprintBill(invoiceNo); 
         closePreview(); 
@@ -255,7 +258,6 @@
 
     document.getElementById('modal-preview').style.display = 'flex';
 }
-
     async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
         let itemRows = (item.items || []).map(it => `${it.nama.substring(0,20)}\n${it.qty} x ${it.harga.toLocaleString()} = ${(it.qty*it.harga).toLocaleString()}\n`).join('');
