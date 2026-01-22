@@ -213,57 +213,81 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-    async function executeTransaction() {
-        if (isSaving) return;
-        const cash = parseFloat(document.getElementById('cashInput').value || 0);
-        const method = document.getElementById('payMethodSelect').value;
+   async function executeTransaction() {
+    if (isSaving) return;
+    const cash = parseFloat(document.getElementById('cashInput').value || 0);
+    const method = document.getElementById('payMethodSelect').value;
 
-        if (cash < state.total && method === "Tunai") return alert("Uang tunai kurang!");
+    if (cash < state.total && method === "Tunai") return alert("Uang tunai kurang!");
 
-        isSaving = true;
-        const btn = document.getElementById('btnConfirm');
-        btn.innerText = "Proses...";
-        
-        const inv = `INV-${Date.now()}`;
-        const kembali = cash - state.total;
+    isSaving = true;
+    const btn = document.getElementById('btnConfirm');
+    btn.innerText = "Proses...";
+    
+    const inv = `INV-${Date.now()}`;
+    const kembali = cash - state.total;
 
-        try {
-            // 1. Simpan Header Penjualan
-            const { error: errJual } = await FinexDB.from('penjualan').insert([{
-                no_invoice: inv,
-                subtotal: state.sub,
-                diskon_global: state.disc,
-                pajak_ppn: 0,
-                grand_total: state.total,
-                bayar: cash,
-                kembali: kembali > 0 ? kembali : 0,
-                kasir_id: currentLogId,
-                metode_pembayaran: method
-            }]);
+    // --- PEMBAHARUAN: MENYIAPKAN DATA DETAIL BARANG ---
+    const itemsData = cart.map(it => ({
+        id: it.id,
+        nama_barang: it.nama, // Sesuai dengan properti 'nama' di addCart
+        qty: it.qty,
+        harga: it.harga
+    }));
 
-            if (errJual) throw errJual;
+    try {
+        // 1. Simpan Header Penjualan BESERTA Detail Items
+        const { error: errJual } = await FinexDB.from('penjualan').insert([{
+            no_invoice: inv,
+            subtotal: state.sub,
+            diskon_global: state.disc,
+            pajak_ppn: 0,
+            grand_total: state.total,
+            bayar: cash,
+            kembali: kembali > 0 ? kembali : 0,
+            kasir_id: currentLogId,
+            metode_pembayaran: method,
+            items: itemsData // <--- SEKARANG DETAIL BARANG IKUT TERSIMPAN
+        }]);
 
-            // 2. Render Struk Dulu
-            renderReceipt(inv, cash, kembali, method);
+        if (errJual) throw errJual;
 
-            // 3. Jeda sedikit agar HTML Struk selesai dibuat sebelum Print
-            setTimeout(() => {
-                window.print();
-                alert("Transaksi Berhasil Disimpan!");
-                location.reload(); // Refresh untuk transaksi baru
-            }, 800);
-
-        } catch (e) {
-            alert("Error: " + e.message);
-            isSaving = false;
-            btn.innerText = "KONFIRMASI & CETAK";
+        // --- 2. UPDATE STOK PRODUK DI DATABASE ---
+        for (const item of cart) {
+            // Ambil stok saat ini
+            const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
+            if (p) {
+                const stokBaru = p.stok_sekarang - item.qty;
+                await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+            }
         }
-    }
 
-    function renderReceipt(inv, bayar, kembali, mtd) {
-        let itemsHTML = cart.map(i => 
-            `${i.nama.padEnd(15).slice(0,15)} x${i.qty}  Rp${(i.qty * i.harga).toLocaleString()}`
-        ).join('\n');
+        // 3. Render Struk
+        renderReceipt(inv, cash, kembali, method);
+
+        // 4. Jeda & Cetak
+        setTimeout(() => {
+            window.print();
+            alert("Transaksi Berhasil Disimpan!");
+            location.reload(); 
+        }, 800);
+
+    } catch (e) {
+        alert("Error: " + e.message);
+        isSaving = false;
+        btn.innerText = "KONFIRMASI & CETAK";
+    }
+}
+ function renderReceipt(inv, bayar, kembali, mtd) {
+    let itemsHTML = cart.map(i => {
+        const subtotal = (i.qty * i.harga).toLocaleString();
+        // Membatasi nama barang agar tidak merusak baris (max 18 karakter)
+        const nama = i.nama.slice(0, 18).padEnd(18, ' ');
+        return `${nama} x${i.qty}  ${subtotal.padStart(8, ' ')}`;
+    }).join('\n');
+    
+    // ... sisa kode renderReceipt Anda
+}
 
         document.getElementById('print-area').innerHTML = `
             <div style="text-align:center;">
