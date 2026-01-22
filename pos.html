@@ -287,6 +287,45 @@ KEMBALI  : Rp${(kembali > 0 ? kembali : 0).toLocaleString()}
         `;
     }
 
+    // Fungsi untuk mencetak Ringkasan Penjualan (X-Report) sebelum closing
+async function cetakLaporanBill() {
+    const { data: sales, error } = await FinexDB
+        .from('penjualan')
+        .select('grand_total, metode_pembayaran')
+        .eq('kasir_id', currentLogId);
+
+    if (error) return alert("Gagal memuat data: " + error.message);
+
+    let totalTunai = 0;
+    let totalNonTunai = 0;
+    sales.forEach(s => {
+        if(s.metode_pembayaran === 'Tunai') totalTunai += s.grand_total;
+        else totalNonTunai += s.grand_total;
+    });
+
+    const reportHTML = `
+        <div style="text-align:center; font-family:monospace; width:58mm;">
+            <b>REKAP BILL KANTIN</b><br>
+            ----------------------------<br>
+            Kasir: ${document.getElementById('cashier-display').innerText}<br>
+            Waktu: ${new Date().toLocaleString('id-ID')}<br>
+            ----------------------------<br>
+            <div style="text-align:left;">
+            Total Tunai    : Rp${totalTunai.toLocaleString()}<br>
+            Total Non-Tunai: Rp${totalNonTunai.toLocaleString()}<br>
+            ----------------------------<br>
+            <b>GRAND TOTAL: Rp${(totalTunai + totalNonTunai).toLocaleString()}</b>
+            </div>
+            <br>--- Dokumen Internal ---
+        </div>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(reportHTML);
+    printWindow.print();
+    printWindow.close();
+}
+
     async function doClosing() {
         if(!confirm("Lakukan closing kantin sekarang?")) return;
         // Logika closing (update kasir_log status menjadi Closed)
