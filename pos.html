@@ -229,58 +229,62 @@
         }
     }
 
-   function renderReceipt(inv, bayar) {
-        const kembali = bayar - state.total;
-        const namaDiskon = document.getElementById('discSelect').options[document.getElementById('discSelect').selectedIndex].text;
-        
-        let itemHTML = cart.map(i => `
-            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
-                <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
-                <span>${(i.qty * i.harga).toLocaleString()}</span>
-            </div>
-        `).join('');
+  function renderReceipt(inv, bayar) {
+    const kembali = bayar - state.total;
+    const namaDiskon = document.getElementById('discSelect').options[document.getElementById('discSelect').selectedIndex].text;
+    // Ambil nilai metode pembayaran dari select modal
+    const metodeBayar = document.getElementById('payMethodSelect').value;
+    
+    let itemHTML = cart.map(i => `
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+            <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
+            <span>${(i.qty * i.harga).toLocaleString()}</span>
+        </div>
+    `).join('');
 
-        document.getElementById('print-area').innerHTML = `
-            <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
-                <div style="text-align:center; margin-bottom:10px;">
-                    <b style="font-size:14px;">FINEX POS KANTIN</b><br>
-                    ----------------------------
-                </div>
-                <div style="font-size:11px; margin-bottom:5px;">
-                    No: ${inv}<br>
-                    Kasir: ${session.username}<br>
-                    Tgl: ${new Date().toLocaleString('id-ID')}
-                </div>
+    document.getElementById('print-area').innerHTML = `
+        <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
+            <div style="text-align:center; margin-bottom:10px;">
+                <b style="font-size:14px;">FINEX POS KANTIN</b><br>
                 ----------------------------
-                ${itemHTML}
-                ----------------------------
-                <div style="display:flex; justify-content:space-between; font-size:11px;">
-                    <span>Subtotal:</span><span>Rp ${state.sub.toLocaleString()}</span>
-                </div>
-                
-                ${state.disc > 0 ? `
-                <div style="display:flex; justify-content:space-between; font-size:11px;">
-                    <span>Diskon (${namaDiskon}):</span><span>-Rp ${state.disc.toLocaleString()}</span>
-                </div>` : ''}
-                
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-top:3px;">
-                    <span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span>
-                </div>
-                ----------------------------
-                <div style="display:flex; justify-content:space-between; font-size:11px;">
-                    <span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:11px;">
-                    <span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span>
-                </div>
-                ----------------------------
-                <div style="text-align:center; margin-top:10px; font-size:10px;">
-                    Terima Kasih Atas Kunjungan Anda
-                </div>
             </div>
-        `;
-    }
-
+            <div style="font-size:11px; margin-bottom:5px;">
+                No: ${inv}<br>
+                Kasir: ${session.username}<br>
+                Tgl: ${new Date().toLocaleString('id-ID')}
+            </div>
+            ----------------------------
+            ${itemHTML}
+            ----------------------------
+            <div style="display:flex; justify-content:space-between; font-size:11px;">
+                <span>Subtotal:</span><span>Rp ${state.sub.toLocaleString()}</span>
+            </div>
+            
+            ${state.disc > 0 ? `
+            <div style="display:flex; justify-content:space-between; font-size:11px;">
+                <span>Diskon (${namaDiskon}):</span><span>-Rp ${state.disc.toLocaleString()}</span>
+            </div>` : ''}
+            
+            <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-top:3px;">
+                <span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span>
+            </div>
+            ----------------------------
+            <div style="display:flex; justify-content:space-between; font-size:11px;">
+                <span>Metode Bayar:</span><span>${metodeBayar}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px;">
+                <span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px;">
+                <span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span>
+            </div>
+            ----------------------------
+            <div style="text-align:center; margin-top:10px; font-size:10px;">
+                Terima Kasih Atas Kunjungan Anda
+            </div>
+        </div>
+    `;
+}
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
