@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Catat Pengeluaran</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: var(--primary); text-align: center; margin-bottom: 20px; }
+        label { font-size: 13px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
+        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        .btn-save { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-save:hover { background: #d35400; }
+        .btn-back { display: block; text-align: center; margin-top: 15px; color: #888; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>💸 Pengeluaran Kantin</h2>
+    
+    <label>Kategori:</label>
+    <select id="exp-kategori">
+        <option value="Gas">Gas</option>
+        <option value="Galon">Galon</option>
+        <option value="Bahan Baku">Bahan Baku</option>
+        <option value="Lain-lain">Lain-lain</option>
+    </select>
+
+    <label>Keterangan:</label>
+    <input type="text" id="exp-ket" placeholder="Contoh: Beli Gas Elpiji 3kg">
+
+    <label>Jumlah (Rp):</label>
+    <input type="number" id="exp-jumlah" placeholder="0">
+
+    <button class="btn-save" onclick="simpanPengeluaran()">SIMPAN DATA</button>
+    <a href="pos.html" class="btn-back">← Kembali ke Kasir</a>
+</div>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    const session = JSON.parse(localStorage.getItem('finex_session'));
+
+    async function simpanPengeluaran() {
+        const kategori = document.getElementById('exp-kategori').value;
+        const ket = document.getElementById('exp-ket').value;
+        const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
+
+        if(!ket || !jumlah) return alert("Harap isi semua kolom!");
+        if(!session) return window.location.replace('login.html');
+
+        // Cari Shift ID Aktif
+        const { data: shift } = await FinexDB
+            .from('kasir_log')
+            .select('id')
+            .eq('kasir_nama', session.username)
+            .eq('status', 'Open')
+            .maybeSingle();
+
+        if(!shift) return alert("Gagal! Anda harus membuka shift dulu di halaman Kasir.");
+
+        const { error } = await FinexDB.from('pengeluaran').insert([{
+            kategori: kategori,
+            keterangan: ket,
+            jumlah: jumlah,
+            kasir_id: shift.id
+        }]);
+
+        if (!error) {
+            alert("✅ Pengeluaran berhasil dicatat!");
+            window.location.href = 'pos.html';
+        } else {
+            alert("Gagal simpan: " + error.message);
+        }
+    }
+</script>
+
+</body>
+</html>
