@@ -157,30 +157,40 @@
             `;
         }
 
-        async function prosesClosing() {
-            const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
-            const selisih = fisik - totalSistem;
+       async function prosesClosing() {
+    const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
+    const selisih = fisik - totalSistem;
 
-            if(confirm("Tutup kasir dan cetak laporan?")) {
-                renderStruk(fisik, selisih);
-                
-                const { error } = await supabaseClient.from('kasir_log').update({
-                    waktu_closing: new Date().toISOString(),
-                    total_akhir: totalSistem,
-                    total_tunai_fisik: fisik,
-                    selisih: selisih,
-                    status: 'Closed'
-                }).eq('id', shiftId);
+    if(confirm("Tutup kasir dan cetak laporan?")) {
+        renderStruk(fisik, selisih);
+        
+        // Objek data yang akan dikirim (Pastikan nama kolom ini ada di Supabase)
+        const dataUpdate = {
+            waktu_closing: new Date().toISOString(), // Jika error, ganti ke 'waktu_tutup'
+            total_akhir: totalSistem,                // Jika error, ganti ke 'total_tunai_sistem'
+            total_tunai_fisik: fisik,
+            selisih: selisih,
+            status: 'Closed'
+        };
 
-                if(!error) {
-                    window.print();
-                    localStorage.removeItem('shift_id');
-                    setTimeout(() => window.location.href = "dashboard.html", 2000);
-                } else {
-                    alert("Gagal update data closing ke server.");
-                }
-            }
+        console.log("Mengirim data closing:", dataUpdate); // Untuk debug di F12
+
+        const { error } = await supabaseClient
+            .from('kasir_log')
+            .update(dataUpdate)
+            .eq('id', shiftId);
+
+        if(!error) {
+            window.print();
+            localStorage.removeItem('shift_id');
+            alert("Shift Berhasil Ditutup!");
+            setTimeout(() => window.location.href = "dashboard.html", 1000);
+        } else {
+            console.error("Detail Error Supabase:", error);
+            alert(`Gagal update: ${error.message} (Cek apakah kolom sudah sesuai di database)`);
         }
+    }
+}
 
         loadDataClosing();
     </script>
