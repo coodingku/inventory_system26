@@ -6,65 +6,220 @@
     <title>Finex Pos | Login Kantin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); width: 350px; text-align: center; }
-        .login-card h2 { color: #2c3e50; margin-bottom: 10px; }
-        .login-card p { color: #888; font-size: 14px; margin-bottom: 30px; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
-        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #2980b9; }
-        .error-msg { color: #e74c3c; font-size: 13px; margin-bottom: 15px; display: none; }
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --success: #27ae60;
+            --bg: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, #1a252f 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-card h1 {
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-size: 28px;
+        }
+
+        .login-card h1 span {
+            color: var(--accent);
+        }
+
+        .login-card p {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+            font-size: 15px;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .error-msg {
+            background: #fdeaea;
+            color: #e74c3c;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .footer-text {
+            margin-top: 25px;
+            font-size: 11px;
+            color: #bdc3c7;
+        }
     </style>
 </head>
 <body>
 
 <div class="login-card">
-    <h2>Finex Pos</h2>
-    <p>Silakan masuk ke sistem Kantin</p>
+    <h1>Finex <span>Pos</span></h1>
+    <p>Sistem Management Kantin</p>
+
     <div id="err-box" class="error-msg">Username atau Password salah!</div>
+
     <form id="login-form">
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
-        <button type="submit" id="btn-login">MASUK</button>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Masukkan username" required>
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Masukkan password" required>
+        </div>
+        <button type="submit" id="btn-login">MASUK KE SISTEM</button>
     </form>
+
+    <div class="footer-text">
+        &copy; 2026 Finex Pos - Integrated Kantin System
+    </div>
 </div>
 
 <script>
+    // Konfigurasi Supabase
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
+    // Cek jika sudah login, langsung arahkan sesuai role
+    window.onload = () => {
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        if (session) {
+            redirectByRole(session.role);
+        }
+    };
+
     document.getElementById('login-form').onsubmit = async (e) => {
         e.preventDefault();
+        
         const user = document.getElementById('username').value;
         const pass = document.getElementById('password').value;
         const btn = document.getElementById('btn-login');
+        const errBox = document.getElementById('err-box');
 
-        btn.innerText = "Mengecek...";
+        // Reset State
+        btn.innerText = "Memverifikasi...";
         btn.disabled = true;
+        errBox.style.display = 'none';
 
-        // Cari user di tabel 'users' (pastikan tabel ini ada di Supabase Anda)
-        const { data, error } = await FinexDB
-            .from('users')
-            .select('*')
-            .eq('username', user)
-            .eq('password', pass) // Catatan: Sebaiknya gunakan enkripsi untuk produksi
-            .maybeSingle();
+        try {
+            // Query ke tabel users
+            const { data, error } = await FinexDB
+                .from('users')
+                .select('*')
+                .eq('username', user)
+                .eq('password', pass) // Di produksi sebaiknya gunakan enkripsi
+                .maybeSingle();
 
-        if (data) {
-            // Simpan data user ke localStorage
-            localStorage.setItem('finex_session', JSON.stringify({
-                id: data.id,
-                username: data.username,
-                role: data.role
-            }));
-            window.location.href = 'index.html'; // Lempar ke Dashboard
-        } else {
-            document.getElementById('err-box').style.display = 'block';
-            btn.innerText = "MASUK";
+            if (error) throw error;
+
+            if (data) {
+                // Simpan Session ke LocalStorage
+                const sessionData = {
+                    id: data.id,
+                    username: data.username,
+                    role: data.role,
+                    loginTime: new Date().toISOString()
+                };
+                localStorage.setItem('finex_session', JSON.stringify(sessionData));
+
+                // Arahkan berdasarkan role
+                redirectByRole(data.role);
+            } else {
+                // Login Gagal
+                errBox.style.display = 'block';
+                btn.innerText = "MASUK KE SISTEM";
+                btn.disabled = false;
+            }
+
+        } catch (err) {
+            console.error("Login Error:", err);
+            alert("Terjadi kesalahan koneksi. Silakan coba lagi.");
             btn.disabled = false;
+            btn.innerText = "MASUK KE SISTEM";
         }
     };
+
+    function redirectByRole(role) {
+        if (role === 'Kasir') {
+            window.location.href = 'pos.html';
+        } else if (role === 'Admin') {
+            window.location.href = 'index.html';
+        } else {
+            alert("Role tidak dikenali. Hubungi Admin.");
+            localStorage.removeItem('finex_session');
+            location.reload();
+        }
+    }
 </script>
 
 </body>
