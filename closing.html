@@ -157,23 +157,23 @@
             `;
         }
 
-       async function prosesClosing() {
+   async function prosesClosing() {
     const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
     const selisih = fisik - totalSistem;
 
     if(confirm("Tutup kasir dan cetak laporan?")) {
         renderStruk(fisik, selisih);
         
-        // Objek data yang akan dikirim (Pastikan nama kolom ini ada di Supabase)
+        // Sesuaikan dengan nama kolom yang ada di tabel kasir_log Anda
         const dataUpdate = {
-            waktu_closing: new Date().toISOString(), // Jika error, ganti ke 'waktu_tutup'
-            total_akhir: totalSistem,                // Jika error, ganti ke 'total_tunai_sistem'
+            waktu_closing: new Date().toISOString(), 
+            saldo_akhir: totalSistem,       // Menggunakan nama kolom saldo_akhir sesuai database Anda
             total_tunai_fisik: fisik,
             selisih: selisih,
             status: 'Closed'
         };
 
-        console.log("Mengirim data closing:", dataUpdate); // Untuk debug di F12
+        console.log("Mengirim data closing ke Supabase:", dataUpdate);
 
         const { error } = await supabaseClient
             .from('kasir_log')
@@ -184,14 +184,14 @@
             window.print();
             localStorage.removeItem('shift_id');
             alert("Shift Berhasil Ditutup!");
-            setTimeout(() => window.location.href = "dashboard.html", 1000);
+            setTimeout(() => window.location.href = "dashboard.html", 1500);
         } else {
-            console.error("Detail Error Supabase:", error);
-            alert(`Gagal update: ${error.message} (Cek apakah kolom sudah sesuai di database)`);
+            console.error("Detail Error:", error);
+            // Memberikan pesan error spesifik jika kolom lain masih ada yang salah
+            alert(`Gagal update: ${error.message}. Periksa kembali nama kolom di database.`);
         }
     }
 }
-
         loadDataClosing();
     </script>
 </body>
