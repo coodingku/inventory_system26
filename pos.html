@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Kasir POS Lengkap</title>
+    <title>Finex Pos | Kasir POS Kantin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
@@ -14,7 +14,7 @@
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.3s; display: block; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; text-decoration: none; }
+        .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; text-decoration: none; cursor: pointer; }
 
         /* Area Katalog */
         main { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; }
@@ -41,7 +41,7 @@
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 380px; text-align: center; }
         .modal-content input, .modal-content select { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
 
-        /* CSS KHUSUS CETAK */
+        /* Area Cetak */
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden !important; }
@@ -52,18 +52,21 @@
 </head>
 <body>
 
-     <nav>
+    <nav>
         <h2>Finex Pos</h2>
-        <a href="dashboard.html" class="active">📊 Dashboard</a>
-        <a href="pos.html">🛒 Masuk Kasir</a>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="pos.html" class="active">🛒 Masuk Kasir</a>
         <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
-        <a href="pengeluaran.html">💸Pengeluaran Biaya</a>
+        <a href="pengeluaran.html">💸 Pengeluaran Biaya</a>
         <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
         <a href="laporan-opening-closing.html">🕒 Log Shift Kasir</a>
-        <a href="closing.html">🏁 Closing Shift</a>
+        <a onclick="doClosing()">🏁 Closing Shift</a>
+        
+        <div style="margin-top: 20px; font-size: 11px; color: #888; padding: 10px;">
+            KASIR AKTIF:<br><b id="cashier-display" style="color: var(--accent);">Memuat...</b>
+        </div>
         <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
     </nav>
-
 
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -123,11 +126,18 @@
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
-        document.getElementById('cashier-display').innerText = session.username;
+        
+        // Perbaikan: Pastikan element cashier-display ada sebelum set innerText
+        const displayEl = document.getElementById('cashier-display');
+        if (displayEl) displayEl.innerText = session.username;
+        
         await checkActiveShift();
         loadMenu();
         loadSettings();
-        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
+        setInterval(() => { 
+            const clockEl = document.getElementById('clock');
+            if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('id-ID'); 
+        }, 1000);
     };
 
     async function checkActiveShift() {
@@ -141,7 +151,6 @@
             currentLogId = data.id; 
             localStorage.setItem('shift_id', data.id); 
         } else {
-            // Jika tidak ada shift aktif, munculkan pop-up buka shift
             document.getElementById('openShiftModal').style.display = 'flex';
         }
     }
@@ -159,7 +168,6 @@
             currentLogId = data.id;
             localStorage.setItem('shift_id', data.id);
             document.getElementById('openShiftModal').style.display = 'none';
-            alert("Shift Berhasil Dibuka!");
         } else {
             alert("Gagal membuka shift: " + error.message);
         }
@@ -235,14 +243,9 @@
         
         try {
             const { error: errSales } = await FinexDB.from('penjualan').insert([{ 
-                no_invoice: inv, 
-                items: cart, 
-                subtotal: state.sub,
-                diskon: state.disc,
-                grand_total: state.total, 
-                bayar: cash, 
-                kasir_id: currentLogId, 
-                metode_pembayaran: method 
+                no_invoice: inv, items: cart, subtotal: state.sub,
+                diskon: state.disc, grand_total: state.total, 
+                bayar: cash, kasir_id: currentLogId, metode_pembayaran: method 
             }]);
             if (errSales) throw errSales;
 
@@ -256,7 +259,8 @@
             setTimeout(() => {
                 window.print();
                 alert("Transaksi Berhasil!");
-                // Bagian ini hanya me-reset keranjang, bukan dropdown diskon
+                
+                // PERBAIKAN: Reset manual (BUKAN location.reload) agar diskon tetap terpilih
                 cart = [];
                 document.getElementById('cashInput').value = '';
                 closePayment();
@@ -274,7 +278,6 @@
     function renderReceipt(inv, bayar) {
         const kembali = bayar - state.total;
         const selectedDiscText = document.getElementById('discSelect').options[document.getElementById('discSelect').selectedIndex].text;
-        const metodeBayar = document.getElementById('payMethodSelect').value;
         
         let itemHTML = cart.map(i => `
             <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
@@ -309,7 +312,7 @@
                 </div>
                 ----------------------------
                 <div style="display:flex; justify-content:space-between; font-size:11px;">
-                    <span>Metode:</span><span>${metodeBayar}</span>
+                    <span>Metode:</span><span>${document.getElementById('payMethodSelect').value}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; font-size:11px;">
                     <span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span>
@@ -321,8 +324,7 @@
                 <div style="text-align:center; margin-top:10px; font-size:10px;">
                     Terima Kasih Atas Kunjungan Anda
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
     function doClosing() {
