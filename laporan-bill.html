@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Riwayat Transaksi</title>
+    <title>Finex Pos | Riwayat & Cetak Bill</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
         /* Sidebar */
@@ -26,8 +26,10 @@
         th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .btn-detail { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .btn-detail:hover { background: #2980b9; }
+        .btn-group { display: flex; gap: 5px; }
+        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; }
+        .btn-detail { background: var(--accent); }
+        .btn-print { background: var(--success); }
 
         /* Modal Style */
         .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
@@ -35,6 +37,14 @@
         .modal-header { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
         .close-btn { cursor: pointer; font-size: 20px; color: #888; }
         .detail-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
+
+        /* CSS KHUSUS CETAK */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -70,11 +80,12 @@
                         <th>Aksi</th>
                     </tr>
                 </thead>
-                <tbody id="bill-table-body">
-                    </tbody>
+                <tbody id="bill-table-body"></tbody>
             </table>
         </div>
     </main>
+
+    <div id="print-area"></div>
 
     <div id="modalDetail" class="modal">
         <div class="modal-content">
@@ -83,8 +94,7 @@
                 <span class="close-btn" onclick="closeModal()">&times;</span>
             </div>
             <div id="det-waktu" style="font-size: 12px; color: #888; margin-bottom: 15px;"></div>
-            <div id="det-items">
-                </div>
+            <div id="det-items"></div>
             <div style="margin-top: 20px; padding-top: 10px; border-top: 2px solid #eee;">
                 <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px;">
                     <span>Total Akhir</span>
@@ -96,7 +106,6 @@
     </div>
 
     <script>
-        // Menggunakan FinexDB agar tidak bentrok dengan keyword library
         const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
@@ -104,7 +113,6 @@
         window.onload = () => {
             const session = JSON.parse(localStorage.getItem('finex_session'));
             if (!session) window.location.replace('login.html');
-            
             document.getElementById('filter-date').valueAsDate = new Date();
             loadBills();
         };
@@ -112,7 +120,6 @@
         async function loadBills() {
             const selectedDate = document.getElementById('filter-date').value;
             if (!selectedDate) return;
-
             const start = selectedDate + 'T00:00:00.000Z';
             const end = selectedDate + 'T23:59:59.999Z';
 
@@ -123,10 +130,7 @@
                 .lte('created_at', end)
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error(error);
-                return alert("Gagal mengambil data riwayat.");
-            }
+            if (error) return alert("Gagal mengambil data.");
 
             const tbody = document.getElementById('bill-table-body');
             tbody.innerHTML = data.map(b => `
@@ -136,50 +140,78 @@
                     <td>${b.metode_pembayaran}</td>
                     <td><b>Rp ${b.grand_total.toLocaleString()}</b></td>
                     <td>
-                        <button class="btn-detail" onclick="showDetail('${b.id}')">👁️ Detail</button>
+                        <div class="btn-group">
+                            <button class="btn-action btn-detail" onclick="showDetail('${b.id}')">👁️ Detail</button>
+                            <button class="btn-action btn-print" onclick="printBill('${b.id}')">🖨️ Cetak</button>
+                        </div>
                     </td>
                 </tr>
             `).join('');
         }
 
         async function showDetail(id) {
-            // 1. Ambil data penjualan berdasarkan ID
-            const { data, error } = await FinexDB
-                .from('penjualan')
-                .select('*')
-                .eq('id', id)
-                .single();
+            const { data } = await FinexDB.from('penjualan').select('*').eq('id', id).single();
+            if (!data) return;
 
-            if (error || !data) return alert("Gagal memuat detail barang.");
-
-            // 2. Isi data ke modal
             document.getElementById('det-invoice').innerText = data.no_invoice;
             document.getElementById('det-waktu').innerText = new Date(data.created_at).toLocaleString('id-ID');
             document.getElementById('det-total').innerText = "Rp " + data.grand_total.toLocaleString();
 
-            // 3. Render list barang (data.items biasanya berupa JSON)
             const items = data.items || [];
-            const container = document.getElementById('det-items');
-            container.innerHTML = items.map(it => `
+            document.getElementById('det-items').innerHTML = items.map(it => `
                 <div class="detail-item">
-                    <span>${it.nama_barang} (x${it.qty})</span>
+                    <span>${it.nama_barang || it.nama_produk} (x${it.qty})</span>
                     <span>Rp ${(it.harga * it.qty).toLocaleString()}</span>
                 </div>
             `).join('');
-
-            // 4. Tampilkan modal
             document.getElementById('modalDetail').style.display = 'flex';
         }
 
-        function closeModal() {
-            document.getElementById('modalDetail').style.display = 'none';
+        async function printBill(id) {
+            const { data } = await FinexDB.from('penjualan').select('*').eq('id', id).single();
+            if (!data) return;
+
+            const items = data.items || [];
+            let itemRows = items.map(it => `
+                <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+                    <span style="flex:1;">${it.nama_barang || it.nama_produk} x${it.qty}</span>
+                    <span>${(it.harga * it.qty).toLocaleString()}</span>
+                </div>
+            `).join('');
+
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = `
+                <div style="width:58mm; padding:10px; font-family:monospace; background:white; color:black;">
+                    <div style="text-align:center; margin-bottom:10px;">
+                        <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+                        <small>STRUK PEMBAYARAN (REPRINT)</small>
+                    </div>
+                    <div style="font-size:11px; margin-bottom:5px;">
+                        No: ${data.no_invoice}<br>
+                        Tgl: ${new Date(data.created_at).toLocaleString('id-ID')}<br>
+                        Kasir: ${data.kasir_nama || 'Admin'}
+                    </div>
+                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                    ${itemRows}
+                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px;">
+                        <span>TOTAL</span>
+                        <span>Rp ${data.grand_total.toLocaleString()}</span>
+                    </div>
+                    <div style="font-size:11px; margin-top:5px;">
+                        Bayar: ${data.metode_pembayaran}
+                    </div>
+                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                    <div style="text-align:center; font-size:10px; margin-top:10px;">
+                        Terima Kasih Atas Kunjungan Anda
+                    </div>
+                </div>
+            `;
+            window.print();
         }
 
-        // Tutup modal jika klik di luar box
-        window.onclick = (event) => {
-            const modal = document.getElementById('modalDetail');
-            if (event.target == modal) closeModal();
-        };
+        function closeModal() { document.getElementById('modalDetail').style.display = 'none'; }
+        window.onclick = (e) => { if (e.target.id == 'modalDetail') closeModal(); };
     </script>
 </body>
 </html>
