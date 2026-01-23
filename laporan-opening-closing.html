@@ -2,83 +2,96 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Laporan Shift | Finex Pos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Laporan Shift</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 15px; }
-        .grid-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
-        .stat-card { padding: 20px; border-radius: 10px; color: white; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        .selisih-plus { color: #27ae60; font-weight: bold; }
-        .selisih-minus { color: #e74c3c; font-weight: bold; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        
+        /* Sidebar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        nav a.active { background: var(--accent); color: white; }
+
+        /* Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .open { background: #e8f5e9; color: #2e7d32; }
+        .closed { background: #ffebee; color: #c62828; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🏁 Laporan Opening & Closing Kantin</h2>
-        
-        <div class="grid-stats">
-            <div class="stat-card" style="background:#2ecc71">Total Saldo Awal<br><b id="sumSaldoAwal">Rp 0</b></div>
-            <div class="stat-card" style="background:#3498db">Total Tunai Fisik<br><b id="sumTunaiFisik">Rp 0</b></div>
-            <div class="stat-card" style="background:#e67e22">Total Selisih<br><b id="sumSelisih">Rp 0</b></div>
-        </div>
 
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="index.html">📊 Dashboard</a>
+    <a href="produk.html">📦 Produk</a>
+    <a href="laporan-bill.html">📄 Laporan Penjualan</a>
+    <a href="laporan-opening-closing.html" class="active">🕒 Laporan Shift</a>
+    <a href="login.html" style="color: #e74c3c; margin-top: 50px;">🚪 Keluar</a>
+</nav>
+
+<main>
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Riwayat Shift Kasir (Daily)</h2>
+            <button onclick="fetchShiftLogs()" style="padding:10px 20px; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer;">Refresh Data</button>
+        </div>
+        <p style="color:#666; font-size: 14px;">Pantau jam masuk, jam pulang, dan total setoran kasir kantin.</p>
+        
         <table>
             <thead>
                 <tr>
-                    <th>Kasir</th>
-                    <th>Buka</th>
-                    <th>Tutup</th>
-                    <th>Sistem</th>
-                    <th>Fisik</th>
-                    <th>Selisih</th>
+                    <th>Nama Kasir</th>
+                    <th>Waktu Buka</th>
+                    <th>Waktu Tutup</th>
+                    <th>Saldo Awal</th>
+                    <th>Saldo Akhir (Setoran)</th>
+                    <th>Status</th>
                 </tr>
             </thead>
-            <tbody id="listLog"></tbody>
+            <tbody id="log-table-body">
+                </tbody>
         </table>
     </div>
+</main>
 
 <script>
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    window.onload = loadLogs;
-
-    async function loadLogs() {
-        const { data, error } = await FinexDB.from('kasir_log')
+    async function fetchShiftLogs() {
+        const { data, error } = await FinexDB
+            .from('kasir_log')
             .select('*')
             .order('waktu_buka', { ascending: false });
 
-        if (data) {
-            let totalAwal = 0, totalFisik = 0, totalSelisih = 0;
+        if (error) return alert("Gagal memuat log: " + error.message);
 
-            document.getElementById('listLog').innerHTML = data.map(l => {
-                totalAwal += l.saldo_awal || 0;
-                totalFisik += l.total_tunai_fisik || 0;
-                totalSelisih += l.selisih || 0;
-
-                return `
-                    <tr>
-                        <td><b>${l.kasir_nama}</b></td>
-                        <td><small>${new Date(l.waktu_buka).toLocaleString()}</small></td>
-                        <td><small>${l.waktu_tutup ? new Date(l.waktu_tutup).toLocaleString() : '-'}</small></td>
-                        <td>Rp ${(l.total_tunai_sistem || 0).toLocaleString()}</td>
-                        <td>Rp ${(l.total_tunai_fisik || 0).toLocaleString()}</td>
-                        <td class="${l.selisih < 0 ? 'selisih-minus' : 'selisih-plus'}">
-                            Rp ${(l.selisih || 0).toLocaleString()}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('sumSaldoAwal').innerText = "Rp " + totalAwal.toLocaleString();
-            document.getElementById('sumTunaiFisik').innerText = "Rp " + totalFisik.toLocaleString();
-            document.getElementById('sumSelisih').innerText = "Rp " + totalSelisih.toLocaleString();
-        }
+        const tbody = document.getElementById('log-table-body');
+        tbody.innerHTML = data.map(log => `
+            <tr>
+                <td><b>${log.kasir_nama}</b></td>
+                <td>${new Date(log.waktu_buka).toLocaleString('id-ID')}</td>
+                <td>${log.waktu_tutup ? new Date(log.waktu_tutup).toLocaleString('id-ID') : '-'}</td>
+                <td>Rp ${log.saldo_awal.toLocaleString()}</td>
+                <td><b style="color:var(--primary)">Rp ${log.saldo_akhir ? log.saldo_akhir.toLocaleString() : '0'}</b></td>
+                <td><span class="badge ${log.status === 'Open' ? 'open' : 'closed'}">${log.status.toUpperCase()}</span></td>
+            </tr>
+        `).join('');
     }
+
+    // Jalankan saat load
+    fetchShiftLogs();
 </script>
+
 </body>
 </html>
