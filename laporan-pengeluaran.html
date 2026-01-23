@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Laporan Pengeluaran</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        
+        /* Sidebar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        nav a.active { background: var(--accent); color: white; }
+
+        /* Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .filter-group { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .btn-export { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="index.html">📊 Dashboard</a>
+    <a href="laporan-bill.html">📄 Laporan Penjualan</a>
+    <a href="laporan-opening-closing.html">🕒 Laporan Shift</a>
+    <a href="laporan-pengeluaran.html" class="active">💸 Laporan Pengeluaran</a>
+    <a href="login.html" style="color: #e74c3c; margin-top: 50px;">🚪 Keluar</a>
+</nav>
+
+<main>
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Riwayat Pengeluaran Kantin</h2>
+            <button class="btn-export" onclick="exportToCSV()">📥 Export Excel (CSV)</button>
+        </div>
+        
+        <div class="filter-group">
+            <div>
+                <label style="font-size: 12px; display: block;">Pilih Bulan:</label>
+                <input type="month" id="filter-bulan" class="btn-filter" style="background: white; color: black; border: 1px solid #ddd;">
+            </div>
+            <button class="btn-filter" onclick="fetchExpenses()">Filter</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Kategori</th>
+                    <th>Keterangan</th>
+                    <th>Jumlah (Rp)</th>
+                    <th>Petugas/Kasir</th>
+                </tr>
+            </thead>
+            <tbody id="expense-table-body">
+                </tbody>
+            <tfoot>
+                <tr style="background: #fdf2e9; font-weight: bold;">
+                    <td colspan="3" style="text-align: right;">TOTAL PENGELUARAN BULAN INI:</td>
+                    <td id="total-pengeluaran" style="color: #d35400;">Rp 0</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</main>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    let currentData = [];
+
+    async function fetchExpenses() {
+        const filterMonth = document.getElementById('filter-bulan').value; // format: YYYY-MM
+        let query = FinexDB.from('pengeluaran').select('*, kasir_log(kasir_nama)').order('tanggal', { ascending: false });
+
+        if (filterMonth) {
+            const start = `${filterMonth}-01T00:00:00`;
+            const end = `${filterMonth}-31T23:59:59`;
+            query = query.gte('tanggal', start).lte('tanggal', end);
+        }
+
+        const { data, error } = await query;
+        if (error) return alert("Gagal ambil data: " + error.message);
+
+        currentData = data;
+        renderTable(data);
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('expense-table-body');
+        let total = 0;
+
+        tbody.innerHTML = data.map(item => {
+            total += item.jumlah;
+            return `
+                <tr>
+                    <td>${new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                    <td><span style="background:#eee; padding:3px 8px; border-radius:5px;">${item.kategori}</span></td>
+                    <td>${item.keterangan}</td>
+                    <td><b>Rp ${item.jumlah.toLocaleString()}</b></td>
+                    <td>${item.kasir_log ? item.kasir_log.kasir_nama : 'Admin'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        document.getElementById('total-pengeluaran').innerText = "Rp " + total.toLocaleString();
+    }
+
+    function exportToCSV() {
+        if (currentData.length === 0) return alert("Tidak ada data untuk diexport");
+
+        let csv = 'Tanggal,Kategori,Keterangan,Jumlah,Kasir\n';
+        currentData.forEach(row => {
+            csv += `${new Date(row.tanggal).toLocaleDateString()},${row.kategori},${row.keterangan},${row.jumlah},${row.kasir_log?.kasir_nama || 'Admin'}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `Laporan_Pengeluaran_${new Date().getTime()}.csv`);
+        a.click();
+    }
+
+    // Load Data Default (Bulan Ini)
+    window.onload = () => {
+        const now = new Date();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        document.getElementById('filter-bulan').value = `${now.getFullYear()}-${month}`;
+        fetchExpenses();
+    };
+</script>
+</body>
+</html>
