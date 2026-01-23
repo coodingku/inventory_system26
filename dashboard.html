@@ -37,11 +37,17 @@
         .card-exp::after { background: var(--danger); }
         .card-count::after { background: var(--accent); }
 
-        /* Profit Analysis Section */
+        /* Analysis Section */
         .analysis-section { margin-top: 40px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .progress-container { background: #eee; height: 25px; border-radius: 20px; margin: 20px 0; overflow: hidden; position: relative; }
         .progress-bar { background: var(--success); height: 100%; width: 0%; transition: 1s ease-in-out; }
         .label-group { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
+
+        /* Low Stock Table */
+        .stock-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .stock-table th { text-align: left; color: #888; font-size: 12px; padding: 10px; border-bottom: 1px solid #eee; }
+        .stock-table td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .badge-low { background: #fff3e0; color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -63,7 +69,7 @@
                 <h1 style="margin:0;">Dashboard Ringkasan</h1>
                 <p style="color: #888;" id="current-date">Memuat tanggal...</p>
             </div>
-            <button onclick="loadStats()" style="padding: 10px 20px; cursor: pointer; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold;">🔄 Refresh Data</button>
+            <button onclick="loadStats()" id="btn-refresh" style="padding: 10px 20px; cursor: pointer; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold;">🔄 Refresh Data</button>
         </div>
 
         <div class="stats-grid">
@@ -81,20 +87,32 @@
             </div>
         </div>
 
-        <div class="analysis-section">
-            <h2>Analisis Laba Bersih Hari Ini</h2>
-            <div class="label-group">
-                <span style="color: var(--success);">Laba (Penjualan)</span>
-                <span id="txt-laba-persen">0%</span>
-                <span style="color: var(--danger);">Biaya (Pengeluaran)</span>
+        <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 20px; margin-top: 30px;">
+            <div class="analysis-section" style="margin-top:0;">
+                <h2>Analisis Laba Bersih Hari Ini</h2>
+                <div class="label-group">
+                    <span style="color: var(--success);">Laba Operasional</span>
+                    <span id="txt-laba-persen">0% Margin</span>
+                </div>
+                <div class="progress-container">
+                    <div id="profit-bar" class="progress-bar"></div>
+                </div>
+                <div style="text-align: center; margin-top: 10px;">
+                    <h3 style="margin: 0; color:#888;">ESTIMASI SALDO BERSIH:</h3>
+                    <h1 id="stat-net-profit" style="color: var(--primary); margin: 5px 0;">Rp 0</h1>
+                </div>
             </div>
-            <div class="progress-container">
-                <div id="profit-bar" class="progress-bar"></div>
-            </div>
-            <div style="text-align: center; margin-top: 10px;">
-                <h3 style="margin: 0;">ESTIMASI SALDO BERSIH:</h3>
-                <h1 id="stat-net-profit" style="color: var(--primary); margin: 5px 0;">Rp 0</h1>
-                <p style="font-size: 12px; color: #888;">*Dihitung dari total penjualan dikurangi pengeluaran operasional hari ini.</p>
+
+            <div class="analysis-section" style="margin-top:0;">
+                <h2>Stok Menipis (Kantin)</h2>
+                <table class="stock-table">
+                    <thead>
+                        <tr><th>Produk</th><th>Stok</th></tr>
+                    </thead>
+                    <tbody id="low-stock-body">
+                        <tr><td colspan="2" style="text-align:center; color:#ccc;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -113,36 +131,52 @@
         };
 
         async function loadStats() {
-            try {
-                // Set rentang waktu hari ini (00:00:00 sampai 23:59:59)
-                const start = new Date(); start.setHours(0,0,0,0);
-                const end = new Date(); end.setHours(23,59,59,999);
+            const btn = document.getElementById('btn-refresh');
+            btn.innerText = "⏳ Memproses...";
+            btn.disabled = true;
 
-                // 1. Ambil Data Penjualan
+            try {
+                // Gunakan format YYYY-MM-DD agar lebih stabil di Supabase
+                const today = new Date();
+                const dateStr = today.toISOString().split('T')[0];
+                const start = `${dateStr}T00:00:00.000Z`;
+                const end = `${dateStr}T23:59:59.999Z`;
+
+                // 1. Ambil Penjualan
                 const { data: sales, error: err1 } = await FinexDB
                     .from('penjualan')
                     .select('grand_total')
-                    .gte('created_at', start.toISOString())
-                    .lte('created_at', end.toISOString());
+                    .gte('created_at', start)
+                    .lte('created_at', end);
 
                 if (err1) throw err1;
 
-                // 2. Ambil Data Pengeluaran
+                // 2. Ambil Pengeluaran
                 const { data: expenses, error: err2 } = await FinexDB
                     .from('pengeluaran')
                     .select('jumlah')
-                    .gte('tanggal', start.toISOString())
-                    .lte('tanggal', end.toISOString());
+                    .gte('tanggal', start)
+                    .lte('tanggal', end);
 
                 if (err2) throw err2;
 
+                // 3. Ambil Stok Menipis (< 10)
+                const { data: lowStock, error: err3 } = await FinexDB
+                    .from('produk')
+                    .select('nama_barang, stok_sekarang')
+                    .lt('stok_sekarang', 10)
+                    .order('stok_sekarang', { ascending: true })
+                    .limit(5);
+
+                if (err3) throw err3;
+
                 // Kalkulasi
-                const totalSales = (sales || []).reduce((acc, curr) => acc + curr.grand_total, 0);
-                const totalExp = (expenses || []).reduce((acc, curr) => acc + curr.jumlah, 0);
+                const totalSales = (sales || []).reduce((acc, curr) => acc + (curr.grand_total || 0), 0);
+                const totalExp = (expenses || []).reduce((acc, curr) => acc + (curr.jumlah || 0), 0);
                 const netProfit = totalSales - totalExp;
                 const trxCount = (sales || []).length;
 
-                // Update UI
+                // Update UI Statistik
                 document.getElementById('stat-sales').innerText = "Rp " + totalSales.toLocaleString();
                 document.getElementById('stat-expense').innerText = "Rp " + totalExp.toLocaleString();
                 document.getElementById('stat-count').innerText = trxCount + " Transaksi";
@@ -150,22 +184,36 @@
 
                 // Update Progress Bar
                 if (totalSales > 0) {
-                    const profitPercentage = Math.max(0, ((totalSales - totalExp) / totalSales) * 100);
-                    document.getElementById('profit-bar').style.width = profitPercentage + "%";
-                    document.getElementById('txt-laba-persen').innerText = Math.round(profitPercentage) + "% Profit Margin";
+                    const margin = Math.max(0, ((totalSales - totalExp) / totalSales) * 100);
+                    document.getElementById('profit-bar').style.width = margin + "%";
+                    document.getElementById('txt-laba-persen').innerText = Math.round(margin) + "% Margin Bersih";
+                    document.getElementById('profit-bar').style.background = margin < 20 ? 'var(--danger)' : 'var(--success)';
+                }
+
+                // Update Tabel Stok
+                const stockTbody = document.getElementById('low-stock-body');
+                if (lowStock && lowStock.length > 0) {
+                    stockTbody.innerHTML = lowStock.map(p => `
+                        <tr>
+                            <td>${p.nama_barang}</td>
+                            <td><span class="badge-low">${p.stok_sekarang}</span></td>
+                        </tr>
+                    `).join('');
                 } else {
-                    document.getElementById('profit-bar').style.width = "0%";
-                    document.getElementById('txt-laba-persen').innerText = "0%";
+                    stockTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:green;">✅ Stok Aman</td></tr>';
                 }
 
             } catch (error) {
-                console.error("Error Dashboard:", error);
-                alert("Gagal memuat statistik. Cek koneksi internet.");
+                console.error("Detail Error:", error);
+                alert("Gagal Sinkronisasi: " + (error.message || "Periksa koneksi"));
+            } finally {
+                btn.innerText = "🔄 Refresh Data";
+                btn.disabled = false;
             }
         }
 
         function logout() {
-            if(confirm("Keluar dari dashboard?")) {
+            if(confirm("Keluar dari Finex Pos?")) {
                 localStorage.clear();
                 window.location.replace('login.html');
             }
