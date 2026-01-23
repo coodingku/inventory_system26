@@ -150,13 +150,22 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
-    // Cek jika sudah login, langsung arahkan sesuai role
-    window.onload = () => {
-        const session = JSON.parse(localStorage.getItem('finex_session'));
-        if (session) {
-            redirectByRole(session.role);
+window.onload = () => {
+    const sessionData = localStorage.getItem('finex_session');
+    
+    // Hanya redirect jika sessionData BENAR-BENAR ada dan valid
+    if (sessionData) {
+        try {
+            const session = JSON.parse(sessionData);
+            if (session && session.role) {
+                redirectByRole(session.role);
+            }
+        } catch (e) {
+            // Jika data korup, hapus saja
+            localStorage.removeItem('finex_session');
         }
-    };
+    }
+};
 
     document.getElementById('login-form').onsubmit = async (e) => {
         e.preventDefault();
