@@ -122,11 +122,21 @@
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
     };
 
-    async function checkActiveShift() {
-        const { data } = await FinexDB.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
-        if (data) currentLogId = data.id; 
-        else alert("Shift belum dibuka! Silakan buka shift melalui dashboard.");
+async function checkActiveShift() {
+    const { data } = await FinexDB.from('kasir_log')
+        .select('*')
+        .eq('kasir_nama', session.username)
+        .eq('status', 'Open')
+        .maybeSingle();
+
+    if (data) {
+        currentLogId = data.id; 
+        // TAMBAHKAN BARIS INI:
+        localStorage.setItem('shift_id', data.id); 
+    } else {
+        alert("Shift belum dibuka!");
     }
+}
 
     async function loadSettings() {
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').eq('aktif', true);
