@@ -37,7 +37,7 @@
         .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-pay:hover { background: #219150; }
 
-        /* Modal */
+        /* Modal Styles */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 350px; text-align: center; }
         .modal-content select, .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
@@ -55,11 +55,12 @@
 
     <nav>
         <h2>Finex Pos</h2>
-        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="index.html">📊 Dashboard</a>
         <a href="pos.html" class="active">🛒 Kasir POS</a>
         <a href="laporan-bill.html">📄 Laporan Penjualan</a>
-         <a href="laporan-opening-closing.html">📄 Riwayat Kasir Daily </a>
-        <a onclick="doClosing()">🏁 Closing </a>
+        <a href="laporan-opening-closing.html">📄 Riwayat Kasir Daily </a>
+        <a onclick="doClosing()" style="background:var(--danger); color:white; font-weight:bold; margin-top:10px;">🏁 Closing Shift</a>
+        
         <div style="margin-top: 20px; font-size: 11px; color: #888; padding: 10px;">
             KASIR AKTIF:<br><b id="cashier-display" style="color: var(--accent);">Memuat...</b>
         </div>
@@ -68,7 +69,7 @@
 
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h1 style="margin:0;">Katalog </h1>
+            <h1 style="margin:0;">Katalog Kantin</h1>
             <div id="clock" style="font-weight:bold; color:var(--accent);"></div>
         </div>
         <input type="text" id="search" class="search-bar" placeholder="Cari menu..." onkeyup="loadMenu()">
@@ -102,6 +103,17 @@
         </div>
     </div>
 
+    <div id="openingModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color:var(--primary)">Mulai Shift</h2>
+            <p style="font-size:13px; color:#666">Silakan masukkan saldo modal awal di laci kasir.</p>
+            <label style="display:block; text-align:left; font-size:12px; margin-bottom:5px;">Saldo Awal (Rp):</label>
+            <input type="number" id="input-saldo-awal" value="0" style="font-size: 20px; font-weight: bold; text-align: center;">
+            <button class="btn-pay" onclick="prosesBukaShift()">BUKA SHIFT SEKARANG</button>
+            <button onclick="logout()" style="background:none; border:none; color:var(--danger); margin-top:15px; cursor:pointer;">Batal & Keluar</button>
+        </div>
+    </div>
+
     <div id="print-area"></div>
 
 <script>
@@ -113,22 +125,85 @@
     let state = { sub: 0, disc: 0, total: 0 };
     let currentLogId = null;
     let isSaving = false;
+    
+    // Ambil Session
+    const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
-        await checkSession();
+        if (!session) {
+            window.location.replace('login.html');
+            return;
+        }
+        
+        document.getElementById('cashier-display').innerText = session.username;
+        await checkActiveShift();
         loadMenu();
         loadSettings();
-        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
+        
+        setInterval(() => { 
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); 
+        }, 1000);
     };
 
-    async function checkSession() {
-        const { data } = await FinexDB.from('kasir_log').select('*').eq('status', 'Open').maybeSingle();
+    // LOGIKA AUTO-CHECK SHIFT
+    async function checkActiveShift() {
+        const { data, error } = await FinexDB
+            .from('kasir_log')
+            .select('*')
+            .eq('kasir_nama', session.username)
+            .eq('status', 'Open')
+            .maybeSingle();
+
+        if (error) {
+            console.error("Shift Check Error:", error);
+            return;
+        }
+
         if (data) {
             currentLogId = data.id;
-            document.getElementById('cashier-display').innerText = data.kasir_nama;
+            console.log("Shift Aktif ID:", currentLogId);
         } else {
-            alert("Buka shift dulu di Dashboard!");
-            window.location.href = 'dashboard.html';
+            // Jika tidak ada shift aktif, paksa buka modal opening
+            document.getElementById('openingModal').style.display = 'flex';
+        }
+    }
+
+    async function prosesBukaShift() {
+        const saldo = document.getElementById('input-saldo-awal').value || 0;
+        
+        const { data, error } = await FinexDB
+            .from('kasir_log')
+            .insert([{
+                kasir_nama: session.username,
+                saldo_awal: parseFloat(saldo),
+                status: 'Open',
+                waktu_buka: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (error) {
+            alert("Gagal Buka Shift: " + error.message);
+        } else {
+            alert("Shift Berhasil Dibuka!");
+            location.reload();
+        }
+    }
+
+    async function doClosing() {
+        if (!confirm("Apakah Anda yakin ingin menutup shift sekarang?")) return;
+
+        const { error } = await FinexDB
+            .from('kasir_log')
+            .update({ 
+                status: 'Closed', 
+                waktu_tutup: new Date().toISOString() 
+            })
+            .eq('id', currentLogId);
+
+        if (!error) {
+            alert("Shift Berhasil Ditutup!");
+            location.reload();
         }
     }
 
@@ -142,60 +217,39 @@
         document.getElementById('discSelect').innerHTML = optDsk;
     }
 
-   async function loadMenu() {
-    const q = document.getElementById('search').value;
-    
-    // GANTI 'stok' menjadi 'stok_sekarang' (atau sesuai nama di DB)
-    let query = FinexDB
-        .from('produk')
-        .select('*')
-        .gt('stok_sekarang', 0); // Ubah di sini
+    async function loadMenu() {
+        const q = document.getElementById('search').value;
+        let query = FinexDB.from('produk').select('*').gt('stok_sekarang', 0);
 
-    if (q) {
-        query = query.ilike('nama_barang', `%${q}%`);
+        if (q) query = query.ilike('nama_barang', `%${q}%`);
+
+        const { data, error } = await query;
+        if (error) return console.error("Error Load Menu:", error);
+
+        const displayContainer = document.getElementById('displayMenu');
+        displayContainer.innerHTML = (data || []).map(p => `
+            <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
+                <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
+                <strong style="font-size:14px;">${p.nama_barang}</strong><br>
+                <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
+            </div>
+        `).join('');
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-        console.error("Error Load Menu:", error);
-        // Jika error muncul lagi, kita tampilkan alert agar tahu nama kolom yang salah
-        alert("Gagal memuat menu: Kolom stok tidak ditemukan di database.");
-        return;
-    }
-
-    const displayContainer = document.getElementById('displayMenu');
-    displayContainer.innerHTML = (data || []).map(p => `
-        <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
-            <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
-            <strong style="font-size:14px;">${p.nama_barang}</strong><br>
-            <span style="color:var(--success); font-weight:bold;">Rp ${p.harga_jual.toLocaleString()}</span>
-        </div>
-    `).join('');
-}
-   function addCart(id, nama, harga, stokMaks) {
-    // Cari apakah item sudah ada di keranjang
-    const idx = cart.findIndex(c => c.id === id);
-    
-    if (idx > -1) {
-        // Jika sudah ada, cek apakah qty masih boleh ditambah berdasarkan stok
-        if (cart[idx].qty < stokMaks) {
-            cart[idx].qty++;
+    function addCart(id, nama, harga, stokMaks) {
+        const idx = cart.findIndex(c => c.id === id);
+        if (idx > -1) {
+            if (cart[idx].qty < stokMaks) {
+                cart[idx].qty++;
+            } else {
+                alert("Maaf, stok " + nama + " tidak mencukupi.");
+            }
         } else {
-            alert("Maaf, stok " + nama + " tidak mencukupi.");
+            cart.push({ id, nama_barang: nama, harga, qty: 1, stok_max: stokMaks });
         }
-    } else {
-        // Jika belum ada, tambahkan sebagai item baru
-        cart.push({ 
-            id: id, 
-            nama_barang: nama, 
-            harga: harga, 
-            qty: 1, 
-            stok_max: stokMaks 
-        });
+        calculateTotal();
     }
-    calculateTotal();
-}
+
     function calculateTotal() {
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
         const p = parseFloat(document.getElementById('discSelect').value);
@@ -227,82 +281,61 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-   async function executeTransaction() {
-    if (isSaving) return;
-    const cash = parseFloat(document.getElementById('cashInput').value || 0);
-    const method = document.getElementById('payMethodSelect').value;
-    if (cash < state.total && method === "Tunai") return alert("Uang kurang!");
+    async function executeTransaction() {
+        if (isSaving) return;
+        const cash = parseFloat(document.getElementById('cashInput').value || 0);
+        const method = document.getElementById('payMethodSelect').value;
+        if (cash < state.total && method === "Tunai") return alert("Uang kurang!");
 
-    isSaving = true;
-    const inv = `INV-${Date.now()}`;
-    const kembali = cash - state.total;
+        isSaving = true;
+        const inv = `INV-${Date.now()}`;
+        const kembali = cash - state.total;
 
-    // Persiapkan JSON items
-    const itemsJSON = cart.map(it => ({
-        id: it.id,
-        nama_barang: it.nama_barang,
-        qty: it.qty,
-        harga: it.harga
-    }));
+        try {
+            // 1. Simpan Penjualan
+            const { error: errJual } = await FinexDB.from('penjualan').insert([{
+                no_invoice: inv,
+                items: cart,
+                subtotal: state.sub,
+                diskon_global: state.disc,
+                grand_total: state.total,
+                bayar: cash,
+                kembali: kembali > 0 ? kembali : 0,
+                kasir_id: currentLogId,
+                metode_pembayaran: method
+            }]);
+            if (errJual) throw errJual;
 
-    try {
-        // 1. Simpan Penjualan
-        const { error: errJual } = await FinexDB.from('penjualan').insert([{
-            no_invoice: inv,
-            items: itemsJSON,
-            subtotal: state.sub,
-            diskon_global: state.disc,
-            grand_total: state.total,
-            bayar: cash,
-            kembali: kembali > 0 ? kembali : 0,
-            kasir_id: currentLogId,
-            metode_pembayaran: method
-        }]);
-        if (errJual) throw errJual;
-
-        // 2. Update Stok Otomatis (VERSI AMAN)
-        for (const item of cart) {
-            // Kita ambil stok terbaru dulu
-            const { data: p, error: errCek } = await FinexDB
-                .from('produk')
-                .select('stok')
-                .eq('id', item.id)
-                .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika null
-
-            if (p) {
-                const stokBaru = p.stok - item.qty;
-                await FinexDB
-                    .from('produk')
-                    .update({ stok: stokBaru })
-                    .eq('id', item.id);
-            } else {
-                console.warn(`Produk ID ${item.id} tidak ditemukan saat update stok.`);
+            // 2. Update Stok (Looping aman)
+            for (const item of cart) {
+                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).maybeSingle();
+                if (p) {
+                    await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                }
             }
+
+            renderReceipt(inv, cash, kembali, method);
+            setTimeout(() => {
+                window.print();
+                alert("Transaksi Berhasil!");
+                location.reload();
+            }, 500);
+
+        } catch (e) {
+            alert("Simpan Gagal: " + e.message);
+            isSaving = false;
         }
-
-        // 3. Cetak & Selesai
-        renderReceipt(inv, cash, kembali, method);
-        setTimeout(() => {
-            window.print();
-            alert("Transaksi Berhasil!");
-            location.reload();
-        }, 500);
-
-    } catch (e) {
-        alert("Simpan Gagal: " + e.message);
-        isSaving = false;
-        const btn = document.getElementById('btnConfirm');
-        if(btn) btn.innerText = "KONFIRMASI & CETAK";
     }
-}
+
     function renderReceipt(inv, bayar, kembali, mtd) {
         let itemsStr = cart.map(i => `${i.nama_barang.slice(0,18)}\n${i.qty} x ${i.harga.toLocaleString()} = ${(i.qty*i.harga).toLocaleString()}`).join('\n');
         document.getElementById('print-area').innerHTML = `
             <div style="text-align:center;"><b>FINEX POS KANTIN</b><br>----------------------------</div>
             <pre style="white-space:pre-wrap;">
 Nota : ${inv}
-Kasir: ${document.getElementById('cashier-display').innerText}
+Kasir: ${session.username}
 Tgl  : ${new Date().toLocaleString()}
+Metode: ${mtd}
 ----------------------------
 ${itemsStr}
 ----------------------------
@@ -314,24 +347,12 @@ KEMBALI : Rp ${(kembali > 0 ? kembali : 0).toLocaleString()}
         `;
     }
 
-    (function checkAuth() {
-    const session = localStorage.getItem('finex_session');
-    if (!session) {
-        // Jika tidak ada session, paksa ke login
-        window.location.replace('login.html');
+    function logout() {
+        if (confirm("Keluar dari sistem?")) {
+            localStorage.clear();
+            window.location.replace('login.html'); 
+        }
     }
-})();
-
-  function logout() {
-    if (confirm("Apakah Anda yakin ingin keluar dari sistem Kasir?")) {
-        // Hapus semua data sesi
-        localStorage.removeItem('finex_session');
-        localStorage.clear(); // Opsional: Bersihkan semua cache lokal
-        
-        // Arahkan ke login
-        window.location.replace('login.html'); 
-    }
-}
 </script>
 </body>
 </html>
