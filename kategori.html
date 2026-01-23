@@ -7,45 +7,47 @@
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        
+        /* Sidebar Tetap */
         nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        nav h2 { text-align: center; color: var(--accent); margin-bottom: 20px; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; transition: 0.3s; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
+        
         main { flex: 1; margin-left: 260px; padding: 30px; }
         .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
         .btn-save { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        .btn-del { color: #e74c3c; cursor: pointer; border: none; background: none; }
+        th { color: #666; font-size: 13px; text-transform: uppercase; }
+        .btn-del { color: #e74c3c; cursor: pointer; border: none; background: none; font-weight: bold; }
     </style>
 </head>
 <body>
     <nav>
-    <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
-        
+        <h2>Finex Pos</h2>
+        <div id="admin-menu">
+            <a href="index.html">📊 Dashboard</a>
+            <hr style="border: 0.5px solid #555; margin: 10px 0;">
+            <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
+            <a href="produk.html">📦 Produk</a>
+            <a href="kategori.html" class="active">📁 Kategori</a>
+            <a href="gudang.html">🏠 Gudang</a>
+            <a href="metode-pembayaran.html">💳 Metode Bayar</a>
+            <hr style="border: 0.5px solid #555; margin: 10px 0;">
+            <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
+            <a href="penyesuaian.html">🔄 Stok In/Out</a>
+            <a href="manajemen-user.html">👥 Manajemen User</a>
+            <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
+        </div>
         <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
-        <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
-        
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-    
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
-</nav>
+        <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
+        <div onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px; font-weight: bold;">🚪 Keluar</div>
+    </nav>
 
     <main>
         <h1>Manajemen Kategori</h1>
@@ -55,56 +57,88 @@
                 <button class="btn-save" onclick="tambahKategori()">Tambah</button>
             </div>
             <table>
-                <thead><tr><th>Nama Kategori</th><th>Aksi</th></tr></thead>
+                <thead><tr><th>Nama Kategori</th><th style="width: 100px;">Aksi</th></tr></thead>
                 <tbody id="list-kat"></tbody>
             </table>
         </div>
     </main>
+
     <script>
-         // 1. LETAKKAN DI SINI (PALING ATAS)
+        // --- 1. PROTEKSI HALAMAN ---
+        // Menggunakan session yang konsisten dengan halaman lain
+        const session = JSON.parse(localStorage.getItem('finex_session'));
         const userRole = localStorage.getItem('user_role');
-        const userPath = window.location.pathname;
 
-        if (!userRole) {
-            window.location.href = "login.html";
+        if (!session || !userRole) {
+            window.location.replace("login.html");
         }
 
-        // Proteksi halaman admin dari kasir
-        const adminPages = ['index.html', 'pengaturan-biaya.html', 'metode-pembayaran.html', 'manajemen-user.html', 'produk.html'];
-        const isAdminPage = adminPages.some(page => userPath.includes(page));
-
-        if (userRole === 'kasir' && isAdminPage) {
-            alert("Akses Ditolak! Anda bukan Admin.");
-            window.location.href = "pos.html";
+        // Jika user adalah kasir, dilarang masuk ke sini
+        if (userRole === 'kasir') {
+            alert("Akses Ditolak! Halaman ini khusus Admin.");
+            window.location.replace("pos.html");
         }
-        
+
+        // --- 2. KONFIGURASI SUPABASE ---
         const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
+        // --- 3. FUNGSI CRUD ---
         async function muatKategori() {
-            const { data } = await supabaseClient.from('kategori').select('*').order('nama_kategori');
+            const { data, error } = await supabaseClient
+                .from('kategori')
+                .select('*')
+                .order('nama_kategori', { ascending: true });
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
             const tbody = document.getElementById('list-kat');
-            tbody.innerHTML = '';
-            data.forEach(k => {
-                tbody.innerHTML += `<tr><td>${k.nama_kategori}</td><td><button class="btn-del" onclick="hapusKategori('${k.id}')">Hapus</button></td></tr>`;
-            });
+            tbody.innerHTML = data.map(k => `
+                <tr>
+                    <td>${k.nama_kategori}</td>
+                    <td><button class="btn-del" onclick="hapusKategori('${k.id}')">Hapus</button></td>
+                </tr>
+            `).join('');
         }
 
         async function tambahKategori() {
-            const nama = document.getElementById('nama-kat').value;
+            const input = document.getElementById('nama-kat');
+            const nama = input.value.trim();
             if(!nama) return;
-            await supabaseClient.from('kategori').insert([{ nama_kategori: nama }]);
-            document.getElementById('nama-kat').value = '';
-            muatKategori();
-        }
 
-        async function hapusKategori(id) {
-            if(confirm('Hapus kategori ini? Produk dengan kategori ini mungkin akan terpengaruh.')) {
-                await supabaseClient.from('kategori').delete().eq('id', id);
+            const { error } = await supabaseClient
+                .from('kategori')
+                .insert([{ nama_kategori: nama }]);
+
+            if (error) {
+                alert("Gagal menambah kategori: " + error.message);
+            } else {
+                input.value = '';
                 muatKategori();
             }
         }
+
+        async function hapusKategori(id) {
+            if(confirm('Hapus kategori ini?')) {
+                const { error } = await supabaseClient
+                    .from('kategori')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) alert("Gagal hapus: " + error.message);
+                muatKategori();
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.replace("login.html");
+        }
+
         window.onload = muatKategori;
     </script>
 </body>
