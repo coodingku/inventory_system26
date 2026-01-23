@@ -171,11 +171,58 @@
         document.getElementById('closingModal').style.display = 'flex';
     }
 
-    async function confirmClosing() {
-        await FinexDB.from('kasir_log').update({ status: 'Closed', waktu_tutup: new Date().toISOString(), saldo_akhir: window.tempTotalAkhir }).eq('id', currentLogId);
+  async function confirmClosing() {
+    if (!confirm("Data shift akan dikunci dan struk rekap akan dicetak. Lanjutkan?")) return;
+
+    const { data: sales } = await FinexDB.from('penjualan').select('grand_total').eq('kasir_id', currentLogId);
+    const totalJual = (sales || []).reduce((acc, curr) => acc + curr.grand_total, 0);
+
+    const { error } = await FinexDB
+        .from('kasir_log')
+        .update({ 
+            status: 'Closed', 
+            waktu_tutup: new Date().toISOString(),
+            saldo_akhir: window.tempTotalAkhir 
+        })
+        .eq('id', currentLogId);
+
+    if (!error) {
+        // CETAK STRUK CLOSING SEBELUM KELUAR
+        renderClosingReceipt(totalJual);
+        window.print(); 
+        
+        alert("Shift Berhasil Ditutup & Struk Dicetak.");
         localStorage.clear();
         window.location.replace('login.html');
     }
+}
+
+function renderClosingReceipt(totalJual) {
+    const waktuTutup = new Date().toLocaleString('id-ID');
+    document.getElementById('print-area').innerHTML = `
+        <div style="text-align:center; font-family:monospace;">
+            <b>REKAP CLOSING SHIFT</b><br>
+            <b>FINEX POS KANTIN</b><br>
+            ----------------------------<br>
+        </div>
+        <pre style="font-family:monospace;">
+Kasir      : ${session.username}
+Waktu Buka : ${document.getElementById('cls-waktu') ? document.getElementById('cls-waktu').innerText : '-'}
+Waktu Tutup: ${waktuTutup}
+----------------------------
+Saldo Awal : Rp ${document.getElementById('cls-awal').innerText.replace('Rp ', '')}
+Total Jual : Rp ${totalJual.toLocaleString()}
+----------------------------
+TOTAL TUNAI: Rp ${window.tempTotalAkhir.toLocaleString()}
+----------------------------
+        </pre>
+        <div style="text-align:center; font-family:monospace;">
+            <br><br>
+            ( .................... )<br>
+            Tanda Tangan Kasir
+        </div>
+    `;
+}
 
     async function loadSettings() {
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').eq('aktif', true);
