@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Finalisasi Tutup Kasir</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        
+        .closing-card { background: white; width: 100%; max-width: 500px; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h1 { margin: 0; color: var(--primary); font-size: 24px; }
+        
+        .summary-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .summary-item.total { border-bottom: none; font-weight: bold; font-size: 20px; color: var(--success); margin-top: 10px; }
+        
+        .payment-box { background: #f8f9fa; padding: 15px; border-radius: 12px; margin: 20px 0; }
+        .payment-box h4 { margin: 0 0 10px 0; font-size: 14px; color: #666; }
+
+        .btn-confirm { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-bottom: 10px; }
+        .btn-confirm:hover { background: #1a252f; }
+        .btn-cancel { width: 100%; padding: 10px; background: transparent; border: 1px solid #ccc; border-radius: 10px; cursor: pointer; color: #888; }
+
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; width: 58mm; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="closing-card">
+        <div class="header">
+            <h1>🏁 Tutup Kasir (Closing)</h1>
+            <p id="kasir-name" style="color:#888;">Memuat data kasir...</p>
+        </div>
+
+        <div id="loading-state" style="text-align: center; padding: 20px;">Menghitung data transaksi...</div>
+        
+        <div id="content-area" style="display: none;">
+            <div class="summary-item">
+                <span>Total Penjualan Kotor</span>
+                <span id="txt-bruto">Rp 0</span>
+            </div>
+            <div class="summary-item" style="color: var(--danger);">
+                <span>Total Diskon</span>
+                <span id="txt-diskon">- Rp 0</span>
+            </div>
+            <div class="summary-item total">
+                <span>TOTAL NETTO</span>
+                <span id="txt-netto">Rp 0</span>
+            </div>
+
+            <div class="payment-box">
+                <h4>Metode Pembayaran</h4>
+                <div class="summary-item" style="border:none; padding: 5px 0;">
+                    <span>Tunai (Cash)</span>
+                    <b id="txt-tunai">Rp 0</b>
+                </div>
+                <div class="summary-item" style="border:none; padding: 5px 0;">
+                    <span>QRIS / Bank</span>
+                    <b id="txt-qris">Rp 0</b>
+                </div>
+            </div>
+
+            <button class="btn-confirm" onclick="prosesClosing()">KONFIRMASI & CETAK STRUK</button>
+            <button class="btn-cancel" onclick="window.history.back()">Kembali ke Kasir</button>
+        </div>
+    </div>
+
+    <div id="print-area"></div>
+
+    <script>
+        const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+        let logId, session, dataClosing = {};
+
+        window.onload = async () => {
+            session = JSON.parse(localStorage.getItem('finex_session'));
+            const activeShift = JSON.parse(localStorage.getItem('active_shift'));
+            
+            if (!session || !activeShift) {
+                alert("Sesi tidak valid!");
+                return window.location.replace('login.html');
+            }
+
+            logId = activeShift.id;
+            document.getElementById('kasir-name').innerText = `Kasir: ${session.username} | ID: ${logId}`;
+            await hitungDataTransaksi();
+        };
+
+        async function hitungDataTransaksi() {
+            try {
+                // Ambil semua penjualan untuk shift ini
+                const { data: sales, error } = await FinexDB
+                    .from('penjualan')
+                    .select('*')
+                    .eq('kasir_id', logId);
+
+                if (error) throw error;
+
+                let bruto = 0, diskon = 0, tunai = 0, qris = 0;
+                let itemsList = {};
+
+                sales.forEach(s => {
+                    const total = s.grand_total || 0;
+                    const disc = s.diskon || 0;
+                    bruto += (total + disc);
+                    diskon += disc;
+
+                    if (s.metode_pembayaran === 'Cash' || s.metode_pembayaran === 'Tunai') tunai += total;
+                    else qris += total;
+
+                    // Ringkasan item
+                    s.items.forEach(it => {
+                        const nama = it.nama_barang || it.nama_produk;
+                        if(!itemsList[nama]) itemsList[nama] = 0;
+                        itemsList[nama] += it.qty;
+                    });
+                });
+
+                dataClosing = { bruto, diskon, netto: (bruto - diskon), tunai, qris, itemsList };
+
+                // Tampilkan ke UI
+                document.getElementById('txt-bruto').innerText = "Rp " + bruto.toLocaleString();
+                document.getElementById('txt-diskon').innerText = "- Rp " + diskon.toLocaleString();
+                document.getElementById('txt-netto').innerText = "Rp " + dataClosing.netto.toLocaleString();
+                document.getElementById('txt-tunai').innerText = "Rp " + tunai.toLocaleString();
+                document.getElementById('txt-qris').innerText = "Rp " + qris.toLocaleString();
+
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('content-area').style.display = 'block';
+
+            } catch (err) {
+                console.error(err);
+                alert("Gagal menghitung data.");
+            }
+        }
+
+        async function prosesClosing() {
+            if (!confirm("Finalisasi closing sekarang? Kasir akan logout otomatis.")) return;
+
+            try {
+                // 1. Update Tabel kasir_log
+                const { error: errUpdate } = await FinexDB
+                    .from('kasir_log')
+                    .update({
+                        waktu_closing: new Date().toISOString(),
+                        total_akhir: dataClosing.netto,
+                        status: 'Closed'
+                    })
+                    .eq('id', logId);
+
+                if (errUpdate) throw errUpdate;
+
+                // 2. Siapkan Struk Struk
+                let rows = Object.entries(dataClosing.itemsList).map(([name, qty]) => `
+                    <div style="display:flex; justify-content:space-between; font-size:10px;">
+                        <span>${name}</span><span>x${qty}</span>
+                    </div>
+                `).join('');
+
+                document.getElementById('print-area').innerHTML = `
+                    <div style="width:58mm; padding:5px; font-family:monospace;">
+                        <center><b>CLOSING KANTIN</b><br>--------------------</center>
+                        Kasir: ${session.username}<br>
+                        Tgl: ${new Date().toLocaleString('id-ID')}<br>
+                        --------------------
+                        ${rows}
+                        --------------------
+                        TOTAL NET: ${dataClosing.netto.toLocaleString()}<br>
+                        TUNAI    : ${dataClosing.tunai.toLocaleString()}<br>
+                        QRIS     : ${dataClosing.qris.toLocaleString()}<br>
+                        --------------------
+                        <center>LAPORAN SELESAI</center>
+                    </div>
+                `;
+
+                // 3. Cetak dan Logout
+                window.print();
+                localStorage.clear();
+                setTimeout(() => window.location.replace('login.html'), 1500);
+
+            } catch (err) {
+                alert("Error saat closing: " + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
