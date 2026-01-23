@@ -314,12 +314,24 @@ KEMBALI : Rp ${(kembali > 0 ? kembali : 0).toLocaleString()}
         `;
     }
 
-    function logout() { if(confirm("Keluar?")) window.location.href = 'login.html'; }
-    async function doClosing() {
-        if(!confirm("Closing Kantin?")) return;
-        await FinexDB.from('kasir_log').update({ waktu_tutup: new Date().toISOString(), status: 'Closed' }).eq('id', currentLogId);
-        window.location.href = 'dashboard.html';
+    (function checkAuth() {
+    const session = localStorage.getItem('finex_session');
+    if (!session) {
+        // Jika tidak ada session, paksa ke login
+        window.location.replace('login.html');
     }
+})();
+
+  function logout() {
+    if (confirm("Apakah Anda yakin ingin keluar dari sistem Kasir?")) {
+        // Hapus semua data sesi
+        localStorage.removeItem('finex_session');
+        localStorage.clear(); // Opsional: Bersihkan semua cache lokal
+        
+        // Arahkan ke login
+        window.location.replace('login.html'); 
+    }
+}
 </script>
 </body>
 </html>
