@@ -3,97 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Shift</title>
+    <title>Finex Pos | Laporan & Reprint Shift</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --purple: #8e44ad; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
-        /* Sidebar */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
-        nav h2 { color: var(--accent); text-align: center; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        /* Sidebar Navigasi */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
+        .logout-btn { margin-top: auto; color: var(--danger); font-weight: bold; padding: 12px; cursor: pointer; border-radius: 8px; border: 1px solid var(--danger); text-align: center; margin-top: 50px; }
 
-        /* Content */
-        main { flex: 1; margin-left: 250px; padding: 40px; }
+        /* Main Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; min-height: 100vh; box-sizing: border-box; }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+        
+        /* Filter Styles */
+        .filter-group { display: flex; align-items: center; gap: 10px; background: #eee; padding: 10px 15px; border-radius: 10px; }
+        .filter-group input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+        .btn-search { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-search:hover { background: #2980b9; }
+
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
+        
+        .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .open { background: #e8f5e9; color: #2e7d32; }
         .closed { background: #ffebee; color: #c62828; }
+
+        .btn-reprint { background: var(--purple); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+        .btn-reprint:hover { background: #732d91; transform: scale(1.05); }
+
+        /* Area Cetak (Hidden by default) */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden !important; }
+            #print-area, #print-area * { visibility: visible !important; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; padding: 0; margin: 0; }
+        }
     </style>
 </head>
 <body>
 
- <nav>
-        <h2>Finex Pos</h2>
-        <a href="dashboard.html" class="active">📊 Dashboard</a>
-        <a href="pos.html">🛒 Masuk Kasir</a>
-        <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
-        <a href="pengeluaran.html">💸Pengeluaran Biaya</a>
-        <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
-        <a href="laporan-opening-closing.html">🕒 Log Shift Kasir</a>
-        <a href="closing.html">🏁 Closing Shift</a>
-        <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
-    </nav>
-
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="pos.html">🛒 Masuk Kasir</a>
+    <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+    <a href="pengeluaran.html">💸 Pengeluaran</a>
+    <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
+    <a href="laporan-opening-closing.html" class="active">🕒 Log Shift Kasir</a>
+    <a href="closing.html">🏁 Closing Shift</a>
+    <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
+</nav>
 
 <main>
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>Riwayat Shift Kasir (Daily)</h2>
-            <button onclick="fetchShiftLogs()" style="padding:10px 20px; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer;">Refresh Data</button>
+        <div class="header-flex">
+            <div>
+                <h2 style="margin:0;">Riwayat Shift Harian</h2>
+                <p style="color:#666; font-size: 14px; margin-top: 5px;">Cetak ulang laporan closing untuk arsip kantin.</p>
+            </div>
+            <div class="filter-group">
+                <label style="font-size: 13px; font-weight: bold;">Pilih Tanggal:</label>
+                <input type="date" id="filter-date">
+                <button class="btn-search" onclick="fetchShiftLogs()">Cari Data</button>
+            </div>
         </div>
-        <p style="color:#666; font-size: 14px;">Pantau jam masuk, jam pulang, dan total setoran kasir kantin.</p>
         
         <table>
             <thead>
                 <tr>
-                    <th>Nama Kasir</th>
+                    <th>Kasir</th>
                     <th>Waktu Buka</th>
                     <th>Waktu Tutup</th>
                     <th>Saldo Awal</th>
-                    <th>Saldo Akhir (Setoran)</th>
+                    <th>Setoran Akhir</th>
                     <th>Status</th>
+                    <th>Opsi</th>
                 </tr>
             </thead>
             <tbody id="log-table-body">
-                </tbody>
+                <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
+            </tbody>
         </table>
     </div>
 </main>
+
+<div id="print-area"></div>
 
 <script>
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    async function fetchShiftLogs() {
-        const { data, error } = await FinexDB
-            .from('kasir_log')
-            .select('*')
-            .order('waktu_buka', { ascending: false });
+    // Set default tanggal hari ini saat load
+    document.getElementById('filter-date').valueAsDate = new Date();
 
-        if (error) return alert("Gagal memuat log: " + error.message);
+    async function fetchShiftLogs() {
+        const filterDate = document.getElementById('filter-date').value;
+        let query = FinexDB.from('kasir_log').select('*');
+
+        if (filterDate) {
+            // Filter 24 jam penuh pada tanggal terpilih
+            const start = `${filterDate}T00:00:00.000Z`;
+            const end = `${filterDate}T23:59:59.999Z`;
+            query = query.gte('waktu_buka', start).lte('waktu_buka', end);
+        }
+
+        const { data, error } = await query.order('waktu_buka', { ascending: false });
 
         const tbody = document.getElementById('log-table-body');
+        if (error) {
+            tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
+            return;
+        }
+
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;">Tidak ada riwayat shift pada tanggal ini.</td></tr>`;
+            return;
+        }
+
         tbody.innerHTML = data.map(log => `
             <tr>
                 <td><b>${log.kasir_nama}</b></td>
-                <td>${new Date(log.waktu_buka).toLocaleString('id-ID')}</td>
-                <td>${log.waktu_tutup ? new Date(log.waktu_tutup).toLocaleString('id-ID') : '-'}</td>
+                <td>${new Date(log.waktu_buka).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'})}</td>
+                <td>${log.waktu_tutup ? new Date(log.waktu_tutup).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) : '<i style="color:gray;">Belum Tutup</i>'}</td>
                 <td>Rp ${log.saldo_awal.toLocaleString()}</td>
                 <td><b style="color:var(--primary)">Rp ${log.saldo_akhir ? log.saldo_akhir.toLocaleString() : '0'}</b></td>
-                <td><span class="badge ${log.status === 'Open' ? 'open' : 'closed'}">${log.status.toUpperCase()}</span></td>
+                <td><span class="badge ${log.status === 'Open' ? 'open' : 'closed'}">${log.status}</span></td>
+                <td>
+                    ${log.status === 'Closed' ? 
+                        `<button class="btn-reprint" onclick='prepareReprint(${JSON.stringify(log)})'>🖨️ Cetak Struk</button>` : 
+                        `<small style="color:var(--success); font-weight:bold;">AKTIF</small>`}
+                </td>
             </tr>
         `).join('');
     }
 
-    // Jalankan saat load
+    function prepareReprint(log) {
+        const omzet = (log.saldo_akhir || 0) - (log.saldo_awal || 0);
+        
+        const strukHTML = `
+            <div style="width:58mm; padding:2mm; font-family:monospace; font-size:11px; color:black;">
+                <center>
+                    <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+                    REPRINT LAPORAN CLOSING<br>
+                    ----------------------------
+                </center>
+                ID Shift: #${log.id}<br>
+                Kasir   : ${log.kasir_nama}<br>
+                Buka    : ${new Date(log.waktu_buka).toLocaleString('id-ID')}<br>
+                Tutup   : ${new Date(log.waktu_tutup).toLocaleString('id-ID')}<br>
+                ----------------------------<br>
+                Saldo Modal : Rp ${log.saldo_awal.toLocaleString()}<br>
+                Total Omzet : Rp ${omzet.toLocaleString()}<br>
+                ----------------------------<br>
+                <b>SETORAN TUNAI: Rp ${log.saldo_akhir.toLocaleString()}</b><br>
+                ----------------------------<br>
+                <center>
+                    Laporan ini adalah salinan sah.<br>
+                    Printed: ${new Date().toLocaleString('id-ID')}<br>
+                    *** TERIMA KASIH ***
+                </center>
+            </div>
+        `;
+
+        document.getElementById('print-area').innerHTML = strukHTML;
+        
+        // Jeda sebentar agar konten masuk ke DOM sebelum window.print
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
+    }
+
+    // Load data awal
     fetchShiftLogs();
 </script>
 
