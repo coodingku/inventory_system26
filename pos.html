@@ -100,6 +100,15 @@
         </div>
     </div>
 
+    <div id="openShiftModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--primary);">Buka Kasir Baru</h2>
+            <p style="color: #666; font-size: 14px;">Masukkan saldo awal (modal tunai) di laci:</p>
+            <input type="number" id="inputSaldoAwal" placeholder="Rp 0" style="font-size: 24px; font-weight: bold; text-align: center;">
+            <button class="btn-pay" onclick="executeOpenShift()">BUKA KASIR SEKARANG</button>
+        </div>
+    </div>
+
     <div id="print-area"></div>
 
 <script>
@@ -122,21 +131,40 @@
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
     };
 
-async function checkActiveShift() {
-    const { data } = await FinexDB.from('kasir_log')
-        .select('*')
-        .eq('kasir_nama', session.username)
-        .eq('status', 'Open')
-        .maybeSingle();
+    async function checkActiveShift() {
+        const { data } = await FinexDB.from('kasir_log')
+            .select('*')
+            .eq('kasir_nama', session.username)
+            .eq('status', 'Open')
+            .maybeSingle();
 
-    if (data) {
-        currentLogId = data.id; 
-        // TAMBAHKAN BARIS INI:
-        localStorage.setItem('shift_id', data.id); 
-    } else {
-        alert("Shift belum dibuka!");
+        if (data) {
+            currentLogId = data.id; 
+            localStorage.setItem('shift_id', data.id); 
+        } else {
+            // Jika tidak ada shift aktif, munculkan pop-up buka shift
+            document.getElementById('openShiftModal').style.display = 'flex';
+        }
     }
-}
+
+    async function executeOpenShift() {
+        const saldoAwal = parseFloat(document.getElementById('inputSaldoAwal').value || 0);
+        const { data, error } = await FinexDB.from('kasir_log').insert([{
+            kasir_nama: session.username,
+            saldo_awal: saldoAwal,
+            status: 'Open',
+            waktu_buka: new Date().toISOString()
+        }]).select().single();
+
+        if (!error) {
+            currentLogId = data.id;
+            localStorage.setItem('shift_id', data.id);
+            document.getElementById('openShiftModal').style.display = 'none';
+            alert("Shift Berhasil Dibuka!");
+        } else {
+            alert("Gagal membuka shift: " + error.message);
+        }
+    }
 
     async function loadSettings() {
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').eq('aktif', true);
@@ -186,12 +214,14 @@ async function checkActiveShift() {
     }
 
     function delItem(i) { cart.splice(i, 1); calculateTotal(); }
+    
     function openPayment() { 
         if(cart.length === 0) return; 
         document.getElementById('label-total-modal').innerText = "TOTAL: Rp " + state.total.toLocaleString(); 
         document.getElementById('payModal').style.display = 'flex'; 
         document.getElementById('cashInput').focus();
     }
+    
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
     async function executeTransaction() {
@@ -205,7 +235,6 @@ async function checkActiveShift() {
         const inv = `INV-${Date.now()}`;
         
         try {
-            // 1. Simpan Transaksi
             const { error: errSales } = await FinexDB.from('penjualan').insert([{ 
                 no_invoice: inv, 
                 items: cart, 
@@ -218,19 +247,23 @@ async function checkActiveShift() {
             }]);
             if (errSales) throw errSales;
 
-            // 2. Update Stok Barang
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
                 await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
             }
 
-            // 3. Render Struk dan Cetak
             renderReceipt(inv, cash);
             
             setTimeout(() => {
                 window.print();
                 alert("Transaksi Berhasil!");
-                location.reload();
+                // Bagian ini hanya me-reset keranjang, bukan dropdown diskon
+                cart = [];
+                document.getElementById('cashInput').value = '';
+                closePayment();
+                calculateTotal();
+                loadMenu();
+                isSaving = false;
             }, 500);
 
         } catch (e) { 
@@ -239,62 +272,66 @@ async function checkActiveShift() {
         }
     }
 
-  function renderReceipt(inv, bayar) {
-    const kembali = bayar - state.total;
-    const namaDiskon = document.getElementById('discSelect').options[document.getElementById('discSelect').selectedIndex].text;
-    // Ambil nilai metode pembayaran dari select modal
-    const metodeBayar = document.getElementById('payMethodSelect').value;
-    
-    let itemHTML = cart.map(i => `
-        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
-            <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
-            <span>${(i.qty * i.harga).toLocaleString()}</span>
-        </div>
-    `).join('');
+    function renderReceipt(inv, bayar) {
+        const kembali = bayar - state.total;
+        const selectedDiscText = document.getElementById('discSelect').options[document.getElementById('discSelect').selectedIndex].text;
+        const metodeBayar = document.getElementById('payMethodSelect').value;
+        
+        let itemHTML = cart.map(i => `
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+                <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
+                <span>${(i.qty * i.harga).toLocaleString()}</span>
+            </div>
+        `).join('');
 
-    document.getElementById('print-area').innerHTML = `
-        <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
-            <div style="text-align:center; margin-bottom:10px;">
-                <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+        document.getElementById('print-area').innerHTML = `
+            <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
+                <div style="text-align:center; margin-bottom:10px;">
+                    <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+                    ----------------------------
+                </div>
+                <div style="font-size:11px; margin-bottom:5px;">
+                    No: ${inv}<br>
+                    Kasir: ${session.username}<br>
+                    Tgl: ${new Date().toLocaleString('id-ID')}
+                </div>
                 ----------------------------
+                ${itemHTML}
+                ----------------------------
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Subtotal:</span><span>Rp ${state.sub.toLocaleString()}</span>
+                </div>
+                ${state.disc > 0 ? `
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Diskon (${selectedDiscText}):</span><span>-Rp ${state.disc.toLocaleString()}</span>
+                </div>` : ''}
+                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-top:3px;">
+                    <span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span>
+                </div>
+                ----------------------------
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Metode:</span><span>${metodeBayar}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span>
+                </div>
+                ----------------------------
+                <div style="text-align:center; margin-top:10px; font-size:10px;">
+                    Terima Kasih Atas Kunjungan Anda
+                </div>
             </div>
-            <div style="font-size:11px; margin-bottom:5px;">
-                No: ${inv}<br>
-                Kasir: ${session.username}<br>
-                Tgl: ${new Date().toLocaleString('id-ID')}
-            </div>
-            ----------------------------
-            ${itemHTML}
-            ----------------------------
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span>Subtotal:</span><span>Rp ${state.sub.toLocaleString()}</span>
-            </div>
-            
-            ${state.disc > 0 ? `
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span>Diskon (${namaDiskon}):</span><span>-Rp ${state.disc.toLocaleString()}</span>
-            </div>` : ''}
-            
-            <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-top:3px;">
-                <span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span>
-            </div>
-            ----------------------------
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span>Metode Bayar:</span><span>${metodeBayar}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span>
-            </div>
-            ----------------------------
-            <div style="text-align:center; margin-top:10px; font-size:10px;">
-                Terima Kasih Atas Kunjungan Anda
-            </div>
-        </div>
-    `;
-}
+        `;
+    }
+
+    function doClosing() {
+        if(confirm("Tutup shift sekarang dan cetak laporan?")) {
+            window.location.href = "closing.html";
+        }
+    }
+
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
