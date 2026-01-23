@@ -30,6 +30,10 @@
         .btn-import { background: #8e44ad; color: white; }
         .btn-template { background: #95a5a6; color: white; }
 
+        /* Progress Bar Styles */
+        #import-progress-container { display:none; margin: 20px 0; background: #eee; border-radius: 10px; overflow: hidden; height: 25px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+        #import-progress-bar { width: 0%; height: 100%; background: var(--success); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; }
+
         /* Table Card */
         .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; }
@@ -67,12 +71,17 @@
         <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
     </div>
 
+    <div id="import-progress-container">
+        <div id="import-progress-bar">0%</div>
+    </div>
+    <p id="import-status-text" style="display:none; font-size: 12px; color: #666; text-align: center; margin-bottom: 20px;">Memproses data Kantin...</p>
+
     <div class="action-bar">
         <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk atau barcode..." onkeyup="filterProduk()">
         <button class="btn btn-template" onclick="downloadTemplate()">📄 Template</button>
         <button class="btn btn-export" onclick="exportExcel()">📥 Export</button>
         <label class="btn btn-import">
-            📤 Import
+            📤 Import Excel
             <input type="file" id="importFile" hidden accept=".xlsx, .xls" onchange="importExcel(event)">
         </label>
     </div>
@@ -134,27 +143,27 @@
 </div>
 
 <script>
+    // Konfigurasi Global Supabase - Digunakan oleh semua fungsi
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
     let masterData = [];
 
-    // 1. Inisialisasi Data
     window.onload = async () => {
         await Promise.all([fetchProduk(), loadDropdowns()]);
     };
 
     async function fetchProduk() {
-        const { data } = await supabaseClient.from('produk').select('*').order('created_at', { ascending: false });
+        const { data } = await FinexDB.from('produk').select('*').order('created_at', { ascending: false });
         masterData = data || [];
         renderTable(masterData);
     }
 
     async function loadDropdowns() {
         const [resKat, resGud] = await Promise.all([
-            supabaseClient.from('kategori').select('nama_kategori'),
-            supabaseClient.from('gudang').select('nama_gudang')
+            FinexDB.from('kategori').select('nama_kategori'),
+            FinexDB.from('gudang').select('nama_gudang')
         ]);
         
         document.getElementById('prod-kategori').innerHTML = resKat.data?.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`).join('') || '<option>Umum</option>';
@@ -181,14 +190,13 @@
         });
     }
 
-    // 2. Logika Modal & Form
+    // Modal Control
     function openModal() {
         document.getElementById('productForm').reset();
         document.getElementById('prod-id').value = '';
         document.getElementById('modalTitle').innerText = "Tambah Produk";
         document.getElementById('productModal').style.display = 'flex';
     }
-
     function closeModal() { document.getElementById('productModal').style.display = 'none'; }
 
     document.getElementById('productForm').onsubmit = async (e) => {
@@ -203,7 +211,7 @@
             stok_sekarang: document.getElementById('prod-stok').value
         };
 
-        const res = id ? await supabaseClient.from('produk').update(payload).eq('id', id) : await supabaseClient.from('produk').insert([payload]);
+        const res = id ? await FinexDB.from('produk').update(payload).eq('id', id) : await FinexDB.from('produk').insert([payload]);
         if (!res.error) { closeModal(); fetchProduk(); }
     };
 
@@ -222,7 +230,7 @@
 
     async function hapusProduk(id) {
         if (confirm("Hapus produk ini secara permanen?")) {
-            await supabaseClient.from('produk').delete().eq('id', id);
+            await FinexDB.from('produk').delete().eq('id', id);
             fetchProduk();
         }
     }
@@ -232,7 +240,7 @@
         renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || p.kode_barang?.includes(q)));
     }
 
-    // 3. Export & Import
+    // Export & Template
     function downloadTemplate() {
         const template = [{"Kode Barang": "1001", "Nama Produk": "Nasi Kuning", "Kategori": "Makanan", "Gudang": "Kantin", "Harga Jual": 10000, "Stok": 20}];
         const ws = XLSX.utils.json_to_sheet(template);
@@ -248,43 +256,70 @@
         XLSX.writeFile(wb, "Data_Produk_Lengkap.xlsx");
     }
 
-async function importExcel(event) {
-    const file = event.target.files[0];
-    const reader = new FileReader();
+    // FUNGSI IMPORT TERBARU DENGAN PROGRESS BAR & BATCHING
+    async function importExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-    reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet);
+        const container = document.getElementById('import-progress-container');
+        const progressBar = document.getElementById('import-progress-bar');
+        const statusText = document.getElementById('import-status-text');
+        
+        container.style.display = 'block';
+        statusText.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressBar.innerText = '0%';
 
-        // Format data agar sesuai dengan kolom di Supabase
-        const cleanedData = json.map(item => ({
-            nama_barang: item.Nama || item.nama_barang, // Menyesuaikan header Excel
-            harga_jual: parseFloat(item.Harga || item.harga_jual || 0),
-            stok: parseInt(item.Stok || item.stok || 0),
-            kategori: item.Kategori || item.kategori || 'Umum'
-        }));
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-        console.log("Memulai Import ke Finex Pos...", cleanedData);
+                // Mapping data Excel (Support header Indonesia & English)
+                const cleanedData = json.map(item => ({
+                    kode_barang: (item["Kode Barang"] || item.kode_barang || "").toString(),
+                    nama_barang: (item["Nama Produk"] || item.Nama || item.nama_barang || "").toString().trim(),
+                    harga_jual: parseFloat(item["Harga Jual"] || item.Harga || item.harga_jual || 0),
+                    stok_sekarang: parseInt(item.Stok || item.stok_sekarang || 0),
+                    kategori: item.Kategori || item.kategori || 'Umum',
+                    gudang: item.Gudang || item.gudang || 'Kantin'
+                })).filter(item => item.nama_barang !== "");
 
-        // Melakukan UPSERT (Update jika nama sama, Insert jika nama baru)
-        const { error } = await FinexDB
-            .from('produk')
-            .upsert(cleanedData, { onConflict: 'nama_barang' });
+                const totalData = cleanedData.length;
+                const batchSize = 50; // Batch 50 data per kloter agar progres mulus
+                
+                for (let i = 0; i < totalData; i += batchSize) {
+                    const batch = cleanedData.slice(i, i + batchSize);
+                    
+                    // Gunakan FinexDB yang sudah global
+                    const { error } = await FinexDB
+                        .from('produk')
+                        .upsert(batch, { onConflict: 'nama_barang' });
 
-        if (error) {
-            console.error("Detail Error:", error);
-            alert("Gagal Import: " + error.message + "\nPastikan kolom nama_barang sudah diset UNIQUE di database.");
-        } else {
-            alert("Berhasil mengimpor " + cleanedData.length + " produk ke Kantin!");
-            loadProduk(); // Memuat ulang tabel produk
-        }
-    };
+                    if (error) throw error;
 
-    reader.readAsArrayBuffer(file);
-}
+                    const processed = Math.min(i + batchSize, totalData);
+                    const percentage = Math.round((processed / totalData) * 100);
+                    
+                    progressBar.style.width = percentage + "%";
+                    progressBar.innerText = percentage + "%";
+                    statusText.innerText = `Mengunggah ${processed} dari ${totalData} produk...`;
+                }
+
+                statusText.innerHTML = `<span style="color:var(--success); font-weight:bold;">✅ Berhasil! ${totalData} produk Kantin telah diperbarui.</span>`;
+                setTimeout(() => location.reload(), 1500);
+
+            } catch (err) {
+                console.error("Gagal Import:", err);
+                alert("Terjadi kesalahan saat import: " + (err.message || "Pastikan nama_barang sudah UNIQUE di database"));
+                container.style.display = 'none';
+                statusText.style.display = 'none';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
 </script>
 </body>
 </html>
