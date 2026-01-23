@@ -6,7 +6,7 @@
     <title>Finex Pos | Riwayat & Cetak Bill</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
         /* Sidebar */
@@ -41,9 +41,9 @@
         /* CSS KHUSUS CETAK */
         #print-area { display: none; }
         @media print {
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+            body * { visibility: hidden !important; }
+            #print-area, #print-area * { visibility: visible !important; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; }
         }
     </style>
 </head>
@@ -94,13 +94,24 @@
                 <span class="close-btn" onclick="closeModal()">&times;</span>
             </div>
             <div id="det-waktu" style="font-size: 12px; color: #888; margin-bottom: 15px;"></div>
+            
             <div id="det-items"></div>
+            
             <div style="margin-top: 20px; padding-top: 10px; border-top: 2px solid #eee;">
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px;">
+                <div style="display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 5px;">
+                    <span>Subtotal</span>
+                    <span id="det-subtotal">Rp 0</span>
+                </div>
+                <div id="det-disc-row" style="display: none; justify-content: space-between; font-size: 14px; color: var(--danger); margin-bottom: 5px;">
+                    <span>Potongan Diskon</span>
+                    <span id="det-diskon">- Rp 0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 10px;">
                     <span>Total Akhir</span>
                     <span id="det-total" style="color:var(--success);">Rp 0</span>
                 </div>
             </div>
+            
             <button onclick="closeModal()" style="width: 100%; margin-top: 20px; padding: 12px; border: none; border-radius: 8px; background: #eee; cursor: pointer; font-weight: bold;">TUTUP</button>
         </div>
     </div>
@@ -155,7 +166,19 @@
 
             document.getElementById('det-invoice').innerText = data.no_invoice;
             document.getElementById('det-waktu').innerText = new Date(data.created_at).toLocaleString('id-ID');
+            
+            // Tampilkan Subtotal & Total
+            document.getElementById('det-subtotal').innerText = "Rp " + (data.subtotal || 0).toLocaleString();
             document.getElementById('det-total').innerText = "Rp " + data.grand_total.toLocaleString();
+
+            // Cek Diskon
+            const discRow = document.getElementById('det-disc-row');
+            if (data.diskon > 0) {
+                discRow.style.display = 'flex';
+                document.getElementById('det-diskon').innerText = "- Rp " + data.diskon.toLocaleString();
+            } else {
+                discRow.style.display = 'none';
+            }
 
             const items = data.items || [];
             document.getElementById('det-items').innerHTML = items.map(it => `
@@ -181,25 +204,38 @@
 
             const printArea = document.getElementById('print-area');
             printArea.innerHTML = `
-                <div style="width:58mm; padding:10px; font-family:monospace; background:white; color:black;">
+                <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
                     <div style="text-align:center; margin-bottom:10px;">
-                        <b style="font-size:14px;">FINEX POS</b><br>
+                        <b style="font-size:14px;">FINEX POS KANTIN</b><br>
                         <small>STRUK PEMBAYARAN (REPRINT)</small>
                     </div>
                     <div style="font-size:11px; margin-bottom:5px;">
                         No: ${data.no_invoice}<br>
-                        Tgl: ${new Date(data.created_at).toLocaleString('id-ID')}<br>
-                        Kasir: ${data.kasir_nama || 'Admin'}
+                        Tgl: ${new Date(data.created_at).toLocaleString('id-ID')}
                     </div>
                     <div style="border-top:1px dashed #000; margin:5px 0;"></div>
                     ${itemRows}
                     <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px;">
-                        <span>TOTAL</span>
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:11px;">
+                        <span>Subtotal:</span><span>Rp ${(data.subtotal || 0).toLocaleString()}</span>
+                    </div>
+
+                    ${data.diskon > 0 ? `
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:black;">
+                        <span>Diskon:</span><span>-Rp ${data.diskon.toLocaleString()}</span>
+                    </div>` : ''}
+
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; margin-top:2px;">
+                        <span>TOTAL:</span>
                         <span>Rp ${data.grand_total.toLocaleString()}</span>
                     </div>
-                    <div style="font-size:11px; margin-top:5px;">
-                        Bayar: ${data.metode_pembayaran}
+                    
+                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                    <div style="font-size:11px;">
+                        Metode: ${data.metode_pembayaran}<br>
+                        Bayar : Rp ${(data.bayar || 0).toLocaleString()}<br>
+                        Kembali: Rp ${( (data.bayar || 0) - data.grand_total).toLocaleString()}
                     </div>
                     <div style="border-top:1px dashed #000; margin:5px 0;"></div>
                     <div style="text-align:center; font-size:10px; margin-top:10px;">
@@ -207,7 +243,10 @@
                     </div>
                 </div>
             `;
-            window.print();
+            
+            setTimeout(() => {
+                window.print();
+            }, 500);
         }
 
         function closeModal() { document.getElementById('modalDetail').style.display = 'none'; }
