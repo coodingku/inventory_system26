@@ -6,7 +6,7 @@
     <title>Finex Pos | Manajemen User</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
@@ -17,12 +17,23 @@
         .form-user { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 25px; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         .btn-add { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
+        
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .badge-admin { background: #ebf5ff; color: #3498db; }
         .badge-kasir { background: #e8f8f0; color: #27ae60; }
+
+        /* Modal Style */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-content h3 { margin-top: 0; color: var(--primary); }
+        .modal-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        .btn-edit { color: var(--warning); background: none; border: none; cursor: pointer; font-weight: bold; margin-right: 10px; }
+        .btn-delete { color: var(--danger); background: none; border: none; cursor: pointer; font-weight: bold; }
         .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: auto; }
     </style>
 </head>
@@ -64,6 +75,28 @@
     </div>
 </main>
 
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3>Edit User Kantin</h3>
+        <input type="hidden" id="edit-id">
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <label>Username</label>
+            <input type="text" id="edit-username">
+            <label>Password Baru (Kosongkan jika tidak ganti)</label>
+            <input type="password" id="edit-password" placeholder="******">
+            <label>Role</label>
+            <select id="edit-role">
+                <option value="kasir">Kasir</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <div class="modal-btns">
+            <button onclick="closeEditModal()" style="background:#eee; border:none; padding:10px; border-radius:8px; cursor:pointer;">Batal</button>
+            <button onclick="updateUser()" class="btn-add">Simpan Perubahan</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
@@ -81,7 +114,8 @@
                 <td><b>${u.username}</b></td>
                 <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-kasir'}">${u.role}</span></td>
                 <td style="text-align: center;">
-                    <button style="color:red; background:none; border:none; cursor:pointer;" onclick="hapusUser(${u.id})">❌ Hapus</button>
+                    <button class="btn-edit" onclick="openEditModal('${u.id}', '${u.username}', '${u.role}')">✏️ Edit</button>
+                    <button class="btn-delete" onclick="hapusUser('${u.id}', '${u.username}')">❌ Hapus</button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="3" style="text-align:center;">Belum ada user.</td></tr>';
@@ -102,10 +136,47 @@
         }
     }
 
-    async function hapusUser(id) {
-        if(confirm('Hapus user ini?')) {
-            const { error } = await supabaseClient.from('users').delete().eq('id', id);
+    // --- FUNGSI EDIT ---
+    function openEditModal(id, username, role) {
+        document.getElementById('edit-id').value = id;
+        document.getElementById('edit-username').value = username;
+        document.getElementById('edit-role').value = role;
+        document.getElementById('edit-password').value = '';
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    async function updateUser() {
+        const id = document.getElementById('edit-id').value;
+        const username = document.getElementById('edit-username').value;
+        const role = document.getElementById('edit-role').value;
+        const password = document.getElementById('edit-password').value;
+
+        const updateData = { username, role };
+        if (password) updateData.password = password; // Hanya update password jika diisi
+
+        const { error } = await supabaseClient.from('users').update(updateData).eq('id', id);
+
+        if (error) {
+            alert("Gagal update: " + error.message);
+        } else {
+            alert("User berhasil diperbarui!");
+            closeEditModal();
+            muatUser();
+        }
+    }
+
+    async function hapusUser(id, name) {
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        if (session && name === session.username) return alert("Tidak bisa hapus akun sendiri!");
+
+        if(confirm(`Hapus user "${name}"?`)) {
+            const { error } = await supabaseClient.from('users').delete().eq('id', String(id));
             if (!error) muatUser();
+            else alert("Gagal hapus: " + error.message);
         }
     }
 
