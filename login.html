@@ -110,6 +110,7 @@
             margin-bottom: 20px;
             display: none;
             border-left: 4px solid #e74c3c;
+            text-align: left;
         }
 
         .footer-text {
@@ -130,11 +131,11 @@
     <form id="login-form">
         <div class="form-group">
             <label>Username</label>
-            <input type="text" id="username" placeholder="Masukkan username" required>
+            <input type="text" id="username" placeholder="Masukkan username" required autocomplete="username">
         </div>
         <div class="form-group">
             <label>Password</label>
-            <input type="password" id="password" placeholder="Masukkan password" required>
+            <input type="password" id="password" placeholder="Masukkan password" required autocomplete="current-password">
         </div>
         <button type="submit" id="btn-login">MASUK KE SISTEM</button>
     </form>
@@ -145,37 +146,36 @@
 </div>
 
 <script>
-    // Konfigurasi Supabase
+    // 1. Konfigurasi Supabase
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
-window.onload = () => {
-    const sessionData = localStorage.getItem('finex_session');
-    
-    // Hanya redirect jika sessionData BENAR-BENAR ada dan valid
-    if (sessionData) {
-        try {
-            const session = JSON.parse(sessionData);
-            if (session && session.role) {
-                redirectByRole(session.role);
+    // 2. Cek Sesi Saat Halaman Dimuat
+    window.onload = () => {
+        const sessionData = localStorage.getItem('finex_session');
+        if (sessionData) {
+            try {
+                const session = JSON.parse(sessionData);
+                if (session && session.role) {
+                    redirectByRole(session.role.toLowerCase());
+                }
+            } catch (e) {
+                localStorage.clear();
             }
-        } catch (e) {
-            // Jika data korup, hapus saja
-            localStorage.removeItem('finex_session');
         }
-    }
-};
+    };
 
+    // 3. Proses Login
     document.getElementById('login-form').onsubmit = async (e) => {
         e.preventDefault();
         
-        const user = document.getElementById('username').value;
-        const pass = document.getElementById('password').value;
+        const user = document.getElementById('username').value.trim();
+        const pass = document.getElementById('password').value.trim();
         const btn = document.getElementById('btn-login');
         const errBox = document.getElementById('err-box');
 
-        // Reset State
+        // Loading State
         btn.innerText = "Memverifikasi...";
         btn.disabled = true;
         errBox.style.display = 'none';
@@ -186,25 +186,33 @@ window.onload = () => {
                 .from('users')
                 .select('*')
                 .eq('username', user)
-                .eq('password', pass) // Di produksi sebaiknya gunakan enkripsi
+                .eq('password', pass)
                 .maybeSingle();
 
             if (error) throw error;
 
             if (data) {
-                // Simpan Session ke LocalStorage
+                const userRole = data.role.toLowerCase();
+
+                // Simpan Session Lengkap
                 const sessionData = {
                     id: data.id,
                     username: data.username,
-                    role: data.role,
+                    role: userRole,
                     loginTime: new Date().toISOString()
                 };
+                
                 localStorage.setItem('finex_session', JSON.stringify(sessionData));
+                
+                // Simpan Role Terpisah (Untuk proteksi halaman master data)
+                localStorage.setItem('user_role', userRole);
 
-                // Arahkan berdasarkan role
-                redirectByRole(data.role);
+                // Berhasil: Redirect
+                redirectByRole(userRole);
+
             } else {
-                // Login Gagal
+                // Gagal
+                errBox.innerText = "Username atau Password salah!";
                 errBox.style.display = 'block';
                 btn.innerText = "MASUK KE SISTEM";
                 btn.disabled = false;
@@ -212,20 +220,22 @@ window.onload = () => {
 
         } catch (err) {
             console.error("Login Error:", err);
-            alert("Terjadi kesalahan koneksi. Silakan coba lagi.");
+            errBox.innerText = "Terjadi kesalahan koneksi database.";
+            errBox.style.display = 'block';
             btn.disabled = false;
             btn.innerText = "MASUK KE SISTEM";
         }
     };
 
+    // 4. Logika Pengalihan Halaman
     function redirectByRole(role) {
         if (role === 'kasir') {
-            window.location.href = 'pos.html';
+            window.location.replace('pos.html');
         } else if (role === 'admin') {
-            window.location.href = 'index.html';
+            window.location.replace('index.html');
         } else {
-            alert("Role tidak dikenali. Hubungi Admin.");
-            localStorage.removeItem('finex_session');
+            alert("Role tidak dikenali: " + role);
+            localStorage.clear();
             location.reload();
         }
     }
