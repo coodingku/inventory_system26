@@ -2,71 +2,82 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Manajemen User</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        /* Sidebar Navigasi Standar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
+        
+        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
 
-        main { flex: 1; margin-left: 260px; padding: 30px; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        /* Main Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h1 { margin-top: 0; color: var(--primary); }
+
+        /* Form Styling */
+        .form-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 12px; font-weight: bold; color: #7f8c8d; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
+        input:focus { border-color: var(--accent); }
+        .btn-save { background: var(--success); color: white; border: none; padding: 11px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-save:hover { opacity: 0.9; }
+
+        /* Table Styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .form-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
-        .form-group { display: flex; flex-direction: column; }
-        label { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #7f8c8d; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        
-        .btn-save { background: #27ae60; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; color: #2c3e50; }
-        
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .badge-admin { background: #e8f4fd; color: #3498db; }
-        .badge-kasir { background: #eafaf1; color: #2ecc71; }
-        
-        .btn-delete { background: #ebedef; color: #e74c3c; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .btn-delete:hover { background: #e74c3c; color: white; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-admin { background: #ebf5fb; color: #2980b9; }
+        .badge-kasir { background: #eafaf1; color: #27ae60; }
+        .btn-delete { color: var(--danger); border: none; background: none; font-weight: bold; cursor: pointer; }
+        .btn-delete:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
-<nav>
-    <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
+    <nav>
+        <h2>Finex Pos</h2>
+        <a href="dashboard.html">📊 Dashboard</a>
         
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
+        <div class="nav-section">Master Data</div>
         <a href="produk.html">📦 Produk</a>
         <a href="kategori.html">📁 Kategori</a>
         <a href="gudang.html">🏠 Gudang</a>
         <a href="metode-pembayaran.html">💳 Metode Bayar</a>
         
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
+        <div class="nav-section">Operasional</div>
         <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
+        <a href="manajemen-user.html" class="active">👥 Manajemen User</a>
         <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-    
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
-</nav>
+        
+        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+        <a href="pos.html" style="background: var(--success); color: white; text-align: center;">🛒 Masuk Kasir</a>
+        
+        <div class="user-info">
+            <small style="color: #bbb;">ADMIN AKTIF:</small><br>
+            <b id="display-user-nav">Memuat...</b>
+        </div>
+        <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
+    </nav>
 
     <main>
-        <h1>Manajemen Pengguna</h1>
+        <h1>Manajemen Pengguna Kantin</h1>
 
         <div class="card">
-            <h3>Tambah Pengguna Baru</h3>
+            <h3 style="margin-top:0; margin-bottom: 20px; color: var(--primary);">➕ Tambah Pengguna Baru</h3>
             <div class="form-inline">
                 <div class="form-group">
                     <label>Nama Lengkap</label>
@@ -83,8 +94,8 @@
                 <div class="form-group">
                     <label>Role</label>
                     <select id="role">
-                        <option value="kasir">Kasir</option>
-                        <option value="admin">Admin</option>
+                        <option value="kasir">Kasir (Akses POS Only)</option>
+                        <option value="admin">Admin (Akses Penuh)</option>
                     </select>
                 </div>
                 <button class="btn-save" onclick="tambahUser()">Simpan User</button>
@@ -92,60 +103,63 @@
         </div>
 
         <div class="card">
-            <h3>Daftar Pengguna Aktif</h3>
+            <h3 style="margin-top:0; margin-bottom: 15px; color: var(--primary);">👥 Daftar Pengguna Aktif</h3>
             <table>
                 <thead>
                     <tr>
                         <th>Nama Lengkap</th>
                         <th>Username</th>
                         <th>Role</th>
-                        <th>Aksi</th>
+                        <th style="width: 80px;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="user-table">
-                    </tbody>
+                    <tr><td colspan="4" style="text-align: center;">Memuat data...</td></tr>
+                </tbody>
             </table>
         </div>
     </main>
 
     <script>
-        // 1. LETAKKAN DI SINI (PALING ATAS)
-        const userRole = localStorage.getItem('user_role');
-        const userPath = window.location.pathname;
-
-        if (!userRole) {
-            window.location.href = "login.html";
-        }
-
-        // Proteksi halaman admin dari kasir
-        const adminPages = ['index.html', 'pengaturan-biaya.html', 'metode-pembayaran.html', 'manajemen-user.html', 'produk.html'];
-        const isAdminPage = adminPages.some(page => userPath.includes(page));
-
-        if (userRole === 'kasir' && isAdminPage) {
-            alert("Akses Ditolak! Anda bukan Admin.");
-            window.location.href = "pos.html";
-        }
-        
+        // --- 1. KONFIGURASI & PROTEKSI ---
         const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-        // Cek Keamanan: Hanya Admin yang boleh masuk
-        if (localStorage.getItem('user_role') !== 'admin') {
-            alert("Akses Ditolak!");
-            window.location.href = "pos.html";
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        const userRole = localStorage.getItem('user_role');
+
+        if (!session || !userRole) {
+            window.location.replace("login.html");
+        } else if (userRole !== 'admin') {
+            alert("Akses Ditolak! Anda bukan Admin.");
+            window.location.replace("pos.html");
         }
 
+        // --- 2. INISIALISASI ---
+        window.onload = () => {
+            document.getElementById('display-user-nav').innerText = session.username;
+            muatUser();
+        };
+
+        // --- 3. FUNGSI LOGIKA ---
         async function muatUser() {
-            const { data, error } = await supabaseClient.from('users').select('*').order('created_at', { ascending: false });
-            if (error) return;
+            const { data, error } = await supabaseClient
+                .from('users')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) return console.error(error);
 
             const tbody = document.getElementById('user-table');
-            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Belum ada user.</td></tr>`;
+                return;
+            }
 
-            data.forEach(user => {
+            tbody.innerHTML = data.map(user => {
                 const badgeClass = user.role === 'admin' ? 'badge-admin' : 'badge-kasir';
-                tbody.innerHTML += `
+                return `
                     <tr>
                         <td><b>${user.nama_lengkap}</b></td>
                         <td>${user.username}</td>
@@ -155,16 +169,16 @@
                         </td>
                     </tr>
                 `;
-            });
+            }).join('');
         }
 
         async function tambahUser() {
-            const nama = document.getElementById('nama').value;
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const nama = document.getElementById('nama').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
             const role = document.getElementById('role').value;
 
-            if (!nama || !username || !password) return alert("Mohon isi semua data!");
+            if (!nama || !username || !password) return alert("Mohon lengkapi semua data!");
 
             const { error } = await supabaseClient.from('users').insert([
                 { username, password, role, nama_lengkap: nama }
@@ -174,19 +188,36 @@
                 alert("Gagal menambah user: " + error.message);
             } else {
                 alert("User berhasil ditambahkan!");
-                location.reload();
+                // Reset form
+                document.getElementById('nama').value = '';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                muatUser();
             }
         }
 
         async function hapusUser(id, uname) {
-            // Cegah hapus diri sendiri (opsional)
-            if (confirm(`Apakah Anda yakin ingin menghapus akun ${uname}?`)) {
+            // Cegah hapus diri sendiri
+            if (uname === session.username) {
+                return alert("Anda tidak bisa menghapus akun Anda sendiri yang sedang digunakan!");
+            }
+
+            if (confirm(`Apakah Anda yakin ingin menghapus akun ${uname}? Akses orang tersebut akan langsung dicabut.`)) {
                 const { error } = await supabaseClient.from('users').delete().eq('id', id);
-                if (!error) muatUser();
+                if (error) {
+                    alert("Gagal menghapus: " + error.message);
+                } else {
+                    muatUser();
+                }
             }
         }
 
-        window.onload = muatUser;
+        function logout() {
+            if(confirm("Keluar dari sistem?")) {
+                localStorage.clear();
+                window.location.replace("login.html");
+            }
+        }
     </script>
 </body>
 </html>
