@@ -40,17 +40,16 @@
 
 <nav>
     <h2>Finex Pos</h2>
-    <a href="index.html">📊 Dashboard</a>
+    <a href="dashboard.html">📊 Dashboard</a>
     <div class="nav-section">Master Data</div>
     <a href="produk.html">📦 Produk</a>
     <a href="kategori.html">📁 Kategori</a>
-    <a href="gudang.html">🏠 Gudang</a>
     <div class="nav-section">Operasional</div>
     <a href="manajemen-user.html" class="active">👥 Manajemen User</a>
     <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
     
     <div class="user-info">
-        <small>ADMIN:</small><br>
+        <small>AKTIF:</small><br>
         <b id="display-user-nav">Memuat...</b>
     </div>
     <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
@@ -89,21 +88,19 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    // --- PROTEKSI SESI YANG DIPERKUAT ---
     const sessionRaw = localStorage.getItem('finex_session');
     let session = null;
-    let role = localStorage.getItem('user_role');
+    let userRole = localStorage.getItem('user_role');
 
     try {
         if (sessionRaw) {
             session = JSON.parse(sessionRaw);
-            // Jika user_role di storage kosong, ambil dari objek session
-            if (!role && session.role) role = session.role;
+            if (!userRole && session.role) userRole = session.role;
         }
-    } catch (e) { console.error("Session Error"); }
+    } catch (e) { console.error("Session Parse Error"); }
 
-    // Cek apakah Admin (Case Insensitive)
-    if (!session || !role || role.toLowerCase() !== 'admin') {
+    // Proteksi Halaman
+    if (!session || !userRole || userRole.toLowerCase() !== 'admin') {
         alert("Akses Ditolak! Halaman ini hanya untuk Admin.");
         window.location.replace('login.html');
     }
@@ -116,30 +113,33 @@
     async function muatUser() {
         const { data, error } = await supabaseClient.from('users').select('*').order('username');
         const tbody = document.getElementById('user-list');
-        if (error) return;
+        if (error) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Gagal memuat data.</td></tr>';
+            return;
+        }
 
         tbody.innerHTML = data.map(u => `
             <tr>
                 <td><b>${u.username}</b></td>
                 <td><span class="badge ${u.role.toLowerCase() === 'admin' ? 'badge-admin' : 'badge-kasir'}">${u.role}</span></td>
                 <td style="text-align: center;">
-                    <button style="color:red; cursor:pointer; background:none; border:none;" onclick="hapusUser(${u.id}, '${u.username}')">❌ Hapus</button>
+                    <button style="color:var(--danger); cursor:pointer; background:none; border:none; font-weight:bold;" onclick="hapusUser(${u.id}, '${u.username}')">❌ Hapus</button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="3" style="text-align:center;">Tidak ada user lain.</td></tr>';
     }
 
     async function tambahUser() {
-        const user = document.getElementById('username').value.trim();
-        const pass = document.getElementById('password').value.trim();
-        const roleInput = document.getElementById('role').value;
+        const uName = document.getElementById('username').value.trim();
+        const uPass = document.getElementById('password').value.trim();
+        const uRole = document.getElementById('role').value;
 
-        if(!user || !pass) return alert("Isi semua field!");
+        if(!uName || !uPass) return alert("Isi semua field!");
 
         const { error } = await supabaseClient.from('users').insert([{ 
-            username: user, 
-            password: pass, 
-            role: roleInput 
+            username: uName, 
+            password: uPass, 
+            role: uRole 
         }]);
 
         if (error) alert("Gagal: " + error.message);
@@ -155,6 +155,7 @@
         if(confirm(`Hapus user "${name}"?`)) {
             const { error } = await supabaseClient.from('users').delete().eq('id', id);
             if (!error) muatUser();
+            else alert("Gagal menghapus user.");
         }
     }
 
