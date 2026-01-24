@@ -2,38 +2,42 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Laporan Riwayat Stok</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f1c40f; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar */
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
-        nav a.active { background: var(--accent); color: white; }
+        /* Sidebar Navigasi */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Main Content */
-        main { flex: 1; margin-left: 260px; padding: 30px; }
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         
         .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; }
         .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
 
-        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
-        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
 
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .badge-in { background: #e8f5e9; color: #2e7d32; }
         .badge-out { background: #ffebee; color: #c62828; }
-        .badge-warning { background: #fff3e0; color: #e67e22; }
+
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -41,31 +45,36 @@
 <nav>
     <h2>Finex Pos</h2>
     <a href="index.html">📊 Dashboard</a>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">LAPORAN</div>
+    <div class="nav-section">Laporan</div>
     <a href="laporan-penjualan.html">📑 Penjualan</a>
-    <a href="laporan-stok.html" class="active">🔄 Riwayat Stok</a>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="laporan-stok.html" class="active">📋 Riwayat Stok</a>
+    <div class="nav-section">Master Data</div>
+    <a href="produk.html">📦 Produk</a>
+    <a href="kategori.html">📁 Kategori</a>
+    <div class="nav-section">Operasional</div>
     <a href="penyesuaian.html">⚙️ Kelola Stok</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
+    
+    <div class="user-info">
+        <small>ADMIN:</small><br>
+        <b id="display-user-nav">Memuat...</b>
+    </div>
+    <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
 </nav>
 
 <main>
     <div class="header-flex">
-        <h1>Laporan In/Out Stok</h1>
+        <h1>Riwayat Stok Kantin</h1>
         <button class="btn-export" onclick="exportExcel()">Export Excel 📥</button>
     </div>
 
     <div class="filter-card">
         <div class="input-group">
-            <label>Cari Produk</label>
-            <input type="text" id="filter-nama" placeholder="Ketik nama barang..." onkeyup="fetchRiwayat()">
-        </div>
-        <div class="input-group">
             <label>Jenis Perubahan</label>
             <select id="filter-tipe" onchange="fetchRiwayat()">
-                <option value="all">Semua</option>
-                <option value="Masuk">Stok Masuk (+)</option>
-                <option value="Keluar">Stok Keluar (-)</option>
+                <option value="all">Semua Tipe</option>
+                <option value="masuk">Stok Masuk (+)</option>
+                <option value="keluar">Stok Keluar (-)</option>
             </select>
         </div>
         <div class="input-group">
@@ -85,13 +94,13 @@
                     <th>Nama Barang</th>
                     <th>Tipe</th>
                     <th>Qty</th>
-                    <th>Stok Akhir</th>
                     <th>Petugas</th>
                     <th>Keterangan</th>
                 </tr>
             </thead>
             <tbody id="stok-body">
-                </tbody>
+                <tr><td colspan="6" style="text-align:center">Memuat data...</td></tr>
+            </tbody>
         </table>
     </div>
 </main>
@@ -101,23 +110,39 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
+    // Proteksi Halaman
+    const sessionStr = localStorage.getItem('finex_session');
+    const userRole = localStorage.getItem('user_role');
+
+    if (!sessionStr || userRole !== 'admin') {
+        window.location.replace('login.html');
+    }
+
+    const session = JSON.parse(sessionStr);
+
+    window.onload = () => {
+        document.getElementById('display-user-nav').innerText = session.username;
+        fetchRiwayat();
+    };
+
     async function fetchRiwayat() {
-        const nama = document.getElementById('filter-nama').value;
         const tipe = document.getElementById('filter-tipe').value;
         const sort = document.getElementById('filter-sort').value;
 
-        // Catatan: Pastikan Anda sudah membuat tabel 'stok_log' di Supabase
-        // Jika belum, laporan ini akan kosong.
-        let query = supabaseClient.from('stok_log')
-            .select('*')
+        // Memanggil tabel 'riwayat_stok' dan join dengan 'produk'
+        let query = supabaseClient
+            .from('riwayat_stok')
+            .select(`
+                id, created_at, tipe, jumlah, keterangan, admin_nama,
+                produk:produk_id (nama_produk)
+            `)
             .order('created_at', { ascending: sort === 'asc' });
 
-        if (nama) query = query.ilike('nama_barang', `%${nama}%`);
         if (tipe !== 'all') query = query.eq('tipe', tipe);
 
         const { data, error } = await query;
         if (error) {
-            console.error("Gagal mengambil data riwayat stok");
+            console.error("Gagal mengambil data:", error.message);
             return;
         }
 
@@ -129,22 +154,23 @@
         body.innerHTML = '';
 
         if (data.length === 0) {
-            body.innerHTML = '<tr><td colspan="7" style="text-align:center">Tidak ada riwayat perubahan stok.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" style="text-align:center">Tidak ada riwayat perubahan stok.</td></tr>';
             return;
         }
 
         data.forEach(item => {
-            const badgeClass = item.tipe === 'Masuk' ? 'badge-in' : 'badge-out';
-            const qtySign = item.tipe === 'Masuk' ? `+${item.qty}` : `-${item.qty}`;
+            const isMasuk = item.tipe.toLowerCase() === 'masuk';
+            const badgeClass = isMasuk ? 'badge-in' : 'badge-out';
+            const qtySign = isMasuk ? `+${item.jumlah}` : `-${item.jumlah}`;
+            const qtyColor = isMasuk ? '#2e7d32' : '#c62828';
             
             body.innerHTML += `
                 <tr>
                     <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                    <td><b>${item.nama_barang}</b></td>
+                    <td><b>${item.produk ? item.produk.nama_produk : 'Produk Dihapus'}</b></td>
                     <td><span class="badge ${badgeClass}">${item.tipe}</span></td>
-                    <td style="font-weight:bold; color: ${item.tipe === 'Masuk' ? '#2e7d32' : '#c62828'}">${qtySign}</td>
-                    <td>${item.stok_akhir}</td>
-                    <td>${item.petugas || 'System'}</td>
+                    <td style="font-weight:bold; color: ${qtyColor}">${qtySign}</td>
+                    <td>${item.admin_nama || 'System'}</td>
                     <td style="color:#666; font-style:italic">${item.keterangan || '-'}</td>
                 </tr>
             `;
@@ -154,10 +180,13 @@
     function exportExcel() {
         const table = document.getElementById("stok-table");
         const wb = XLSX.utils.table_to_book(table, { sheet: "Riwayat Stok" });
-        XLSX.writeFile(wb, "Laporan_Riwayat_Stok_Kantin.xlsx");
+        XLSX.writeFile(wb, "Laporan_Riwayat_Stok_Finex.xlsx");
     }
 
-    window.onload = fetchRiwayat;
+    function logout() {
+        localStorage.clear();
+        window.location.replace('login.html');
+    }
 </script>
 </body>
 </html>
