@@ -3,43 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Riwayat Stok</title>
+    <title>Finex Pos | Laporan Stok</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
-        
-        /* Sidebar */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
-        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
-        nav a:hover, nav a.active { background: var(--accent); color: white; }
-
-        /* Main Content */
-        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
-        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; }
-        .stat-card h3 { margin: 0; font-size: 14px; color: #7f8c8d; }
-        .stat-card p { margin: 10px 0 0; font-size: 24px; font-weight: bold; color: var(--primary); }
-
-        .toolbar { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .search-box { flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; }
-        .btn-export { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-
-        .card-table { background: var(--white); padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+        main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); }
+        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-
-        .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+        .badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 12px; }
         .badge-masuk { background: #e8f5e9; color: #2e7d32; }
         .badge-keluar { background: #ffebee; color: #c62828; }
-        
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -51,61 +30,23 @@
     <a href="laporan-stok.html" class="active">📋 Riwayat Stok</a>
     <a href="penyesuaian.html">🔄 Stok In/Out</a>
     <a href="produk.html">📦 Data Produk</a>
-    
-    <div class="user-info">
-        <small>ADMIN:</small><br>
-        <b id="display-user-nav">Memuat...</b>
-    </div>
 </nav>
 
 <main>
-    <div class="header-flex">
-        <h1>Riwayat Arus Barang</h1>
-        <button class="btn-export" onclick="exportToExcel()">📊 Simpan Excel</button>
-    </div>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <h3>Total Barang Masuk</h3>
-            <p id="total-masuk" style="color: var(--success);">0</p>
-        </div>
-        <div class="stat-card">
-            <h3>Total Barang Keluar</h3>
-            <p id="total-keluar" style="color: var(--danger);">0</p>
-        </div>
-        <div class="stat-card">
-            <h3>Total Transaksi</h3>
-            <p id="total-transaksi">0</p>
-        </div>
-    </div>
-
-    <div class="toolbar">
-        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama barang..." onkeyup="filterData()">
-        <select id="filterTipe" onchange="filterData()">
-            <option value="all">Semua Tipe</option>
-            <option value="masuk">Masuk (+)</option>
-            <option value="keluar">Keluar (-)</option>
-        </select>
-        <select id="filterWaktu" onchange="filterData()">
-            <option value="all">Semua Waktu</option>
-            <option value="today">Hari Ini</option>
-        </select>
-    </div>
-
+    <h1>Laporan Arus Barang</h1>
     <div class="card-table">
         <table>
             <thead>
                 <tr>
-                    <th>Waktu & Tanggal</th>
+                    <th>Waktu</th>
                     <th>Nama Barang</th>
                     <th>Tipe</th>
                     <th>Jumlah</th>
                     <th>Admin</th>
-                    <th>Keterangan</th>
                 </tr>
             </thead>
-            <tbody id="stok-list">
-                <tr><td colspan="6" style="text-align:center;">Memuat riwayat stok...</td></tr>
+            <tbody id="stok-body">
+                <tr><td colspan="5" style="text-align:center">Memuat data...</td></tr>
             </tbody>
         </table>
     </div>
@@ -116,116 +57,41 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    let riwayatData = [];
-
-    window.onload = () => {
-        const session = JSON.parse(localStorage.getItem('finex_session'));
-        if(session) document.getElementById('display-user-nav').innerText = session.username;
-        fetchRiwayat();
-    };
-
     async function fetchRiwayat() {
         try {
-            // Kita join id_produk dengan tabel produk untuk mendapatkan nama_barang
+            // Kita coba join id_produk atau produk_id
             const { data, error } = await supabaseClient
                 .from('riwayat_stok')
-                .select(`
-                    *,
-                    produk:id_produk (nama_barang)
-                `)
+                .select(`*, produk:id_produk(nama_barang)`)
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
-            riwayatData = data;
-            renderTabel(data);
-            updateStats(data);
-        } catch (err) {
-            console.error(err);
-            document.getElementById('stok-list').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal: ${err.message}</td></tr>`;
-        }
-    }
+            const tbody = document.getElementById('stok-body');
+            tbody.innerHTML = '';
 
-    function renderTabel(data) {
-        const tbody = document.getElementById('stok-list');
-        tbody.innerHTML = '';
-
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada riwayat.</td></tr>';
-            return;
-        }
-
-        data.forEach(item => {
-            const date = new Date(item.created_at).toLocaleString('id-ID');
-            const isMasuk = item.tipe.toLowerCase() === 'masuk';
-            const badgeClass = isMasuk ? 'badge-masuk' : 'badge-keluar';
-            const sign = isMasuk ? '+' : '-';
-            const color = isMasuk ? 'var(--success)' : 'var(--danger)';
-
-            tbody.innerHTML += `
-                <tr>
-                    <td style="color:#666; font-size:12px;">${date}</td>
-                    <td><b>${item.produk ? item.produk.nama_barang : 'Barang Dihapus'}</b></td>
-                    <td><span class="badge ${badgeClass}">${item.tipe}</span></td>
-                    <td style="font-weight:bold; color:${color}">${sign}${item.jumlah}</td>
-                    <td>${item.admin_nama || 'System'}</td>
-                    <td style="font-style:italic; color:#888;">${item.keterangan || '-'}</td>
-                </tr>
-            `;
-        });
-    }
-
-    function updateStats(data) {
-        let masuk = 0;
-        let keluar = 0;
-
-        data.forEach(item => {
-            if (item.tipe.toLowerCase() === 'masuk') masuk += item.jumlah;
-            else keluar += item.jumlah;
-        });
-
-        document.getElementById('total-masuk').innerText = masuk;
-        document.getElementById('total-keluar').innerText = keluar;
-        document.getElementById('total-transaksi').innerText = data.length;
-    }
-
-    function filterData() {
-        const keyword = document.getElementById('searchBar').value.toLowerCase();
-        const tipe = document.getElementById('filterTipe').value;
-        const waktu = document.getElementById('filterWaktu').value;
-
-        let filtered = riwayatData.filter(item => {
-            const namaBarang = item.produk ? item.produk.nama_barang.toLowerCase() : '';
-            const matchKeyword = namaBarang.includes(keyword);
-            const matchTipe = (tipe === 'all' || item.tipe.toLowerCase() === tipe);
-            
-            let matchWaktu = true;
-            if (waktu === 'today') {
-                const itemDate = new Date(item.created_at).toDateString();
-                const today = new Date().toDateString();
-                matchWaktu = (itemDate === today);
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Belum ada riwayat.</td></tr>';
+                return;
             }
 
-            return matchKeyword && matchTipe && matchWaktu;
-        });
-
-        renderTabel(filtered);
+            data.forEach(item => {
+                const tipe = item.tipe.toUpperCase();
+                const badge = tipe === 'MASUK' ? 'badge-masuk' : 'badge-keluar';
+                const nama = item.produk ? item.produk.nama_barang : 'Produk dihapus';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
+                        <td><b>${nama}</b></td>
+                        <td><span class="badge ${badge}">${tipe}</span></td>
+                        <td>${tipe === 'MASUK' ? '+' : '-'}${item.jumlah}</td>
+                        <td>${item.admin_nama}</td>
+                    </tr>
+                `;
+            });
+        } catch (e) { console.error(e); }
     }
 
-    function exportToExcel() {
-        const dataExport = riwayatData.map(item => ({
-            Tanggal: new Date(item.created_at).toLocaleString('id-ID'),
-            Barang: item.produk ? item.produk.nama_barang : 'Dihapus',
-            Tipe: item.tipe,
-            Jumlah: item.jumlah,
-            Admin: item.admin_nama,
-            Keterangan: item.keterangan
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(dataExport);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Riwayat_Stok");
-        XLSX.writeFile(wb, "Laporan_Stok_FinexPos.xlsx");
-    }
+    window.onload = fetchRiwayat;
 </script>
 </body>
 </html>
