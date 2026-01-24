@@ -110,56 +110,64 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    // Proteksi Halaman
+    // --- PROTEKSI ANTI-LOOP ---
     const sessionStr = localStorage.getItem('finex_session');
     const userRole = localStorage.getItem('user_role');
 
-    if (!sessionStr || userRole !== 'admin') {
+    // Cek apakah user ada sesi
+    if (!sessionStr) {
         window.location.replace('login.html');
+    } else {
+        const session = JSON.parse(sessionStr);
+        // Jika bukan admin, arahkan ke POS agar tidak muter ke Login
+        if (userRole !== 'admin' && session.role !== 'admin') {
+            alert("Halaman ini khusus untuk Admin!");
+            window.location.replace('pos.html');
+        } else {
+            // Jalankan fungsi jika lolos pengecekan
+            window.onload = () => {
+                document.getElementById('display-user-nav').innerText = session.username;
+                fetchRiwayat();
+            };
+        }
     }
 
-    const session = JSON.parse(sessionStr);
-
-    window.onload = () => {
-        document.getElementById('display-user-nav').innerText = session.username;
-        fetchRiwayat();
-    };
-
     async function fetchRiwayat() {
-        const tipe = document.getElementById('filter-tipe').value;
-        const sort = document.getElementById('filter-sort').value;
+        try {
+            const tipe = document.getElementById('filter-tipe').value;
+            const sort = document.getElementById('filter-sort').value;
 
-        // Memanggil tabel 'riwayat_stok' dan join dengan 'produk'
-        let query = supabaseClient
-            .from('riwayat_stok')
-            .select(`
-                id, created_at, tipe, jumlah, keterangan, admin_nama,
-                produk:produk_id (nama_produk)
-            `)
-            .order('created_at', { ascending: sort === 'asc' });
+            let query = supabaseClient
+                .from('riwayat_stok') // Pastikan nama tabel ini benar di Supabase
+                .select(`
+                    id, created_at, tipe, jumlah, keterangan, admin_nama,
+                    produk:produk_id (nama_produk)
+                `)
+                .order('created_at', { ascending: sort === 'asc' });
 
-        if (tipe !== 'all') query = query.eq('tipe', tipe);
+            if (tipe !== 'all') query = query.eq('tipe', tipe);
 
-        const { data, error } = await query;
-        if (error) {
-            console.error("Gagal mengambil data:", error.message);
-            return;
+            const { data, error } = await query;
+            if (error) throw error;
+
+            renderTable(data);
+        } catch (err) {
+            console.error("Fetch Error:", err.message);
+            document.getElementById('stok-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat data riwayat stok.</td></tr>`;
         }
-
-        renderTable(data);
     }
 
     function renderTable(data) {
         const body = document.getElementById('stok-body');
         body.innerHTML = '';
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             body.innerHTML = '<tr><td colspan="6" style="text-align:center">Tidak ada riwayat perubahan stok.</td></tr>';
             return;
         }
 
         data.forEach(item => {
-            const isMasuk = item.tipe.toLowerCase() === 'masuk';
+            const isMasuk = item.tipe?.toLowerCase() === 'masuk';
             const badgeClass = isMasuk ? 'badge-in' : 'badge-out';
             const qtySign = isMasuk ? `+${item.jumlah}` : `-${item.jumlah}`;
             const qtyColor = isMasuk ? '#2e7d32' : '#c62828';
