@@ -26,23 +26,23 @@
         h1 { margin-top: 0; color: var(--primary); }
 
         /* Form & Table */
-        .form-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; max-width: 500px; }
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 25px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
         input:focus { border-color: var(--accent); }
-        .btn-save { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-save:hover { background: #2980b9; }
+        .btn-save { background: var(--success); color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         .btn-del { color: var(--danger); cursor: pointer; border: none; background: none; font-weight: bold; }
+        .btn-del:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
     <nav>
         <h2>Finex Pos</h2>
-        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="index.html">📊 Dashboard</a>
         
         <div class="nav-section">Master Data</div>
         <a href="produk.html">📦 Produk</a>
@@ -69,50 +69,45 @@
         <h1>Manajemen Gudang / Lokasi Kantin</h1>
         <div class="card">
             <div class="form-group">
-                <label style="font-size: 13px; font-weight: bold; color: #666;">Tambah Lokasi Baru</label>
-                <input type="text" id="nama-gudang" placeholder="Nama Gudang (misal: Gudang Utama)">
-                <input type="text" id="lokasi-gudang" placeholder="Keterangan Lokasi (misal: Lantai 2 / Belakang)">
-                <button class="btn-save" onclick="tambahGudang()">💾 Simpan Gudang</button>
+                <input type="text" id="nama-gudang" placeholder="Nama Gudang/Lokasi (Contoh: Gudang Utama, Etalase Depan)">
+                <button class="btn-save" onclick="tambahGudang()">➕ Tambah</button>
             </div>
-
             <table>
                 <thead>
                     <tr>
                         <th>Nama Gudang</th>
-                        <th>Keterangan Lokasi</th>
-                        <th style="width: 80px;">Aksi</th>
+                        <th style="width: 100px; text-align: center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="list-gudang">
-                    <tr><td colspan="3" style="text-align: center;">Memuat data...</td></tr>
+                    <tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
     <script>
-        // --- 1. KONFIGURASI & PROTEKSI ---
+        // --- 1. KONFIGURASI ---
         const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
+        // --- 2. PROTEKSI SESI ---
         const session = JSON.parse(localStorage.getItem('finex_session'));
         const userRole = localStorage.getItem('user_role');
 
-        if (!session || !userRole) {
+        if (!session) {
             window.location.replace("login.html");
         } else if (userRole === 'kasir') {
-            alert("Akses Ditolak! Halaman ini khusus Admin.");
             window.location.replace("pos.html");
         }
 
-        // --- 2. INISIALISASI ---
         window.onload = () => {
-            document.getElementById('display-user-nav').innerText = session.username;
+            if (session) document.getElementById('display-user-nav').innerText = session.username;
             muatGudang();
         };
 
-        // --- 3. FUNGSI LOGIKA ---
+        // --- 3. FUNGSI CRUD ---
         async function muatGudang() {
             const { data, error } = await supabaseClient
                 .from('gudang')
@@ -123,42 +118,39 @@
 
             const tbody = document.getElementById('list-gudang');
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Belum ada data gudang.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">Belum ada data gudang.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = data.map(g => `
                 <tr>
                     <td><b>${g.nama_gudang}</b></td>
-                    <td>${g.lokasi || '<span style="color:#ccc;">- tidak ada keterangan -</span>'}</td>
-                    <td>
-                        <button class="btn-del" onclick="hapusGudang('${g.id}', '${g.nama_gudang}')">Hapus</button>
+                    <td style="text-align: center;">
+                        <button class="btn-del" onclick="hapusGudang('${g.id}', '${g.nama_gudang}')">❌ Hapus</button>
                     </td>
                 </tr>
             `).join('');
         }
 
         async function tambahGudang() {
-            const nama = document.getElementById('nama-gudang').value.trim();
-            const lok = document.getElementById('lokasi-gudang').value.trim();
-            
+            const input = document.getElementById('nama-gudang');
+            const nama = input.value.trim();
             if(!nama) return alert("Nama gudang wajib diisi!");
 
             const { error } = await supabaseClient
                 .from('gudang')
-                .insert([{ nama_gudang: nama, lokasi: lok }]);
+                .insert([{ nama_gudang: nama }]);
 
             if (error) {
-                alert("Gagal menambah gudang: " + error.message);
+                alert("Gagal: " + error.message);
             } else {
-                document.getElementById('nama-gudang').value = '';
-                document.getElementById('lokasi-gudang').value = '';
+                input.value = '';
                 muatGudang();
             }
         }
 
         async function hapusGudang(id, nama) {
-            if(confirm(`Hapus gudang "${nama}"? Data stok di lokasi ini mungkin akan hilang.`)) {
+            if(confirm(`Hapus gudang "${nama}"? Stok barang di lokasi ini mungkin tidak akan terbaca.`)) {
                 const { error } = await supabaseClient
                     .from('gudang')
                     .delete()
