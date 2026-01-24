@@ -261,6 +261,36 @@
         }
     }
 
+function bagikanKeWhatsApp(trxId, nominal, noHpCustomer = "") {
+    // Ubah URL ini sesuai dengan alamat web hosting Anda nantinya
+    const urlInvoice = `https://namawebanda.com/invoice-view.html?id=${trxId}`;
+    
+    const pesan = `Halo, Terima kasih telah berbelanja di *Kantin Finex*. %0A%0A` +
+                  `Total Pembayaran: *Rp ${nominal.toLocaleString()}* %0A` +
+                  `Lihat Invoice Digital Anda di sini: %0A${urlInvoice}`;
+    
+    const waLink = `https://wa.me/${noHpCustomer}?text=${pesan}`;
+    
+    window.open(waLink, '_blank');
+}
+
+    async function bagikanInvoice() {
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'Invoice Finex Pos',
+                text: 'Berikut struk belanja Anda di Kantin.',
+                url: window.location.href, // Mengirim link halaman ini
+            });
+        } catch (err) {
+            console.log('Batal berbagi');
+        }
+    } else {
+        alert("Gunakan browser HP untuk fitur berbagi langsung.");
+    }
+}
+    
+
     function renderReceipt(inv, bayar, method) {
         const kembali = bayar - state.total;
         let itemHTML = cart.map(i => `
