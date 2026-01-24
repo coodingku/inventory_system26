@@ -2,37 +2,42 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Inventori Stok</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
         /* Sidebar */
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; }
-        nav a.active { background: var(--accent); color: white; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Main Content */
-        main { flex: 1; margin-left: 260px; padding: 30px; }
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap; }
-        .search-box { flex: 1; min-width: 300px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .search-box { flex: 1; min-width: 300px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         
         .btn-group { display: flex; gap: 10px; }
-        button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
         .btn-export { background: #607d8b; color: white; }
         .btn-import { background: #8e44ad; color: white; }
         
-        .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card-table { background: var(--white); padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
-        td { padding: 15px; border-bottom: 1px solid #eee; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
 
-        .input-stok { width: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; text-align: center; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; }
-        .bg-low { background: #fff3e0; color: #e67e22; }
+        .input-stok { width: 70px; padding: 8px; border: 1px solid #ddd; border-radius: 6px; text-align: center; font-weight: bold; }
+        .badge { padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+        .bg-low { background: #fff3e0; color: #e67e22; border: 1px solid #ffe0b2; }
+        
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -40,18 +45,26 @@
 <nav>
     <h2>Finex Pos</h2>
     <a href="index.html">📊 Dashboard</a>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
+    <div class="nav-section">Laporan</div>
+    <a href="laporan-penjualan.html">📑 Penjualan</a>
+    <a href="laporan-stok.html">📋 Riwayat Stok</a>
+    <div class="nav-section">Operasional</div>
     <a href="penyesuaian.html" class="active">🔄 Stok In/Out</a>
     <a href="produk.html">📦 Data Produk</a>
+    
+    <div class="user-info">
+        <small>ADMIN AKTIF:</small><br>
+        <b id="display-user-nav">Memuat...</b>
+    </div>
+    <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
 </nav>
 
 <main>
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>Inventori & Stok</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h1>Manajemen Stok Kantin</h1>
         <div class="btn-group">
-            <button class="btn-export" onclick="exportStok()">📥 Export Excel</button>
-            <label class="btn-import" style="padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+            <button class="btn-export" onclick="exportStok()">📥 Export</button>
+            <label class="btn-import" style="padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; display: flex; align-items: center;">
                 📤 Import Update
                 <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onchange="importStok(event)">
             </label>
@@ -69,12 +82,13 @@
                     <th>Nama Produk</th>
                     <th>Kategori</th>
                     <th>Stok Saat Ini</th>
-                    <th>Penyesuaian (Qty)</th>
-                    <th>Aksi</th>
+                    <th>Qty Penyesuaian</th>
+                    <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="produk-list">
-                </tbody>
+                <tr><td colspan="5" style="text-align:center;">Memuat data produk...</td></tr>
+            </tbody>
         </table>
     </div>
 </main>
@@ -85,6 +99,20 @@
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
     let allProducts = [];
+    const sessionStr = localStorage.getItem('finex_session');
+    const userRole = localStorage.getItem('user_role');
+
+    // Proteksi Sesi
+    if (!sessionStr || userRole !== 'admin') {
+        window.location.replace('login.html');
+    }
+
+    const session = JSON.parse(sessionStr);
+
+    window.onload = () => {
+        document.getElementById('display-user-nav').innerText = session.username;
+        loadProduk();
+    };
 
     async function loadProduk() {
         const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang', { ascending: true });
@@ -96,6 +124,12 @@
     function renderTabel(data) {
         const tbody = document.getElementById('produk-list');
         tbody.innerHTML = '';
+        
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Data tidak ditemukan.</td></tr>';
+            return;
+        }
+
         data.forEach(p => {
             const isLow = p.stok_sekarang < 10 ? 'bg-low' : '';
             tbody.innerHTML += `
@@ -104,11 +138,11 @@
                     <td>${p.kategori || 'Umum'}</td>
                     <td><span class="badge ${isLow}">${p.stok_sekarang}</span></td>
                     <td>
-                        <input type="number" id="adj-${p.id}" class="input-stok" placeholder="0">
+                        <input type="number" id="adj-${p.id}" class="input-stok" placeholder="0" min="1">
                     </td>
-                    <td>
-                        <button onclick="updateStok('${p.id}', 'in')" style="background:var(--success); color:white; display:inline-block; padding: 5px 10px;">+</button>
-                        <button onclick="updateStok('${p.id}', 'out')" style="background:var(--danger); color:white; display:inline-block; padding: 5px 10px;">-</button>
+                    <td style="text-align: center;">
+                        <button onclick="updateStok('${p.id}', 'masuk')" style="background:var(--success); color:white; display:inline-block; padding: 8px 15px; border-radius:6px; margin-right:5px;">+</button>
+                        <button onclick="updateStok('${p.id}', 'keluar')" style="background:var(--danger); color:white; display:inline-block; padding: 8px 15px; border-radius:6px;">-</button>
                     </td>
                 </tr>
             `;
@@ -118,16 +152,40 @@
     async function updateStok(id, tipe) {
         const input = document.getElementById(`adj-${id}`);
         const qty = parseInt(input.value);
-        if (!qty || qty <= 0) return alert("Masukkan jumlah qty yang valid");
+        
+        if (!qty || qty <= 0) return alert("Masukkan jumlah qty yang valid!");
 
         const produk = allProducts.find(p => p.id === id);
-        const stokBaru = tipe === 'in' ? produk.stok_sekarang + qty : produk.stok_sekarang - qty;
+        const stokBaru = tipe === 'masuk' ? produk.stok_sekarang + qty : produk.stok_sekarang - qty;
 
-        const { error } = await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
+        if (stokBaru < 0) return alert("Gagal: Stok tidak boleh minus!");
+
+        // 1. Update Tabel Produk
+        const { error: updateError } = await supabaseClient
+            .from('produk')
+            .update({ stok_sekarang: stokBaru })
+            .eq('id', id);
         
-        if (!error) {
-            alert(`Berhasil update stok ${tipe === 'in' ? 'masuk' : 'keluar'}`);
+        if (updateError) return alert("Gagal update database: " + updateError.message);
+
+        // 2. Insert ke Riwayat Stok (PENTING)
+        const { error: logError } = await supabaseClient
+            .from('riwayat_stok')
+            .insert([{
+                produk_id: id,
+                tipe: tipe, 
+                jumlah: qty,
+                admin_nama: session.username,
+                keterangan: `Penyesuaian Manual (${tipe})`
+            }]);
+
+        if (!logError) {
+            alert(`Berhasil! Stok ${produk.nama_barang} diperbarui.`);
             input.value = '';
+            loadProduk();
+        } else {
+            console.error("Gagal mencatat log:", logError);
+            alert("Stok berubah, tapi riwayat gagal dicatat.");
             loadProduk();
         }
     }
@@ -141,7 +199,6 @@
         renderTabel(filtered);
     }
 
-    // FEATURE: EXPORT EXCEL
     function exportStok() {
         const exportData = allProducts.map(p => ({
             "Nama Produk": p.nama_barang,
@@ -156,19 +213,16 @@
         XLSX.writeFile(wb, "Stok_FinexPos.xlsx");
     }
 
-    // FEATURE: IMPORT EXCEL (Update Stok Massal)
     function importStok(event) {
         const file = event.target.files[0];
         const reader = new FileReader();
         reader.onload = async (e) => {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(sheet);
+            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-            if(confirm(`Update ${json.length} produk sekaligus?`)) {
+            if(confirm(`Update ${json.length} produk?`)) {
                 for(let item of json) {
-                    // Update berdasarkan nama barang
                     await supabaseClient.from('produk')
                         .update({ stok_sekarang: item.Stok })
                         .eq('nama_barang', item["Nama Produk"]);
@@ -180,7 +234,10 @@
         reader.readAsArrayBuffer(file);
     }
 
-    window.onload = loadProduk;
+    function logout() {
+        localStorage.clear();
+        window.location.replace('login.html');
+    }
 </script>
 </body>
 </html>
