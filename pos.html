@@ -243,13 +243,26 @@
         
         isSaving = true;
 
-        // --- GENERATE INVOICE BERURUTAN ---
-        const today = new Date().toISOString().split('T')[0];
-        const { count } = await FinexDB.from('penjualan')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', `${today}T00:00:00`);
-        
-        const inv = `INV-FN${(count + 1).toString().padStart(3, '0')}`;
+       // --- GENERATE INVOICE BERURUTAN (VERSI AMAN) ---
+const today = new Date().toISOString().split('T')[0];
+
+// Cari invoice terakhir yang dibuat hari ini
+const { data: lastSales, error: errCheck } = await FinexDB
+    .from('penjualan')
+    .select('no_invoice')
+    .gte('created_at', `${today}T00:00:00`)
+    .order('no_invoice', { ascending: false })
+    .limit(1);
+
+let nextNumber = 1;
+if (lastSales && lastSales.length > 0) {
+    // Mengambil 3 angka terakhir dari INV-FN001 -> 001, lalu ditambah 1
+    const lastInv = lastSales[0].no_invoice;
+    const lastNum = parseInt(lastInv.substring(lastInv.length - 3));
+    nextNumber = lastNum + 1;
+}
+
+const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
         
         try {
             // 1. Simpan Penjualan
