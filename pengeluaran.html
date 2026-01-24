@@ -18,7 +18,7 @@
 
         /* Area Konten Utama */
         main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; position: relative; }
         h2 { color: var(--primary); text-align: center; margin-top: 0; margin-bottom: 25px; }
         
         label { font-size: 13px; font-weight: bold; color: #666; display: block; margin-bottom: 8px; }
@@ -26,9 +26,13 @@
         select:focus, input:focus { border-color: var(--warning); }
 
         .btn-save { width: 100%; padding: 15px; background: var(--warning); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
-        .btn-save:hover { background: #d35400; transform: translateY(-2px); }
+        .btn-save:hover:not(:disabled) { background: #d35400; transform: translateY(-2px); }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
         
-        .info-shift { background: #fff3e0; color: #e65100; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; border: 1px solid #ffe0b2; }
+        .info-shift { background: #fff3e0; color: #e65100; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; text-align: center; border: 1px solid #ffe0b2; font-weight: bold; }
+        
+        /* Overlay untuk Shift Close */
+        .overlay-close { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); border-radius: 20px; z-index: 10; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -38,7 +42,7 @@
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Kasir POS</a>
         <a href="laporan-bill.html">📄 Laporan Penjualan</a>
-        <a href="laporan-pengeluaran.html" class="active" style="background:var(--warning); color:white;">💸 Log Pengeluaran</a>
+        <a href="pengeluaran.html" class="active" style="background:var(--warning); color:white;">💸 Catat Pengeluaran</a>
         <a onclick="doClosing()" style="background:var(--danger); color:white; font-weight:bold; margin-top:10px;">🏁 Closing Shift</a>
         
         <div style="margin-top: 20px; font-size: 11px; color: #888; padding: 10px;">
@@ -49,6 +53,13 @@
 
     <main>
         <div class="card">
+            <div id="lock-overlay" class="overlay-close">
+                <div style="font-size: 50px; margin-bottom: 10px;">🔒</div>
+                <h3 style="color: var(--danger); margin: 0;">Shift Terkunci</h3>
+                <p style="color: #666; font-size: 14px;">Anda belum membuka Shift atau Shift Anda sudah <b>Close</b>. Tidak dapat mencatat pengeluaran.</p>
+                <button onclick="window.location.href='pos.html'" style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 5px; cursor: pointer;">Buka Shift Sekarang</button>
+            </div>
+
             <h2>💸 Pengeluaran Kantin</h2>
             
             <div id="shift-status" class="info-shift">Mengecek status shift aktif...</div>
@@ -86,15 +97,17 @@
     };
 
     async function checkActiveShift() {
-        const { data: shift } = await FinexDB
+        // Cek status shift terakhir untuk user ini
+        const { data: shift, error } = await FinexDB
             .from('kasir_log')
-            .select('id')
+            .select('id, status')
             .eq('kasir_nama', session.username)
             .eq('status', 'Open')
             .maybeSingle();
 
         const statusEl = document.getElementById('shift-status');
         const btnSubmit = document.getElementById('btn-submit');
+        const overlay = document.getElementById('lock-overlay');
 
         if (shift) {
             activeShiftId = shift.id;
@@ -103,12 +116,17 @@
             statusEl.style.color = "#2e7d32";
             statusEl.style.borderColor = "#c8e6c9";
             btnSubmit.disabled = false;
+            overlay.style.display = "none";
         } else {
-            statusEl.innerHTML = "⚠️ Gagal! Anda harus membuka shift dulu di Kasir.";
+            statusEl.innerHTML = "⚠️ Shift Belum Dibuka / Sudah Close";
             statusEl.style.background = "#ffebee";
             statusEl.style.color = "#c62828";
             statusEl.style.borderColor = "#ffcdd2";
             btnSubmit.disabled = true;
+            overlay.style.display = "flex"; // Tampilkan overlay pemberitahuan
+            
+            // Opsional: Langsung tampilkan alert saat masuk
+            alert("⚠️ Akses Ditolak: Anda belum membuka Shift atau Shift Anda sudah Close.");
         }
     }
 
