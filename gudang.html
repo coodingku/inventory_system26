@@ -2,111 +2,182 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Gudang</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Manajemen Gudang</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Gaya CSS sama dengan kategori.html */
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        
+        /* Sidebar Navigasi Standar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
-        main { flex: 1; margin-left: 260px; padding: 30px; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .form-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
-        .btn-save { background: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        
+        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h1 { margin-top: 0; color: var(--primary); }
+
+        /* Form & Table */
+        .form-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; max-width: 500px; }
+        input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        input:focus { border-color: var(--accent); }
+        .btn-save { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-save:hover { background: #2980b9; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .btn-del { color: var(--danger); cursor: pointer; border: none; background: none; font-weight: bold; }
     </style>
 </head>
 <body>
-   <nav>
-    <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="index.html" class="active">📊 Dashboard</a>
+
+    <nav>
+        <h2>Finex Pos</h2>
+        <a href="dashboard.html">📊 Dashboard</a>
         
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        
+        <div class="nav-section">Master Data</div>
         <a href="produk.html">📦 Produk</a>
         <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
+        <a href="gudang.html" class="active">🏠 Gudang</a>
         <a href="metode-pembayaran.html">💳 Metode Bayar</a>
         
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        
+        <div class="nav-section">Operasional</div>
         <a href="penyesuaian.html">🔄 Stok In/Out</a>
         <a href="manajemen-user.html">👥 Manajemen User</a>
         <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-    </div>
-    
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white;">🛒 Masuk Kasir</a>
-    <div class="logout-btn" onclick="logout()" style="color:#e74c3c; cursor:pointer; padding: 12px;">🚪 Keluar</div>
-</nav>
+        
+        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+        <a href="pos.html" style="background: var(--success); color: white; text-align: center;">🛒 Masuk Kasir</a>
+        
+        <div class="user-info">
+            <small style="color: #bbb;">ADMIN AKTIF:</small><br>
+            <b id="display-user-nav">Memuat...</b>
+        </div>
+        <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
+    </nav>
 
     <main>
-        <h1>Manajemen Gudang / Lokasi</h1>
+        <h1>Manajemen Gudang / Lokasi Kantin</h1>
         <div class="card">
             <div class="form-group">
+                <label style="font-size: 13px; font-weight: bold; color: #666;">Tambah Lokasi Baru</label>
                 <input type="text" id="nama-gudang" placeholder="Nama Gudang (misal: Gudang Utama)">
-                <input type="text" id="lokasi-gudang" placeholder="Lokasi Singkat (misal: Lantai 2)">
-                <button class="btn-save" onclick="tambahGudang()">Tambah Gudang</button>
+                <input type="text" id="lokasi-gudang" placeholder="Keterangan Lokasi (misal: Lantai 2 / Belakang)">
+                <button class="btn-save" onclick="tambahGudang()">💾 Simpan Gudang</button>
             </div>
+
             <table>
-                <thead><tr><th>Nama Gudang</th><th>Lokasi</th><th>Aksi</th></tr></thead>
-                <tbody id="list-gudang"></tbody>
+                <thead>
+                    <tr>
+                        <th>Nama Gudang</th>
+                        <th>Keterangan Lokasi</th>
+                        <th style="width: 80px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="list-gudang">
+                    <tr><td colspan="3" style="text-align: center;">Memuat data...</td></tr>
+                </tbody>
             </table>
         </div>
     </main>
+
     <script>
-         // 1. LETAKKAN DI SINI (PALING ATAS)
-        const userRole = localStorage.getItem('user_role');
-        const userPath = window.location.pathname;
-
-        if (!userRole) {
-            window.location.href = "login.html";
-        }
-
-        // Proteksi halaman admin dari kasir
-        const adminPages = ['index.html', 'pengaturan-biaya.html', 'metode-pembayaran.html', 'manajemen-user.html', 'produk.html'];
-        const isAdminPage = adminPages.some(page => userPath.includes(page));
-
-        if (userRole === 'kasir' && isAdminPage) {
-            alert("Akses Ditolak! Anda bukan Admin.");
-            window.location.href = "pos.html";
-        }
-        
+        // --- 1. KONFIGURASI & PROTEKSI ---
         const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        const userRole = localStorage.getItem('user_role');
+
+        if (!session || !userRole) {
+            window.location.replace("login.html");
+        } else if (userRole === 'kasir') {
+            alert("Akses Ditolak! Halaman ini khusus Admin.");
+            window.location.replace("pos.html");
+        }
+
+        // --- 2. INISIALISASI ---
+        window.onload = () => {
+            document.getElementById('display-user-nav').innerText = session.username;
+            muatGudang();
+        };
+
+        // --- 3. FUNGSI LOGIKA ---
         async function muatGudang() {
-            const { data } = await supabaseClient.from('gudang').select('*').order('nama_gudang');
+            const { data, error } = await supabaseClient
+                .from('gudang')
+                .select('*')
+                .order('nama_gudang', { ascending: true });
+
+            if (error) return console.error(error);
+
             const tbody = document.getElementById('list-gudang');
-            tbody.innerHTML = '';
-            data.forEach(g => {
-                tbody.innerHTML += `<tr><td>${g.nama_gudang}</td><td>${g.lokasi || '-'}</td><td><button style="color:red; border:none; background:none; cursor:pointer;" onclick="hapusGudang('${g.id}')">Hapus</button></td></tr>`;
-            });
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Belum ada data gudang.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(g => `
+                <tr>
+                    <td><b>${g.nama_gudang}</b></td>
+                    <td>${g.lokasi || '<span style="color:#ccc;">- tidak ada keterangan -</span>'}</td>
+                    <td>
+                        <button class="btn-del" onclick="hapusGudang('${g.id}', '${g.nama_gudang}')">Hapus</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         async function tambahGudang() {
-            const nama = document.getElementById('nama-gudang').value;
-            const lok = document.getElementById('lokasi-gudang').value;
-            if(!nama) return;
-            await supabaseClient.from('gudang').insert([{ nama_gudang: nama, lokasi: lok }]);
-            location.reload();
-        }
+            const nama = document.getElementById('nama-gudang').value.trim();
+            const lok = document.getElementById('lokasi-gudang').value.trim();
+            
+            if(!nama) return alert("Nama gudang wajib diisi!");
 
-        async function hapusGudang(id) {
-            if(confirm('Hapus gudang ini?')) {
-                await supabaseClient.from('gudang').delete().eq('id', id);
+            const { error } = await supabaseClient
+                .from('gudang')
+                .insert([{ nama_gudang: nama, lokasi: lok }]);
+
+            if (error) {
+                alert("Gagal menambah gudang: " + error.message);
+            } else {
+                document.getElementById('nama-gudang').value = '';
+                document.getElementById('lokasi-gudang').value = '';
                 muatGudang();
             }
         }
-        window.onload = muatGudang;
+
+        async function hapusGudang(id, nama) {
+            if(confirm(`Hapus gudang "${nama}"? Data stok di lokasi ini mungkin akan hilang.`)) {
+                const { error } = await supabaseClient
+                    .from('gudang')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) {
+                    alert("Gagal hapus: " + error.message);
+                } else {
+                    muatGudang();
+                }
+            }
+        }
+
+        function logout() {
+            if(confirm("Keluar dari sistem?")) {
+                localStorage.clear();
+                window.location.replace("login.html");
+            }
+        }
     </script>
 </body>
 </html>
