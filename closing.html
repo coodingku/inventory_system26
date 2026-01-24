@@ -9,47 +9,49 @@
         .card { background: white; padding: 25px; border-radius: 15px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
         .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
-        input { width: 100%; padding: 12px; margin-top: 10px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        .btn-close { width: 100%; padding: 15px; background: #2c3e50; color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; }
+        input { width: 100%; padding: 12px; margin-top: 10px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; }
+        .btn-close { width: 100%; padding: 15px; background: #2c3e50; color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .btn-close:hover { background: #1a252f; }
         
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { display: block; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; color: black; }
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="text-align:center; margin-top:0;">Closing Shift</h2>
+        <h2 style="text-align:center; margin-top:0; color: #2c3e50;">Closing Shift Kantin</h2>
         
-        <div id="loader" style="text-align:center; color:#888;">Menarik data transaksi...</div>
+        <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menarik data transaksi Finex Pos...</div>
 
         <div id="main-content" style="display:none;">
             <div id="item-details">
-                <h4 style="margin-bottom:10px; color:#666;">Rincian Penjualan:</h4>
+                <h4 style="margin-bottom:10px; color:#666; border-bottom: 2px solid #eee; padding-bottom: 5px;">Produk Terjual:</h4>
                 <div id="list-barang"></div>
             </div>
 
             <div style="margin-top:20px;">
-                <div class="row"><span>Total Diskon Terpakai:</span><b id="txt-diskon" style="color:red;">0</b></div>
-                <div class="row"><span>Pembayaran QRIS:</span><b id="txt-qris">0</b></div>
-                <div class="row"><span>Pembayaran Tunai:</span><b id="txt-tunai">0</b></div>
-                <div class="row"><span>Saldo Awal (Modal):</span><b id="txt-awal">0</b></div>
-                <div class="total-row"><span>Total Uang Tunai:</span><span id="txt-total-sistem">0</span></div>
+                <div class="row"><span>Total Diskon:</span><b id="txt-diskon" style="color:red;">0</b></div>
+                <div class="row"><span>Pembayaran QRIS/Transfer:</span><b id="txt-qris">0</b></div>
+                <div class="row"><span>Penjualan Tunai:</span><b id="txt-tunai">0</b></div>
+                <div class="row"><span>Modal Awal (Laci):</span><b id="txt-awal">0</b></div>
+                <div class="total-row"><span>Total Tunai Seharusnya:</span><span id="txt-total-sistem">0</span></div>
             </div>
 
-            <div style="margin-top: 20px;">
-                <label style="font-size:12px; font-weight:bold;">Input Uang Fisik di Laci (Tunai):</label>
-                <input type="number" id="input-fisik" onkeyup="hitungSelisih()" placeholder="0">
+            <div style="margin-top: 25px; background: #fff9db; padding: 15px; border-radius: 10px;">
+                <label style="font-size:12px; font-weight:bold; color: #856404;">Input Uang Fisik di Laci (Tunai):</label>
+                <input type="number" id="input-fisik" onkeyup="hitungSelisih()" placeholder="Rp 0">
             </div>
 
-            <div class="row" style="margin-top:15px; border:none;">
-                <span>Selisih:</span><b id="txt-selisih">Rp 0</b>
+            <div class="row" style="margin-top:15px; border:none; font-size: 16px;">
+                <span>Selisih Uang:</span><b id="txt-selisih">Rp 0</b>
             </div>
 
-            <button class="btn-close" onclick="prosesClosing()">KONFIRMASI & CETAK STRUK</button>
+            <button class="btn-close" onclick="prosesClosing()">KONFIRMASI & CETAK LAPORAN</button>
+            <button onclick="window.location.href='pos.html'" style="width:100%; background:none; border:none; color:gray; cursor:pointer; margin-top:10px;">Kembali ke Kasir</button>
         </div>
     </div>
 
@@ -62,39 +64,60 @@
 
         let totalSistem = 0;
         let dataCetak = { items: [], diskon: 0, tunai: 0, qris: 0, awal: 0, kasir: '' };
-        let shiftId = localStorage.getItem('shift_id');
+        
+        // Mengambil log ID dari session atau localStorage
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        let shiftId = null;
 
-        async function loadDataClosing() {
-            if (!shiftId) {
-                alert("Sesi shift tidak ditemukan! Silakan buka kasir terlebih dahulu.");
+        async function initClosing() {
+            // Cari shift yang masih 'Open' untuk user ini
+            const { data: activeShift } = await supabaseClient
+                .from('kasir_log')
+                .select('id')
+                .eq('kasir_nama', session.username)
+                .eq('status', 'Open')
+                .maybeSingle();
+
+            if (!activeShift) {
+                alert("Tidak ada shift aktif yang ditemukan!");
                 window.location.href = "pos.html";
                 return;
             }
+            shiftId = activeShift.id;
+            loadDataClosing();
+        }
 
+        async function loadDataClosing() {
             try {
-                // Ambil data log
                 const { data: log, error: errLog } = await supabaseClient.from('kasir_log').select('*').eq('id', shiftId).single();
-                if (errLog || !log) throw new Error("Data log tidak ditemukan");
+                if (errLog || !log) throw new Error("Data log shift tidak ditemukan");
 
-                // Ambil data penjualan
                 const { data: sales, error: errSales } = await supabaseClient.from('penjualan').select('*').eq('kasir_id', shiftId);
                 if (errSales) throw new Error("Gagal mengambil data penjualan");
 
                 dataCetak.awal = parseFloat(log.saldo_awal || 0);
-                dataCetak.kasir = log.username || log.kasir_nama;
+                dataCetak.kasir = log.kasir_nama;
 
                 let itemMap = {};
                 sales.forEach(trx => {
                     dataCetak.diskon += (trx.diskon || 0);
-                    if (trx.metode_pembayaran === 'Tunai') dataCetak.tunai += trx.grand_total;
-                    else dataCetak.qris += trx.grand_total;
+                    if (trx.metode_pembayaran === 'Tunai') {
+                        dataCetak.tunai += trx.grand_total;
+                    } else {
+                        dataCetak.qris += trx.grand_total;
+                    }
 
-                    trx.items.forEach(it => {
-                        const nama = it.nama_barang || it.nama_produk;
-                        if(!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
-                        itemMap[nama].qty += it.qty;
-                        itemMap[nama].sub += (it.qty * it.harga);
-                    });
+                    // PERBAIKAN: Gunakan JSON.parse jika items berupa string
+                    const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+
+                    if (items && Array.isArray(items)) {
+                        items.forEach(it => {
+                            const nama = it.nama_barang || it.nama_produk;
+                            if(!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
+                            itemMap[nama].qty += it.qty;
+                            itemMap[nama].sub += (it.qty * it.harga);
+                        });
+                    }
                 });
 
                 let htmlItems = "";
@@ -103,7 +126,9 @@
                     htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString()}</span></div>`;
                 }
 
-                document.getElementById('list-barang').innerHTML = htmlItems;
+                document.getElementById('list-barang').innerHTML = htmlItems || '<div style="text-align:center; color:gray;">Belum ada penjualan</div>';
+                
+                // Saldo Seharusnya = Modal Awal + Penjualan Tunai
                 totalSistem = dataCetak.awal + dataCetak.tunai;
                 
                 document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString();
@@ -116,7 +141,7 @@
                 document.getElementById('main-content').style.display = 'block';
 
             } catch (e) {
-                alert(e.message);
+                alert("Kesalahan: " + e.message);
                 console.error(e);
             }
         }
@@ -126,73 +151,70 @@
             const selisih = fisik - totalSistem;
             const txt = document.getElementById('txt-selisih');
             txt.innerText = "Rp " + selisih.toLocaleString();
-            txt.style.color = selisih < 0 ? 'red' : 'green';
+            txt.style.color = selisih < 0 ? '#e74c3c' : '#27ae60';
         }
 
         function renderStruk(fisik, selisih) {
             let itemRows = dataCetak.items.map(i => `
                 <div style="display:flex; justify-content:space-between;">
-                    <span>${i.name.substring(0,15)}</span><span>x${i.qty}</span>
+                    <span>${i.name.substring(0,18)}</span><span>x${i.qty}</span>
                 </div>`).join('');
 
             document.getElementById('print-area').innerHTML = `
-                <div style="text-align:center;"><b>LAPORAN CLOSING</b><br>Finex Pos - Kantin</div>
+                <div style="text-align:center; margin-bottom: 10px;">
+                    <b style="font-size:14px;">LAPORAN CLOSING KANTIN</b><br>
+                    Finex Pos System
+                </div>
                 ----------------------------<br>
                 Kasir : ${dataCetak.kasir}<br>
                 Waktu : ${new Date().toLocaleString('id-ID')}<br>
                 ----------------------------<br>
-                <b>PRODUK TERJUAL:</b><br>
+                <b>RINGKASAN ITEM:</b><br>
                 ${itemRows}
                 ----------------------------<br>
-                Diskon      : ${dataCetak.diskon.toLocaleString()}<br>
-                QRIS        : ${dataCetak.qris.toLocaleString()}<br>
-                Tunai Sistem: ${dataCetak.tunai.toLocaleString()}<br>
-                Modal Awal  : ${dataCetak.awal.toLocaleString()}<br>
+                QRIS/Non-Tunai: ${dataCetak.qris.toLocaleString()}<br>
+                Diskon Terpakai: ${dataCetak.diskon.toLocaleString()}<br>
                 ----------------------------<br>
-                <b>TOTAL TUNAI: ${totalSistem.toLocaleString()}</b><br>
-                UANG FISIK : ${fisik.toLocaleString()}<br>
-                SELISIH    : ${selisih.toLocaleString()}<br>
+                Modal Awal    : ${dataCetak.awal.toLocaleString()}<br>
+                Tunai Masuk   : ${dataCetak.tunai.toLocaleString()}<br>
+                <b>TUNAI SISTEM : ${totalSistem.toLocaleString()}</b><br>
+                <b>TUNAI FISIK  : ${fisik.toLocaleString()}</b><br>
                 ----------------------------<br>
-                <center>Laporan Berhasil Dibuat</center>
+                <b>SELISIH      : ${selisih.toLocaleString()}</b><br>
+                ----------------------------<br>
+                <div style="text-align:center; margin-top:10px;">Shift Telah Berakhir</div>
             `;
         }
 
-   async function prosesClosing() {
-    const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
-    const selisih = fisik - totalSistem;
+        async function prosesClosing() {
+            const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
+            const selisih = fisik - totalSistem;
 
-    if(confirm("Tutup kasir dan cetak laporan?")) {
-        renderStruk(fisik, selisih);
-        
-        // Sesuaikan dengan nama kolom yang ada di tabel kasir_log Anda
-        const dataUpdate = {
-            waktu_closing: new Date().toISOString(), 
-            saldo_akhir: totalSistem,       // Menggunakan nama kolom saldo_akhir sesuai database Anda
-            total_tunai_fisik: fisik,
-            selisih: selisih,
-            status: 'Closed'
-        };
+            if (confirm("Yakin ingin menutup shift? Data tidak dapat diubah kembali.")) {
+                renderStruk(fisik, selisih);
+                
+                const { error } = await supabaseClient
+                    .from('kasir_log')
+                    .update({
+                        waktu_closing: new Date().toISOString(),
+                        saldo_akhir: totalSistem,
+                        total_tunai_fisik: fisik,
+                        selisih: selisih,
+                        status: 'Closed'
+                    })
+                    .eq('id', shiftId);
 
-        console.log("Mengirim data closing ke Supabase:", dataUpdate);
-
-        const { error } = await supabaseClient
-            .from('kasir_log')
-            .update(dataUpdate)
-            .eq('id', shiftId);
-
-        if(!error) {
-            window.print();
-            localStorage.removeItem('shift_id');
-            alert("Shift Berhasil Ditutup!");
-            setTimeout(() => window.location.href = "dashboard.html", 1500);
-        } else {
-            console.error("Detail Error:", error);
-            // Memberikan pesan error spesifik jika kolom lain masih ada yang salah
-            alert(`Gagal update: ${error.message}. Periksa kembali nama kolom di database.`);
+                if (!error) {
+                    window.print();
+                    alert("Shift Berhasil Ditutup dan Disimpan.");
+                    window.location.href = "dashboard.html";
+                } else {
+                    alert(`Gagal menyimpan closing: ${error.message}`);
+                }
+            }
         }
-    }
-}
-        loadDataClosing();
+
+        initClosing();
     </script>
 </body>
 </html>
