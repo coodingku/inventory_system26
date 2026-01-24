@@ -121,34 +121,53 @@
         `).join('');
     }
 
-    async function updateStok(id, tipe) {
-        const input = document.getElementById(`adj-${id}`);
-        const qty = parseInt(input.value);
-        if (!qty || qty <= 0) return alert("Masukkan jumlah yang valid!");
+   async function updateStok(id, tipe) {
+    const input = document.getElementById(`adj-${id}`);
+    const qtyValue = parseInt(input.value);
+    
+    // Pastikan qty adalah angka dan lebih dari 0
+    if (isNaN(qtyValue) || qtyValue <= 0) return alert("Masukkan jumlah yang valid!");
 
-        const produk = allProducts.find(p => p.id === id);
-        const stokBaru = tipe === 'masuk' ? produk.stok_sekarang + qty : produk.stok_sekarang - qty;
+    const produk = allProducts.find(p => p.id === id);
+    const stokBaru = tipe === 'masuk' ? (produk.stok_sekarang + qtyValue) : (produk.stok_sekarang - qtyValue);
 
-        if (stokBaru < 0) return alert("Stok tidak mencukupi!");
+    if (stokBaru < 0) return alert("Stok tidak mencukupi!");
 
+    try {
         // 1. Update Tabel Produk
-        const { error: errUpdate } = await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
-        if (errUpdate) return alert("Gagal update stok!");
+        const { error: errUpdate } = await supabaseClient
+            .from('produk')
+            .update({ stok_sekarang: parseInt(stokBaru) }) // Pastikan dikirim sebagai angka
+            .eq('id', id);
 
-        // 2. Insert ke Riwayat (id_produk & nama_barang disesuaikan)
-        const { error: errLog } = await supabaseClient.from('riwayat_stok').insert([{
-            id_produk: id,
-            tipe: tipe,
-            jumlah: qty,
-            admin_nama: sessionData ? sessionData.username : 'Admin',
+        if (errUpdate) throw errUpdate;
+
+        // 2. Insert ke Riwayat (PENTING: Perhatikan format objeknya)
+        const dataInsert = {
+            id_produk: id,               // UUID produk
+            tipe: tipe.toLowerCase(),    // 'masuk' atau 'keluar'
+            jumlah: parseInt(qtyValue),  // Pastikan ini Integer/Angka
+            admin_nama: String(sessionData ? sessionData.username : 'Admin'),
             keterangan: 'Penyesuaian Manual'
-        }]);
+        };
 
-        alert("Berhasil!");
+        console.log("Mengirim data ke riwayat_stok:", dataInsert); // Debugging
+
+        const { error: errLog } = await supabaseClient
+            .from('riwayat_stok')
+            .insert([dataInsert]);
+
+        if (errLog) throw errLog;
+
+        alert("Stok berhasil diperbarui!");
         input.value = '';
         loadProduk();
-    }
 
+    } catch (error) {
+        console.error("Detail Error:", error);
+        alert("Gagal: " + (error.message || "Terjadi kesalahan sistem"));
+    }
+}
     function filterTabel() {
         const val = document.getElementById('searchBar').value.toLowerCase();
         const filtered = allProducts.filter(p => p.nama_barang.toLowerCase().includes(val));
