@@ -133,58 +133,73 @@
     }
 
     async function fetchRiwayat() {
-        try {
-            const tipe = document.getElementById('filter-tipe').value;
-            const sort = document.getElementById('filter-sort').value;
+    const tipe = document.getElementById('filter-tipe').value;
+    const sort = document.getElementById('filter-sort').value;
 
-            let query = supabaseClient
-                .from('riwayat_stok') // Pastikan nama tabel ini benar di Supabase
-                .select(`
-                    id, created_at, tipe, jumlah, keterangan, admin_nama,
-                    produk:produk_id (nama_barang)
-                `)
-                .order('created_at', { ascending: sort === 'asc' });
+    // Menampilkan loading state
+    document.getElementById('stok-body').innerHTML = '<tr><td colspan="6" style="text-align:center">Sedang mengambil data...</td></tr>';
 
-            if (tipe !== 'all') query = query.eq('tipe', tipe);
+    try {
+        // Ambil data riwayat_stok dan join dengan nama_barang dari tabel produk
+        let query = supabaseClient
+            .from('riwayat_stok')
+            .select(`
+                id,
+                created_at,
+                tipe,
+                jumlah,
+                keterangan,
+                admin_nama,
+                produk:produk_id (nama_barang)
+            `)
+            .order('created_at', { ascending: sort === 'asc' });
 
-            const { data, error } = await query;
-            if (error) throw error;
-
-            renderTable(data);
-        } catch (err) {
-            console.error("Fetch Error:", err.message);
-            document.getElementById('stok-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat data riwayat stok.</td></tr>`;
-        }
-    }
-
-    function renderTable(data) {
-        const body = document.getElementById('stok-body');
-        body.innerHTML = '';
-
-        if (!data || data.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" style="text-align:center">Tidak ada riwayat perubahan stok.</td></tr>';
-            return;
+        if (tipe !== 'all') {
+            query = query.eq('tipe', tipe);
         }
 
-        data.forEach(item => {
-            const isMasuk = item.tipe?.toLowerCase() === 'masuk';
-            const badgeClass = isMasuk ? 'badge-in' : 'badge-out';
-            const qtySign = isMasuk ? `+${item.jumlah}` : `-${item.jumlah}`;
-            const qtyColor = isMasuk ? '#2e7d32' : '#c62828';
-            
-            body.innerHTML += `
-                <tr>
-                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                    <td><b>${item.produk ? item.produk.nama_produk : 'Produk Dihapus'}</b></td>
-                    <td><span class="badge ${badgeClass}">${item.tipe}</span></td>
-                    <td style="font-weight:bold; color: ${qtyColor}">${qtySign}</td>
-                    <td>${item.admin_nama || 'System'}</td>
-                    <td style="color:#666; font-style:italic">${item.keterangan || '-'}</td>
-                </tr>
-            `;
-        });
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        renderTable(data);
+    } catch (err) {
+        console.error("Error Detail:", err);
+        document.getElementById('stok-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat data: ${err.message}</td></tr>`;
+    }
+}
+
+function renderTable(data) {
+    const body = document.getElementById('stok-body');
+    body.innerHTML = '';
+
+    if (!data || data.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" style="text-align:center">Tidak ada riwayat stok ditemukan di database.</td></tr>';
+        return;
     }
 
+    data.forEach(item => {
+        // Cek tipe untuk warna badge
+        const tipeKecil = item.tipe.toLowerCase();
+        const badgeClass = (tipeKecil === 'masuk' || tipeKecil === 'in') ? 'badge-in' : 'badge-out';
+        const symbol = (tipeKecil === 'masuk' || tipeKecil === 'in') ? '+' : '-';
+        const color = (tipeKecil === 'masuk' || tipeKecil === 'in') ? '#2e7d32' : '#c62828';
+        
+        // Ambil nama barang dari hasil join (produk.nama_barang)
+        const namaBarang = item.produk ? item.produk.nama_barang : 'Produk Tidak Diketahui';
+
+        body.innerHTML += `
+            <tr>
+                <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
+                <td><b>${namaBarang}</b></td>
+                <td><span class="badge ${badgeClass}">${item.tipe}</span></td>
+                <td style="font-weight:bold; color: ${color}">${symbol}${item.jumlah}</td>
+                <td>${item.admin_nama || 'System'}</td>
+                <td style="color:#666; font-style:italic">${item.keterangan || '-'}</td>
+            </tr>
+        `;
+    });
+}
     function exportExcel() {
         const table = document.getElementById("stok-table");
         const wb = XLSX.utils.table_to_book(table, { sheet: "Riwayat Stok" });
