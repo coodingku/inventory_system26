@@ -5,27 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Inventori Stok</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar Navigasi */
+        /* Sidebar */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Main Content */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
-        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap; }
-        .search-box { flex: 1; min-width: 300px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+        .toolbar { margin-bottom: 20px; }
+        .search-box { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         
         .card-table { background: var(--white); padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
 
         .input-stok { width: 70px; padding: 8px; border: 1px solid #ddd; border-radius: 6px; text-align: center; font-weight: bold; }
         .badge { padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; }
@@ -40,10 +38,8 @@
 <nav>
     <h2>Finex Pos</h2>
     <a href="index.html">📊 Dashboard</a>
-    <div class="nav-section">Laporan</div>
     <a href="laporan-penjualan.html">📑 Penjualan</a>
     <a href="laporan-stok.html">📋 Riwayat Stok</a>
-    <div class="nav-section">Operasional</div>
     <a href="penyesuaian.html" class="active">🔄 Stok In/Out</a>
     <a href="produk.html">📦 Data Produk</a>
     
@@ -55,18 +51,18 @@
 </nav>
 
 <main>
-    <h1>Stok In/Out Kantin</h1>
+    <h1>Penyesuaian Stok Kantin</h1>
     <div class="toolbar">
-        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk..." onkeyup="filterTabel()">
+        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama barang..." onkeyup="filterTabel()">
     </div>
 
     <div class="card-table">
         <table>
             <thead>
                 <tr>
-                    <th>Nama Produk</th>
-                    <th>Stok Saat Ini</th>
-                    <th>Qty</th>
+                    <th>Nama Barang</th>
+                    <th>Stok</th>
+                    <th>Jumlah</th>
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
@@ -84,24 +80,27 @@
 
     let allProducts = [];
     
-    // 1. Inisialisasi Session di awal agar global
+    // LOGIKA LOGIN YANG LEBIH LONGGAR (Mencegah Refresh Terus-Menerus)
     const sessionStr = localStorage.getItem('finex_session');
-    const userRole = localStorage.getItem('user_role');
-    let session = {};
+    let sessionData = null;
 
-    if (!sessionStr || userRole !== 'admin') {
+    if (!sessionStr) {
+        // Jika tidak ada session, baru lempar ke login
         window.location.replace('login.html');
     } else {
-        session = JSON.parse(sessionStr);
+        sessionData = JSON.parse(sessionStr);
     }
 
     window.onload = () => {
-        document.getElementById('display-user-nav').innerText = session.username || 'Admin';
+        if(sessionData) {
+            document.getElementById('display-user-nav').innerText = sessionData.username || 'Admin';
+        }
         loadProduk();
     };
 
     async function loadProduk() {
-        const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang', { ascending: true });
+        // Pastikan nama kolom sesuai: nama_barang
+        const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang');
         if (error) return console.error(error);
         allProducts = data;
         renderTabel(data);
@@ -125,7 +124,6 @@
     async function updateStok(id, tipe) {
         const input = document.getElementById(`adj-${id}`);
         const qty = parseInt(input.value);
-        
         if (!qty || qty <= 0) return alert("Masukkan jumlah yang valid!");
 
         const produk = allProducts.find(p => p.id === id);
@@ -134,33 +132,21 @@
         if (stokBaru < 0) return alert("Stok tidak mencukupi!");
 
         // 1. Update Tabel Produk
-        const { error: updateError } = await supabaseClient
-            .from('produk')
-            .update({ stok_sekarang: stokBaru })
-            .eq('id', id);
-        
-        if (updateError) return alert("Gagal update stok: " + updateError.message);
+        const { error: errUpdate } = await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
+        if (errUpdate) return alert("Gagal update stok!");
 
-        // 2. Insert ke Riwayat Stok (id_produk disesuaikan dengan database Anda)
-        const { error: logError } = await supabaseClient
-            .from('riwayat_stok')
-            .insert([{
-                id_produk: id, 
-                tipe: tipe, 
-                jumlah: qty,
-                admin_nama: session.username || 'System',
-                keterangan: `Update Manual (${tipe})`
-            }]);
+        // 2. Insert ke Riwayat (id_produk & nama_barang disesuaikan)
+        const { error: errLog } = await supabaseClient.from('riwayat_stok').insert([{
+            id_produk: id,
+            tipe: tipe,
+            jumlah: qty,
+            admin_nama: sessionData ? sessionData.username : 'Admin',
+            keterangan: 'Penyesuaian Manual'
+        }]);
 
-        if (!logError) {
-            alert(`Berhasil! Stok ${produk.nama_barang} diperbarui.`);
-            input.value = '';
-            loadProduk();
-        } else {
-            console.error("Log Error:", logError.message);
-            alert("Stok diperbarui, tapi riwayat gagal dicatat: " + logError.message);
-            loadProduk();
-        }
+        alert("Berhasil!");
+        input.value = '';
+        loadProduk();
     }
 
     function filterTabel() {
