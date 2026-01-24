@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Digital | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background: #eee; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .invoice-card { background: white; width: 100%; max-width: 400px; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .center { text-align: center; }
+        .divider { border-top: 1px dashed #bbb; margin: 15px 0; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+        .total { font-weight: bold; font-size: 18px; margin-top: 10px; }
+        .btn-print { background: #3498db; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; cursor: pointer; margin-top: 20px; font-family: sans-serif; }
+        @media print { .btn-print { display: none; } body { background: white; padding: 0; } .invoice-card { box-shadow: none; width: 100%; } }
+    </style>
+</head>
+<body>
+
+<div class="invoice-card" id="invoice-content">
+    <div class="center">
+        <h2 style="margin:0;">Finex Pos</h2>
+        <p style="font-size: 12px;">Kantin Sekolah / Instansi<br>Terima Kasih Atas Kunjungan Anda</p>
+    </div>
+    
+    <div class="divider"></div>
+    <div id="info-header"></div>
+    <div class="divider"></div>
+    
+    <div id="item-list"></div>
+    
+    <div class="divider"></div>
+    <div id="payment-summary"></div>
+    <div class="divider"></div>
+    
+    <p class="center" style="font-size: 10px; color: #777;">Struk ini adalah bukti pembayaran yang sah.</p>
+    <button class="btn-print" onclick="window.print()">Simpan / Cetak PDF</button>
+</div>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
+    async function loadInvoice() {
+        // Ambil ID dari URL (contoh: invoice-view.html?id=123)
+        const params = new URLSearchParams(window.location.search);
+        const trxId = params.get('id');
+
+        if (!trxId) return document.body.innerHTML = "Invoice tidak ditemukan.";
+
+        const { data: trx, error } = await supabaseClient
+            .from('penjualan')
+            .select('*')
+            .eq('id', trxId)
+            .single();
+
+        if (error || !trx) return document.body.innerHTML = "Gagal memuat data.";
+
+        // Header Info
+        document.getElementById('info-header').innerHTML = `
+            <div class="row"><span>No. Nota:</span><span>#${trx.id}</span></div>
+            <div class="row"><span>Waktu:</span><span>${new Date(trx.created_at).toLocaleString('id-ID')}</span></div>
+            <div class="row"><span>Metode:</span><span>${trx.metode_pembayaran}</span></div>
+        `;
+
+        // Items
+        const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+        document.getElementById('item-list').innerHTML = items.map(it => `
+            <div class="row">
+                <span>${it.nama_barang || it.nama_produk} x${it.qty}</span>
+                <span>${(it.qty * it.harga).toLocaleString()}</span>
+            </div>
+        `).join('');
+
+        // Summary
+        document.getElementById('payment-summary').innerHTML = `
+            <div class="row"><span>Subtotal:</span><span>${trx.total_harga.toLocaleString()}</span></div>
+            <div class="row"><span>Diskon:</span><span style="color:red;">-${trx.diskon.toLocaleString()}</span></div>
+            <div class="row total"><span>GRAND TOTAL:</span><span>Rp ${trx.grand_total.toLocaleString()}</span></div>
+            <div class="row" style="margin-top:10px;"><span>Bayar:</span><span>${trx.bayar.toLocaleString()}</span></div>
+            <div class="row"><span>Kembali:</span><span>${trx.kembali.toLocaleString()}</span></div>
+        `;
+    }
+
+    loadInvoice();
+</script>
+</body>
+</html>
