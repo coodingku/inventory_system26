@@ -134,35 +134,46 @@
             </tr>
         `).join('');
     }
+async function updateStok(id, tipe) {
+    const input = document.getElementById(`adj-${id}`);
+    const qty = parseInt(input.value);
+    
+    if (!qty || qty <= 0) return alert("Masukkan jumlah qty yang valid!");
 
-    async function updateStok(id, tipe) {
-        const input = document.getElementById(`adj-${id}`);
-        const qty = parseInt(input.value);
-        if (!qty || qty <= 0) return alert("Masukkan jumlah yang benar");
+    const produk = allProducts.find(p => p.id === id);
+    const stokBaru = tipe === 'masuk' ? produk.stok_sekarang + qty : produk.stok_sekarang - qty;
 
-        const produk = allProducts.find(p => p.id === id);
-        const stokBaru = tipe === 'masuk' ? produk.stok_sekarang + qty : produk.stok_sekarang - qty;
+    if (stokBaru < 0) return alert("Gagal: Stok tidak boleh minus!");
 
-        if (stokBaru < 0) return alert("Stok tidak cukup!");
+    // 1. Update Tabel Produk
+    const { error: updateError } = await supabaseClient
+        .from('produk')
+        .update({ stok_sekarang: stokBaru })
+        .eq('id', id);
+    
+    if (updateError) return alert("Gagal update database: " + updateError.message);
 
-        // 1. Update Tabel Produk
-        await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
-
-        // 2. Catat ke riwayat_stok
-        const session = JSON.parse(localStorage.getItem('finex_session'));
-        await supabaseClient.from('riwayat_stok').insert([{
-            produk_id: id,
-            tipe: tipe,
+    // 2. Insert ke Riwayat Stok (DISESUAIKAN DENGAN GAMBAR TABEL ANDA)
+    const { error: logError } = await supabaseClient
+        .from('riwayat_stok')
+        .insert([{
+            id_produk: id,      // SEBELUMNYA: produk_id (Ini penyebab error 400)
+            tipe: tipe,         // 'masuk' atau 'keluar'
             jumlah: qty,
             admin_nama: session.username,
-            keterangan: 'Penyesuaian Manual'
+            keterangan: `Penyesuaian Manual (${tipe})`
         }]);
 
-        alert("Stok diperbarui!");
+    if (!logError) {
+        alert(`Berhasil! Stok ${produk.nama_barang} diperbarui.`);
         input.value = '';
         loadProduk();
+    } else {
+        console.error("Gagal mencatat log:", logError);
+        alert("Stok berubah, tapi riwayat gagal dicatat: " + logError.message);
+        loadProduk();
     }
-
+}
     function filterTabel() {
         const val = document.getElementById('searchBar').value.toLowerCase();
         const filtered = allProducts.filter(p => p.nama_barang.toLowerCase().includes(val));
