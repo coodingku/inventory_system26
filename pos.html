@@ -223,20 +223,42 @@
                 await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
             }
 
-            // PENTING: Meneruskan variabel State ke fungsi struk
-            renderReceipt(inv, cash, method, state.sub, state.disc, state.total);
+  // ... kode simpan transaksi di atas ...
 
-            setTimeout(() => {
-                window.print();
-                if (confirm("Kirim invoice ke WhatsApp?")) {
-                    const hp = prompt("Nomor WA (62...):", "628");
-                    if (hp) {
-                        const link = `https://finex-pos.netlify.app/invoice-view.html?id=${trx.id}`;
-                        window.open(`https://wa.me/${hp}?text=Terima kasih! Invoice digital Anda: ${link}`, '_blank');
-                    }
-                }
-                location.reload();
-            }, 500);
+renderReceipt(inv, cash, method, state.sub, state.disc, state.total);
+
+setTimeout(() => {
+    // 1. Jalankan print fisik terlebih dahulu
+    window.print();
+
+    // 2. Berikan jeda sedikit agar proses print tidak bentrok dengan buka tab baru
+    const kirimWA = confirm("Transaksi Berhasil! Kirim Nota Digital ke WhatsApp?");
+    
+    if (kirimWA) {
+        const hp = prompt("Masukkan Nomor WhatsApp Customer (Gunakan 62):\nContoh: 628123456789", "628");
+        
+        if (hp && hp.length > 10) {
+            // Pastikan URL di bawah ini sesuai dengan link website Finex Pos Anda
+            // Jika masih di komputer lokal (localhost), link ini tidak akan bisa dibuka oleh customer
+            const linkInvoice = `https://finex-pos.netlify.app/invoice-view.html?id=${trx.id}`;
+            
+            const pesan = `Halo, Terima kasih telah berbelanja di *Finex Kantin*.%0A%0A` +
+                          `*Detail Nota:*%0A` +
+                          `No. Invoice: ${inv}%0A` +
+                          `Total Bayar: Rp ${state.total.toLocaleString()}%0A%0A` +
+                          `Lihat Nota Digital Anda di sini:%0A${linkInvoice}`;
+
+            // Menggunakan window.open dengan cara yang lebih aman
+            const waUrl = `https://wa.me/${hp.replace(/[^0-9]/g, '')}?text=${pesan}`;
+            window.open(waUrl, '_blank');
+        } else if (hp) {
+            alert("Nomor HP tidak valid. Gunakan format 628xxx");
+        }
+    }
+    
+    // Refresh halaman untuk transaksi baru
+    location.reload();
+}, 800);
 
         } catch (e) { isSaving = false; alert(e.message); }
     }
