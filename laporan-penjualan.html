@@ -290,54 +290,54 @@
         fetchLaporan();
     }
 
-    // --- EXPORT EXCEL ---
+// --- EXPORT EXCEL (VERSI DETAIL PER ITEM) ---
 function exportKeExcel() {
     if (!currentLaporan || currentLaporan.length === 0) return alert("Tidak ada data untuk diexport!");
 
-    const dataExcel = currentLaporan.map(i => {
-        // Parse item jika formatnya string JSON
-        let daftarBarang = typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []);
-        
-        // Menghitung Penjualan Kotor (Total Harga Item sebelum Diskon)
-        // Jika grand_total sudah hasil akhir, maka Penjualan Kotor = Grand Total + Diskon
-        const diskon = i.diskon || 0;
-        const grandTotal = i.grand_total || 0;
-        const penjualanKotor = grandTotal + diskon;
+    let dataExcel = [];
 
-        return {
-            "Waktu": new Date(i.created_at).toLocaleString('id-ID'),
-            "No Invoice": i.no_invoice,
-            "Detail Item (Qty)": daftarBarang.map(it => `${it.nama_barang || it.nama} (${it.qty}x)`).join(", "),
-            "Metode Pembayaran": (i.metode_pembayaran || 'Tunai').toUpperCase(),
-            "Penjualan Kotor (Gross)": penjualanKotor,
-            "Diskon": diskon,
-            "Penjualan Net": grandTotal,
-            "Admin": i.admin_nama || 'Admin'
-        };
+    currentLaporan.forEach(nota => {
+        // Parse item jika formatnya string JSON
+        let daftarBarang = typeof nota.items === 'string' ? JSON.parse(nota.items) : (nota.items || []);
+        
+        // Data pendukung nota
+        const diskonNota = nota.diskon || 0;
+        const grandTotalNota = nota.grand_total || 0;
+        const metode = (nota.metode_pembayaran || 'Tunai').toUpperCase();
+        const waktu = new Date(nota.created_at).toLocaleString('id-ID');
+
+        // Jika dalam 1 nota ada banyak barang, pecah menjadi baris-baris terpisah
+        daftarBarang.forEach((item, index) => {
+            dataExcel.push({
+                "Waktu": waktu,
+                "No Invoice": nota.no_invoice,
+                "Nama Barang": item.nama_barang || item.nama,
+                "Qty": item.qty,
+                "Harga Satuan": item.harga || 0,
+                "Subtotal Barang": (item.qty * (item.harga || 0)),
+                "Metode Pembayaran": metode,
+                // Diskon dan Total hanya ditampilkan di baris pertama barang agar tidak double saat di-SUM
+                "Diskon Nota": index === 0 ? diskonNota : 0,
+                "Total Net Nota": index === 0 ? grandTotalNota : 0,
+                "Admin": nota.admin_nama || 'Admin'
+            });
+        });
     });
 
-    // Membuat worksheet dari JSON
     const ws = XLSX.utils.json_to_sheet(dataExcel);
     
-    // Mengatur lebar kolom agar rapi (Opsional)
+    // Mengatur lebar kolom agar rapi
     const wscols = [
-        {wch: 20}, // Waktu
-        {wch: 15}, // Invoice
-        {wch: 40}, // Detail Item
-        {wch: 18}, // Metode
-        {wch: 15}, // Gross
-        {wch: 10}, // Diskon
-        {wch: 15}, // Net
-        {wch: 12}, // Admin
+        {wch: 20}, {wch: 15}, {wch: 30}, {wch: 8}, {wch: 15}, 
+        {wch: 15}, {wch: 18}, {wch: 12}, {wch: 15}, {wch: 12}
     ];
     ws['!cols'] = wscols;
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Laporan Penjualan Kantin");
+    XLSX.utils.book_append_sheet(wb, ws, "Detail Penjualan Kantin");
     
-    // Nama file dengan tanggal otomatis
     const tgl = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `FinexPos_Penjualan_Detail_${tgl}.xlsx`);
+    XLSX.writeFile(wb, `FinexPos_Detail_Item_${tgl}.xlsx`);
 }
 </script>
 </body>
