@@ -130,7 +130,6 @@
             .select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
         if (data) {
             currentLogId = data.id;
-            localStorage.setItem('shift_id', data.id);
         } else {
             document.getElementById('openShiftModal').style.display = 'flex';
         }
@@ -143,7 +142,6 @@
         }]).select().single();
         if (!error) {
             currentLogId = data.id;
-            localStorage.setItem('shift_id', data.id);
             document.getElementById('openShiftModal').style.display = 'none';
         } else {
             alert("Gagal membuka shift: " + error.message);
@@ -210,7 +208,6 @@
         
         isSaving = true;
 
-        // Generate Invoice Aman
         const today = new Date().toISOString().split('T')[0];
         const { data: lastSales } = await FinexDB.from('penjualan').select('no_invoice').gte('created_at', `${today}T00:00:00`).order('no_invoice', { ascending: false }).limit(1);
         let nextNumber = 1;
@@ -230,23 +227,24 @@
             }]);
             if (errSales) throw errSales;
 
-            // 2. Update Stok & Riwayat (Penyesuaian kolom admin_nama)
+            // 2. Update Stok & Riwayat
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
                 const stokBaru = (p.stok_sekarang || 0) - item.qty;
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
-                // Perbaikan kolom: pastikan hanya mengirim kolom yang ada di tabel riwayat_stok
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
                     jumlah: parseInt(item.qty),
                     keterangan: `Penjualan ${inv}`,
-                    admin_nama: session.username // Menggunakan kolom yang ada sesuai struktur Anda
+                    admin_nama: session.username 
                 }]);
             }
 
-            renderReceipt(inv, cash);
+            // Render struk dengan meneruskan parameter method
+            renderReceipt(inv, cash, method);
+
             setTimeout(() => {
                 window.print();
                 alert("Transaksi Berhasil!");
@@ -263,33 +261,57 @@
         }
     }
 
-    function renderReceipt(inv, bayar) {
+    function renderReceipt(inv, bayar, method) {
         const kembali = bayar - state.total;
-        const selectedDiscText = document.getElementById('discSelect').options[document.getElementById('discSelect').selectedIndex].text;
         let itemHTML = cart.map(i => `
             <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
                 <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
                 <span>${(i.qty * i.harga).toLocaleString()}</span>
             </div>
         `).join('');
+
         document.getElementById('print-area').innerHTML = `
             <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
-                <div style="text-align:center; margin-bottom:10px;"><b style="font-size:14px;">FINEX POS KANTIN</b><br>----------------------------</div>
-                <div style="font-size:11px; margin-bottom:5px;">No: ${inv}<br>Kasir: ${session.username}<br>Tgl: ${new Date().toLocaleString('id-ID')}</div>
+                <div style="text-align:center; margin-bottom:10px;">
+                    <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+                    ----------------------------
+                </div>
+                <div style="font-size:11px; margin-bottom:5px;">
+                    No: ${inv}<br>
+                    Kasir: ${session.username}<br>
+                    Tgl: ${new Date().toLocaleString('id-ID')}
+                </div>
                 ----------------------------
                 ${itemHTML}
                 ----------------------------
-                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Subtotal:</span><span>Rp ${state.sub.toLocaleString()}</span></div>
-                ${state.disc > 0 ? `<div style="display:flex; justify-content:space-between; font-size:11px;"><span>Diskon:</span><span>-Rp ${state.disc.toLocaleString()}</span></div>` : ''}
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-top:3px;"><span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Subtotal:</span><span>Rp ${state.sub.toLocaleString()}</span>
+                </div>
+                ${state.disc > 0 ? `
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Diskon:</span><span>-Rp ${state.disc.toLocaleString()}</span>
+                </div>` : ''}
+                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-top:3px;">
+                    <span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span>
+                </div>
                 ----------------------------
-                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span></div>
-                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span></div>
-                <div style="text-align:center; margin-top:10px; font-size:10px;">Terima Kasih Atas Kunjungan Anda</div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Metode:</span><span>${method}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;">
+                    <span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span>
+                </div>
+                ----------------------------
+                <div style="text-align:center; margin-top:10px; font-size:10px;">
+                    Terima Kasih Atas Kunjungan Anda
+                </div>
             </div>`;
     }
 
-    function doClosing() { if(confirm("Tutup shift sekarang dan cetak laporan?")) window.location.href = "closing.html"; }
+    function doClosing() { if(confirm("Tutup shift sekarang?")) window.location.href = "closing.html"; }
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
