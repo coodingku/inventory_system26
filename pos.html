@@ -266,42 +266,29 @@
             }]);
             if (errSales) throw errSales;
 
-            // 2. Update Stok & Catat Riwayat
-            for (const item of cart) {
-                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                const stokBaru = p.stok_sekarang - item.qty;
+// 2. Update Stok & Catat Riwayat
+for (const item of cart) {
+    // Ambil stok terbaru untuk memastikan perhitungan akurat
+    const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
+    const stokBaru = (p.stok_sekarang || 0) - item.qty;
 
-                await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+    // Update stok produk di Kantin
+    await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
-                await FinexDB.from('riwayat_stok').insert([{
-                    id_produk: item.id,
-                    tipe: 'KELUAR',
-                    jumlah: item.qty,
-                    kasir_id: session.username,
-                    keterangan: `Penjualan ${inv}`
-                }]);
-            }
+    // CATAT RIWAYAT (Gunakan currentLogId, bukan session.username)
+    const { error: errStok } = await FinexDB.from('riwayat_stok').insert([{
+        id_produk: item.id,
+        tipe: 'KELUAR',
+        jumlah: parseInt(item.qty),
+        kasir_id: parseInt(currentLogId), // <-- Ini kuncinya, harus berupa angka ID Log
+        keterangan: `Penjualan ${inv}`
+    }]);
 
-            renderReceipt(inv, cash);
-            
-            setTimeout(() => {
-                window.print();
-                alert("Transaksi Berhasil!");
-                
-                // Reset manual UI
-                cart = [];
-                document.getElementById('cashInput').value = '';
-                closePayment();
-                calculateTotal();
-                loadMenu(); // Refresh tampilan stok katalog
-                isSaving = false;
-            }, 500);
-
-        } catch (e) { 
-            isSaving = false; 
-            alert("Terjadi kesalahan: " + e.message); 
-        }
+    if (errStok) {
+        console.error("Gagal catat riwayat stok:", errStok.message);
+        // Tetap lanjut meski riwayat gagal, agar transaksi tidak stuck
     }
+}
 
     function renderReceipt(inv, bayar) {
         const kembali = bayar - state.total;
