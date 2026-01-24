@@ -39,23 +39,15 @@
         /* Modal Pop-up */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .modal-header { border-bottom: 2px solid #f4f4f4; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
         .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
-        .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
 
         /* Print Area */
         #print-area { display: none; }
         @media print {
             body * { display: none !important; }
-            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; color: black; }
+            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; color: black; padding: 5px; }
             #print-area hr { border: none; border-top: 1px dashed black; }
         }
-        .detail-row { 
-    display: flex; 
-    justify-content: space-between; 
-    margin-bottom: 5px; 
-    font-size: 13px; 
-}
     </style>
 </head>
 <body>
@@ -121,7 +113,7 @@
             <tbody id="report-body"></tbody>
             <tfoot>
                 <tr class="total-row">
-                    <td colspan="5" style="text-align: right;">TOTAL PENDAPATAN:</td>
+                    <td colspan="5" style="text-align: right;">TOTAL PENDAPATAN (NET):</td>
                     <td id="total-sum">Rp 0</td>
                     <td></td>
                 </tr>
@@ -130,10 +122,9 @@
     </div>
 </main>
 
-<div id="modal-preview" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:9999; backdrop-filter: blur(2px);">
-    <div style="background:white; padding:25px; border-radius:15px; width:350px; box-shadow:0 15px 35px rgba(0,0,0,0.2);">
-        <div id="preview-body">
-            </div>
+<div id="modal-preview" class="modal">
+    <div class="modal-content">
+        <div id="preview-body"></div>
         <div style="margin-top:20px; display:flex; gap:10px;">
             <button id="confirm-print-btn" style="flex:1; padding:12px; background:#27ae60; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Cetak Nota</button>
             <button onclick="closePreview()" style="flex:1; padding:12px; background:#95a5a6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Tutup</button>
@@ -144,7 +135,7 @@
 <div id="print-area"></div>
 
 <script>
-  const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
@@ -176,15 +167,15 @@
         let totalAll = 0;
         body.innerHTML = '';
         data.forEach(item => {
-            totalAll += parseFloat(item.grand_total);
+            totalAll += parseFloat(item.grand_total || 0);
             body.innerHTML += `
                 <tr>
                     <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
                     <td><b>${item.no_invoice}</b></td>
                     <td>${item.metode_pembayaran}</td>
-                    <td>${parseFloat(item.subtotal).toLocaleString()}</td>
-                    <td style="color:red">-${parseFloat(item.diskon_global).toLocaleString()}</td>
-                    <td><b>${parseFloat(item.grand_total).toLocaleString()}</b></td>
+                    <td>${parseFloat(item.subtotal || 0).toLocaleString()}</td>
+                    <td style="color:var(--danger)">-${parseFloat(item.diskon || 0).toLocaleString()}</td>
+                    <td><b>${parseFloat(item.grand_total || 0).toLocaleString()}</b></td>
                     <td style="text-align: center; display: flex; gap: 5px; justify-content: center;">
                         <button class="btn-print" onclick="showPreview('${item.no_invoice}')">👁️ 🖨️</button>
                         <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')">🗑️ Void</button>
@@ -194,151 +185,110 @@
         document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
     }
 
-    // --- FUNGSI PREVIEW ---
     function showPreview(invoiceNo) {
-        const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
-        if (!item) return alert("Data transaksi tidak ditemukan!");
-
-        let daftarBarang = [];
-        try {
-            daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
-        } catch (e) {
-            console.error("Gagal parsing data items:", e);
-            daftarBarang = [];
-        }
-
-        let itemsHtml = "";
-        if (daftarBarang.length > 0) {
-            daftarBarang.forEach(it => {
-                const nama = it.nama_barang || it.nama || "Produk";
-                const qty = it.qty || 0;
-                const harga = it.harga || 0;
-                itemsHtml += `
-                    <div class="detail-row">
-                        <span>${nama} (x${qty})</span>
-                        <span>Rp ${(qty * harga).toLocaleString()}</span>
-                    </div>`;
-            });
-        } else {
-            itemsHtml = `<div style="color:orange; font-size:11px; text-align:center;">Detail barang tidak tersedia (Data Lama)</div>`;
-        }
-
-        document.getElementById('preview-body').innerHTML = `
-            <div style="text-align: center; margin-bottom: 15px;">
-                <h3 style="margin: 0;">FINEX POS</h3>
-                <small>Salinan Nota Penjualan</small>
-            </div>
-            <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
-                <b>No. Nota :</b> ${item.no_invoice}<br>
-                <b>Tanggal  :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
-                <b>Metode   :</b> ${item.metode_pembayaran || '-'}<br>
-                <b>Kasir    :</b> ${item.kasir_nama || 'Admin Kantin'}
-            </div>
-            <div style="min-height: 50px;">${itemsHtml}</div>
-            <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px; font-size: 14px;">
-                <div style="display: flex; justify-content: space-between;"><span>Subtotal</span><span>Rp ${parseFloat(item.subtotal || 0).toLocaleString()}</span></div>
-                <div style="display: flex; justify-content: space-between; color: var(--danger);"><span>Diskon</span><span>-Rp ${parseFloat(item.diskon_global || 0).toLocaleString()}</span></div>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 5px; color: var(--primary);"><span>TOTAL</span><span>Rp ${parseFloat(item.grand_total || 0).toLocaleString()}</span></div>
-            </div>
-        `;
-
-        document.getElementById('confirm-print-btn').onclick = () => { 
-            reprintBill(invoiceNo); 
-            closePreview(); 
-        };
-        document.getElementById('modal-preview').style.display = 'flex';
-    }
-
-    // --- FUNGSI NAVIGASI MODAL ---
-    function closePreview() {
-        document.getElementById('modal-preview').style.display = 'none';
-    }
-
-    // --- FUNGSI CETAK ULANG ---
-    async function reprintBill(invoiceNo) {
         const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
         if (!item) return;
 
         let daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
-        let itemRows = daftarBarang.map(it => {
-            const nama = (it.nama_barang || it.nama || "Produk").substring(0, 20);
-            return `${nama}\n${it.qty} x ${it.harga.toLocaleString()} = ${(it.qty * it.harga).toLocaleString()}\n`;
-        }).join('');
+        let itemsHtml = daftarBarang.map(it => `
+            <div class="detail-row">
+                <span>${it.nama_barang || it.nama} (x${it.qty})</span>
+                <span>Rp ${(it.qty * it.harga).toLocaleString()}</span>
+            </div>`).join('');
+
+        document.getElementById('preview-body').innerHTML = `
+            <div style="text-align: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; color:var(--primary)">FINEX POS KANTIN</h3>
+                <small>Salinan Nota Penjualan</small>
+            </div>
+            <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
+                <b>Invoice :</b> ${item.no_invoice}<br>
+                <b>Waktu   :</b> ${new Date(item.created_at).toLocaleString('id-ID')}<br>
+                <b>Kasir   :</b> ${item.admin_nama || 'Admin'}
+            </div>
+            <div>${itemsHtml}</div>
+            <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px;">
+                <div class="detail-row"><span>Subtotal</span><span>Rp ${parseFloat(item.subtotal).toLocaleString()}</span></div>
+                <div class="detail-row" style="color:red"><span>Diskon</span><span>-Rp ${parseFloat(item.diskon).toLocaleString()}</span></div>
+                <div class="detail-row" style="font-weight:bold; font-size:15px;"><span>TOTAL</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
+            </div>`;
+
+        document.getElementById('confirm-print-btn').onclick = () => { reprintBill(invoiceNo); closePreview(); };
+        document.getElementById('modal-preview').style.display = 'flex';
+    }
+
+    function closePreview() { document.getElementById('modal-preview').style.display = 'none'; }
+
+    async function reprintBill(invoiceNo) {
+        const item = currentLaporan.find(i => i.no_invoice === invoiceNo);
+        if (!item) return;
+        let daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
+        
+        let itemRows = daftarBarang.map(it => `
+            <div style="display:flex; justify-content:space-between;">
+                <span>${(it.nama_barang || it.nama).substring(0,18)} x${it.qty}</span>
+                <span>${(it.qty * it.harga).toLocaleString()}</span>
+            </div>`).join('');
 
         document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center"><b>FINEX POS</b><br>* SALINAN NOTA *<hr></div>
-            <pre style="font-family:monospace;">${itemRows}<hr>TOTAL: Rp ${parseFloat(item.grand_total).toLocaleString()}</pre>
-            <div style="text-align:center"><hr>Terima Kasih</div>
-        `;
+            <div style="text-align:center"><b>FINEX POS KANTIN</b><br><small>SALINAN NOTA</small><hr></div>
+            <div style="font-size:10px;">Inv: ${item.no_invoice}<br>Tgl: ${new Date(item.created_at).toLocaleString('id-ID')}</div><hr>
+            ${itemRows}<hr>
+            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
+            <div style="text-align:center; margin-top:10px;"><hr>Terima Kasih</div>`;
         window.print();
     }
 
-    // --- FUNGSI VOID ---
     async function voidBill(id, invoiceNo) {
-        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan otomatis.`)) return;
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Kantin otomatis.`)) return;
         const dataBill = currentLaporan.find(i => i.id == id);
         
-        if (dataBill && dataBill.items) {
-            let daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : dataBill.items;
-            for (const it of daftarBarang) {
-                const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', it.id).single();
-                if (p) await supabaseClient.from('produk').update({ stok: p.stok + it.qty }).eq('id', it.id);
+        try {
+            if (dataBill && dataBill.items) {
+                let daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : dataBill.items;
+                for (const it of daftarBarang) {
+                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', it.id).single();
+                    if (p) {
+                        await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang + it.qty }).eq('id', it.id);
+                        // Catat Riwayat Void
+                        await supabaseClient.from('riwayat_stok').insert([{
+                            id_produk: it.id, tipe: 'MASUK', jumlah: it.qty,
+                            admin_nama: 'System Void', keterangan: `Void Inv: ${invoiceNo}`
+                        }]);
+                    }
+                }
             }
-        }
-        await supabaseClient.from('penjualan').delete().eq('id', id);
-        alert("Berhasil di-void");
-        fetchLaporan();
+            await supabaseClient.from('penjualan').delete().eq('id', id);
+            alert("Transaksi berhasil di-void.");
+            fetchLaporan();
+        } catch (err) { alert("Error void: " + err.message); }
     }
 
-// --- EXPORT EXCEL (VERSI DETAIL PER ITEM) ---
-function exportKeExcel() {
-    if (!currentLaporan || currentLaporan.length === 0) return alert("Tidak ada data untuk diexport!");
-
-    let dataExcel = [];
-
-    currentLaporan.forEach(nota => {
-        // Parse item jika formatnya string JSON
-        let daftarBarang = typeof nota.items === 'string' ? JSON.parse(nota.items) : (nota.items || []);
-        
-        // Data pendukung nota
-        const diskonNota = nota.diskon || 0;
-        const grandTotalNota = nota.grand_total || 0;
-        const metode = (nota.metode_pembayaran || 'Tunai').toUpperCase();
-        const waktu = new Date(nota.created_at).toLocaleString('id-ID');
-
-        // Jika dalam 1 nota ada banyak barang, pecah menjadi baris-baris terpisah
-        daftarBarang.forEach((item, index) => {
-            dataExcel.push({
-                "Waktu": waktu,
-                "No Invoice": nota.no_invoice,
-                "Nama Barang": item.nama_barang || item.nama,
-                "Qty": item.qty,
-                "Harga Satuan": item.harga || 0,
-                "Subtotal Barang": (item.qty * (item.harga || 0)),
-                "Metode Pembayaran": metode,
-                // Diskon dan Total hanya ditampilkan di baris pertama barang agar tidak double saat di-SUM
-                "Diskon Nota": index === 0 ? diskonNota : 0,
-                "Total Net Nota": index === 0 ? grandTotalNota : 0,
-                "Admin": nota.admin_nama || 'Admin'
+    function exportKeExcel() {
+        if (!currentLaporan.length) return alert("Data kosong!");
+        let dataExcel = [];
+        currentLaporan.forEach(nota => {
+            let daftarBarang = typeof nota.items === 'string' ? JSON.parse(nota.items) : (nota.items || []);
+            daftarBarang.forEach((item, index) => {
+                dataExcel.push({
+                    "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
+                    "No Invoice": nota.no_invoice,
+                    "Nama Barang": item.nama_barang || item.nama,
+                    "Qty": item.qty,
+                    "Harga Satuan": item.harga,
+                    "Subtotal Item": item.qty * item.harga,
+                    "Metode": nota.metode_pembayaran,
+                    "Diskon Nota": index === 0 ? nota.diskon : 0,
+                    "Total Net": index === 0 ? nota.grand_total : 0,
+                    "Kasir": nota.admin_nama || 'Admin'
+                });
             });
         });
-    });
-
-    const ws = XLSX.utils.json_to_sheet(dataExcel);
-    
-    // Mengatur lebar kolom agar rapi
-    const wscols = [
-        {wch: 20}, {wch: 15}, {wch: 30}, {wch: 8}, {wch: 15}, 
-        {wch: 15}, {wch: 18}, {wch: 12}, {wch: 15}, {wch: 12}
-    ];
-    ws['!cols'] = wscols;
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Detail Penjualan Kantin");
-    
-    const tgl = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `FinexPos_Detail_Item_${tgl}.xlsx`);
-}
+        const ws = XLSX.utils.json_to_sheet(dataExcel);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+        XLSX.writeFile(wb, `Laporan_FinexPos_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
 </script>
 </body>
 </html>
