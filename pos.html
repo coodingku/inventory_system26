@@ -122,18 +122,19 @@
     let state = { sub: 0, disc: 0, total: 0 };
     let currentLogId = null;
     let isSaving = false;
+    let allProducts = [];
     const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
         
-        // Perbaikan: Pastikan element cashier-display ada sebelum set innerText
         const displayEl = document.getElementById('cashier-display');
         if (displayEl) displayEl.innerText = session.username;
         
         await checkActiveShift();
-        loadMenu();
-        loadSettings();
+        await loadMenu();
+        await loadSettings();
+        
         setInterval(() => { 
             const clockEl = document.getElementById('clock');
             if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('id-ID'); 
@@ -185,7 +186,9 @@
         let query = FinexDB.from('produk').select('*').gt('stok_sekarang', 0);
         if (q) query = query.ilike('nama_barang', `%${q}%`);
         const { data } = await query;
-        document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
+        allProducts = data || [];
+        
+        document.getElementById('displayMenu').innerHTML = allProducts.map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
                 <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
                 <strong>${p.nama_barang}</strong><br>
@@ -198,7 +201,7 @@
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) {
             if (cart[idx].qty < stokMaks) cart[idx].qty++;
-            else alert("Stok maksimal tercapai!");
+            else alert("Stok Kantin maksimal tercapai!");
         } else {
             cart.push({ id, nama_barang: nama, harga, qty: 1, stok_max: stokMaks });
         }
@@ -239,19 +242,44 @@
         if (method === "Tunai" && cash < state.total) return alert("Uang pembayaran kurang!");
         
         isSaving = true;
-        const inv = `INV-${Date.now()}`;
+
+        // --- GENERATE INVOICE BERURUTAN ---
+        const today = new Date().toISOString().split('T')[0];
+        const { count } = await FinexDB.from('penjualan')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', `${today}T00:00:00`);
+        
+        const inv = `INV-FN${(count + 1).toString().padStart(3, '0')}`;
         
         try {
+            // 1. Simpan Penjualan
             const { error: errSales } = await FinexDB.from('penjualan').insert([{ 
-                no_invoice: inv, items: cart, subtotal: state.sub,
-                diskon: state.disc, grand_total: state.total, 
-                bayar: cash, kasir_id: currentLogId, metode_pembayaran: method 
+                no_invoice: inv, 
+                items: JSON.stringify(cart), 
+                subtotal: state.sub,
+                diskon: state.disc, 
+                grand_total: state.total, 
+                bayar: cash, 
+                kasir_id: currentLogId, 
+                metode_pembayaran: method,
+                admin_nama: session.username
             }]);
             if (errSales) throw errSales;
 
+            // 2. Update Stok & Catat Riwayat
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                const stokBaru = p.stok_sekarang - item.qty;
+
+                await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+
+                await FinexDB.from('riwayat_stok').insert([{
+                    id_produk: item.id,
+                    tipe: 'KELUAR',
+                    jumlah: item.qty,
+                    admin_nama: session.username,
+                    keterangan: `Penjualan ${inv}`
+                }]);
             }
 
             renderReceipt(inv, cash);
@@ -260,12 +288,12 @@
                 window.print();
                 alert("Transaksi Berhasil!");
                 
-                // PERBAIKAN: Reset manual (BUKAN location.reload) agar diskon tetap terpilih
+                // Reset manual UI
                 cart = [];
                 document.getElementById('cashInput').value = '';
                 closePayment();
                 calculateTotal();
-                loadMenu();
+                loadMenu(); // Refresh tampilan stok katalog
                 isSaving = false;
             }, 500);
 
