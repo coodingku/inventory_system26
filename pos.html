@@ -279,6 +279,15 @@
 
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
+                // Tambahkan ini sebelum await FinexDB.from('riwayat_stok').insert...
+console.log("Data yang dikirim ke riwayat_stok:", {
+    id_produk: item.id,
+    tipe: 'KELUAR',
+    jumlah: parseInt(item.qty),
+    kasir_id: parseInt(currentLogId),
+    keterangan: `Penjualan ${inv}`
+});
+
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
