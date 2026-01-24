@@ -8,32 +8,22 @@
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
-        
-        /* Sidebar */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
-
-        /* Main Content */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        
         .form-user { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 25px; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         .btn-add { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
-        
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .badge-admin { background: #ebf5ff; color: #3498db; }
         .badge-kasir { background: #e8f8f0; color: #27ae60; }
-
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
-        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: auto; }
     </style>
 </head>
 <body>
@@ -41,22 +31,14 @@
 <nav>
     <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <div class="nav-section">Master Data</div>
     <a href="produk.html">📦 Produk</a>
-    <a href="kategori.html">📁 Kategori</a>
-    <div class="nav-section">Operasional</div>
     <a href="manajemen-user.html" class="active">👥 Manajemen User</a>
-    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
-    
-    <div class="user-info">
-        <small>AKTIF:</small><br>
-        <b id="display-user-nav">Memuat...</b>
-    </div>
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
     <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
 </nav>
 
 <main>
-    <h1>Manajemen User & Hak Akses</h1>
+    <h1>Manajemen User Kantin</h1>
     <div class="card">
         <div class="form-user">
             <input type="text" id="username" placeholder="Username">
@@ -65,9 +47,8 @@
                 <option value="kasir">Kasir</option>
                 <option value="admin">Admin</option>
             </select>
-            <button class="btn-add" onclick="tambahUser()">➕ Tambah User</button>
+            <button class="btn-add" onclick="tambahUser()">➕ Tambah</button>
         </div>
-
         <table>
             <thead>
                 <tr>
@@ -77,7 +58,7 @@
                 </tr>
             </thead>
             <tbody id="user-list">
-                <tr><td colspan="3" style="text-align:center;">Memuat data user...</td></tr>
+                <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
             </tbody>
         </table>
     </div>
@@ -88,81 +69,47 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    const sessionRaw = localStorage.getItem('finex_session');
-    let session = null;
-    let userRole = localStorage.getItem('user_role');
-
-    try {
-        if (sessionRaw) {
-            session = JSON.parse(sessionRaw);
-            if (!userRole && session.role) userRole = session.role;
-        }
-    } catch (e) { console.error("Session Parse Error"); }
-
-    // Proteksi Halaman
-    if (!session || !userRole || userRole.toLowerCase() !== 'admin') {
-        alert("Akses Ditolak! Halaman ini hanya untuk Admin.");
-        window.location.replace('login.html');
-    }
-
-    window.onload = () => {
-        document.getElementById('display-user-nav').innerText = session.username;
-        muatUser();
-    };
+    window.onload = muatUser;
 
     async function muatUser() {
         const { data, error } = await supabaseClient.from('users').select('*').order('username');
         const tbody = document.getElementById('user-list');
-        if (error) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Gagal memuat data.</td></tr>';
-            return;
-        }
+        if (error) return;
 
         tbody.innerHTML = data.map(u => `
             <tr>
                 <td><b>${u.username}</b></td>
-                <td><span class="badge ${u.role.toLowerCase() === 'admin' ? 'badge-admin' : 'badge-kasir'}">${u.role}</span></td>
+                <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-kasir'}">${u.role}</span></td>
                 <td style="text-align: center;">
-                    <button style="color:var(--danger); cursor:pointer; background:none; border:none; font-weight:bold;" onclick="hapusUser(${u.id}, '${u.username}')">❌ Hapus</button>
+                    <button style="color:red; background:none; border:none; cursor:pointer;" onclick="hapusUser(${u.id})">❌ Hapus</button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="3" style="text-align:center;">Tidak ada user lain.</td></tr>';
+        `).join('') || '<tr><td colspan="3" style="text-align:center;">Belum ada user.</td></tr>';
     }
 
     async function tambahUser() {
-        const uName = document.getElementById('username').value.trim();
-        const uPass = document.getElementById('password').value.trim();
-        const uRole = document.getElementById('role').value;
-
-        if(!uName || !uPass) return alert("Isi semua field!");
-
-        const { error } = await supabaseClient.from('users').insert([{ 
-            username: uName, 
-            password: uPass, 
-            role: uRole 
-        }]);
-
-        if (error) alert("Gagal: " + error.message);
-        else {
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
+        const r = document.getElementById('role').value;
+        if(!u || !p) return alert("Lengkapi data!");
+        
+        const { error } = await supabaseClient.from('users').insert([{ username: u, password: p, role: r }]);
+        if (error) alert(error.message);
+        else { 
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
-            muatUser();
+            muatUser(); 
         }
     }
 
-    async function hapusUser(id, name) {
-        if (name === session.username) return alert("Tidak bisa hapus akun sendiri!");
-        if(confirm(`Hapus user "${name}"?`)) {
+    async function hapusUser(id) {
+        if(confirm('Hapus user ini?')) {
             const { error } = await supabaseClient.from('users').delete().eq('id', id);
             if (!error) muatUser();
-            else alert("Gagal menghapus user.");
         }
     }
 
-    function logout() {
-        localStorage.clear();
-        window.location.replace('login.html');
-    }
+    function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
 </html>
