@@ -219,7 +219,6 @@
         const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
         
         try {
-            // Simpan Transaksi
             const { data: trx, error } = await FinexDB.from('penjualan').insert([{ 
                 no_invoice: inv, items: JSON.stringify(cart), subtotal: state.sub,
                 diskon: state.disc, grand_total: state.total, bayar: cash, 
@@ -228,14 +227,13 @@
 
             if (error) throw error;
 
-            // Update Stok
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
                 await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
             }
 
-            // PENTING: Meneruskan 'method' ke fungsi struk
-            renderReceipt(inv, cash, method);
+            // PENTING: Meneruskan variabel ke fungsi struk
+            renderReceipt(inv, cash, method, state.sub, state.disc, state.total);
 
             setTimeout(() => {
                 window.print();
@@ -243,7 +241,7 @@
                     const hp = prompt("Nomor WA (62...):", "628");
                     if (hp) {
                         const link = `https://finex-pos.netlify.app/invoice-view.html?id=${trx.id}`;
-                        window.open(`https://wa.me/${hp}?text=Terima kasih! Invoice Anda: ${link}`, '_blank');
+                        window.open(`https://wa.me/${hp}?text=Terima kasih! Invoice digital Anda: ${link}`, '_blank');
                     }
                 }
                 location.reload();
@@ -252,8 +250,8 @@
         } catch (e) { isSaving = false; alert(e.message); }
     }
 
-    function renderReceipt(inv, bayar, method) {
-        const kembali = bayar - state.total;
+    function renderReceipt(inv, bayar, method, subtotal, diskon, total) {
+        const kembali = bayar - total;
         const itemHTML = cart.map(i => `
             <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
                 <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
@@ -262,18 +260,21 @@
         `).join('');
 
         document.getElementById('print-area').innerHTML = `
-            <div style="width:58mm; padding:5px; font-family:monospace; color:black;">
+            <div style="width:58mm; padding:5px; font-family:monospace; color:black; background:white;">
                 <center><b>FINEX POS KANTIN</b><br>----------------------------</center>
                 No: ${inv}<br>Kasir: ${session.username}<br>Tgl: ${new Date().toLocaleString('id-ID')}<br>
                 ----------------------------
                 ${itemHTML}
                 ----------------------------
-                <div style="display:flex; justify-content:space-between;"><span>TOTAL:</span><b>Rp ${state.total.toLocaleString()}</b></div>
-                <div style="display:flex; justify-content:space-between;"><span>Metode:</span><span>${method}</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>Bayar:</span><span>Rp ${bayar.toLocaleString()}</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>Kembali:</span><span>Rp ${kembali < 0 ? 0 : kembali.toLocaleString()}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Subtotal:</span><span>${subtotal.toLocaleString()}</span></div>
+                ${diskon > 0 ? `<div style="display:flex; justify-content:space-between; font-size:11px;"><span>Diskon:</span><span>-${diskon.toLocaleString()}</span></div>` : ''}
+                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold;"><span>TOTAL:</span><span>${total.toLocaleString()}</span></div>
                 ----------------------------
-                <center>Terima Kasih</center>
+                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Metode:</span><span>${method}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Bayar:</span><span>${bayar.toLocaleString()}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Kembali:</span><span>${(kembali < 0 ? 0 : kembali).toLocaleString()}</span></div>
+                ----------------------------
+                <center style="margin-top:10px;">Terima Kasih</center>
             </div>`;
     }
 
