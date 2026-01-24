@@ -243,26 +243,20 @@
         
         isSaving = true;
 
-       // --- GENERATE INVOICE BERURUTAN (VERSI AMAN) ---
-const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        const { data: lastSales } = await FinexDB.from('penjualan')
+            .select('no_invoice')
+            .gte('created_at', `${today}T00:00:00`)
+            .order('no_invoice', { ascending: false })
+            .limit(1);
 
-// Cari invoice terakhir yang dibuat hari ini
-const { data: lastSales, error: errCheck } = await FinexDB
-    .from('penjualan')
-    .select('no_invoice')
-    .gte('created_at', `${today}T00:00:00`)
-    .order('no_invoice', { ascending: false })
-    .limit(1);
-
-let nextNumber = 1;
-if (lastSales && lastSales.length > 0) {
-    // Mengambil 3 angka terakhir dari INV-FN001 -> 001, lalu ditambah 1
-    const lastInv = lastSales[0].no_invoice;
-    const lastNum = parseInt(lastInv.substring(lastInv.length - 3));
-    nextNumber = lastNum + 1;
-}
-
-const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
+        let nextNumber = 1;
+        if (lastSales && lastSales.length > 0) {
+            const lastInv = lastSales[0].no_invoice;
+            const lastNum = parseInt(lastInv.substring(lastInv.length - 3));
+            nextNumber = lastNum + 1;
+        }
+        const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
         
         try {
             // 1. Simpan Penjualan
@@ -273,13 +267,12 @@ const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
                 diskon: state.disc, 
                 grand_total: state.total, 
                 bayar: cash, 
-                kasir_id: currentLogId, 
-                metode_pembayaran: method,
-               
+                kasir_id: parseInt(currentLogId), 
+                metode_pembayaran: method
             }]);
             if (errSales) throw errSales;
 
-// 2. Update Stok & Catat Riwayat
+            // 2. Update Stok & Riwayat
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
                 const stokBaru = (p.stok_sekarang || 0) - item.qty;
@@ -312,7 +305,7 @@ const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
             isSaving = false; 
             alert("Terjadi kesalahan: " + e.message); 
         }
-    } // <--- KURUNG INI PENTING UNTUK MENUTUP FUNGSI executeTransaction
+    }
 
     function renderReceipt(inv, bayar) {
         const kembali = bayar - state.total;
