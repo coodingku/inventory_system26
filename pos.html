@@ -10,9 +10,9 @@
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.3s; display: block; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; display: block; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; text-decoration: none; cursor: pointer; }
+        .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
         main { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; }
         .search-bar { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 25px; font-size: 16px; outline: none; box-sizing: border-box; }
         .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
@@ -26,7 +26,7 @@
         .summary-panel { padding: 25px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; color: #666; }
         .total-row { font-size: 26px; font-weight: bold; color: var(--primary); margin-top: 15px; padding-top: 15px; border-top: 2px solid #eee; }
-        .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 380px; text-align: center; }
         .modal-content input, .modal-content select { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
@@ -88,6 +88,16 @@
             <input type="number" id="cashInput" placeholder="0" style="font-size: 24px; font-weight: bold; text-align: center;">
             <button id="btnConfirm" class="btn-pay" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
             <button onclick="closePayment()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Batal</button>
+        </div>
+    </div>
+
+    <div id="waModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--success);">Berhasil!</h2>
+            <p>Ingin mengirim nota digital?</p>
+            <input type="number" id="waNumber" placeholder="62812xxx" style="font-size: 18px; text-align: center;">
+            <button class="btn-pay" id="btnSendWA" style="background:#25D366;">KIRIM WHATSAPP</button>
+            <button onclick="location.reload()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Selesai (Tanpa WA)</button>
         </div>
     </div>
 
@@ -192,7 +202,6 @@
         if (isSaving) return;
         const method = document.getElementById('payMethodSelect').value;
         const cash = parseFloat(document.getElementById('cashInput').value || 0);
-        
         if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
         
         isSaving = true;
@@ -208,7 +217,6 @@
         const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
         
         try {
-            // Simpan Transaksi dengan variabel state terbaru
             const { data: trx, error } = await FinexDB.from('penjualan').insert([{ 
                 no_invoice: inv, items: JSON.stringify(cart), subtotal: state.sub,
                 diskon: state.disc, grand_total: state.total, bayar: cash, 
@@ -217,48 +225,30 @@
 
             if (error) throw error;
 
-            // Update Stok
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
                 await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
             }
 
-  // ... kode simpan transaksi di atas ...
+            renderReceipt(inv, cash, method, state.sub, state.disc, state.total);
+            document.getElementById('payModal').style.display = 'none';
 
-renderReceipt(inv, cash, method, state.sub, state.disc, state.total);
-
-setTimeout(() => {
-    // 1. Jalankan print fisik terlebih dahulu
-    window.print();
-
-    // 2. Berikan jeda sedikit agar proses print tidak bentrok dengan buka tab baru
-    const kirimWA = confirm("Transaksi Berhasil! Kirim Nota Digital ke WhatsApp?");
-    
-    if (kirimWA) {
-        const hp = prompt("Masukkan Nomor WhatsApp Customer (Gunakan 62):\nContoh: 628123456789", "628");
-        
-        if (hp && hp.length > 10) {
-            // Pastikan URL di bawah ini sesuai dengan link website Finex Pos Anda
-            // Jika masih di komputer lokal (localhost), link ini tidak akan bisa dibuka oleh customer
-            const linkInvoice = `https://finex-pos.netlify.app/invoice-view.html?id=${trx.id}`;
-            
-            const pesan = `Halo, Terima kasih telah berbelanja di *Finex Kantin*.%0A%0A` +
-                          `*Detail Nota:*%0A` +
-                          `No. Invoice: ${inv}%0A` +
-                          `Total Bayar: Rp ${state.total.toLocaleString()}%0A%0A` +
-                          `Lihat Nota Digital Anda di sini:%0A${linkInvoice}`;
-
-            // Menggunakan window.open dengan cara yang lebih aman
-            const waUrl = `https://wa.me/${hp.replace(/[^0-9]/g, '')}?text=${pesan}`;
-            window.open(waUrl, '_blank');
-        } else if (hp) {
-            alert("Nomor HP tidak valid. Gunakan format 628xxx");
-        }
-    }
-    
-    // Refresh halaman untuk transaksi baru
-    location.reload();
-}, 800);
+            // Jeda agar UI render nota fisik
+            setTimeout(() => {
+                window.print();
+                // Munculkan Modal Kirim WA (Ini lebih aman dari pop-up blocker)
+                document.getElementById('waModal').style.display = 'flex';
+                document.getElementById('btnSendWA').onclick = () => {
+                    const hp = document.getElementById('waNumber').value;
+                    if(!hp) return alert("Masukkan nomor WA!");
+                    
+                    const link = `https://${window.location.hostname}/invoice-view.html?id=${trx.id}`;
+                    const msg = `Halo, Terima kasih telah belanja di *Finex Kantin*.%0A%0A*Detail Nota:*%0ANo. Invoice: ${inv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0ALihat Nota Digital:%0A${link}`;
+                    
+                    window.open(`https://wa.me/${hp}?text=${msg}`, '_blank');
+                    location.reload();
+                };
+            }, 500);
 
         } catch (e) { isSaving = false; alert(e.message); }
     }
