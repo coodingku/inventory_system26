@@ -291,27 +291,54 @@
     }
 
     // --- EXPORT EXCEL ---
-    function exportKeExcel() {
-        const dataExcel = currentLaporan.map(i => {
-            let daftarBarang = typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []);
-            return {
-                "Waktu": new Date(i.created_at).toLocaleString('id-ID'),
-                "Invoice": i.no_invoice,
-                "Items": daftarBarang.map(it => `${it.nama_barang || it.nama}(${it.qty})`).join(", "),
-                "Total": i.grand_total
-            };
-        });
-        const ws = XLSX.utils.json_to_sheet(dataExcel);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Laporan");
-        XLSX.writeFile(wb, `Laporan_Penjualan.xlsx`);
-    }
+function exportKeExcel() {
+    if (!currentLaporan || currentLaporan.length === 0) return alert("Tidak ada data untuk diexport!");
 
-    // Tutup modal jika klik di luar area modal
-    window.onclick = function(event) {
-        const modal = document.getElementById('modal-preview');
-        if (event.target == modal) closePreview();
-    }
+    const dataExcel = currentLaporan.map(i => {
+        // Parse item jika formatnya string JSON
+        let daftarBarang = typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []);
+        
+        // Menghitung Penjualan Kotor (Total Harga Item sebelum Diskon)
+        // Jika grand_total sudah hasil akhir, maka Penjualan Kotor = Grand Total + Diskon
+        const diskon = i.diskon || 0;
+        const grandTotal = i.grand_total || 0;
+        const penjualanKotor = grandTotal + diskon;
+
+        return {
+            "Waktu": new Date(i.created_at).toLocaleString('id-ID'),
+            "No Invoice": i.no_invoice,
+            "Detail Item (Qty)": daftarBarang.map(it => `${it.nama_barang || it.nama} (${it.qty}x)`).join(", "),
+            "Metode Pembayaran": (i.metode_pembayaran || 'Tunai').toUpperCase(),
+            "Penjualan Kotor (Gross)": penjualanKotor,
+            "Diskon": diskon,
+            "Penjualan Net": grandTotal,
+            "Admin": i.admin_nama || 'Admin'
+        };
+    });
+
+    // Membuat worksheet dari JSON
+    const ws = XLSX.utils.json_to_sheet(dataExcel);
+    
+    // Mengatur lebar kolom agar rapi (Opsional)
+    const wscols = [
+        {wch: 20}, // Waktu
+        {wch: 15}, // Invoice
+        {wch: 40}, // Detail Item
+        {wch: 18}, // Metode
+        {wch: 15}, // Gross
+        {wch: 10}, // Diskon
+        {wch: 15}, // Net
+        {wch: 12}, // Admin
+    ];
+    ws['!cols'] = wscols;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Laporan Penjualan Kantin");
+    
+    // Nama file dengan tanggal otomatis
+    const tgl = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `FinexPos_Penjualan_Detail_${tgl}.xlsx`);
+}
 </script>
 </body>
 </html>
