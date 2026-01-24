@@ -9,172 +9,140 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar Navigasi */
+        /* Navigasi */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; font-size: 14px; }
-        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
-        nav a.active { background: var(--accent); color: white; }
-        
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
         .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
-        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
 
-        /* Main Content */
-        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
+        /* Konten */
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        h1 { margin-top: 0; color: var(--primary); }
-
-        /* Form & Table */
         .form-group { display: flex; gap: 10px; margin-bottom: 25px; }
-        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
-        input:focus { border-color: var(--accent); }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         .btn-save { background: var(--success); color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .btn-del { color: var(--danger); cursor: pointer; border: none; background: none; font-weight: bold; }
-        .badge { padding: 5px 10px; border-radius: 5px; font-size: 12px; }
-        .badge-success { background: #e8f8f0; color: #27ae60; }
+        
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <nav>
-        <h2>Finex Pos</h2>
-        <a href="index.html">📊 Dashboard</a>
-        
-        <div class="nav-section">Master Data</div>
-        <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html" class="active">💳 Metode Bayar</a>
-        
-        <div class="nav-section">Operasional</div>
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="pengaturan-biaya.html">⚙️ Pengaturan</a>
-        
-        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        <a href="pos.html" style="background: var(--success); color: white; text-align: center;">🛒 Masuk Kasir</a>
-        
-        <div class="user-info">
-            <small style="color: #bbb;">ADMIN AKTIF:</small><br>
-            <b id="display-user-nav">Memuat...</b>
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="index.html">📊 Dashboard</a>
+    <div class="nav-section">Master Data</div>
+    <a href="produk.html">📦 Produk</a>
+    <a href="kategori.html">📁 Kategori</a>
+    <a href="gudang.html">🏠 Gudang</a>
+    <a href="metode-pembayaran.html" class="active">💳 Metode Bayar</a>
+    <div class="nav-section">Operasional</div>
+    <a href="manajemen-user.html">👥 Manajemen User</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
+    
+    <div class="user-info">
+        <small>USER AKTIF:</small><br>
+        <b id="display-user-nav">Memuat...</b>
+    </div>
+    <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
+</nav>
+
+<main>
+    <h1>Metode Pembayaran Kantin</h1>
+    <div class="card">
+        <div class="form-group">
+            <input type="text" id="new-metode" placeholder="Tambah metode (Contoh: QRIS, Tunai, Debet)">
+            <button class="btn-save" onclick="tambahMetode()">➕ Tambah</button>
         </div>
-        <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
-    </nav>
-
-    <main>
-        <h1>Master Metode Pembayaran</h1>
-        <div class="card">
-            <div class="form-group">
-                <input type="text" id="new-metode" placeholder="Tambah metode (Contoh: QRIS, Transfer Bank, Tunai)">
-                <button class="btn-save" onclick="tambahMetode()">➕ Tambah</button>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nama Metode</th>
-                        <th>Status</th>
-                        <th style="width: 100px; text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody id="tabel-metode">
-                    <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </main>
-
-    <script>
-        // 1. Konfigurasi & Proteksi Sesi
-        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
-        const sessionData = localStorage.getItem('finex_session');
-        const userRole = localStorage.getItem('user_role');
-
-        if (!sessionData || userRole !== 'admin') {
-            window.location.replace("login.html");
-        }
-
-        const session = JSON.parse(sessionData);
-
-        window.onload = () => {
-            document.getElementById('display-user-nav').innerText = session.username;
-            muatMetode();
-        };
-
-        // 2. Fungsi Logika
-        async function muatMetode() {
-            const { data, error } = await supabaseClient
-                .from('metode_pembayaran')
-                .select('*')
-                .order('nama_metode', { ascending: true });
-
-            const tbody = document.getElementById('tabel-metode');
-            if (error) {
-                tbody.innerHTML = `<tr><td colspan="3">Error memuat data</td></tr>`;
-                return;
-            }
-
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Belum ada metode pembayaran.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = data.map(m => `
+        <table>
+            <thead>
                 <tr>
-                    <td><b>${m.nama_metode}</b></td>
-                    <td><span class="badge badge-success">✅ Aktif</span></td>
-                    <td style="text-align: center;">
-                        <button class="btn-del" onclick="hapusMetode('${m.id}', '${m.nama_metode}')">❌ Hapus</button>
-                    </td>
+                    <th>Nama Metode</th>
+                    <th style="width: 100px; text-align: center;">Aksi</th>
                 </tr>
-            `).join('');
-        }
+            </thead>
+            <tbody id="tabel-metode">
+                <tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
 
-        async function tambahMetode() {
-            const input = document.getElementById('new-metode');
-            const nama = input.value.trim();
-            if(!nama) return alert("Nama metode tidak boleh kosong!");
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-            const { error } = await supabaseClient
-                .from('metode_pembayaran')
-                .insert([{ nama_metode: nama, aktif: true }]);
+    // --- PROTEKSI ANTI-LOOP ---
+    const sessionStr = localStorage.getItem('finex_session');
+    const userRole = localStorage.getItem('user_role');
 
-            if (error) {
-                alert("Gagal menambah: " + error.message);
-            } else {
-                input.value = '';
+    // Jika tidak ada sesi sama sekali, lempar ke login
+    if (!sessionStr) {
+        window.location.replace('login.html');
+    } else {
+        const session = JSON.parse(sessionStr);
+        // Jika ada sesi tapi bukan admin, lempar ke POS (Jangan ke login agar tidak loop)
+        if (userRole !== 'admin' && session.role !== 'admin') {
+            alert("Akses Terbatas: Hanya untuk Admin.");
+            window.location.replace('pos.html');
+        } else {
+            // Jika Admin, jalankan aplikasi
+            window.onload = () => {
+                document.getElementById('display-user-nav').innerText = session.username;
                 muatMetode();
-            }
+            };
+        }
+    }
+
+    async function muatMetode() {
+        const { data, error } = await supabaseClient.from('metode_pembayaran').select('*').order('nama_metode');
+        const tbody = document.getElementById('tabel-metode');
+        
+        if (error) return;
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">Belum ada metode pembayaran.</td></tr>`;
+            return;
         }
 
-        async function hapusMetode(id, nama) {
-            if(confirm(`Hapus metode "${nama}"?`)) {
-                const { error } = await supabaseClient
-                    .from('metode_pembayaran')
-                    .delete()
-                    .eq('id', id);
-                
-                if (error) {
-                    alert("Gagal hapus: " + error.message);
-                } else {
-                    muatMetode();
-                }
-            }
-        }
+        tbody.innerHTML = data.map(m => `
+            <tr>
+                <td><b>${m.nama_metode}</b></td>
+                <td style="text-align: center;">
+                    <button style="color:red; cursor:pointer; background:none; border:none;" onclick="hapusMetode('${m.id}', '${m.nama_metode}')">❌ Hapus</button>
+                </td>
+            </tr>
+        `).join('');
+    }
 
-        function logout() {
-            if(confirm("Keluar dari sistem?")) {
-                localStorage.clear();
-                window.location.replace("login.html");
-            }
+    async function tambahMetode() {
+        const input = document.getElementById('new-metode');
+        const nama = input.value.trim();
+        if(!nama) return;
+
+        const { error } = await supabaseClient.from('metode_pembayaran').insert([{ nama_metode: nama }]);
+        if (!error) {
+            input.value = '';
+            muatMetode();
         }
-    </script>
+    }
+
+    async function hapusMetode(id, nama) {
+        if(confirm(`Hapus metode "${nama}"?`)) {
+            const { error } = await supabaseClient.from('metode_pembayaran').delete().eq('id', id);
+            if (!error) muatMetode();
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.replace('login.html');
+    }
+</script>
 </body>
 </html>
