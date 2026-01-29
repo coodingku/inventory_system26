@@ -19,28 +19,27 @@
         main { flex: 1; margin-left: 260px; padding: 30px; }
         .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         
-        /* Action Bar */
         .action-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
         .search-box { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; min-width: 250px; }
         
-        /* Buttons */
-        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); }
         .btn-add { background: var(--accent); color: white; }
         .btn-export { background: #607d8b; color: white; }
         .btn-import { background: #8e44ad; color: white; }
         .btn-template { background: #95a5a6; color: white; }
 
-        /* Progress Bar Styles */
+        /* Progress Bar */
         #import-progress-container { display:none; margin: 20px 0; background: #eee; border-radius: 10px; overflow: hidden; height: 25px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
         #import-progress-bar { width: 0%; height: 100%; background: var(--success); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; }
 
         /* Table Card */
-        .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
-        td { padding: 15px; border-bottom: 1px solid #eee; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
 
-        /* Modal Styles */
+        /* Modal */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 450px; max-height: 90vh; overflow-y: auto; }
         .form-group { margin-bottom: 15px; }
@@ -49,20 +48,22 @@
         
         .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
         .stock-low { background: #ffebee; color: #c62828; }
+        .stock-ok { background: #e8f5e9; color: #2e7d32; }
     </style>
 </head>
 <body>
 
 <nav>
     <h2>Finex Pos</h2>
-    <a href="index.html">📊 Dashboard</a>
+    <a href="dashboard.html">📊 Dashboard</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
     <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
     <a href="produk.html" class="active">📦 Produk</a>
     <a href="kategori.html">📁 Kategori</a>
     <a href="gudang.html">🏠 Gudang</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: var(--success); color: white; text-align:center;">🛒 Kasir</a>
+    <a href="penjualan-detail.html">💰 Laba Rugi</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align:center; margin-top: 10px;">🛒 Kasir</a>
 </nav>
 
 <main>
@@ -74,7 +75,7 @@
     <div id="import-progress-container">
         <div id="import-progress-bar">0%</div>
     </div>
-    <p id="import-status-text" style="display:none; font-size: 12px; color: #666; text-align: center; margin-bottom: 20px;">Memproses data Kantin...</p>
+    <p id="import-status-text" style="display:none; font-size: 12px; color: #666; text-align: center; margin-bottom: 20px;">Memproses data...</p>
 
     <div class="action-bar">
         <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk atau barcode..." onkeyup="filterProduk()">
@@ -93,7 +94,8 @@
                     <th>Barcode</th>
                     <th>Produk</th>
                     <th>Kategori / Gudang</th>
-                    <th>Harga</th>
+                    <th>Modal</th>
+                    <th>Harga Jual</th>
                     <th>Stok</th>
                     <th>Aksi</th>
                 </tr>
@@ -110,7 +112,7 @@
             <input type="hidden" id="prod-id">
             <div class="form-group">
                 <label>Kode / Barcode</label>
-                <input type="text" id="prod-kode" placeholder="Scan atau ketik kode barang" required>
+                <input type="text" id="prod-kode" placeholder="Scan atau ketik kode barang">
             </div>
             <div class="form-group">
                 <label>Nama Produk</label>
@@ -126,9 +128,15 @@
                     <select id="prod-gudang"></select>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Harga Jual (Rp)</label>
-                <input type="number" id="prod-harga" required>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label>Harga Beli (Modal)</label>
+                    <input type="number" id="prod-beli" placeholder="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Harga Jual</label>
+                    <input type="number" id="prod-harga" placeholder="0" required>
+                </div>
             </div>
             <div class="form-group">
                 <label>Stok Saat Ini</label>
@@ -143,7 +151,6 @@
 </div>
 
 <script>
-    // Konfigurasi Global Supabase - Digunakan oleh semua fungsi
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
@@ -155,7 +162,7 @@
     };
 
     async function fetchProduk() {
-        const { data } = await FinexDB.from('produk').select('*').order('created_at', { ascending: false });
+        const { data } = await FinexDB.from('produk').select('*').order('nama_barang', { ascending: true });
         masterData = data || [];
         renderTable(masterData);
     }
@@ -166,37 +173,34 @@
             FinexDB.from('gudang').select('nama_gudang')
         ]);
         
-        document.getElementById('prod-kategori').innerHTML = resKat.data?.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`).join('') || '<option>Umum</option>';
-        document.getElementById('prod-gudang').innerHTML = resGud.data?.map(g => `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`).join('') || '<option>Gudang Utama</option>';
+        document.getElementById('prod-kategori').innerHTML = (resKat.data?.length ? resKat.data.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`) : '<option value="Umum">Umum</option>');
+        document.getElementById('prod-gudang').innerHTML = (resGud.data?.length ? resGud.data.map(g => `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`) : '<option value="Kantin">Kantin</option>');
     }
 
     function renderTable(data) {
         const tbody = document.getElementById('product-list');
-        tbody.innerHTML = '';
-        data.forEach(p => {
-            const stockClass = p.stok_sekarang < 10 ? 'stock-low' : '';
-            tbody.innerHTML += `
-                <tr>
-                    <td><small>${p.kode_barang || '-'}</small></td>
-                    <td><b>${p.nama_barang}</b></td>
-                    <td><small>${p.kategori} | ${p.gudang || 'Utama'}</small></td>
-                    <td>Rp ${parseFloat(p.harga_jual).toLocaleString()}</td>
-                    <td><span class="badge-stock ${stockClass}">${p.stok_sekarang}</span></td>
-                    <td>
-                        <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button> |
-                        <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">Hapus</button>
-                    </td>
-                </tr>`;
-        });
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td><small>${p.kode_barang || '-'}</small></td>
+                <td><b>${p.nama_barang}</b></td>
+                <td><small>${p.kategori} | ${p.gudang || 'Utama'}</small></td>
+                <td>Rp ${(p.harga_beli || 0).toLocaleString()}</td>
+                <td style="color:var(--success); font-weight:bold;">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
+                <td><span class="badge-stock ${p.stok_sekarang < 10 ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang}</span></td>
+                <td>
+                    <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button> |
+                    <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">Hapus</button>
+                </td>
+            </tr>`).join('');
     }
 
-    // Modal Control
     function openModal() {
         document.getElementById('productForm').reset();
         document.getElementById('prod-id').value = '';
         document.getElementById('modalTitle').innerText = "Tambah Produk";
         document.getElementById('productModal').style.display = 'flex';
     }
+    
     function closeModal() { document.getElementById('productModal').style.display = 'none'; }
 
     document.getElementById('productForm').onsubmit = async (e) => {
@@ -207,21 +211,23 @@
             nama_barang: document.getElementById('prod-nama').value,
             kategori: document.getElementById('prod-kategori').value,
             gudang: document.getElementById('prod-gudang').value,
-            harga_jual: document.getElementById('prod-harga').value,
-            stok_sekarang: document.getElementById('prod-stok').value
+            harga_beli: parseInt(document.getElementById('prod-beli').value) || 0,
+            harga_jual: parseInt(document.getElementById('prod-harga').value) || 0,
+            stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0
         };
 
         const res = id ? await FinexDB.from('produk').update(payload).eq('id', id) : await FinexDB.from('produk').insert([payload]);
-        if (!res.error) { closeModal(); fetchProduk(); }
+        if (!res.error) { closeModal(); fetchProduk(); } else { alert(res.error.message); }
     };
 
-    async function editProduk(id) {
+    function editProduk(id) {
         const p = masterData.find(x => x.id === id);
         document.getElementById('prod-id').value = p.id;
-        document.getElementById('prod-kode').value = p.kode_barang;
+        document.getElementById('prod-kode').value = p.kode_barang || '';
         document.getElementById('prod-nama').value = p.nama_barang;
         document.getElementById('prod-kategori').value = p.kategori;
         document.getElementById('prod-gudang').value = p.gudang;
+        document.getElementById('prod-beli').value = p.harga_beli || 0;
         document.getElementById('prod-harga').value = p.harga_jual;
         document.getElementById('prod-stok').value = p.stok_sekarang;
         document.getElementById('modalTitle').innerText = "Edit Produk";
@@ -237,12 +243,11 @@
 
     function filterProduk() {
         const q = document.getElementById('searchBar').value.toLowerCase();
-        renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || p.kode_barang?.includes(q)));
+        renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || (p.kode_barang && p.kode_barang.includes(q))));
     }
 
-    // Export & Template
     function downloadTemplate() {
-        const template = [{"Kode Barang": "1001", "Nama Produk": "Nasi Kuning", "Kategori": "Makanan", "Gudang": "Kantin", "Harga Jual": 10000, "Stok": 20}];
+        const template = [{"Kode Barang": "1001", "Nama Produk": "Nasi Kuning", "Kategori": "Makanan", "Gudang": "Kantin", "Harga Beli": 7000, "Harga Jual": 10000, "Stok": 20}];
         const ws = XLSX.utils.json_to_sheet(template);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Produk");
@@ -256,7 +261,6 @@
         XLSX.writeFile(wb, "Data_Produk_Lengkap.xlsx");
     }
 
-    // FUNGSI IMPORT TERBARU DENGAN PROGRESS BAR & BATCHING
     async function importExcel(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -268,7 +272,6 @@
         container.style.display = 'block';
         statusText.style.display = 'block';
         progressBar.style.width = '0%';
-        progressBar.innerText = '0%';
 
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -277,45 +280,35 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-                // Mapping data Excel (Support header Indonesia & English)
                 const cleanedData = json.map(item => ({
                     kode_barang: (item["Kode Barang"] || item.kode_barang || "").toString(),
-                    nama_barang: (item["Nama Produk"] || item.Nama || item.nama_barang || "").toString().trim(),
-                    harga_jual: parseFloat(item["Harga Jual"] || item.Harga || item.harga_jual || 0),
+                    nama_barang: (item["Nama Produk"] || item.nama_barang || "").toString().trim(),
+                    harga_beli: parseFloat(item["Harga Beli"] || item.harga_beli || 0),
+                    harga_jual: parseFloat(item["Harga Jual"] || item.harga_jual || 0),
                     stok_sekarang: parseInt(item.Stok || item.stok_sekarang || 0),
                     kategori: item.Kategori || item.kategori || 'Umum',
                     gudang: item.Gudang || item.gudang || 'Kantin'
                 })).filter(item => item.nama_barang !== "");
 
                 const totalData = cleanedData.length;
-                const batchSize = 50; // Batch 50 data per kloter agar progres mulus
+                const batchSize = 20; 
                 
                 for (let i = 0; i < totalData; i += batchSize) {
                     const batch = cleanedData.slice(i, i + batchSize);
-                    
-                    // Gunakan FinexDB yang sudah global
-                    const { error } = await FinexDB
-                        .from('produk')
-                        .upsert(batch, { onConflict: 'nama_barang' });
-
+                    const { error } = await FinexDB.from('produk').upsert(batch, { onConflict: 'nama_barang' });
                     if (error) throw error;
 
-                    const processed = Math.min(i + batchSize, totalData);
-                    const percentage = Math.round((processed / totalData) * 100);
-                    
+                    const percentage = Math.round((Math.min(i + batchSize, totalData) / totalData) * 100);
                     progressBar.style.width = percentage + "%";
                     progressBar.innerText = percentage + "%";
-                    statusText.innerText = `Mengunggah ${processed} dari ${totalData} produk...`;
+                    statusText.innerText = `Mengunggah ${Math.min(i + batchSize, totalData)} dari ${totalData} produk...`;
                 }
 
-                statusText.innerHTML = `<span style="color:var(--success); font-weight:bold;">✅ Berhasil! ${totalData} produk Kantin telah diperbarui.</span>`;
+                statusText.innerHTML = `<span style="color:var(--success); font-weight:bold;">✅ Berhasil mengimpor ${totalData} produk!</span>`;
                 setTimeout(() => location.reload(), 1500);
-
             } catch (err) {
-                console.error("Gagal Import:", err);
-                alert("Terjadi kesalahan saat import: " + (err.message || "Pastikan nama_barang sudah UNIQUE di database"));
+                alert("Kesalahan import: " + err.message);
                 container.style.display = 'none';
-                statusText.style.display = 'none';
             }
         };
         reader.readAsArrayBuffer(file);
