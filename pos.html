@@ -11,7 +11,7 @@
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; text-decoration: none; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
 
@@ -119,7 +119,12 @@
 <script>
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+    
+    // Inisialisasi Supabase dengan proteksi Tracking Prevention
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB, {
+        auth: { persistSession: false }
+    });
+    
     const DOMAIN_URL = "https://inventory-system26.vercel.app";
 
     let cart = [];
@@ -170,8 +175,12 @@
 
     function addCart(id, nama, harga, stokMaks) {
         const idx = cart.findIndex(c => c.id === id);
-        if (idx > -1) { if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok habis!"); } 
-        else { cart.push({ id, nama_barang: nama, harga, qty: 1 }); }
+        if (idx > -1) { 
+            if (cart[idx].qty < stokMaks) cart[idx].qty++; 
+            else alert("Stok di Kantin habis!"); 
+        } else { 
+            cart.push({ id, nama_barang: nama, harga, qty: 1 }); 
+        }
         calculateTotal();
     }
 
@@ -188,13 +197,21 @@
     }
 
     function delItem(i) { cart.splice(i, 1); calculateTotal(); }
-    function openPayment() { if(cart.length === 0) return; document.getElementById('label-total-modal').innerText = "TOTAL: Rp " + state.total.toLocaleString(); document.getElementById('payModal').style.display = 'flex'; document.getElementById('cashInput').focus(); }
+    
+    function openPayment() { 
+        if(cart.length === 0) return; 
+        document.getElementById('label-total-modal').innerText = "TOTAL: Rp " + state.total.toLocaleString(); 
+        document.getElementById('payModal').style.display = 'flex'; 
+        document.getElementById('cashInput').focus(); 
+    }
+    
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
     async function executeTransaction() {
         if (isSaving) return;
         const method = document.getElementById('payMethodSelect').value;
         const cash = parseFloat(document.getElementById('cashInput').value || 0);
+        
         if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
         
         isSaving = true;
@@ -203,20 +220,55 @@
         state.lastMethod = method;
 
         try {
-            const { data: trx, error } = await FinexDB.from('penjualan').insert([{ no_invoice: inv, subtotal: state.sub, diskon: state.disc, grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method }]).select().single();
+            // 1. Simpan ke tabel penjualan (Lengkap dengan kolom items untuk kebutuhan Void)
+            const { data: trx, error } = await FinexDB.from('penjualan').insert([{ 
+                no_invoice: inv, 
+                subtotal: state.sub, 
+                diskon: state.disc, 
+                grand_total: state.total, 
+                bayar: cash, 
+                kasir_id: currentLogId, 
+                metode_pembayaran: method,
+                items: JSON.stringify(cart) // DATA PENTING UNTUK VOID
+            }]).select().single();
+
             if (error) throw error;
             state.lastTrxId = trx.id;
 
+            // 2. Simpan Detail & Update Stok di Kantin
             for (const item of cart) {
-                await FinexDB.from('penjualan_detail').insert([{ penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga }]);
+                // Simpan ke detail
+                await FinexDB.from('penjualan_detail').insert([{ 
+                    penjualan_id: trx.id, 
+                    produk_id: item.id, 
+                    nama_barang: item.nama_barang, 
+                    qty: item.qty, 
+                    harga_satuan: item.harga, 
+                    subtotal_item: item.qty * item.harga 
+                }]);
+
+                // Update Stok Produk
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
+                if (p) {
+                    await FinexDB.from('produk').update({ 
+                        stok_sekarang: (p.stok_sekarang - item.qty) 
+                    }).eq('id', item.id);
+                }
             }
 
             renderReceipt(inv, cash, method);
             document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
-        } catch (e) { isSaving = false; alert("Error: " + e.message); }
+            
+            // Auto Print & Tampilkan Modal WA
+            setTimeout(() => { 
+                window.print(); 
+                document.getElementById('waModal').style.display = 'flex'; 
+            }, 500);
+
+        } catch (e) { 
+            isSaving = false; 
+            alert("Error Transaksi: " + e.message); 
+        }
     }
 
     function sendWhatsApp() {
@@ -233,7 +285,18 @@
 
     function renderReceipt(inv, bayar, method) {
         const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
-        document.getElementById('print-area').innerHTML = `<div style="width:58mm; padding:10px; font-family:monospace; background:white;"><center><b>FINEX POS KANTIN</b><br>--------------------------</center>ID: ${inv}<br>Tgl: ${new Date().toLocaleString('id-ID')}<br>Ksr: ${session.username}<br>--------------------------<br>${items}--------------------------<br><div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>${state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Disc (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : ''}<div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>--------------------------<br>Metode: ${method}<br>Bayar: Rp ${bayar.toLocaleString()}<br>Kembali: Rp ${(bayar - state.total).toLocaleString()}<br>--------------------------<br><center style="margin-top:10px;">Terima Kasih</center></div>`;
+        document.getElementById('print-area').innerHTML = `
+            <div style="width:58mm; padding:10px; font-family:monospace; background:white;">
+                <center><b>FINEX POS KANTIN</b><br>--------------------------</center>
+                ID: ${inv}<br>Tgl: ${new Date().toLocaleString('id-ID')}<br>Ksr: ${session.username}<br>
+                --------------------------<br>${items}--------------------------<br>
+                <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
+                ${state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Disc (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : ''}
+                <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
+                --------------------------<br>
+                Metode: ${method}<br>Bayar: Rp ${bayar.toLocaleString()}<br>Kembali: Rp ${(bayar - state.total).toLocaleString()}<br>
+                --------------------------<br><center style="margin-top:10px;">Terima Kasih</center>
+            </div>`;
     }
 
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
