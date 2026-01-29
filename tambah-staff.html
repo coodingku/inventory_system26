@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Manajemen Employee</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: var(--primary); font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        /* Camera Styling */
+        #video-container { width: 100%; height: 200px; background: #000; border-radius: 10px; overflow: hidden; margin: 15px 0; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-scan { background: var(--accent); color: white; }
+        .btn-save { background: var(--success); color: white; display: none; }
+        .btn-danger { background: none; color: var(--danger); border: 1px solid var(--danger); padding: 5px 10px; font-size: 12px; }
+        .btn-danger:hover { background: var(--danger); color: white; }
+
+        /* Table Styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 13px; color: #666; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .badge-face { background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>👤 Registrasi Wajah Staff</h2>
+        <div id="status-ai" style="font-size: 12px; color: #e67e22; font-weight: bold;">⏳ Memuat AI Model...</div>
+        
+        <div id="video-container">
+            <video id="video" autoplay playsinline muted></video>
+        </div>
+
+        <input type="text" id="nama_staff" placeholder="Nama Lengkap Karyawan">
+        <input type="text" id="jabatan" placeholder="Jabatan (Contoh: Kasir Kantin)">
+        
+        <button id="btn-scan" class="btn btn-scan" onclick="scanWajah()" disabled>📸 AMBIL SAMPEL WAJAH</button>
+        <button id="btn-save" class="btn btn-save" onclick="simpanStaff()">💾 SIMPAN DATA KARYAWAN</button>
+        <p id="msg" style="font-size: 12px; text-align: center; font-weight: bold;"></p>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="border:0; padding:0;">📋 Daftar Employee</h2>
+            <button onclick="loadStaffList()" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:12px;">🔄 Refresh</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nama</th>
+                    <th>Jabatan</th>
+                    <th>Status ID</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="staff-table-body">
+                <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    let faceDescriptor = null;
+
+    // 1. Inisialisasi Model AI & Kamera
+    async function init() {
+        const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
+        try {
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
+            document.getElementById('status-ai').innerText = "✅ AI Siap Digunakan";
+            document.getElementById('btn-scan').disabled = false;
+            startVideo();
+            loadStaffList();
+        } catch (e) {
+            document.getElementById('status-ai').innerText = "❌ Gagal memuat AI";
+        }
+    }
+
+    function startVideo() {
+        navigator.mediaDevices.getUserMedia({ video: {} }).then(stream => {
+            document.getElementById('video').srcObject = stream;
+        });
+    }
+
+    // 2. Scan Wajah untuk mendapatkan Descriptor
+    async function scanWajah() {
+        const video = document.getElementById('video');
+        const msg = document.getElementById('msg');
+        msg.innerText = "⏳ Memproses wajah... tetap diam.";
+        msg.style.color = "var(--accent)";
+
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+        if (detection) {
+            faceDescriptor = JSON.stringify(Array.from(detection.descriptor));
+            msg.innerText = "✅ Sampel Wajah Berhasil Dikunci!";
+            msg.style.color = "var(--success)";
+            document.getElementById('btn-save').style.display = "block";
+            document.getElementById('btn-scan').innerText = "🔄 RESET SCAN";
+        } else {
+            msg.innerText = "❌ Wajah tidak terdeteksi. Coba lagi.";
+            msg.style.color = "var(--danger)";
+        }
+    }
+
+    // 3. Simpan ke Database employee_staff
+    async function simpanStaff() {
+        const nama = document.getElementById('nama_staff').value;
+        const jabatan = document.getElementById('jabatan').value;
+
+        if (!nama || !faceDescriptor) return alert("Lengkapi data dan scan wajah!");
+
+        const { error } = await FinexDB.from('employee_staff').insert([{
+            nama_staff: nama,
+            jabatan: jabatan,
+            face_descriptor: faceDescriptor
+        }]);
+
+        if (!error) {
+            alert("Karyawan berhasil didaftarkan!");
+            location.reload();
+        } else {
+            alert("Error: " + error.message);
+        }
+    }
+
+    // 4. Load & Tampilkan Daftar Staff
+    async function loadStaffList() {
+        const { data, error } = await FinexDB.from('employee_staff').select('*').order('created_at', { ascending: false });
+        const tbody = document.getElementById('staff-table-body');
+
+        if (error) return tbody.innerHTML = '<tr><td colspan="4">Gagal memuat data.</td></tr>';
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">Belum ada staff terdaftar.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(staff => `
+            <tr>
+                <td><b>${staff.nama_staff}</b></td>
+                <td>${staff.jabatan || '-'}</td>
+                <td><span class="badge-face">Face ID Active</span></td>
+                <td>
+                    <button class="btn-danger" onclick="hapusStaff('${staff.id}', '${staff.nama_staff}')">Hapus</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 5. Hapus Staff
+    async function hapusStaff(id, nama) {
+        if (confirm(`Hapus data ${nama}? Staff ini tidak akan bisa absen lagi.`)) {
+            const { error } = await FinexDB.from('employee_staff').delete().eq('id', id);
+            if (!error) loadStaffList();
+        }
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
