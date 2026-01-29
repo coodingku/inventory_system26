@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Laporan Laba Rugi</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .header-section { background: #eee; padding: 10px; font-weight: bold; margin-top: 20px; }
+        .total-net { margin-top: 30px; padding: 20px; background: var(--primary); color: white; border-radius: 8px; font-size: 20px; display: flex; justify-content: space-between; }
+        .btn-print { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; float: right; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align:center; color: var(--primary);">LAPORAN LABA RUGI</h2>
+    <p id="tgl-laporan" style="text-align:center; color: #666;"></p>
+    <hr>
+
+    <div class="header-section">PENDAPATAN</div>
+    <div id="list-pendapatan"></div>
+    <div class="row" style="font-weight:bold;"><span>Total Pendapatan</span><span id="total-pendapatan">0</span></div>
+
+    <div class="header-section">BEBAN OPERASIONAL</div>
+    <div id="list-beban"></div>
+    <div class="row" style="font-weight:bold;"><span>Total Beban</span><span id="total-beban">0</span></div>
+
+    <div class="total-net">
+        <span>LABA (RUGI) BERSIH</span>
+        <span id="laba-bersih">Rp 0</span>
+    </div>
+    
+    <button class="btn-print" onclick="window.print()" style="margin-top:20px;">Cetak Laporan</button>
+</div>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
+    window.onload = async () => {
+        document.getElementById('tgl-laporan').innerText = new Date().toLocaleDateString('id-ID', { dateStyle: 'long' });
+        loadLabaRugi();
+    };
+
+    async function loadLabaRugi() {
+        // Mengambil rekap saldo per akun
+        const { data, error } = await supabaseClient
+            .from('jurnal_umum')
+            .select(`kode_akun, debit, kredit, akun(nama_akun, kategori)`);
+
+        if (error) return alert(error.message);
+
+        let rekap = {};
+        data.forEach(j => {
+            const k = j.kode_akun;
+            if(!rekap[k]) rekap[k] = { nama: j.akun.nama_akun, kat: j.akun.kategori, saldo: 0 };
+            
+            // Logika Saldo: Jika Pendapatan (Kredit - Debit), Jika Beban (Debit - Kredit)
+            if(j.akun.kategori === 'Pendapatan') rekap[k].saldo += (j.kredit - j.debit);
+            else if(j.akun.kategori === 'Beban') rekap[k].saldo += (j.debit - j.kredit);
+        });
+
+        let htmlPendapatan = '', htmlBeban = '';
+        let totalP = 0, totalB = 0;
+
+        for (let k in rekap) {
+            const item = rekap[k];
+            const row = `<div class="row"><span>${item.nama}</span><span>${item.saldo.toLocaleString()}</span></div>`;
+            
+            if(item.kat === 'Pendapatan') {
+                htmlPendapatan += row;
+                totalP += item.saldo;
+            } else if(item.kat === 'Beban') {
+                htmlBeban += row;
+                totalB += item.saldo;
+            }
+        }
+
+        document.getElementById('list-pendapatan').innerHTML = htmlPendapatan || 'Tidak ada pendapatan';
+        document.getElementById('list-beban').innerHTML = htmlBeban || 'Tidak ada beban';
+        document.getElementById('total-pendapatan').innerText = "Rp " + totalP.toLocaleString();
+        document.getElementById('total-beban').innerText = "Rp " + totalB.toLocaleString();
+        
+        const bersih = totalP - totalB;
+        const target = document.getElementById('laba-bersih');
+        target.innerText = "Rp " + bersih.toLocaleString();
+        target.style.color = bersih < 0 ? '#ff7675' : '#55efc4';
+    }
+</script>
+</body>
+</html>
