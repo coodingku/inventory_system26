@@ -2,35 +2,75 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Pengaturan Lokasi</title>
+    <title>Finex Pos | Pengaturan Lokasi Presisi</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 40px; }
-        .card { background: white; padding: 30px; border-radius: 15px; max-width: 500px; margin: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        .btn-save { background: #27ae60; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .info { font-size: 12px; color: #666; background: #e3f2fd; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 30px; border-radius: 20px; max-width: 450px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        h2 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; }
+        
+        .geo-btn { 
+            background: #ebf5ff; color: var(--accent); border: 2px dashed var(--accent); 
+            padding: 15px; width: 100%; border-radius: 12px; cursor: pointer; 
+            font-weight: bold; margin-bottom: 20px; transition: 0.3s;
+        }
+        .geo-btn:hover { background: var(--accent); color: white; border-style: solid; }
+
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: bold; color: #666; margin-bottom: 5px; }
+        input { 
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; 
+            box-sizing: border-box; font-size: 15px; background: #fafafa;
+        }
+        
+        .btn-save { 
+            background: var(--success); color: white; border: none; padding: 15px; 
+            width: 100%; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px;
+            margin-top: 10px; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+        }
+        .btn-save:active { transform: scale(0.98); }
+
+        #status-gps { font-size: 12px; text-align: center; margin-top: -10px; margin-bottom: 15px; color: #888; }
+        .divider { height: 1px; background: #eee; margin: 20px 0; position: relative; }
+        .divider span { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 12px; color: #aaa; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>📍 Setting Lokasi Absen</h2>
-    <div class="info">
-        <b>Tips:</b> Buka Google Maps, klik kanan di lokasi Toko/Kantin, lalu salin angka Latitude dan Longitude-nya di sini.
+    <h2>📍 Titik Pusat Absensi</h2>
+    <p style="font-size: 14px; color: #7f8c8d; margin-bottom: 25px;">Tentukan koordinat utama agar staff hanya bisa absen di area ini.</p>
+    
+    <button class="geo-btn" onclick="getCurrentLocation()">
+        🎯 Gunakan Lokasi Saya Sekarang
+    </button>
+    <div id="status-gps">Pastikan Anda berada di dalam Kantin</div>
+
+    <div class="divider"><span>ATAU MASUKKAN MANUAL</span></div>
+
+    <div class="input-group">
+        <label>Latitude</label>
+        <input type="number" id="lat" step="any" placeholder="-6.xxxxxx">
     </div>
     
-    <label>Latitude</label>
-    <input type="number" id="lat" step="any" placeholder="Contoh: -6.1753">
+    <div class="input-group">
+        <label>Longitude</label>
+        <input type="number" id="lon" step="any" placeholder="106.xxxxxx">
+    </div>
     
-    <label>Longitude</label>
-    <input type="number" id="lon" step="any" placeholder="Contoh: 106.8271">
+    <div class="input-group">
+        <label>Radius Keamanan (Meter)</label>
+        <input type="number" id="radius" placeholder="Contoh: 50">
+        <small style="color: #999; font-size: 11px;">Jarak toleransi staff dari titik pusat.</small>
+    </div>
     
-    <label>Radius Maksimal (Meter)</label>
-    <input type="number" id="radius" placeholder="Contoh: 50">
+    <button class="btn-save" onclick="simpanLokasi()">💾 SIMPAN PENGATURAN</button>
+    <p id="msg" style="text-align:center; font-size: 14px; margin-top: 15px;"></p>
     
-    <button class="btn-save" onclick="simpanLokasi()">SIMPAN PENGATURAN</button>
-    <p id="msg" style="text-align:center; font-weight:bold;"></p>
+    <center>
+        <a href="dashboard.html" style="text-decoration:none; font-size:12px; color:#999;">← Kembali ke Dashboard</a>
+    </center>
 </div>
 
 <script>
@@ -38,9 +78,9 @@
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    // Load data saat ini
+    // Muat data saat ini dari database
     window.onload = async () => {
-        const { data } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).single();
+        const { data, error } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).single();
         if (data) {
             document.getElementById('lat').value = data.latitude;
             document.getElementById('lon').value = data.longitude;
@@ -48,20 +88,58 @@
         }
     };
 
+    // Fungsi Ambil Lokasi Saat Ini (GPS HP/Laptop)
+    function getCurrentLocation() {
+        const status = document.getElementById('status-gps');
+        const btn = document.querySelector('.geo-btn');
+
+        if (!navigator.geolocation) {
+            alert("Geolocation tidak didukung oleh browser Anda");
+            return;
+        }
+
+        btn.innerText = "⏳ Mendeteksi...";
+        status.innerText = "Mohon tunggu, sedang mengunci GPS...";
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            document.getElementById('lat').value = lat;
+            document.getElementById('lon').value = lon;
+            
+            btn.innerText = "🎯 Lokasi Terdeteksi!";
+            status.innerHTML = `<span style="color:var(--success)">Akurasi: ±${Math.round(accuracy)} meter</span>`;
+            
+            setTimeout(() => {
+                btn.innerText = "🎯 Gunakan Lokasi Saya Sekarang";
+            }, 3000);
+
+        }, (error) => {
+            alert("Gagal mengambil lokasi: " + error.message);
+            btn.innerText = "🎯 Gunakan Lokasi Saya Sekarang";
+            status.innerText = "Pastikan GPS aktif & izin lokasi diberikan.";
+        }, { enableHighAccuracy: true });
+    }
+
     async function simpanLokasi() {
+        const msg = document.getElementById('msg');
         const payload = {
             latitude: parseFloat(document.getElementById('lat').value),
             longitude: parseFloat(document.getElementById('lon').value),
-            radius_meter: parseInt(document.getElementById('radius').value)
+            radius_meter: parseInt(document.getElementById('radius').value) || 50
         };
 
         const { error } = await FinexDB.from('pengaturan_toko').update(payload).eq('id', 1);
 
         if (!error) {
-            document.getElementById('msg').innerText = "✅ Lokasi Berhasil Diperbarui!";
-            document.getElementById('msg').style.color = "green";
+            msg.innerText = "✅ Pengaturan Berhasil Disimpan!";
+            msg.style.color = "green";
+            setTimeout(() => { msg.innerText = ""; }, 3000);
         } else {
-            alert("Gagal: " + error.message);
+            msg.innerText = "❌ Gagal: " + error.message;
+            msg.style.color = "red";
         }
     }
 </script>
