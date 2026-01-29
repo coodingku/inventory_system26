@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Catat Pengeluaran</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .card { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 10px; margin-top: 10px; box-sizing: border-box; }
+        button { background: #e74c3c; color: white; border: none; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Catat Pengeluaran (Beban)</h2>
+    <label>Pilih Jenis Beban:</label>
+    <select id="kode_akun">
+        <option value="6101">Beban Listrik & Air</option>
+        <option value="6102">Beban Perlengkapan (Gas/Tissue)</option>
+        <option value="6103">Beban Gaji Karyawan</option>
+    </select>
+    
+    <input type="text" id="keterangan" placeholder="Keterangan (Contoh: Beli Gas Elpiji)">
+    <input type="number" id="nominal" placeholder="Nominal (Rp)">
+    
+    <button onclick="simpanBeban()">SIMPAN PENGELUARAN</button>
+    <br><br>
+    <a href="jurnal.html" style="font-size: 12px; color: gray;">Lihat Jurnal Umum</a>
+</div>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
+    async function simpanBeban() {
+        const kode = document.getElementById('kode_akun').value;
+        const ket = document.getElementById('keterangan').value;
+        const nom = parseFloat(document.getElementById('nominal').value);
+
+        if(!ket || !nom) return alert("Isi data dengan lengkap!");
+
+        const noBukti = "OUT-" + Date.now();
+        const tgl = new Date().toISOString();
+
+        // Double Entry: Beban (Debit) dan Kas (Kredit)
+        const dataJurnal = [
+            { tanggal: tgl, no_bukti: noBukti, kode_akun: kode, keterangan: ket, debit: nom, kredit: 0 },
+            { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: nom }
+        ];
+
+        const { error } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
+        
+        if (error) alert("Gagal: " + error.message);
+        else {
+            alert("Pengeluaran berhasil dicatat!");
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
