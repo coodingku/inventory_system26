@@ -3,32 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrasi Staff Finex</title>
+    <title>Manajemen Staff | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f7f6; }
-        .card { background: white; padding: 20px; border-radius: 15px; max-width: 450px; margin: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        #video { width: 100%; border-radius: 10px; background: #000; height: 250px; object-fit: cover; }
-        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-        .btn-save { background: #27ae60; color: white; font-weight: bold; cursor: pointer; }
-        /* Box Debugger */
-        #debug-log { background: #333; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; margin-top: 20px; height: 100px; overflow-y: auto; }
+        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 400px 1fr; gap: 20px; }
+        
+        @media (max-width: 850px) { .container { grid-template-columns: 1fr; } }
+
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        #video { width: 100%; border-radius: 10px; background: #000; height: 250px; object-fit: cover; margin-bottom: 10px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .btn-scan { background: var(--accent); color: white; }
+        .btn-save { background: var(--success); color: white; display: none; }
+        
+        /* Table Style */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; font-size: 13px; color: #666; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
+        .action-btns { display: flex; gap: 5px; }
+        .btn-edit { background: #f1c40f; color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; }
+        .btn-del { background: var(--danger); color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; }
+        
+        #debug-log { background: #fdfdfd; border: 1px solid #ddd; padding: 8px; border-radius: 5px; font-size: 11px; margin-top: 10px; max-height: 60px; overflow-y: auto; color: #666; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h3>👤 Registrasi Employee-Staff</h3>
-    <video id="video" autoplay playsinline muted></video>
-    
-    <input type="text" id="nama_staff" placeholder="Nama Karyawan">
-    <input type="text" id="jabatan" placeholder="Jabatan">
-    
-    <button onclick="scanWajah()">1. AMBIL FOTO WAJAH</button>
-    <button id="btn-simpan" class="btn-save" onclick="simpanData()" style="display:none;">2. SIMPAN KE DATABASE</button>
-    
-    <div id="debug-log">Log: Menunggu inisialisasi...</div>
+<div class="container">
+    <div class="card">
+        <h3 id="form-title">👤 Registrasi Staff</h3>
+        <video id="video" autoplay playsinline muted></video>
+        
+        <input type="hidden" id="edit-id">
+        <input type="text" id="nama_staff" placeholder="Nama Lengkap Karyawan">
+        <input type="text" id="jabatan" placeholder="Jabatan (Kasir/Admin/dll)">
+        
+        <button id="btn-scan" class="btn btn-scan" onclick="scanWajah()">📸 AMBIL SAMPEL WAJAH</button>
+        <button id="btn-save" class="btn btn-save" onclick="simpanData()">💾 SIMPAN KARYAWAN</button>
+        <button id="btn-cancel" class="btn" onclick="resetForm()" style="display:none; background:#ccc;">Batal Edit</button>
+        
+        <div id="debug-log">Log: Menunggu AI...</div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Daftar Employee-Staff</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nama Staff</th>
+                    <th>Jabatan</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="staff-body">
+                <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>
@@ -38,14 +77,9 @@
 
     let currentDescriptor = null;
 
-    function log(txt) {
-        const d = document.getElementById('debug-log');
-        d.innerHTML += "<br>> " + txt;
-        d.scrollTop = d.scrollHeight;
-    }
+    function log(txt) { document.getElementById('debug-log').innerText = "Log: " + txt; }
 
     window.onload = async () => {
-        log("Memuat AI Model...");
         const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
         try {
             await Promise.all([
@@ -55,56 +89,100 @@
             ]);
             log("AI Siap.");
             startCamera();
-        } catch(e) { log("Gagal muat AI: " + e.message); }
+            muatDataStaff();
+        } catch(e) { log("Gagal muat AI."); }
     };
 
     async function startCamera() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             document.getElementById('video').srcObject = stream;
-            log("Kamera Aktif.");
-        } catch(e) { log("Kamera Error: " + e.message); }
+        } catch(e) { log("Kamera tidak ditemukan."); }
     }
 
     async function scanWajah() {
+        log("Memindai wajah...");
         const video = document.getElementById('video');
-        log("Memindai...");
         const result = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
         
         if (result) {
             currentDescriptor = JSON.stringify(Array.from(result.descriptor));
             log("✅ Wajah terkunci.");
-            document.getElementById('btn-simpan').style.display = 'block';
+            document.getElementById('btn-save').style.display = 'block';
         } else {
-            log("❌ Wajah tidak terdeteksi.");
+            alert("Wajah tidak terdeteksi, coba lagi.");
+        }
+    }
+
+    async function muatDataStaff() {
+        const { data, error } = await FinexDB.from('employee_staff').select('*').order('created_at', { ascending: false });
+        const tbody = document.getElementById('staff-body');
+        
+        if (data) {
+            tbody.innerHTML = data.map(s => `
+                <tr>
+                    <td><b>${s.nama_staff}</b></td>
+                    <td>${s.jabatan || '-'}</td>
+                    <td class="action-btns">
+                        <button class="btn-edit" onclick="editStaff('${s.id}', '${s.nama_staff}', '${s.jabatan}')">✏️</button>
+                        <button class="btn-del" onclick="hapusStaff('${s.id}', '${s.nama_staff}')">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
         }
     }
 
     async function simpanData() {
+        const id = document.getElementById('edit-id').value;
         const nama = document.getElementById('nama_staff').value;
         const jab = document.getElementById('jabatan').value;
 
-        if(!nama) return alert("Isi nama dulu!");
+        if(!nama) return alert("Nama tidak boleh kosong!");
 
-        log("Mencoba simpan ke Supabase...");
-        
-        const { data, error } = await FinexDB
-            .from('employee_staff')
-            .insert([{ 
-                nama_staff: nama, 
-                jabatan: jab, 
-                face_descriptor: currentDescriptor 
-            }]);
-
-        if (error) {
-            log("ERROR DB: " + error.message);
-            console.error(error);
-            alert("Gagal simpan: " + error.message);
+        let result;
+        if(id) {
+            // Update
+            result = await FinexDB.from('employee_staff').update({ nama_staff: nama, jabatan: jab }).eq('id', id);
         } else {
-            log("✅ BERHASIL DISIMPAN!");
-            alert("Data staff berhasil masuk!");
-            location.reload();
+            // Insert Baru
+            result = await FinexDB.from('employee_staff').insert([{ nama_staff: nama, jabatan: jab, face_descriptor: currentDescriptor }]);
         }
+
+        if (!result.error) {
+            alert("Data berhasil disimpan!");
+            resetForm();
+            muatDataStaff();
+        } else {
+            alert("Gagal: " + result.error.message);
+        }
+    }
+
+    function editStaff(id, nama, jab) {
+        document.getElementById('edit-id').value = id;
+        document.getElementById('nama_staff').value = nama;
+        document.getElementById('jabatan').value = jab;
+        document.getElementById('form-title').innerText = "✏️ Edit Staff";
+        document.getElementById('btn-save').style.display = 'block';
+        document.getElementById('btn-cancel').style.display = 'block';
+        document.getElementById('btn-scan').style.display = 'none'; // Sembunyikan scan saat edit nama
+    }
+
+    async function hapusStaff(id, nama) {
+        if(confirm(`Hapus staff ${nama}? Data absen tidak akan hilang tapi staff tidak bisa login lagi.`)) {
+            const { error } = await FinexDB.from('employee_staff').delete().eq('id', id);
+            if(!error) muatDataStaff();
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('edit-id').value = "";
+        document.getElementById('nama_staff').value = "";
+        document.getElementById('jabatan').value = "";
+        document.getElementById('form-title').innerText = "👤 Registrasi Staff";
+        document.getElementById('btn-save').style.display = 'none';
+        document.getElementById('btn-cancel').style.display = 'none';
+        document.getElementById('btn-scan').style.display = 'block';
+        currentDescriptor = null;
     }
 </script>
 </body>
