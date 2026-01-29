@@ -239,22 +239,30 @@
         window.print();
     }
 
- async function voidBill(id, invoiceNo) {
-    if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Master Produk otomatis.`)) return;
+async function voidBill(id, invoiceNo) {
+    // 1. Konfirmasi
+    if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Kantin secara otomatis.`)) return;
     
+    // Cari data di list lokal
     const dataBill = currentLaporan.find(i => i.id == id);
-    if (!dataBill) return alert("Data tidak ditemukan.");
+    if (!dataBill) return alert("Data transaksi tidak ditemukan.");
 
     try {
-        // 1. Ambil rincian barang dari JSON kolom 'items'
-        let daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : (dataBill.items || []);
+        // 2. Ambil rincian barang dari JSON kolom 'items'
+        let daftarBarang = [];
+        if (typeof dataBill.items === 'string') {
+            daftarBarang = JSON.parse(dataBill.items);
+        } else {
+            daftarBarang = dataBill.items || [];
+        }
 
+        // 3. Loop balikkan stok
         for (const it of daftarBarang) {
-            // Gunakan nama_barang sebagai kunci utama pencarian (sesuai file produk.html Anda)
+            // Gunakan nama_barang untuk mencocokkan data (sesuai file produk.html Anda)
             const pNama = it.nama_barang || it.nama;
             const qtyVoid = parseInt(it.qty || 0);
 
-            // 2. Cari produk di tabel 'produk' berdasarkan nama_barang
+            // Cari produk di tabel 'produk'
             const { data: p, error: errFetch } = await supabaseClient
                 .from('produk')
                 .select('id, stok_sekarang')
@@ -262,31 +270,29 @@
                 .maybeSingle();
 
             if (p) {
-                // 3. Hitung stok baru (Stok saat ini + jumlah yang di-void)
+                // Hitung stok baru
                 const stokBaru = (p.stok_sekarang || 0) + qtyVoid;
 
-                // 4. Update stok ke tabel produk
+                // Update ke database
                 const { error: errUpd } = await supabaseClient
                     .from('produk')
                     .update({ stok_sekarang: stokBaru })
                     .eq('id', p.id);
-
-                if (!errUpd) {
-                    // 5. Catat riwayat stok (Opsional)
-                    await supabaseClient.from('riwayat_stok').insert([{
-                        id_produk: p.id,
-                        tipe: 'MASUK',
-                        jumlah: qtyVoid,
-                        admin_nama: 'System Void',
-                        keterangan: `Void Inv: ${invoiceNo} (Kembali ke Kantin)`
-                    }]);
-                }
-            } else {
-                console.warn(`Produk "${pNama}" tidak ditemukan. Stok tidak diupdate.`);
+                
+                if (errUpd) console.error("Gagal update stok:", errUpd.message);
+                
+                // Opsional: Catat ke riwayat_stok jika tabelnya ada
+                await supabaseClient.from('riwayat_stok').insert([{
+                    id_produk: p.id,
+                    tipe: 'MASUK',
+                    jumlah: qtyVoid,
+                    admin_nama: 'System Void',
+                    keterangan: `Void Inv: ${invoiceNo}`
+                }]).select().catch(() => {}); // .catch agar tidak berhenti jika tabel riwayat tidak ada
             }
         }
 
-        // 6. Hapus transaksi penjualan setelah stok kembali
+        // 4. Hapus record penjualan
         const { error: errDelete } = await supabaseClient
             .from('penjualan')
             .delete()
@@ -294,12 +300,12 @@
 
         if (errDelete) throw errDelete;
 
-        alert(`✅ Transaksi ${invoiceNo} berhasil di-VOID.\nStok di Kantin telah diperbarui.`);
+        alert(`✅ Sukses! Transaksi ${invoiceNo} dibatalkan & stok dikembalikan.`);
         fetchLaporan(); // Refresh tabel
 
     } catch (err) {
-        console.error("Error Detail:", err);
-        alert("Terjadi kesalahan: " + err.message);
+        console.error("Detail Error:", err);
+        alert("Gagal proses Void: " + err.message);
     }
 }
     function exportKeExcel() {
