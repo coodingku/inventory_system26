@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Riwayat Absensi Staff</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        
+        /* Sidebar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .filter-row { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        .badge { padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+        .badge-aktif { background: #e3f2fd; color: #1976d2; } /* Sedang Kerja */
+        .badge-selesai { background: #e8f5e9; color: #2e7d32; } /* Sudah Pulang */
+        
+        .btn-refresh { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="produk.html">📦 Produk</a>
+    <a href="absen-report.html" class="active">🕒 Log Absensi</a>
+    <hr style="border: 0.5px solid #555; margin: 15px 0;">
+    <a href="absen.html" target="_blank" style="background:#8e44ad; color:white; text-align:center;">📲 Buka Mesin Absen</a>
+</nav>
+
+<main>
+    <div class="header-flex">
+        <h1>Riwayat Absensi Staff</h1>
+        <button class="btn-refresh" onclick="muatAbsensi()">🔄 Refresh Data</button>
+    </div>
+
+    <div class="card">
+        <div class="filter-row">
+            <div>
+                <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Pilih Tanggal</label>
+                <input type="date" id="filter-tanggal" onchange="muatAbsensi()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Nama Staff</th>
+                    <th>Tanggal</th>
+                    <th>Jam Masuk</th>
+                    <th>Jam Pulang</th>
+                    <th>Durasi Kerja</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="absen-table">
+                <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+
+    window.onload = () => {
+        document.getElementById('filter-tanggal').value = new Date().toISOString().split('T')[0];
+        muatAbsensi();
+    };
+
+    async function muatAbsensi() {
+        const tgl = document.getElementById('filter-tanggal').value;
+        const tbody = document.getElementById('absen-table');
+        
+        const { data, error } = await FinexDB
+            .from('presensi')
+            .select('*')
+            .eq('tanggal', tgl)
+            .order('waktu_masuk', { ascending: false });
+
+        if (error) return alert("Gagal: " + error.message);
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada aktifitas absen pada tanggal ini.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(item => {
+            const masuk = new Date(item.waktu_masuk);
+            const pulang = item.waktu_pulang ? new Date(item.waktu_pulang) : null;
+            
+            // Hitung Durasi
+            let durasi = "-";
+            if (pulang) {
+                const diffMs = pulang - masuk;
+                const diffHrs = Math.floor(diffMs / 3600000);
+                const diffMins = Math.floor((diffMs % 3600000) / 60000);
+                durasi = `${diffHrs}j ${diffMins}m`;
+            }
+
+            return `
+                <tr>
+                    <td><b>${item.nama_staff}</b></td>
+                    <td>${item.tanggal}</td>
+                    <td style="color:var(--success)">${masuk.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
+                    <td style="color:var(--danger)">${pulang ? pulang.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
+                    <td>${durasi}</td>
+                    <td>
+                        <span class="badge ${item.status === 'Aktif' ? 'badge-aktif' : 'badge-selesai'}">
+                            ${item.status === 'Aktif' ? '🟢 Sedang Kerja' : '🏁 Selesai'}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+</script>
+</body>
+</html>
