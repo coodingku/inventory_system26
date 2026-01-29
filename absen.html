@@ -2,148 +2,157 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Absensi Geofencing</title>
+    <title>Finex Pos | Face ID & Geofencing</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; box-sizing: border-box; }
-        
-        .absen-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
-        
-        /* Camera & Radius View */
-        #camera-container { width: 100%; height: 250px; background: #000; border-radius: 12px; margin: 15px 0; overflow: hidden; display: none; }
+        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .absen-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; }
+        #video-container { width: 100%; height: 300px; background: #000; border-radius: 15px; overflow: hidden; margin: 15px 0; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        #photo-preview { width: 100%; border-radius: 12px; display: none; margin: 15px 0; border: 3px solid var(--accent); }
-        
-        .geo-box { padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 15px; font-weight: bold; }
-        .geo-locked { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-        .geo-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-
-        select, button { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; font-weight: bold; }
-        .btn-capture { background: var(--accent); color: white; cursor: pointer; }
-        .btn-disabled { background: #ccc !important; cursor: not-allowed !important; }
-        .btn-masuk { background: var(--success); color: white; display: none; }
+        .geo-status { padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+        .btn-scan { background: var(--accent); color: white; padding: 15px; width: 100%; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-disabled { background: #ccc !important; cursor: not-allowed; }
+        #overlay-msg { position: absolute; top: 10px; left: 0; width: 100%; color: white; background: rgba(0,0,0,0.5); font-size: 12px; padding: 5px 0; }
     </style>
 </head>
 <body>
 
 <div class="absen-card">
-    <h2 style="margin:0; color: var(--accent);">Finex Pos Kantin</h2>
-    <div id="liveClock" style="font-size: 24px; font-weight: bold; margin: 10px 0;">00:00:00</div>
-    
-    <div id="geo-status" class="geo-box geo-locked">📍 Mendeteksi Lokasi...</div>
+    <h2 style="margin:0; color: var(--primary);">Finex Face ID</h2>
+    <div id="geo-status" class="geo-status" style="background:#eee;">📍 Mendeteksi Lokasi...</div>
 
-    <select id="staffName" onchange="resetView()">
-        <option value="">-- Pilih Nama Staff --</option>
-        <option value="Andi">Andi</option>
-        <option value="Siti">Siti</option>
-    </select>
-
-    <div id="camera-container"><video id="video" autoplay playsinline></video></div>
-    <canvas id="canvas" style="display:none;"></canvas>
-    <img id="photo-preview">
-
-    <div id="actionArea">
-        <button id="btn-start" class="btn-capture btn-disabled" onclick="startCamera()" disabled>AMBIL FOTO MASUK</button>
-        <button id="btn-submit" class="btn-masuk" onclick="prosesAbsen()">KIRIM ABSENSI</button>
+    <div id="video-container">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="overlay-msg">Inisialisasi AI...</div>
     </div>
+
+    <div id="status-scan" style="font-weight: bold; margin-bottom: 15px; color: var(--accent);">
+        Mohon tunggu, memuat data staff...
+    </div>
+
+    <button id="btn-action" class="btn-scan btn-disabled" onclick="mulaiVerifikasi()" disabled>
+        MULAI SCAN WAJAH
+    </button>
 </div>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    // KONFIGURASI KANTIN (Silakan ganti koordinat ini)
-    const KANTIN_LAT = -6.175392; // Contoh Lat Jakarta
-    const KANTIN_LON = 106.827153; // Contoh Lon Jakarta
-    const RADIUS_MAKSIMAL = 50; // Jarak maksimal dalam Meter
+    let labeledDescriptors = [];
+    let configToko = null;
+    let userLoc = { lat: 0, lon: 0 };
+    let isInside = false;
 
-    let userLat, userLon, stream;
-    let isWithinRange = false;
+    async function init() {
+        // 1. Muat Model AI
+        const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
 
-    // Hitung Jarak (Haversine Formula)
-    function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3; // Radius bumi dalam meter
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c; 
+        // 2. Ambil Data employee_staff
+        const { data: staffData } = await FinexDB.from('employee_staff').select('*');
+        labeledDescriptors = staffData.map(s => {
+            const desc = new Float32Array(JSON.parse(s.face_descriptor));
+            return new faceapi.LabeledFaceDescriptors(s.nama_staff, [desc]);
+        });
+
+        // 3. Ambil Config Lokasi
+        const { data: locData } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).single();
+        configToko = locData;
+
+        document.getElementById('status-scan').innerText = "Sistem Siap. Berdiri di depan kamera.";
+        document.getElementById('overlay-msg').innerText = "Kamera Aktif";
+        startCamera();
+        trackLocation();
     }
 
-    // Pantau Lokasi
-    function trackLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(pos => {
-                userLat = pos.coords.latitude;
-                userLon = pos.coords.longitude;
-                const jarak = getDistance(userLat, userLon, KANTIN_LAT, KANTIN_LON);
-                const statusBox = document.getElementById('geo-status');
-                const btnStart = document.getElementById('btn-start');
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: {} }).then(stream => {
+            document.getElementById('video').srcObject = stream;
+        });
+    }
 
-                if (jarak <= RADIUS_MAKSIMAL) {
-                    statusBox.className = "geo-box geo-ok";
-                    statusBox.innerText = `✅ Anda di area Kantin (${Math.round(jarak)}m)`;
-                    isWithinRange = true;
-                    btnStart.classList.remove('btn-disabled');
-                    btnStart.disabled = false;
-                } else {
-                    statusBox.className = "geo-box geo-locked";
-                    statusBox.innerText = `❌ Terlalu Jauh! Jarak: ${Math.round(jarak)}m`;
-                    isWithinRange = false;
-                    btnStart.classList.add('btn-disabled');
-                    btnStart.disabled = true;
-                }
-            }, err => {
-                alert("Mohon izinkan akses lokasi (GPS) untuk absen.");
-            }, { enableHighAccuracy: true });
+    function trackLocation() {
+        navigator.geolocation.watchPosition(pos => {
+            userLoc.lat = pos.coords.latitude;
+            userLoc.lon = pos.coords.longitude;
+            
+            const R = 6371e3;
+            const dLat = (configToko.latitude - userLoc.lat) * Math.PI / 180;
+            const dLon = (configToko.longitude - userLoc.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(userLoc.lat * Math.PI/180) * Math.cos(configToko.latitude * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const dist = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+
+            const statusBox = document.getElementById('geo-status');
+            const btn = document.getElementById('btn-action');
+
+            if (dist <= configToko.radius_meter) {
+                statusBox.innerHTML = `✅ Anda di area Kantin (${Math.round(dist)}m)`;
+                statusBox.style.background = "#e8f5e9";
+                btn.disabled = false;
+                btn.classList.remove('btn-disabled');
+                isInside = true;
+            } else {
+                statusBox.innerHTML = `❌ Diluar Radius! Jarak: ${Math.round(dist)}m`;
+                statusBox.style.background = "#ffebee";
+                btn.disabled = true;
+                btn.classList.add('btn-disabled');
+                isInside = false;
+            }
+        });
+    }
+
+    async function mulaiVerifikasi() {
+        if (!isInside) return alert("Anda harus di area toko!");
+        
+        const video = document.getElementById('video');
+        const status = document.getElementById('status-scan');
+        status.innerText = "⏳ Memindai Wajah...";
+
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+        if (detection) {
+            const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.55);
+            const match = faceMatcher.findBestMatch(detection.descriptor);
+
+            if (match.label !== 'unknown') {
+                status.innerText = "✅ Dikenali: " + match.label;
+                status.style.color = "green";
+                simpanAbsensi(match.label);
+            } else {
+                status.innerText = "❌ Wajah Tidak Dikenal!";
+                status.style.color = "red";
+            }
+        } else {
+            alert("Wajah tidak terdeteksi. Dekatkan wajah ke kamera.");
         }
     }
 
-    async function startCamera() {
-        if (!isWithinRange) return alert("Anda harus berada di area toko!");
-        document.getElementById('camera-container').style.display = 'block';
-        document.getElementById('btn-start').innerText = "📸 JEPRET";
-        document.getElementById('btn-start').onclick = takeSnapshot;
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-        document.getElementById('video').srcObject = stream;
+    async function simpanAbsensi(nama) {
+        // Cek apakah sudah absen masuk hari ini
+        const tgl = new Date().toISOString().split('T')[0];
+        const { data: aktif } = await FinexDB.from('presensi').select('*').eq('nama_staff', nama).eq('status', 'Aktif').maybeSingle();
+
+        if (aktif) {
+            // Jika sudah ada yang aktif, maka proses ini jadi ABSEN PULANG
+            await FinexDB.from('presensi').update({ waktu_pulang: new Date().toISOString(), status: 'Selesai' }).eq('id', aktif.id);
+            alert("Terimakasih " + nama + ", Anda sudah absen PULANG.");
+        } else {
+            // Jika belum ada yang aktif, maka ABSEN MASUK
+            await FinexDB.from('presensi').insert([{ nama_staff: nama, lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' }]);
+            alert("Selamat Bekerja " + nama + ", Anda sudah absen MASUK.");
+        }
+        location.reload();
     }
 
-    function takeSnapshot() {
-        const canvas = document.getElementById('canvas');
-        const video = document.getElementById('video');
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        document.getElementById('photo-preview').src = canvas.toDataURL('image/jpeg', 0.5);
-        document.getElementById('photo-preview').style.display = 'block';
-        document.getElementById('camera-container').style.display = 'none';
-        stream.getTracks().forEach(t => t.stop());
-        document.getElementById('btn-start').style.display = 'none';
-        document.getElementById('btn-submit').style.display = 'block';
-    }
-
-    async function prosesAbsen() {
-        const { error } = await FinexDB.from('presensi').insert([{
-            nama_staff: document.getElementById('staffName').value,
-            foto_masuk: document.getElementById('photo-preview').src,
-            lokasi_masuk: `${userLat}, ${userLon}`,
-            status: 'Aktif'
-        }]);
-        if (!error) { alert("Berhasil Absen!"); location.reload(); }
-    }
-
-    function resetView() {
-        if(stream) stream.getTracks().forEach(t => t.stop());
-        document.getElementById('btn-start').style.display = 'block';
-        document.getElementById('btn-submit').style.display = 'none';
-    }
-
-    setInterval(() => { document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
-    window.onload = trackLocation;
+    window.onload = init;
 </script>
 </body>
 </html>
