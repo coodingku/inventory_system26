@@ -240,43 +240,47 @@
     }
 
 async function voidBill(id, invoiceNo) {
-    if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Master Produk.`)) return;
+    // 1. Validasi Input
+    if (!id || id === 'undefined') return alert("ID Transaksi tidak valid!");
+    
+    if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Kantin otomatis.`)) return;
     
     const dataBill = currentLaporan.find(i => i.id == id);
-    if (!dataBill) return alert("Data transaksi tidak ditemukan.");
+    if (!dataBill) return alert("Data transaksi tidak ditemukan di memori.");
 
     try {
-        let daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : (dataBill.items || []);
+        // 2. Ambil data barang (Safety Check)
+        let daftarBarang = [];
+        try {
+            daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : (dataBill.items || []);
+        } catch (e) {
+            console.error("Format JSON items salah");
+            return alert("Gagal membaca rincian barang.");
+        }
 
-        // Gunakan Promise.all agar update stok berjalan pararel (lebih cepat dari loop biasa)
-        await Promise.all(daftarBarang.map(async (it) => {
-            const pNama = it.nama_barang || it.nama;
+        // 3. Proses Update Stok (Gunakan Loop Sederhana yang Stabil)
+        for (const it of daftarBarang) {
+            const namaBarang = it.nama_barang || it.nama;
             const qtyVoid = parseInt(it.qty || 0);
 
-            // 1. Ambil stok saat ini
+            if (!namaBarang) continue;
+
+            // Cari produk di tabel 'produk'
             const { data: p } = await supabaseClient
                 .from('produk')
                 .select('id, stok_sekarang')
-                .eq('nama_barang', pNama)
+                .eq('nama_barang', namaBarang)
                 .maybeSingle();
 
             if (p) {
-                // 2. Update stok_sekarang
+                // Update stok_sekarang
+                const stokBaru = (p.stok_sekarang || 0) + qtyVoid;
                 await supabaseClient
                     .from('produk')
-                    .update({ stok_sekarang: (p.stok_sekarang || 0) + qtyVoid })
+                    .update({ stok_sekarang: stokBaru })
                     .eq('id', p.id);
-                
-                // 3. Catat riwayat (Opsional, dibungkus agar jika gagal tidak stop proses)
-                supabaseClient.from('riwayat_stok').insert([{
-                    id_produk: p.id,
-                    tipe: 'MASUK',
-                    jumlah: qtyVoid,
-                    admin_nama: 'System Void',
-                    keterangan: `Void Inv: ${invoiceNo}`
-                }]).then();
             }
-        }));
+        }
 
         // 4. Hapus data penjualan
         const { error: errDelete } = await supabaseClient
@@ -286,14 +290,14 @@ async function voidBill(id, invoiceNo) {
 
         if (errDelete) throw errDelete;
 
-        alert(`✅ Sukses! Transaksi ${invoiceNo} dibatalkan.`);
+        alert(`✅ Sukses! Transaksi ${invoiceNo} telah di-void.`);
         
-        // Gunakan reload jika aplikasi terasa berat (untuk membersihkan memory/listener)
-        location.reload(); 
+        // Refresh halaman untuk membersihkan Service Worker yang error
+        window.location.reload();
 
     } catch (err) {
-        console.error("Detail Error:", err);
-        alert("Gagal proses Void: " + err.message);
+        console.error("Void Error:", err);
+        alert("Gagal melakukan void. Cek koneksi internet Anda.");
     }
 }
     function exportKeExcel() {
