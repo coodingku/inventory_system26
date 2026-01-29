@@ -125,62 +125,77 @@
         muatLaporanDetail();
     };
 
-    async function muatLaporanDetail() {
-        const bulan = document.getElementById('filter-bulan').value;
-        const tahun = document.getElementById('filter-tahun').value;
-        const tglAwal = `${tahun}-${bulan}-01T00:00:00Z`;
-        const tglAkhir = `${tahun}-${bulan}-31T23:59:59Z`;
+  async function muatLaporanDetail() {
+    const bulan = document.getElementById('filter-bulan').value;
+    const tahun = document.getElementById('filter-tahun').value;
+    
+    // Tentukan tanggal awal dan akhir bulan (Format YYYY-MM-DD)
+    const tglAwal = `${tahun}-${bulan}-01`;
+    const tglAkhir = `${tahun}-${bulan}-31`; // Supabase cukup pintar menangani tanggal 31 di bulan yang hanya sampai 30
 
-        const { data, error } = await supabaseClient
-            .from('penjualan_detail')
-            .select(`
-                qty,
-                harga_satuan,
-                subtotal_item,
-                created_at,
-                produk (
-                    nama_barang,
-                    harga_beli
-                )
-            `)
-            .gte('created_at', tglAwal)
-            .lte('created_at', tglAkhir)
-            .order('created_at', { ascending: false });
+    console.log("Mencari data dari:", tglAwal, "sampai:", tglAkhir);
 
-        if (error) return alert("Gagal muat data: " + error.message);
+    const { data, error } = await supabaseClient
+        .from('penjualan_detail')
+        .select(`
+            qty,
+            harga_satuan,
+            subtotal_item,
+            created_at,
+            produk (
+                nama_barang,
+                harga_beli
+            )
+        `)
+        // Menggunakan filter tanggal yang lebih sederhana namun akurat
+        .gte('created_at', `${tglAwal}T00:00:00.000Z`)
+        .lte('created_at', `${tglAkhir}T23:59:59.999Z`)
+        .order('created_at', { ascending: false });
 
-        let omzet = 0, hpp = 0, laba = 0;
-        const tbody = document.getElementById('report-body');
-
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada data pada periode ini.</td></tr>';
-        } else {
-            tbody.innerHTML = data.map(item => {
-                const modalSatuan = item.produk?.harga_beli || 0;
-                const subHPP = modalSatuan * item.qty;
-                const subLaba = item.subtotal_item - subHPP;
-
-                omzet += item.subtotal_item;
-                hpp += subHPP;
-
-                return `
-                    <tr>
-                        <td>${new Date(item.created_at).toLocaleDateString('id-ID')}</td>
-                        <td><strong>${item.produk?.nama_barang || 'N/A'}</strong></td>
-                        <td>${item.qty}</td>
-                        <td>Rp ${item.harga_satuan.toLocaleString()}</td>
-                        <td>Rp ${modalSatuan.toLocaleString()}</td>
-                        <td style="color:var(--success); font-weight:bold;">Rp ${subLaba.toLocaleString()}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        document.getElementById('total-omzet').innerText = `Rp ${omzet.toLocaleString()}`;
-        document.getElementById('total-hpp').innerText = `Rp ${hpp.toLocaleString()}`;
-        document.getElementById('total-laba').innerText = `Rp ${(omzet - hpp).toLocaleString()}`;
+    if (error) {
+        console.error("Detail Error Supabase:", error);
+        alert("Gagal muat data: " + error.message);
+        return;
     }
 
+    console.log("Data ditemukan:", data);
+
+    let omzet = 0, hpp = 0;
+    const tbody = document.getElementById('report-body');
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px;">
+            Tidak ada data ditemukan untuk periode ${bulan}/${tahun}.<br>
+            <small style="color:red">Pastikan tabel 'penjualan_detail' sudah berisi data dengan kolom 'created_at' yang benar.</small>
+        </td></tr>`;
+    } else {
+        tbody.innerHTML = data.map(item => {
+            // Jika harga_beli kosong di database, anggap 0
+            const modalSatuan = item.produk?.harga_beli || 0;
+            const subHPP = modalSatuan * item.qty;
+            const subLaba = item.subtotal_item - subHPP;
+
+            omzet += item.subtotal_item;
+            hpp += subHPP;
+
+            return `
+                <tr>
+                    <td>${new Date(item.created_at).toLocaleDateString('id-ID')}</td>
+                    <td><strong>${item.produk?.nama_barang || 'Produk Tidak Terdaftar'}</strong></td>
+                    <td>${item.qty}</td>
+                    <td>Rp ${item.harga_satuan.toLocaleString()}</td>
+                    <td>Rp ${modalSatuan.toLocaleString()}</td>
+                    <td style="color:var(--success); font-weight:bold;">Rp ${subLaba.toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Update Widget Statistik
+    document.getElementById('total-omzet').innerText = `Rp ${omzet.toLocaleString()}`;
+    document.getElementById('total-hpp').innerText = `Rp ${hpp.toLocaleString()}`;
+    document.getElementById('total-laba').innerText = `Rp ${(omzet - hpp).toLocaleString()}`;
+}
     function exportExcel() {
         // Logika export CSV sederhana
         const rows = document.querySelectorAll("table tr");
