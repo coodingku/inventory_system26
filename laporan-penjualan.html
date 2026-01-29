@@ -239,75 +239,70 @@
         window.print();
     }
 
-    async function voidBill(id, invoiceNo) {
-        // 1. Konfirmasi Admin
-        const confirmVoid = confirm(`⚠️ VOID Transaksi ${invoiceNo}?\n\nSemua stok barang dalam nota ini akan dikembalikan otomatis ke tabel produk.`);
-        if (!confirmVoid) return;
-
-        // Cari data transaksi di variabel lokal
+   async function voidBill(id, invoiceNo) {
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Master Produk otomatis.`)) return;
+        
         const dataBill = currentLaporan.find(i => i.id == id);
-        if (!dataBill) return alert("Data transaksi tidak ditemukan.");
+        if (!dataBill) return alert("Data tidak ditemukan.");
 
         try {
-            // 2. Ambil rincian barang (parsing JSON dari kolom items)
+            // 1. Parsing data items dari JSONB
             let daftarBarang = [];
-            try {
-                daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : (dataBill.items || []);
-            } catch (e) {
-                console.error("Gagal parsing items:", e);
-                return alert("Format data barang tidak valid.");
+            if (typeof dataBill.items === 'string') {
+                daftarBarang = JSON.parse(dataBill.items);
+            } else {
+                daftarBarang = dataBill.items || [];
             }
 
-            // 3. Proses Pengembalian Stok per Item
+            // 2. Proses pengembalian stok
             for (const it of daftarBarang) {
-                // Pastikan kita punya ID produk untuk update stok
-                const produkId = it.id || it.produk_id; 
-                
-                if (produkId) {
-                    // Ambil stok saat ini dari database
-                    const { data: p, error: errFetch } = await supabaseClient
+                // Mencocokkan key JSON (it.id atau it.produk_id)
+                const pId = it.id || it.produk_id;
+                const qtyVoid = parseInt(it.qty || 0);
+
+                if (pId) {
+                    // Ambil stok saat ini dari tabel produk
+                    const { data: p } = await supabaseClient
                         .from('produk')
-                        .select('stok_sekarang')
-                        .eq('id', produkId)
-                        .single();
+                        .select('id, stok_sekarang')
+                        .eq('id', pId)
+                        .maybeSingle();
 
                     if (p) {
-                        const stokBaru = (p.stok_sekarang || 0) + it.qty;
+                        const stokBaru = (p.stok_sekarang || 0) + qtyVoid;
 
                         // Update stok di tabel produk
-                        const { error: errUpdate } = await supabaseClient
+                        await supabaseClient
                             .from('produk')
                             .update({ stok_sekarang: stokBaru })
-                            .eq('id', produkId);
+                            .eq('id', p.id);
 
-                        if (!errUpdate) {
-                            // Catat Riwayat Pergerakan Stok (Stok Masuk karena Void)
-                            await supabaseClient.from('riwayat_stok').insert([{
-                                id_produk: produkId,
-                                tipe: 'MASUK',
-                                jumlah: it.qty,
-                                admin_nama: 'System Void',
-                                keterangan: `Void Inv: ${invoiceNo} (Kembali ke Kantin)`
-                            }]);
-                        }
+                        // Catat riwayat stok masuk
+                        await supabaseClient.from('riwayat_stok').insert([{
+                            id_produk: p.id,
+                            tipe: 'MASUK',
+                            jumlah: qtyVoid,
+                            admin_nama: 'System Void',
+                            keterangan: `Void Inv: ${invoiceNo}`
+                        }]);
                     }
                 }
             }
 
-            // 4. Hapus data penjualan dari database
-            const { error: errDel } = await supabaseClient
+            // 3. Hapus data dari tabel penjualan
+            const { error: errDelete } = await supabaseClient
                 .from('penjualan')
                 .delete()
                 .eq('id', id);
 
-            if (errDel) throw errDel;
+            if (errDelete) throw errDelete;
 
-            alert(`✅ Transaksi ${invoiceNo} berhasil dibatalkan dan stok telah diperbarui.`);
-            fetchLaporan(); // Refresh tabel
+            alert(`✅ Transaksi ${invoiceNo} berhasil di-VOID dan stok diperbarui.`);
+            fetchLaporan();
 
         } catch (err) {
-            console.error("Error Detail:", err);
-            alert("Terjadi kesalahan saat Void: " + err.message);
+            console.error("Detail Error:", err);
+            alert("Gagal melakukan void: " + err.message);
         }
     }
     function exportKeExcel() {
