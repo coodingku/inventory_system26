@@ -11,7 +11,7 @@
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; text-decoration: none; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
 
@@ -70,7 +70,7 @@
     </main>
 
     <aside class="sidebar-pos">
-        <div class="cart-header">Keranjang Belanja</div>
+        <div class="cart-header">Pesanan Baru</div>
         <div id="displayCart" class="cart-list"></div>
         <div class="summary-panel">
             <div class="summary-row"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
@@ -99,10 +99,10 @@
     <div id="waModal" class="modal">
         <div class="modal-content">
             <h2 style="color: var(--success);">Berhasil!</h2>
-            <p>Kirim nota digital?</p>
+            <p>Kirim nota digital ke pelanggan?</p>
             <input type="number" id="waNumber" placeholder="628xxx" style="font-size: 18px; text-align: center;">
             <button class="btn-pay" id="btnSendWA" style="background:#25D366;">KIRIM WHATSAPP</button>
-            <button onclick="location.reload()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Selesai</button>
+            <button onclick="location.reload()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Selesai (Tanpa WA)</button>
         </div>
     </div>
 
@@ -122,7 +122,7 @@
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
     let cart = [];
-    let state = { sub: 0, disc: 0, total: 0, discName: "0%" };
+    let state = { sub: 0, disc: 0, total: 0, discName: "0%", lastTrxId: null, lastInv: "" };
     let currentLogId = null;
     let isSaving = false;
     const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -136,6 +136,9 @@
             const clockEl = document.getElementById('clock');
             if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('id-ID'); 
         }, 1000);
+        
+        // Pasang Event Listener WhatsApp secara terpisah agar stabil
+        document.getElementById('btnSendWA').addEventListener('click', sendWhatsApp);
     };
 
     async function checkActiveShift() {
@@ -155,7 +158,6 @@
     async function loadSettings() {
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').eq('aktif', true);
         if (mtd) document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
-        
         const { data: dsk } = await FinexDB.from('diskon').select('*');
         document.getElementById('discSelect').innerHTML = '<option value="0" data-name="Tanpa Diskon">0%</option>' + 
             (dsk || []).map(d => `<option value="${d.persen}" data-name="${d.nama_diskon}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
@@ -190,11 +192,9 @@
         state.disc = (state.sub * parseFloat(ds.value)) / 100;
         state.total = state.sub - state.disc;
         state.discName = ds.options[ds.selectedIndex].getAttribute('data-name');
-
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
         document.getElementById('txt-disc').innerText = "- Rp " + state.disc.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-        
         document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
             <div class="cart-item">
                 <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
@@ -224,6 +224,9 @@
 
             if (error) throw error;
 
+            state.lastTrxId = trx.id;
+            state.lastInv = inv;
+
             for (const item of cart) {
                 await FinexDB.from('penjualan_detail').insert([{
                     penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang,
@@ -235,37 +238,39 @@
 
             renderReceipt(inv, cash, method);
             document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
+            
+            // Cetak nota fisik
+            setTimeout(() => { 
+                window.print(); 
+                document.getElementById('waModal').style.display = 'flex'; 
+            }, 500);
 
         } catch (e) { isSaving = false; alert("Error: " + e.message); }
     }
 
-    function renderReceipt(inv, bayar, method) {
-        const itemHTML = cart.map(i => `
-            <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:2px;">
-                <span style="flex:1;">${i.nama_barang} x${i.qty}</span>
-                <span>${(i.qty * i.harga).toLocaleString()}</span>
-            </div>
-        `).join('');
+    function sendWhatsApp() {
+        const hp = document.getElementById('waNumber').value;
+        if (!hp) return alert("Masukkan nomor WhatsApp pelanggan!");
+        
+        const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
+        const msg = `*NOTA FINEX POS KANTIN*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${document.getElementById('payMethodSelect').value}%0A--------------------------%0A_Terima kasih sudah berbelanja!_`;
+        
+        window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
+        location.reload(); // Reload hanya setelah klik kirim WA
+    }
 
+    function renderReceipt(inv, bayar, method) {
+        const itemHTML = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
         document.getElementById('print-area').innerHTML = `
-            <div style="width:58mm; padding:10px; font-family:monospace; color:black; background:white;">
-                <center><b>FINEX POS KANTIN</b><br>--------------------------</center>
-                ID  : ${inv}<br>
-                Tgl : ${new Date().toLocaleString('id-ID')}<br>
-                Ksr : ${session.username}<br>
-                --------------------------<br>
-                ${itemHTML}
-                --------------------------<br>
+            <div style="width:58mm; padding:10px; font-family:monospace; background:white;">
+                <center><b>FINEX POS KANTIN</b><br>--- NOTA PEMBAYARAN ---</center><br>
+                ID  : ${inv}<br>Tgl : ${new Date().toLocaleString('id-ID')}<br>Ksr : ${session.username}<br>
+                --------------------------<br>${itemHTML}--------------------------<br>
                 <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
                 ${state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Disc (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : ''}
                 <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
-                --------------------------<br>
-                Metode : ${method}<br>
-                Bayar  : Rp ${bayar.toLocaleString()}<br>
-                Kembali: Rp ${(bayar - state.total).toLocaleString()}<br>
-                --------------------------<br>
-                <center style="margin-top:10px;">Terima Kasih</center>
+                --------------------------<br>Metode : ${method}<br>Bayar  : Rp ${bayar.toLocaleString()}<br>Kembali: Rp ${(bayar - state.total).toLocaleString()}<br>
+                --------------------------<br><center style="margin-top:10px;">Terima Kasih</center>
             </div>`;
     }
 
