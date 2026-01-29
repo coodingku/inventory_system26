@@ -3,47 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Presensi Staff</title>
+    <title>Finex Pos | Presensi Aman</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; box-sizing: border-box; }
         
-        .absen-card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        .clock { font-size: 40px; font-weight: bold; color: var(--primary); margin-bottom: 20px; }
+        .absen-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
         
-        select, button { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; }
-        select { background: #fafafa; cursor: pointer; }
+        /* Camera Styling */
+        #camera-container { width: 100%; height: 250px; background: #000; border-radius: 12px; margin: 15px 0; overflow: hidden; position: relative; display: none; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #photo-preview { width: 100%; border-radius: 12px; display: none; margin: 15px 0; border: 3px solid var(--accent); }
         
-        .btn-masuk { background: var(--success); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-pulang { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-masuk:hover, .btn-pulang:hover { opacity: 0.9; transform: translateY(-2px); }
+        .clock { font-size: 32px; font-weight: bold; color: var(--primary); margin-bottom: 10px; }
+        select, button { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; font-weight: bold; }
         
-        .status-msg { margin-top: 15px; font-size: 14px; min-height: 20px; }
+        .btn-capture { background: var(--accent); color: white; }
+        .btn-masuk { background: var(--success); color: white; display: none; }
+        .btn-pulang { background: #666; color: white; }
+        
+        #location-status { font-size: 11px; color: #888; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="absen-card">
-    <h2 style="margin-top:0; color: var(--accent);">Finex Pos Absensi</h2>
+    <h2 style="margin:0; color: var(--accent);">Presensi Staff Finex</h2>
     <div class="clock" id="liveClock">00:00:00</div>
+    <div id="location-status">📍 Menunggu GPS...</div>
     
-    <div style="text-align: left; margin-bottom: 5px; font-size: 13px; font-weight: bold;">Pilih Nama Staff:</div>
-    <select id="staffName">
-        <option value="">-- Pilih Staff --</option>
+    <select id="staffName" onchange="resetView()">
+        <option value="">-- Pilih Nama Anda --</option>
         <option value="Andi">Andi (Kasir Pagi)</option>
         <option value="Siti">Siti (Kasir Sore)</option>
         <option value="Budi">Budi (Admin)</option>
     </select>
 
+    <div id="camera-container">
+        <video id="video" autoplay playsinline></video>
+    </div>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img id="photo-preview">
+
     <div id="actionArea">
-        <button class="btn-masuk" onclick="prosesAbsen('masuk')">ABSEN MASUK</button>
-        <button class="btn-pulang" onclick="prosesAbsen('pulang')">ABSEN PULANG</button>
+        <button id="btn-start" class="btn-capture" onclick="startCamera()">📷 AMBIL FOTO MASUK</button>
+        <button id="btn-submit" class="btn-masuk" onclick="prosesAbsen()">KIRIM ABSENSI SEKARANG</button>
+        <button class="btn-pulang" onclick="prosesPulang()">ABSEN PULANG (Tanpa Foto)</button>
     </div>
 
-    <div id="statusMsg" class="status-msg"></div>
-    
-    <a href="dashboard.html" style="display:block; margin-top:20px; color:#888; text-decoration:none; font-size:12px;">Kembali ke Dashboard</a>
+    <div id="statusMsg" style="margin-top:15px; font-weight:bold;"></div>
 </div>
 
 <script>
@@ -51,70 +60,104 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
-    // Live Clock
-    setInterval(() => {
-        document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('id-ID');
-    }, 1000);
+    let stream;
+    let userLocation = "";
 
-    async function prosesAbsen(tipe) {
+    // Jam Live
+    setInterval(() => { document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
+
+    // Ambil Lokasi Otomatis
+    window.onload = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                userLocation = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+                document.getElementById('location-status').innerText = "📍 Lokasi Terkunci: " + userLocation;
+            }, () => {
+                document.getElementById('location-status').innerText = "⚠️ GPS Tidak Aktif";
+            });
+        }
+    };
+
+    async function startCamera() {
+        if (!document.getElementById('staffName').value) return alert("Pilih nama staff dulu!");
+        
+        document.getElementById('camera-container').style.display = 'block';
+        document.getElementById('btn-start').innerText = "📸 JEPRET SEKARANG";
+        document.getElementById('btn-start').onclick = takeSnapshot;
+
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        document.getElementById('video').srcObject = stream;
+    }
+
+    function takeSnapshot() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        const dataURL = canvas.toDataURL('image/jpeg', 0.5);
+        document.getElementById('photo-preview').src = dataURL;
+        document.getElementById('photo-preview').style.display = 'block';
+        document.getElementById('camera-container').style.display = 'none';
+        
+        // Matikan Kamera
+        stream.getTracks().forEach(track => track.stop());
+        
+        document.getElementById('btn-start').style.display = 'none';
+        document.getElementById('btn-submit').style.display = 'block';
+    }
+
+    async function prosesAbsen() {
         const nama = document.getElementById('staffName').value;
+        const foto = document.getElementById('photo-preview').src;
         const msg = document.getElementById('statusMsg');
 
-        if (!nama) {
-            msg.innerText = "⚠️ Pilih nama staff dulu!";
-            msg.style.color = "orange";
-            return;
-        }
+        msg.innerText = "⏳ Sedang mengirim...";
 
-        if (tipe === 'masuk') {
-            // Cek apakah sudah absen masuk hari ini
-            const { data: cek } = await FinexDB.from('presensi')
-                .select('*')
-                .eq('nama_staff', nama)
-                .eq('tanggal', new Date().toISOString().split('T')[0])
-                .eq('status', 'Aktif');
+        const { error } = await FinexDB.from('presensi').insert([{
+            nama_staff: nama,
+            foto_masuk: foto,
+            lokasi_masuk: userLocation,
+            status: 'Aktif'
+        }]);
 
-            if (cek && cek.length > 0) {
-                msg.innerText = "❌ Anda sudah absen masuk hari ini!";
-                msg.style.color = "red";
-                return;
-            }
-
-            const { error } = await FinexDB.from('presensi').insert([{
-                nama_staff: nama,
-                status: 'Aktif'
-            }]);
-
-            if (!error) {
-                msg.innerText = `✅ Selamat Bekerja, ${nama}!`;
-                msg.style.color = "green";
-            }
+        if (!error) {
+            msg.style.color = "green";
+            msg.innerText = "✅ Absen Masuk Berhasil!";
+            setTimeout(() => location.reload(), 2000);
         } else {
-            // Proses Pulang
-            const { data: aktif } = await FinexDB.from('presensi')
-                .select('*')
-                .eq('nama_staff', nama)
-                .eq('status', 'Aktif')
-                .maybeSingle();
-
-            if (!aktif) {
-                msg.innerText = "❌ Anda belum absen masuk hari ini!";
-                msg.style.color = "red";
-                return;
-            }
-
-            const { error } = await FinexDB.from('presensi')
-                .update({ 
-                    waktu_pulang: new Date().toISOString(),
-                    status: 'Selesai' 
-                })
-                .eq('id', aktif.id);
-
-            if (!error) {
-                msg.innerText = `✅ Terimakasih kerjanya, ${nama}!`;
-                msg.style.color = "blue";
-            }
+            alert(error.message);
         }
+    }
+
+    async function prosesPulang() {
+        const nama = document.getElementById('staffName').value;
+        if (!nama) return alert("Pilih nama!");
+
+        const { data: aktif } = await FinexDB.from('presensi').select('*').eq('nama_staff', nama).eq('status', 'Aktif').maybeSingle();
+
+        if (!aktif) return alert("Anda belum absen masuk!");
+
+        const { error } = await FinexDB.from('presensi').update({ 
+            waktu_pulang: new Date().toISOString(), 
+            status: 'Selesai' 
+        }).eq('id', aktif.id);
+
+        if (!error) {
+            alert("✅ Berhasil Pulang. Hati-hati di jalan!");
+            location.reload();
+        }
+    }
+
+    function resetView() {
+        if(stream) stream.getTracks().forEach(track => track.stop());
+        document.getElementById('camera-container').style.display = 'none';
+        document.getElementById('photo-preview').style.display = 'none';
+        document.getElementById('btn-start').style.display = 'block';
+        document.getElementById('btn-start').innerText = "📷 AMBIL FOTO MASUK";
+        document.getElementById('btn-start').onclick = startCamera;
+        document.getElementById('btn-submit').style.display = 'none';
     }
 </script>
 </body>
