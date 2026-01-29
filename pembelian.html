@@ -15,22 +15,23 @@
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        /* Main Content */
+        /* Content */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         
         .form-po { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 25px; align-items: end; }
-        label { display: block; font-size: 12px; margin-bottom: 5px; color: #666; }
+        label { display: block; font-size: 12px; margin-bottom: 5px; color: #666; font-weight: bold; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; box-sizing: border-box; }
         
-        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-save { background: var(--success); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; height: 45px; }
+        .btn-save { background: var(--success); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .btn-save:hover { background: #219150; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
         
-        .total-section { margin-top: 20px; text-align: right; font-size: 20px; font-weight: bold; color: var(--primary); }
+        .total-section { margin-top: 20px; text-align: right; font-size: 22px; font-weight: bold; color: var(--primary); border-top: 2px solid #eee; padding-top: 15px; }
     </style>
 </head>
 <body>
@@ -47,10 +48,14 @@
 <main>
     <h1>Purchase Order (Barang Masuk)</h1>
     <div class="card">
-        <h3>Input Barang Datang</h3>
+        <div style="margin-bottom: 20px;">
+            <label>Nama Supplier / Vendor</label>
+            <input type="text" id="po-supplier" placeholder="Contoh: CV. Sembako Makmur" style="width: 300px;">
+        </div>
+
         <div class="form-po">
             <div>
-                <label>Pilih Produk</label>
+                <label>Produk Kantin</label>
                 <select id="select-produk"></select>
             </div>
             <div>
@@ -58,12 +63,8 @@
                 <input type="number" id="po-qty" placeholder="0">
             </div>
             <div>
-                <label>Harga Beli/Pcs</label>
+                <label>Harga Beli Satuan</label>
                 <input type="number" id="po-harga" placeholder="Rp">
-            </div>
-            <div>
-                <label>Supplier (Opsional)</label>
-                <input type="text" id="po-supplier" placeholder="Nama Toko">
             </div>
             <button class="btn-add" onclick="tambahKeDaftar()">➕ Tambah</button>
         </div>
@@ -75,18 +76,21 @@
                     <th>Qty</th>
                     <th>Harga Satuan</th>
                     <th>Subtotal</th>
-                    <th>Aksi</th>
+                    <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="po-list">
-                </tbody>
+                <tr><td colspan="5" style="text-align:center; color:#888;">Belum ada barang dalam daftar.</td></tr>
+            </tbody>
         </table>
 
         <div class="total-section">
-            TOTAL PO: <span id="grand-total">Rp 0</span>
+            TOTAL PEMBELIAN: <span id="grand-total" style="color:var(--success)">Rp 0</span>
         </div>
 
-        <button class="btn-save" onclick="simpanPO()">SIMPAN & UPDATE STOK KANTIN</button>
+        <button class="btn-save" id="btn-simpan" onclick="simpanPO()">
+            💾 SIMPAN, UPDATE STOK & CETAK NOTA
+        </button>
     </div>
 </main>
 
@@ -98,7 +102,9 @@
     let daftarPO = [];
 
     window.onload = async () => {
-        const { data } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
+        const { data, error } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
+        if (error) return console.error(error);
+        
         const select = document.getElementById('select-produk');
         select.innerHTML = data.map(p => `<option value="${p.id}" data-nama="${p.nama_barang}">${p.nama_barang}</option>`).join('');
     };
@@ -108,15 +114,13 @@
         const id = select.value;
         const nama = select.options[select.selectedIndex].getAttribute('data-nama');
         const qty = parseInt(document.getElementById('po-qty').value);
-        const harga = parseFloat(document.getElementById('po-harga').value);
-        const supplier = document.getElementById('po-supplier').value;
+        const harga = parseInt(document.getElementById('po-harga').value);
 
-        if (!qty || !harga) return alert("Qty dan Harga harus diisi!");
+        if (!qty || !harga) return alert("Jumlah dan Harga tidak boleh kosong!");
 
-        daftarPO.push({ id, nama, qty, harga, supplier, subtotal: qty * harga });
+        daftarPO.push({ id, nama, qty, harga, subtotal: qty * harga });
         renderTable();
         
-        // Reset input
         document.getElementById('po-qty').value = '';
         document.getElementById('po-harga').value = '';
     }
@@ -124,15 +128,22 @@
     function renderTable() {
         const tbody = document.getElementById('po-list');
         let total = 0;
+        
+        if(daftarPO.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Belum ada barang dalam daftar.</td></tr>';
+            document.getElementById('grand-total').innerText = "Rp 0";
+            return;
+        }
+
         tbody.innerHTML = daftarPO.map((item, index) => {
             total += item.subtotal;
             return `
                 <tr>
-                    <td>${item.nama}</td>
+                    <td><b>${item.nama}</b></td>
                     <td>${item.qty}</td>
                     <td>Rp ${item.harga.toLocaleString()}</td>
                     <td>Rp ${item.subtotal.toLocaleString()}</td>
-                    <td><button onclick="hapusItem(${index})" style="color:red; background:none; border:none; cursor:pointer;">❌</button></td>
+                    <td style="text-align:center"><button onclick="hapusItem(${index})" style="color:var(--danger); background:none; border:none; cursor:pointer; font-weight:bold;">❌ Hapus</button></td>
                 </tr>
             `;
         }).join('');
@@ -144,62 +155,117 @@
         renderTable();
     }
 
-  async function simpanPO() {
-    if (daftarPO.length === 0) return alert("Daftar pembelian masih kosong!");
-    if (!confirm("Simpan pembelian dan perbarui stok?")) return;
+    async function simpanPO() {
+        if (daftarPO.length === 0) return alert("Tambahkan barang terlebih dahulu!");
+        const supplier = document.getElementById('po-supplier').value.trim() || "Umum";
+        
+        if (!confirm("Konfirmasi simpan? Data akan masuk ke stok Kantin.")) return;
+        
+        const btn = document.getElementById('btn-simpan');
+        btn.disabled = true;
+        btn.innerText = "⏳ Memproses Data...";
 
-    try {
-        for (const item of daftarPO) {
-            // 1. Ambil stok produk saat ini
-            const { data: p, error: fetchError } = await supabaseClient
-                .from('produk')
-                .select('stok_sekarang')
-                .eq('id', item.id)
-                .single();
-            
-            if (fetchError) {
-                console.error("Gagal ambil data produk:", item.nama);
-                continue; // Lewati jika produk tidak ditemukan
-            }
+        try {
+            const notaData = { supplier, items: [...daftarPO], total: daftarPO.reduce((s, i) => s + i.subtotal, 0) };
 
-            // 2. Update Stok & Harga Beli Terakhir di tabel 'produk'
-            const stokBaru = parseInt(p.stok_sekarang || 0) + parseInt(item.qty);
-            const { error: updateError } = await supabaseClient
-                .from('produk')
-                .update({ 
-                    stok_sekarang: stokBaru,
-                    harga_beli: parseInt(item.harga) // Sekarang aman karena kolom sudah dibuat
-                })
-                .eq('id', item.id);
+            for (const item of daftarPO) {
+                const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                
+                // Update tabel produk
+                await supabaseClient.from('produk').update({ 
+                    stok_sekarang: (parseInt(p.stok_sekarang || 0) + parseInt(item.qty)),
+                    harga_beli: parseInt(item.harga)
+                }).eq('id', item.id);
 
-            if (updateError) throw new Error(`Gagal update stok ${item.nama}: ${updateError.message}`);
-
-            // 3. Catat transaksi ke tabel 'pembelian' yang sudah ada
-            const { error: insertError } = await supabaseClient
-                .from('pembelian')
-                .insert([{
+                // Catat Riwayat Pembelian
+                await supabaseClient.from('pembelian').insert([{
                     produk_id: item.id,
-                    qty: parseInt(item.qty),
-                    harga_beli: parseInt(item.harga),
-                    supplier: item.supplier || "-",
-                    total_harga: parseInt(item.subtotal)
+                    qty: item.qty,
+                    harga_beli: item.harga,
+                    supplier: supplier,
+                    total_harga: item.subtotal
                 }]);
-
-            if (insertError) {
-                console.warn("Gagal mencatat riwayat pembelian, tapi stok berhasil diupdate.");
             }
+
+            cetakNotaPO(notaData);
+            alert("✅ Pembelian Berhasil Disimpan & Stok Terupdate.");
+            location.reload();
+
+        } catch (e) {
+            alert("Terjadi Error: " + e.message);
+            btn.disabled = false;
+            btn.innerText = "💾 SIMPAN, UPDATE STOK & CETAK NOTA";
         }
-
-        alert("✅ Berhasil! Stok Kantin telah diperbarui.");
-        daftarPO = [];
-        renderTable();
-        location.reload();
-
-    } catch (e) {
-        console.error("Error Detail:", e);
-        alert("❌ Terjadi Kesalahan: " + e.message);
     }
-}
+
+    function cetakNotaPO(data) {
+        const win = window.open('', '_blank', 'width=800,height=900');
+        let rows = data.items.map(i => `
+            <tr>
+                <td style="padding:5px; border-bottom:1px solid #ddd;">${i.nama}</td>
+                <td style="text-align:center; padding:5px; border-bottom:1px solid #ddd;">${i.qty}</td>
+                <td style="text-align:right; padding:5px; border-bottom:1px solid #ddd;">${i.harga.toLocaleString()}</td>
+                <td style="text-align:right; padding:5px; border-bottom:1px solid #ddd;">${i.subtotal.toLocaleString()}</td>
+            </tr>
+        `).join('');
+
+        win.document.write(`
+            <html>
+            <head>
+                <title>Nota PO - Finex Pos</title>
+                <style>
+                    body { font-family: sans-serif; padding: 40px; color: #333; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2c3e50; padding-bottom: 10px; }
+                    .logo { font-size: 24px; font-weight: bold; color: #3498db; }
+                    .info { margin-top: 20px; font-size: 14px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    .total { text-align: right; font-size: 20px; font-weight: bold; margin-top: 20px; }
+                    .signature-box { margin-top: 50px; display: flex; justify-content: space-between; }
+                    .sig { text-align: center; width: 200px; }
+                    .sig-space { height: 80px; }
+                    @media print { .no-print { display: none; } }
+                </style>
+            </head>
+            <body onload="window.print()">
+                <div class="header">
+                    <div class="logo">FINEX POS <span style="color:#2c3e50">| KANTIN</span></div>
+                    <div style="text-align:right"><strong>NOTA PEMBELIAN</strong><br>No: PO-${Date.now()}</div>
+                </div>
+                <div class="info">
+                    <strong>Supplier:</strong> ${data.supplier}<br>
+                    <strong>Tanggal :</strong> ${new Date().toLocaleString('id-ID')}
+                </div>
+                <table>
+                    <thead>
+                        <tr style="background:#f4f4f4;">
+                            <th style="padding:10px; text-align:left;">Nama Barang</th>
+                            <th style="padding:10px; text-align:center;">Qty</th>
+                            <th style="padding:10px; text-align:right;">Harga Beli</th>
+                            <th style="padding:10px; text-align:right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div class="total">GRAND TOTAL: Rp ${data.total.toLocaleString()}</div>
+                
+                <div class="signature-box">
+                    <div class="sig">
+                        <p>Penerima Barang,</p>
+                        <div class="sig-space"></div>
+                        <p>( ____________________ )</p>
+                    </div>
+                    <div class="sig">
+                        <p>Supplier/Pengirim,</p>
+                        <div class="sig-space"></div>
+                        <p>( ${data.supplier} )</p>
+                    </div>
+                </div>
+                <p style="text-align:center; font-size:10px; margin-top:50px; color:#888;">Dokumen ini sah dicetak melalui Sistem Finex Pos</p>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    }
 </script>
 </body>
 </html>
