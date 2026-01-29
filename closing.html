@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Closing & Cetak Struk</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -17,19 +18,19 @@
         @media print {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { display: block; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; color: black; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; color: black; line-height: 1.2; }
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="text-align:center; margin-top:0; color: #2c3e50;">Closing Shift </h2>
+        <h2 style="text-align:center; margin-top:0; color: #2c3e50;">Closing Shift Finex Pos</h2>
         
         <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menarik data transaksi Finex Pos...</div>
 
         <div id="main-content" style="display:none;">
             <div id="item-details">
-                <h4 style="margin-bottom:10px; color:#666; border-bottom: 2px solid #eee; padding-bottom: 5px;">Produk Terjual:</h4>
+                <h4 style="margin-bottom:10px; color:#666; border-bottom: 2px solid #eee; padding-bottom: 5px;">Ringkasan Produk Terjual:</h4>
                 <div id="list-barang"></div>
             </div>
 
@@ -64,13 +65,15 @@
 
         let totalSistem = 0;
         let dataCetak = { items: [], diskon: 0, tunai: 0, qris: 0, awal: 0, kasir: '' };
-        
-        // Mengambil log ID dari session atau localStorage
         const session = JSON.parse(localStorage.getItem('finex_session'));
         let shiftId = null;
 
+        window.onload = () => {
+            if (!session) return window.location.href = "login.html";
+            initClosing();
+        };
+
         async function initClosing() {
-            // Cari shift yang masih 'Open' untuk user ini
             const { data: activeShift } = await supabaseClient
                 .from('kasir_log')
                 .select('id')
@@ -79,7 +82,7 @@
                 .maybeSingle();
 
             if (!activeShift) {
-                alert("Tidak ada shift aktif yang ditemukan!");
+                alert("Tidak ada shift aktif!");
                 window.location.href = "pos.html";
                 return;
             }
@@ -90,15 +93,17 @@
         async function loadDataClosing() {
             try {
                 const { data: log, error: errLog } = await supabaseClient.from('kasir_log').select('*').eq('id', shiftId).single();
-                if (errLog || !log) throw new Error("Data log shift tidak ditemukan");
+                if (errLog || !log) throw new Error("Log shift tidak ditemukan");
 
-                const { data: sales, error: errSales } = await supabaseClient.from('penjualan').select('*').eq('kasir_id', shiftId);
+                const { data: sales, error: errSales } = await supabaseClient.from('penjualan').select('id, grand_total, diskon, metode_pembayaran').eq('kasir_id', shiftId);
                 if (errSales) throw new Error("Gagal mengambil data penjualan");
 
                 dataCetak.awal = parseFloat(log.saldo_awal || 0);
                 dataCetak.kasir = log.kasir_nama;
 
                 let itemMap = {};
+                const salesIds = (sales || []).map(s => s.id);
+
                 sales.forEach(trx => {
                     dataCetak.diskon += (trx.diskon || 0);
                     if (trx.metode_pembayaran === 'Tunai') {
@@ -106,29 +111,32 @@
                     } else {
                         dataCetak.qris += trx.grand_total;
                     }
-
-                    // PERBAIKAN: Gunakan JSON.parse jika items berupa string
-                    const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-
-                    if (items && Array.isArray(items)) {
-                        items.forEach(it => {
-                            const nama = it.nama_barang || it.nama_produk;
-                            if(!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
-                            itemMap[nama].qty += it.qty;
-                            itemMap[nama].sub += (it.qty * it.harga);
-                        });
-                    }
                 });
 
+                // Tarik data dari tabel penjualan_detail
+                if (salesIds.length > 0) {
+                    const { data: details } = await supabaseClient
+                        .from('penjualan_detail')
+                        .select('nama_barang, qty, subtotal_item')
+                        .in('penjualan_id', salesIds);
+
+                    if (details) {
+                        details.forEach(it => {
+                            if(!itemMap[it.nama_barang]) itemMap[it.nama_barang] = { qty: 0, sub: 0 };
+                            itemMap[it.nama_barang].qty += it.qty;
+                            itemMap[it.nama_barang].sub += it.subtotal_item;
+                        });
+                    }
+                }
+
                 let htmlItems = "";
+                dataCetak.items = [];
                 for (let name in itemMap) {
-                    dataCetak.items.push({ name, qty: itemMap[name].qty });
+                    dataCetak.items.push({ name, qty: itemMap[name].qty, sub: itemMap[name].sub });
                     htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString()}</span></div>`;
                 }
 
                 document.getElementById('list-barang').innerHTML = htmlItems || '<div style="text-align:center; color:gray;">Belum ada penjualan</div>';
-                
-                // Saldo Seharusnya = Modal Awal + Penjualan Tunai
                 totalSistem = dataCetak.awal + dataCetak.tunai;
                 
                 document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString();
@@ -142,7 +150,6 @@
 
             } catch (e) {
                 alert("Kesalahan: " + e.message);
-                console.error(e);
             }
         }
 
@@ -161,28 +168,28 @@
                 </div>`).join('');
 
             document.getElementById('print-area').innerHTML = `
-                <div style="text-align:center; margin-bottom: 10px;">
-                    <b style="font-size:14px;">LAPORAN CLOSING BeautyBloom</b><br>
-                    Finex Pos System
+                <div style="text-align:center; margin-bottom: 5px;">
+                    <b style="font-size:12px;">LAPORAN CLOSING FINEX POS</b><br>
+                    Kantin Kejujuran & Terpercaya
                 </div>
                 ----------------------------<br>
                 Kasir : ${dataCetak.kasir}<br>
                 Waktu : ${new Date().toLocaleString('id-ID')}<br>
                 ----------------------------<br>
                 <b>RINGKASAN ITEM:</b><br>
-                ${itemRows}
+                ${itemRows || 'Tidak ada data'}<br>
                 ----------------------------<br>
-                QRIS/Non-Tunai: ${dataCetak.qris.toLocaleString()}<br>
-                Diskon Terpakai: ${dataCetak.diskon.toLocaleString()}<br>
+                Non-Tunai: ${dataCetak.qris.toLocaleString()}<br>
+                Diskon   : ${dataCetak.diskon.toLocaleString()}<br>
                 ----------------------------<br>
-                Modal Awal    : ${dataCetak.awal.toLocaleString()}<br>
-                Tunai Masuk   : ${dataCetak.tunai.toLocaleString()}<br>
-                <b>TUNAI SISTEM : ${totalSistem.toLocaleString()}</b><br>
-                <b>TUNAI FISIK  : ${fisik.toLocaleString()}</b><br>
+                Modal Awal : ${dataCetak.awal.toLocaleString()}<br>
+                Tunai Masuk: ${dataCetak.tunai.toLocaleString()}<br>
+                <b>SIS. TUNAI: ${totalSistem.toLocaleString()}</b><br>
+                <b>FISIK LACI: ${fisik.toLocaleString()}</b><br>
                 ----------------------------<br>
-                <b>SELISIH      : ${selisih.toLocaleString()}</b><br>
+                <b>SELISIH   : ${selisih.toLocaleString()}</b><br>
                 ----------------------------<br>
-                <div style="text-align:center; margin-top:10px;">Shift Telah Berakhir</div>
+                <div style="text-align:center; margin-top:5px;">Shift Berakhir</div>
             `;
         }
 
@@ -190,31 +197,27 @@
             const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
             const selisih = fisik - totalSistem;
 
-            if (confirm("Yakin ingin menutup shift? Data tidak dapat diubah kembali.")) {
+            if (confirm("Tutup shift dan cetak laporan?")) {
                 renderStruk(fisik, selisih);
                 
                 const { error } = await supabaseClient
                     .from('kasir_log')
                     .update({
-                        waktu_closing: new Date().toISOString(),
+                        waktu_tutup: new Date().toISOString(),
                         saldo_akhir: totalSistem,
-                        total_tunai_fisik: fisik,
-                        selisih: selisih,
                         status: 'Closed'
                     })
                     .eq('id', shiftId);
 
                 if (!error) {
                     window.print();
-                    alert("Shift Berhasil Ditutup dan Disimpan.");
+                    alert("Shift Berhasil Ditutup.");
                     window.location.href = "dashboard.html";
                 } else {
-                    alert(`Gagal menyimpan closing: ${error.message}`);
+                    alert(`Gagal: ${error.message}`);
                 }
             }
         }
-
-        initClosing();
     </script>
 </body>
 </html>
