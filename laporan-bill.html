@@ -94,7 +94,8 @@
             </div>
             <div id="det-waktu" style="font-size: 12px; color: #888; margin-bottom: 15px;"></div>
             
-            <div id="det-items"></div>
+            <div id="det-items" style="max-height: 300px; overflow-y: auto;">
+                </div>
             
             <div style="margin-top: 20px; padding-top: 10px; border-top: 2px solid #eee;">
                 <div style="display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 5px;">
@@ -160,45 +161,47 @@
         }
 
         async function showDetail(id) {
-            const { data } = await FinexDB.from('penjualan').select('*').eq('id', id).single();
-            if (!data) return;
+            // 1. Ambil data penjualan utama
+            const { data: sales } = await FinexDB.from('penjualan').select('*').eq('id', id).single();
+            if (!sales) return;
 
-            document.getElementById('det-invoice').innerText = data.no_invoice;
-            document.getElementById('det-waktu').innerText = new Date(data.created_at).toLocaleString('id-ID');
-            document.getElementById('det-subtotal').innerText = "Rp " + (data.subtotal || 0).toLocaleString();
-            document.getElementById('det-total').innerText = "Rp " + data.grand_total.toLocaleString();
+            // 2. Ambil rincian barang dari tabel penjualan_detail
+            const { data: details } = await FinexDB.from('penjualan_detail').select('*').eq('penjualan_id', id);
+
+            document.getElementById('det-invoice').innerText = sales.no_invoice;
+            document.getElementById('det-waktu').innerText = new Date(sales.created_at).toLocaleString('id-ID');
+            document.getElementById('det-subtotal').innerText = "Rp " + (sales.subtotal || 0).toLocaleString();
+            document.getElementById('det-total').innerText = "Rp " + sales.grand_total.toLocaleString();
 
             const discRow = document.getElementById('det-disc-row');
-            if (data.diskon > 0) {
+            if (sales.diskon > 0) {
                 discRow.style.display = 'flex';
-                document.getElementById('det-diskon').innerText = "- Rp " + data.diskon.toLocaleString();
+                document.getElementById('det-diskon').innerText = "- Rp " + sales.diskon.toLocaleString();
             } else {
                 discRow.style.display = 'none';
             }
-
-            // PERBAIKAN: Konversi string JSON ke Array jika perlu
-            const items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
             
-            document.getElementById('det-items').innerHTML = (items || []).map(it => `
+            // Render rincian barang ke modal
+            document.getElementById('det-items').innerHTML = (details || []).map(it => `
                 <div class="detail-item">
-                    <span>${it.nama_barang || it.nama_produk} (x${it.qty})</span>
-                    <span>Rp ${(it.harga * it.qty).toLocaleString()}</span>
+                    <span>${it.nama_barang} (x${it.qty})</span>
+                    <span>Rp ${it.subtotal_item.toLocaleString()}</span>
                 </div>
             `).join('');
+            
             document.getElementById('modalDetail').style.display = 'flex';
         }
 
         async function printBill(id) {
-            const { data } = await FinexDB.from('penjualan').select('*').eq('id', id).single();
-            if (!data) return;
+            const { data: sales } = await FinexDB.from('penjualan').select('*').eq('id', id).single();
+            const { data: details } = await FinexDB.from('penjualan_detail').select('*').eq('penjualan_id', id);
+            
+            if (!sales) return;
 
-            // PERBAIKAN: Konversi string JSON ke Array jika perlu
-            const items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
-
-            let itemRows = (items || []).map(it => `
+            let itemRows = (details || []).map(it => `
                 <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
-                    <span style="flex:1;">${it.nama_barang || it.nama_produk} x${it.qty}</span>
-                    <span>${(it.harga * it.qty).toLocaleString()}</span>
+                    <span style="flex:1;">${it.nama_barang} x${it.qty}</span>
+                    <span>${it.subtotal_item.toLocaleString()}</span>
                 </div>
             `).join('');
 
@@ -206,33 +209,33 @@
             printArea.innerHTML = `
                 <div style="width:58mm; padding:5px; font-family:monospace; background:white; color:black;">
                     <div style="text-align:center; margin-bottom:10px;">
-                        <b style="font-size:14px;">FINEX POS (BeautyBloom)</b><br>
-                        <small>STRUK PEMBAYARAN (REPRINT)</small>
+                        <b style="font-size:14px;">FINEX POS</b><br>
+                        <small>KANTIN - REPRINT STRUK</small>
                     </div>
                     <div style="font-size:11px; margin-bottom:5px;">
-                        No: ${data.no_invoice}<br>
-                        Tgl: ${new Date(data.created_at).toLocaleString('id-ID')}
+                        No: ${sales.no_invoice}<br>
+                        Tgl: ${new Date(sales.created_at).toLocaleString('id-ID')}
                     </div>
                     <div style="border-top:1px dashed #000; margin:5px 0;"></div>
                     ${itemRows}
                     <div style="border-top:1px dashed #000; margin:5px 0;"></div>
                     <div style="display:flex; justify-content:space-between; font-size:11px;">
-                        <span>Subtotal:</span><span>Rp ${(data.subtotal || 0).toLocaleString()}</span>
+                        <span>Subtotal:</span><span>Rp ${(sales.subtotal || 0).toLocaleString()}</span>
                     </div>
-                    ${data.diskon > 0 ? `
+                    ${sales.diskon > 0 ? `
                     <div style="display:flex; justify-content:space-between; font-size:11px;">
-                        <span>Diskon:</span><span>-Rp ${data.diskon.toLocaleString()}</span>
+                        <span>Diskon:</span><span>-Rp ${sales.diskon.toLocaleString()}</span>
                     </div>` : ''}
                     <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; margin-top:2px;">
-                        <span>TOTAL:</span><span>Rp ${data.grand_total.toLocaleString()}</span>
+                        <span>TOTAL:</span><span>Rp ${sales.grand_total.toLocaleString()}</span>
                     </div>
                     <div style="border-top:1px dashed #000; margin:5px 0;"></div>
                     <div style="font-size:11px;">
-                        Metode: ${data.metode_pembayaran}<br>
-                        Bayar : Rp ${(data.bayar || 0).toLocaleString()}<br>
-                        Kembali: Rp ${( (data.bayar || 0) - data.grand_total).toLocaleString()}
+                        Metode: ${sales.metode_pembayaran}<br>
+                        Bayar : Rp ${(sales.bayar || 0).toLocaleString()}<br>
+                        Kembali: Rp ${( (sales.bayar || 0) - sales.grand_total).toLocaleString()}
                     </div>
-                    <div style="text-align:center; font-size:10px; margin-top:10px;">Terima Kasih Atas Kunjungan Anda</div>
+                    <div style="text-align:center; font-size:10px; margin-top:10px;">Data transaksi tersimpan di sistem Kantin</div>
                 </div>
             `;
             
