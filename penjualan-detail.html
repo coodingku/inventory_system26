@@ -99,105 +99,117 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+   const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
-    window.onload = async () => {
-        // Set default tanggal hari ini
-        const hariIni = new Date().toISOString().split('T')[0];
-        document.getElementById('tgl-mulai').value = hariIni;
-        document.getElementById('tgl-akhir').value = hariIni;
-        
-        await muatDaftarKasir();
-        muatLaporan();
-    };
+window.onload = async () => {
+    const hariIni = new Date().toISOString().split('T')[0];
+    document.getElementById('tgl-mulai').value = hariIni;
+    document.getElementById('tgl-akhir').value = hariIni;
+    
+    await muatDaftarKasir();
+    muatLaporan();
+};
 
-    async function muatDaftarKasir() {
-        // Ambil daftar unik nama kasir dari log shift
-        const { data } = await FinexDB.from('kasir_log').select('kasir_nama');
+async function muatDaftarKasir() {
+    // Ambil daftar nama kasir dari tabel penjualan langsung
+    const { data } = await FinexDB.from('kasir_log').select('kasir_nama');
+    if (data) {
         const listNama = [...new Set(data.map(k => k.kasir_nama))];
         const select = document.getElementById('select-kasir');
         listNama.forEach(nama => {
-            select.innerHTML += `<option value="${nama}">${nama}</option>`;
+            const opt = document.createElement('option');
+            opt.value = nama;
+            opt.innerText = nama;
+            select.appendChild(opt);
         });
     }
+}
 
-    async function muatLaporan() {
-        const tgl1 = document.getElementById('tgl-mulai').value;
-        const tgl2 = document.getElementById('tgl-akhir').value;
-        const kasirTerpilih = document.getElementById('select-kasir').value;
+async function muatLaporan() {
+    const tgl1 = document.getElementById('tgl-mulai').value;
+    const tgl2 = document.getElementById('tgl-akhir').value;
+    const kasirTerpilih = document.getElementById('select-kasir').value;
 
-        // Ambil detail penjualan, join dengan master penjualan untuk dapat nama kasir, join produk untuk harga_beli
-        let query = FinexDB
-            .from('penjualan_detail')
-            .select(`
-                created_at, qty, harga_satuan, subtotal_item, nama_barang,
-                penjualan!inner(kasir_id),
-                kasir_log:penjualan(kasir_log(kasir_nama)),
-                produk(harga_beli)
-            `)
-            .gte('created_at', `${tgl1}T00:00:00Z`)
-            .lte('created_at', `${tgl2}T23:59:59Z`);
+    const tbody = document.getElementById('tabel-body');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">⏳ Memuat data...</td></tr>';
 
-        // Filter jika kasir tertentu dipilih
-        if (kasirTerpilih) {
-            query = query.eq('penjualan.kasir_log.kasir_nama', kasirTerpilih);
-        }
+    // Query yang disederhanakan untuk menghindari Error 400
+    let query = FinexDB
+        .from('penjualan_detail')
+        .select(`
+            created_at, qty, harga_satuan, subtotal_item, nama_barang,
+            penjualan ( 
+                no_invoice,
+                kasir_log ( kasir_nama )
+            ),
+            produk ( harga_beli )
+        `)
+        .gte('created_at', `${tgl1}T00:00:00Z`)
+        .lte('created_at', `${tgl2}T23:59:59Z`);
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false });
 
-        if (error) return alert("Gagal: " + error.message);
-
-        let omzet = 0, hpp = 0;
-        const tbody = document.getElementById('tabel-body');
-
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada data ditemukan.</td></tr>';
-        } else {
-            tbody.innerHTML = data.map(item => {
-                const modal = item.produk?.harga_beli || 0;
-                const subOmzet = item.subtotal_item || 0;
-                const subHpp = modal * item.qty;
-                const subLaba = subOmzet - subHpp;
-                const namaKasir = item.penjualan?.kasir_log?.kasir_nama || "System";
-
-                omzet += subOmzet;
-                hpp += subHpp;
-
-                return `
-                    <tr>
-                        <td>${new Date(item.created_at).toLocaleDateString('id-ID')}</td>
-                        <td>${namaKasir}</td>
-                        <td><b>${item.nama_barang}</b></td>
-                        <td>${item.qty}</td>
-                        <td>Rp ${subOmzet.toLocaleString()}</td>
-                        <td style="color:var(--success); font-weight:bold;">Rp ${subLaba.toLocaleString()}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        document.getElementById('total-omzet').innerText = `Rp ${omzet.toLocaleString()}`;
-        document.getElementById('total-hpp').innerText = `Rp ${hpp.toLocaleString()}`;
-        document.getElementById('total-laba').innerText = `Rp ${(omzet - hpp).toLocaleString()}`;
+    if (error) {
+        console.error("Detail Error:", error);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Error: ${error.message}</td></tr>`;
+        return;
     }
 
-    function exportExcel() {
-        const rows = document.querySelectorAll("table tr");
-        let csv = [];
-        rows.forEach(row => {
-            let cols = row.querySelectorAll("td, th");
-            let rowData = Array.from(cols).map(c => `"${c.innerText.replace(/Rp /g, '').replace(/\./g, '')}"`);
-            csv.push(rowData.join(","));
-        });
-        const blob = new Blob([csv.join("\n")], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Laporan_Detail_Penjualan.csv`;
-        a.click();
+    let omzet = 0, hpp = 0;
+    
+    // Filter manual di sisi client untuk Nama Kasir agar lebih stabil
+    const filteredData = kasirTerpilih 
+        ? data.filter(item => item.penjualan?.kasir_log?.kasir_nama === kasirTerpilih)
+        : data;
+
+    if (filteredData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada data ditemukan.</td></tr>';
+    } else {
+        tbody.innerHTML = filteredData.map(item => {
+            const modal = item.produk?.harga_beli || 0;
+            const subOmzet = item.subtotal_item || 0;
+            const subHpp = modal * item.qty;
+            const subLaba = subOmzet - subHpp;
+            const namaKasir = item.penjualan?.kasir_log?.kasir_nama || "System";
+
+            omzet += subOmzet;
+            hpp += subHpp;
+
+            return `
+                <tr>
+                    <td>${new Date(item.created_at).toLocaleDateString('id-ID')}</td>
+                    <td>${namaKasir}</td>
+                    <td><b>${item.nama_barang || 'N/A'}</b></td>
+                    <td style="text-align:center;">${item.qty}</td>
+                    <td>Rp ${subOmzet.toLocaleString()}</td>
+                    <td style="color:var(--success); font-weight:bold;">Rp ${subLaba.toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('');
     }
+
+    document.getElementById('total-omzet').innerText = `Rp ${omzet.toLocaleString()}`;
+    document.getElementById('total-hpp').innerText = `Rp ${hpp.toLocaleString()}`;
+    document.getElementById('total-laba').innerText = `Rp ${(omzet - hpp).toLocaleString()}`;
+}
+
+function exportExcel() {
+    const rows = document.querySelectorAll("table tr");
+    let csv = [];
+    rows.forEach(row => {
+        let cols = row.querySelectorAll("td, th");
+        let rowData = Array.from(cols).map(c => `"${c.innerText.replace(/Rp /g, '').replace(/\./g, '')}"`);
+        csv.push(rowData.join(","));
+    });
+    const blob = new Blob([csv.join("\n")], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Laporan_LabaRugi_FinexPos.csv`;
+    a.click();
+}
 </script>
 </body>
 </html>
