@@ -240,30 +240,76 @@
     }
 
     async function voidBill(id, invoiceNo) {
-        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke Kantin otomatis.`)) return;
+        // 1. Konfirmasi Admin
+        const confirmVoid = confirm(`⚠️ VOID Transaksi ${invoiceNo}?\n\nSemua stok barang dalam nota ini akan dikembalikan otomatis ke tabel produk.`);
+        if (!confirmVoid) return;
+
+        // Cari data transaksi di variabel lokal
         const dataBill = currentLaporan.find(i => i.id == id);
-        
+        if (!dataBill) return alert("Data transaksi tidak ditemukan.");
+
         try {
-            if (dataBill && dataBill.items) {
-                let daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : dataBill.items;
-                for (const it of daftarBarang) {
-                    const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', it.id).single();
+            // 2. Ambil rincian barang (parsing JSON dari kolom items)
+            let daftarBarang = [];
+            try {
+                daftarBarang = typeof dataBill.items === 'string' ? JSON.parse(dataBill.items) : (dataBill.items || []);
+            } catch (e) {
+                console.error("Gagal parsing items:", e);
+                return alert("Format data barang tidak valid.");
+            }
+
+            // 3. Proses Pengembalian Stok per Item
+            for (const it of daftarBarang) {
+                // Pastikan kita punya ID produk untuk update stok
+                const produkId = it.id || it.produk_id; 
+                
+                if (produkId) {
+                    // Ambil stok saat ini dari database
+                    const { data: p, error: errFetch } = await supabaseClient
+                        .from('produk')
+                        .select('stok_sekarang')
+                        .eq('id', produkId)
+                        .single();
+
                     if (p) {
-                        await supabaseClient.from('produk').update({ stok_sekarang: p.stok_sekarang + it.qty }).eq('id', it.id);
-                        // Catat Riwayat Void
-                        await supabaseClient.from('riwayat_stok').insert([{
-                            id_produk: it.id, tipe: 'MASUK', jumlah: it.qty,
-                            admin_nama: 'System Void', keterangan: `Void Inv: ${invoiceNo}`
-                        }]);
+                        const stokBaru = (p.stok_sekarang || 0) + it.qty;
+
+                        // Update stok di tabel produk
+                        const { error: errUpdate } = await supabaseClient
+                            .from('produk')
+                            .update({ stok_sekarang: stokBaru })
+                            .eq('id', produkId);
+
+                        if (!errUpdate) {
+                            // Catat Riwayat Pergerakan Stok (Stok Masuk karena Void)
+                            await supabaseClient.from('riwayat_stok').insert([{
+                                id_produk: produkId,
+                                tipe: 'MASUK',
+                                jumlah: it.qty,
+                                admin_nama: 'System Void',
+                                keterangan: `Void Inv: ${invoiceNo} (Kembali ke Kantin)`
+                            }]);
+                        }
                     }
                 }
             }
-            await supabaseClient.from('penjualan').delete().eq('id', id);
-            alert("Transaksi berhasil di-void.");
-            fetchLaporan();
-        } catch (err) { alert("Error void: " + err.message); }
-    }
 
+            // 4. Hapus data penjualan dari database
+            const { error: errDel } = await supabaseClient
+                .from('penjualan')
+                .delete()
+                .eq('id', id);
+
+            if (errDel) throw errDel;
+
+            alert(`✅ Transaksi ${invoiceNo} berhasil dibatalkan dan stok telah diperbarui.`);
+            fetchLaporan(); // Refresh tabel
+
+        } catch (err) {
+            console.error("Error Detail:", err);
+            alert("Terjadi kesalahan saat Void: " + err.message);
+        }
+    }
     function exportKeExcel() {
         if (!currentLaporan.length) return alert("Data kosong!");
         let dataExcel = [];
