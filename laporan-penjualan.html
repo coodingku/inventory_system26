@@ -290,11 +290,45 @@ async function voidBill(id, invoiceNo) {
         alert("Terjadi kesalahan saat proses Void.");
     }
 }
-    function exportKeExcel() {
-        if (!currentLaporan.length) return alert("Data kosong!");
-        let dataExcel = [];
-        currentLaporan.forEach(nota => {
-            let daftarBarang = typeof nota.items === 'string' ? JSON.parse(nota.items) : (nota.items || []);
+   async function exportKeExcel() {
+    // 1. Jika currentLaporan kosong, coba ambil data ulang dari DB
+    if (!window.currentLaporan || currentLaporan.length === 0) {
+        alert("Data di layar kosong, mencoba mengambil data langsung dari database...");
+        const { data, error } = await FinexDB
+            .from('penjualan')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error || !data) return alert("Gagal mengambil data dari database.");
+        window.currentLaporan = data;
+    }
+
+    let dataExcel = [];
+    
+    window.currentLaporan.forEach(nota => {
+        // 2. Parsing items dengan lebih aman
+        let daftarBarang = [];
+        try {
+            daftarBarang = typeof nota.items === 'string' ? JSON.parse(nota.items) : (nota.items || []);
+        } catch (e) {
+            console.error("Gagal parsing items untuk nota:", nota.no_invoice);
+        }
+
+        if (daftarBarang.length === 0) {
+            // Jika items kosong, tetap masukkan data nota agar tidak hilang di laporan
+            dataExcel.push({
+                "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
+                "No Invoice": nota.no_invoice,
+                "Nama Barang": "(Tidak ada rincian)",
+                "Qty": 0,
+                "Harga Satuan": 0,
+                "Subtotal Item": 0,
+                "Metode": nota.metode_pembayaran,
+                "Diskon Nota": nota.diskon || 0,
+                "Total Net": nota.grand_total || 0,
+                "Kasir": nota.kasir_nama || 'Kantin'
+            });
+        } else {
             daftarBarang.forEach((item, index) => {
                 dataExcel.push({
                     "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
@@ -304,17 +338,27 @@ async function voidBill(id, invoiceNo) {
                     "Harga Satuan": item.harga,
                     "Subtotal Item": item.qty * item.harga,
                     "Metode": nota.metode_pembayaran,
-                    "Diskon Nota": index === 0 ? nota.diskon : 0,
-                    "Total Net": index === 0 ? nota.grand_total : 0,
-                    "Kasir": nota.admin_nama || 'Admin'
+                    // Diskon & Total hanya muncul di baris pertama tiap nota agar tidak double saat di-sum
+                    "Diskon Nota": index === 0 ? (nota.diskon || 0) : 0,
+                    "Total Net": index === 0 ? (nota.grand_total || 0) : 0,
+                    "Kasir": nota.kasir_nama || 'Kantin'
                 });
             });
-        });
+        }
+    });
+
+    // 3. Proses Export menggunakan library XLSX
+    try {
         const ws = XLSX.utils.json_to_sheet(dataExcel);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Laporan");
-        XLSX.writeFile(wb, `Laporan_FinexPos_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `Laporan_Kantin_FinexPos_${new Date().toISOString().split('T')[0]}.xlsx`);
+        alert("✅ Export Berhasil!");
+    } catch (err) {
+        alert("Gagal Export: Pastikan library SheetJS (XLSX) sudah terpasang.");
+        console.error(err);
     }
+}
 </script>
 </body>
 </html>
