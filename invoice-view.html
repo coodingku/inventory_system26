@@ -6,130 +6,142 @@
     <title>E-Receipt | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Courier New', Courier, monospace; background: #eee; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .receipt-card { background: white; width: 100%; max-width: 350px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 4px; }
-        .header { text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 15px; margin-bottom: 15px; }
-        .header h2 { margin: 0; color: #333; }
-        .info { font-size: 13px; line-height: 1.6; margin-bottom: 15px; }
+        body { font-family: 'Courier New', Courier, monospace; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .receipt-card { background: white; width: 100%; max-width: 380px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-radius: 8px; position: relative; }
+        .header { text-align: center; border-bottom: 2px dashed #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h2 { margin: 0; color: #2c3e50; letter-spacing: 1px; }
+        .info { font-size: 13px; line-height: 1.8; margin-bottom: 20px; color: #555; }
         .items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .items-table th { border-bottom: 1px dashed #ccc; text-align: left; padding-bottom: 5px; }
-        .items-table td { padding: 8px 0; border-bottom: 1px solid #f9f9f9; }
-        .summary { margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 14px; }
-        .flex { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .bold { font-weight: bold; font-size: 16px; margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px; }
-        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; border-top: 1px dashed #ccc; padding-top: 15px; }
-        .loading { text-align: center; padding: 50px; color: #666; }
-        @media print { body { background: white; padding: 0; } .receipt-card { box-shadow: none; width: 100%; } }
+        .items-table th { border-bottom: 1px solid #eee; text-align: left; padding-bottom: 8px; color: #888; text-transform: uppercase; font-size: 11px; }
+        .items-table td { padding: 10px 0; border-bottom: 1px solid #f9f9f9; vertical-align: top; }
+        .summary { margin-top: 20px; border-top: 2px dashed #eee; padding-top: 15px; font-size: 14px; }
+        .flex { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .bold { font-weight: bold; font-size: 18px; color: #2c3e50; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
+        .footer { text-align: center; margin-top: 35px; font-size: 12px; color: #999; line-height: 1.5; }
+        .loading { text-align: center; padding: 50px; color: #666; font-family: sans-serif; }
+        .btn-print { width: 100%; margin-top: 25px; padding: 12px; border: none; background: #3498db; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        @media print { .btn-print { display: none; } body { background: white; padding: 0; } .receipt-card { box-shadow: none; border: none; } }
     </style>
 </head>
 <body>
 
-    <div id="loader" class="loading">Memuat Nota...</div>
+    <div id="loader" class="loading">Memproses Nota Digital...</div>
     
     <div id="receipt" class="receipt-card" style="display: none;">
         <div class="header">
             <h2>Finex Pos</h2>
-            <p style="font-size: 12px; margin: 5px 0;">Kantin Kejujuran & Terpercaya</p>
+            <p style="font-size: 12px; margin: 5px 0; color: #7f8c8d;">Struk Belanja Kantin Resmi</p>
         </div>
 
         <div class="info">
-            <div class="flex"><span>No. Invoice:</span><span id="inv-no"></span></div>
-            <div class="flex"><span>Tanggal:</span><span id="inv-date"></span></div>
-            <div class="flex"><span>Kasir:</span><span id="inv-kasir"></span></div>
-            <div class="flex"><span>Metode:</span><span id="inv-method"></span></div>
+            <div class="flex"><span>No. Invoice</span><strong id="inv-no"></strong></div>
+            <div class="flex"><span>Waktu</span><span id="inv-date"></span></div>
+            <div class="flex"><span>Metode</span><span id="inv-method"></span></div>
         </div>
 
         <table class="items-table">
             <thead>
                 <tr>
-                    <th>Item</th>
+                    <th>Deskripsi Pesanan</th>
                     <th style="text-align: right;">Total</th>
                 </tr>
             </thead>
-            <tbody id="inv-items">
-                </tbody>
+            <tbody id="inv-items"></tbody>
         </table>
 
         <div class="summary">
             <div class="flex"><span>Subtotal</span><span id="inv-subtotal"></span></div>
-            <div id="row-diskon" class="flex" style="color: red; display: none;">
-                <span>Diskon</span><span id="inv-diskon"></span>
+            <div id="row-diskon" class="flex" style="color: #e74c3c; display: none;">
+                <span>Potongan Diskon</span><span id="inv-diskon"></span>
             </div>
-            <div class="flex bold"><span>TOTAL</span><span id="inv-total"></span></div>
-            <div class="flex" style="margin-top: 10px;"><span>Bayar</span><span id="inv-bayar"></span></div>
-            <div class="flex"><span>Kembali</span><span id="inv-kembali"></span></div>
+            <div class="flex bold"><span>TOTAL AKHIR</span><span id="inv-total"></span></div>
+            <div class="flex" style="margin-top: 15px; font-size: 13px; color: #7f8c8d;">
+                <span>Diterima</span><span id="inv-bayar"></span>
+            </div>
+            <div class="flex" style="font-size: 13px; color: #7f8c8d;">
+                <span>Kembali</span><span id="inv-kembali"></span>
+            </div>
         </div>
 
         <div class="footer">
-            <p>Terima kasih atas kunjungan Anda!</p>
-            <p>Simpan nota ini sebagai bukti pembayaran sah.</p>
+            <p>*** Terima Kasih ***</p>
+            <p>Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.</p>
         </div>
         
-        <button onclick="window.print()" style="width: 100%; margin-top: 20px; padding: 10px; border: none; background: #2c3e50; color: white; border-radius: 4px; cursor: pointer;" class="no-print">Cetak / Simpan PDF</button>
+        <button onclick="window.print()" class="btn-print">Cetak Nota / Simpan PDF</button>
     </div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(URL_DB, KEY_DB);
+    // Konfigurasi Database
+    const SUPA_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    
+    // Menggunakan nama variabel berbeda agar tidak bentrok dengan global 'supabase'
+    const finexDB = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
     async function loadInvoice() {
         const urlParams = new URLSearchParams(window.location.search);
         const invoiceId = urlParams.get('id');
 
         if (!invoiceId) {
-            document.getElementById('loader').innerText = "ID Nota tidak ditemukan.";
+            document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>ID Nota tidak ditemukan dalam tautan.</p>";
             return;
         }
 
         try {
-            // 1. Ambil data Header Penjualan
-            const { data: trx, error: errTrx } = await supabase
+            // Ambil data Penjualan
+            const { data: trx, error: errTrx } = await finexDB
                 .from('penjualan')
-                .select('*, kasir_log(kasir_nama)')
+                .select('*')
                 .eq('id', invoiceId)
                 .single();
 
-            if (errTrx || !trx) throw new Error("Nota tidak ditemukan di database.");
+            if (errTrx || !trx) throw new Error("Data nota tidak ditemukan atau sudah dihapus.");
 
-            // 2. Ambil data Detail Barang
-            const { data: items, error: errItems } = await supabase
+            // Ambil data Detail Item
+            const { data: items, error: errItems } = await finexDB
                 .from('penjualan_detail')
                 .select('*')
                 .eq('penjualan_id', invoiceId);
 
-            // Tampilkan ke HTML
+            // Mapping Data ke UI
             document.getElementById('inv-no').innerText = trx.no_invoice;
-            document.getElementById('inv-date').innerText = new Date(trx.created_at).toLocaleString('id-ID');
-            document.getElementById('inv-kasir').innerText = trx.kasir_log?.kasir_nama || '-';
-            document.getElementById('inv-method').innerText = trx.metode_pembayaran;
+            document.getElementById('inv-date').innerText = new Date(trx.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+            document.getElementById('inv-method').innerText = trx.metode_pembayaran || 'Tunai';
             
             document.getElementById('inv-subtotal').innerText = "Rp " + trx.subtotal.toLocaleString();
+            
             if (trx.diskon > 0) {
                 document.getElementById('row-diskon').style.display = 'flex';
                 document.getElementById('inv-diskon').innerText = "-Rp " + trx.diskon.toLocaleString();
             }
+
             document.getElementById('inv-total').innerText = "Rp " + trx.grand_total.toLocaleString();
             document.getElementById('inv-bayar').innerText = "Rp " + (trx.bayar || 0).toLocaleString();
             document.getElementById('inv-kembali').innerText = "Rp " + ((trx.bayar || 0) - trx.grand_total).toLocaleString();
 
             const itemsHtml = items.map(item => `
                 <tr>
-                    <td>${item.nama_barang}<br><small>${item.qty} x ${item.harga_satuan.toLocaleString()}</small></td>
-                    <td style="text-align: right; vertical-align: bottom;">${item.subtotal_item.toLocaleString()}</td>
+                    <td>
+                        <div style="font-weight:bold; color:#333;">${item.nama_barang}</div>
+                        <div style="color:#888; font-size:11px;">${item.qty} x Rp ${item.harga_satuan.toLocaleString()}</div>
+                    </td>
+                    <td style="text-align: right; font-weight:bold;">${item.subtotal_item.toLocaleString()}</td>
                 </tr>
             `).join('');
+            
             document.getElementById('inv-items').innerHTML = itemsHtml;
 
-            // Sembunyikan loader, tampilkan nota
+            // Sembunyikan loader dan tampilkan nota
             document.getElementById('loader').style.display = 'none';
             document.getElementById('receipt').style.display = 'block';
 
         } catch (e) {
-            document.getElementById('loader').innerText = e.message;
+            document.getElementById('loader').innerHTML = `<h3>Maaf</h3><p>${e.message}</p>`;
         }
     }
 
+    // Jalankan fungsi
     loadInvoice();
 </script>
 </body>
