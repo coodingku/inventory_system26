@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Absensi Staff</title>
+    <title>Finex Pos | Laporan Absensi</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -13,110 +13,109 @@
             --bg: #f4f7f6; 
             --success: #27ae60; 
             --danger: #e74c3c;
+            --text: #333;
         }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; color: var(--text); }
         
-        /* Sidebar Navigasi */
-        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; overflow-y: auto; }
+        /* Sidebar */
+        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; transition: 0.3s; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: 30px; color: var(--danger); cursor: pointer; padding: 12px; font-weight: bold; border: 1px solid var(--danger); border-radius: 8px; text-align: center; }
 
         /* Main Content */
-        main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        main { flex: 1; margin-left: 240px; padding: 30px; box-sizing: border-box; min-height: 100vh; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 
-        /* Filter Area */
-        .filter-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end; }
+        /* Card Filter */
+        .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-        label { font-size: 12px; color: #666; font-weight: bold; }
-        input, button { padding: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        label { font-size: 11px; font-weight: bold; color: #888; text-transform: uppercase; }
+        input, button { padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none; }
         
-        .btn-search { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; }
-        .btn-excel { background: var(--success); color: white; border: none; cursor: pointer; font-weight: bold; padding: 10px 20px; display: flex; align-items: center; gap: 8px; }
+        .btn-search { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-search:hover { background: #1a252f; }
+        .btn-excel { background: var(--success); color: white; border: none; cursor: pointer; font-weight: bold; padding: 10px 20px; }
 
-        /* Table Styling */
-        .table-container { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
+        /* Table Area */
+        .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; font-size: 13px; color: #888; border-bottom: 2px solid #eee; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; font-size: 12px; color: #7f8c8d; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .staff-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); cursor: pointer; }
-        .badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .staff-info { display: flex; align-items: center; gap: 10px; }
+        .staff-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #eee; cursor: zoom-in; }
+        .badge { padding: 4px 10px; border-radius: 15px; font-size: 11px; font-weight: bold; }
         .badge-aktif { background: #e8f5e9; color: #2e7d32; }
         .badge-selesai { background: #f5f5f5; color: #7f8c8d; }
+        
+        @media (max-width: 1024px) {
+            nav { width: 70px; padding: 10px; }
+            nav h2, nav span { display: none; }
+            main { margin-left: 70px; padding: 15px; }
+            .filter-card { flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
 
     <nav>
         <h2>Finex Pos</h2>
-        <a href="dashboard.html">📊 Dashboard</a>
-        <a href="pos.html">🛒 Masuk Kasir</a>
-        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        <div style="font-size: 10px; color: #666; margin-bottom: 8px; padding-left: 10px;">MASTER & KEUANGAN</div>
-        <a href="tambah-staff.html">👥 Employee / Staff</a>
-        <a href="setting-lokasi.html">📍 Setting Lokasi</a>
-        <a href="pengeluaran.html">💸 Pengeluaran</a>
-        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        <div style="font-size: 10px; color: #666; margin-bottom: 8px; padding-left: 10px;">LAPORAN</div>
-        <a href="absen-report.html" class="active">🕒 Log Absensi Staff</a>
-        <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
-        <a href="laporan-opening-closing.html">🏁 Log Shift Kasir</a>
-        <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
+        <a href="dashboard.html"><span>📊 Dashboard</span></a>
+        <a href="pos.html"><span>🛒 Kasir Kantin</span></a>
+        <hr style="border:0; border-top:1px solid #444; margin:10px 0;">
+        <a href="tambah-staff.html"><span>👥 Kelola Staff</span></a>
+        <a href="setting-lokasi.html"><span>📍 Lokasi Absen</span></a>
+        <a href="absen-report.html" class="active"><span>🕒 Laporan Absen</span></a>
+        <a href="laporan-bill.html"><span>📄 Riwayat Transaksi</span></a>
     </nav>
 
     <main>
         <div class="header">
             <div>
-                <h1 style="margin:0;">Laporan Absensi</h1>
-                <p style="color: #888;">Pantau kehadiran dan durasi kerja staff kantin.</p>
+                <h1 style="margin:0; font-size: 24px;">Laporan Absensi Staff</h1>
+                <p style="color: #888; font-size: 14px; margin: 5px 0 0 0;">Riwayat kehadiran Face ID di Kantin.</p>
             </div>
-            <button class="btn-excel" onclick="exportToExcel()">📊 Download Excel</button>
+            <button class="btn-excel" onclick="exportToExcel()">📊 Export Excel</button>
         </div>
 
         <div class="filter-card">
             <div class="filter-group">
-                <label>Mulai Tanggal</label>
+                <label>Dari Tanggal</label>
                 <input type="date" id="date-start">
             </div>
             <div class="filter-group">
                 <label>Sampai Tanggal</label>
                 <input type="date" id="date-end">
             </div>
-            <button class="btn-search" onclick="fetchAbsensi()" style="padding: 10px 30px;">🔍 Cari Data</button>
+            <button class="btn-search" onclick="fetchAbsensi()">🔍 Tampilkan Data</button>
         </div>
 
         <div class="table-container">
-            <table id="table-absen">
+            <table id="report-table">
                 <thead>
                     <tr>
-                        <th>Foto</th>
-                        <th>Nama Staff</th>
+                        <th>Staff</th>
                         <th>Tanggal</th>
-                        <th>Masuk</th>
-                        <th>Pulang</th>
-                        <th>Durasi</th>
+                        <th>Waktu Masuk</th>
+                        <th>Waktu Pulang</th>
+                        <th>Durasi Kerja</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="absen-body">
-                    <tr><td colspan="7" style="text-align:center; padding: 30px; color: #999;">Gunakan filter untuk memuat data.</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding:40px; color:#999;">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
     <script>
-        const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+        const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
         window.onload = () => {
-            const session = JSON.parse(localStorage.getItem('finex_session'));
-            if (!session) return window.location.replace('login.html');
-
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('date-start').value = today;
             document.getElementById('date-end').value = today;
@@ -128,7 +127,7 @@
             const end = document.getElementById('date-end').value;
             const tbody = document.getElementById('absen-body');
             
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">⏳ Mengambil data...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;">⏳ Menarik data dari server...</td></tr>';
 
             const { data, error } = await FinexDB
                 .from('presensi')
@@ -139,49 +138,62 @@
                 .order('waktu_masuk', { ascending: false });
 
             if (error || !data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; color:red;">Tidak ada data ditemukan pada rentang tanggal ini.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#e74c3c;">Tidak ada data absensi pada periode ini.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = data.map(item => {
-                const jamMasuk = new Date(item.waktu_masuk).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
-                const jamPulang = item.waktu_pulang ? new Date(item.waktu_pulang).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+                const masuk = new Date(item.waktu_masuk);
+                const jamMasuk = masuk.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
                 
+                let jamPulang = "--:--";
                 let durasi = "-";
+                
                 if (item.waktu_pulang) {
-                    const diff = new Date(item.waktu_pulang) - new Date(item.waktu_masuk);
-                    const jam = Math.floor(diff / 3600000);
-                    const menit = Math.floor((diff % 3600000) / 60000);
-                    durasi = `${jam}j ${menit}m`;
+                    const pulang = new Date(item.waktu_pulang);
+                    jamPulang = pulang.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+                    
+                    const diffMs = pulang - masuk;
+                    const diffHrs = Math.floor(diffMs / 3600000);
+                    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+                    durasi = `${diffHrs}j ${diffMins}m`;
                 }
 
                 return `
                     <tr>
-                        <td><img src="${item.foto_masuk || 'https://via.placeholder.com/40'}" class="staff-img" onclick="window.open(this.src)"></td>
-                        <td><b>${item.nama_staff}</b></td>
+                        <td>
+                            <div class="staff-info">
+                                <img src="${item.foto_masuk || 'https://via.placeholder.com/40'}" 
+                                     class="staff-img" 
+                                     onerror="this.src='https://via.placeholder.com/40'"
+                                     onclick="window.open(this.src)">
+                                <div>
+                                    <b>${item.nama_staff}</b>
+                                </div>
+                            </div>
+                        </td>
                         <td>${item.tanggal}</td>
                         <td style="color:var(--success); font-weight:bold;">${jamMasuk}</td>
                         <td style="color:var(--danger); font-weight:bold;">${jamPulang}</td>
                         <td>${durasi}</td>
-                        <td><span class="badge ${item.status === 'Aktif' ? 'badge-aktif' : 'badge-selesai'}">${item.status}</span></td>
+                        <td>
+                            <span class="badge ${item.status === 'Aktif' ? 'badge-aktif' : 'badge-selesai'}">
+                                ${item.status === 'Aktif' ? 'Sedang Bekerja' : 'Selesai'}
+                            </span>
+                        </td>
                     </tr>
                 `;
             }).join('');
         }
 
         function exportToExcel() {
-            const table = document.getElementById("table-absen");
+            const table = document.getElementById("report-table");
             const ws = XLSX.utils.table_to_sheet(table);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Log Absensi Finex");
-            XLSX.writeFile(wb, `Laporan_Absen_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
-        function logout() {
-            if(confirm("Keluar dari sistem?")) {
-                localStorage.clear();
-                window.location.replace('login.html');
-            }
+            XLSX.utils.book_append_sheet(wb, ws, "Laporan Absensi Finex");
+            
+            const start = document.getElementById('date-start').value;
+            XLSX.writeFile(wb, `Laporan_Absen_Finex_${start}.xlsx`);
         }
     </script>
 </body>
