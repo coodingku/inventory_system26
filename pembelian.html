@@ -9,29 +9,35 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar */
+        /* Sidebar Navigation */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        /* Content */
+        /* Main Content */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         
-        .form-po { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 25px; align-items: end; }
-        label { display: block; font-size: 12px; margin-bottom: 5px; color: #666; font-weight: bold; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; box-sizing: border-box; }
+        .form-po { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 15px; margin-bottom: 25px; align-items: end; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 12px; color: #666; font-weight: bold; }
+        input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
+        input:focus { border-color: var(--accent); }
+
+        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; height: 45px; transition: 0.2s; }
+        .btn-add:hover { background: #1a252f; }
         
-        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; height: 45px; }
-        .btn-save { background: var(--success); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px; }
-        .btn-save:hover { background: #219150; }
-        
+        .btn-save { background: var(--success); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }
+        .btn-save:hover { background: #219150; transform: translateY(-2px); }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #555; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
         
-        .total-section { margin-top: 20px; text-align: right; font-size: 22px; font-weight: bold; color: var(--primary); border-top: 2px solid #eee; padding-top: 15px; }
+        .total-section { margin-top: 20px; text-align: right; font-size: 24px; font-weight: bold; color: var(--primary); border-top: 2px solid #eee; padding-top: 15px; }
+        .search-box { background: #ebf5ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px dashed var(--accent); }
     </style>
 </head>
 <body>
@@ -49,20 +55,23 @@
     <h1>Purchase Order (Barang Masuk)</h1>
     <div class="card">
         <div style="margin-bottom: 20px;">
-            <label>Nama Supplier / Vendor</label>
-            <input type="text" id="po-supplier" placeholder="Contoh: CV. Sembako Makmur" style="width: 300px;">
+            <label>Nama Supplier / Vendor</label><br>
+            <input type="text" id="po-supplier" placeholder="Contoh: CV. Sembako Makmur atau Nama Toko" style="width: 400px; margin-top:5px;">
         </div>
 
         <div class="form-po">
-            <div>
-                <label>Produk Kantin</label>
+            <div class="input-group">
+                <label>Cari & Pilih Produk</label>
+                <div class="search-box">
+                    <input type="text" id="search-produk" placeholder="🔍 Ketik nama barang..." onkeyup="filterProduk()" style="width:100%; border:none; background:transparent;">
+                </div>
                 <select id="select-produk"></select>
             </div>
-            <div>
+            <div class="input-group">
                 <label>Jumlah (Qty)</label>
                 <input type="number" id="po-qty" placeholder="0">
             </div>
-            <div>
+            <div class="input-group">
                 <label>Harga Beli Satuan</label>
                 <input type="number" id="po-harga" placeholder="Rp">
             </div>
@@ -72,7 +81,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Produk</th>
+                    <th>Nama Produk</th>
                     <th>Qty</th>
                     <th>Harga Satuan</th>
                     <th>Subtotal</th>
@@ -80,12 +89,12 @@
                 </tr>
             </thead>
             <tbody id="po-list">
-                <tr><td colspan="5" style="text-align:center; color:#888;">Belum ada barang dalam daftar.</td></tr>
+                <tr><td colspan="5" style="text-align:center; color:#888;">Belum ada barang dalam daftar pembelian.</td></tr>
             </tbody>
         </table>
 
         <div class="total-section">
-            TOTAL PEMBELIAN: <span id="grand-total" style="color:var(--success)">Rp 0</span>
+            TOTAL PO: <span id="grand-total" style="color:var(--success)">Rp 0</span>
         </div>
 
         <button class="btn-save" id="btn-simpan" onclick="simpanPO()">
@@ -99,30 +108,53 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
+    let allProduk = [];
     let daftarPO = [];
 
     window.onload = async () => {
         const { data, error } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
-        if (error) return console.error(error);
+        if (error) return console.error("Gagal load produk:", error);
         
-        const select = document.getElementById('select-produk');
-        select.innerHTML = data.map(p => `<option value="${p.id}" data-nama="${p.nama_barang}">${p.nama_barang}</option>`).join('');
+        allProduk = data;
+        renderSelect(allProduk);
     };
+
+    function renderSelect(data) {
+        const select = document.getElementById('select-produk');
+        if (data.length === 0) {
+            select.innerHTML = '<option value="">Produk tidak ditemukan...</option>';
+            return;
+        }
+        select.innerHTML = data.map(p => `<option value="${p.id}" data-nama="${p.nama_barang}">${p.nama_barang}</option>`).join('');
+    }
+
+    function filterProduk() {
+        const keyword = document.getElementById('search-produk').value.toLowerCase();
+        const filtered = allProduk.filter(p => p.nama_barang.toLowerCase().includes(keyword));
+        renderSelect(filtered);
+    }
 
     function tambahKeDaftar() {
         const select = document.getElementById('select-produk');
         const id = select.value;
+        if (!id) return alert("Pilih produk terlebih dahulu!");
+
         const nama = select.options[select.selectedIndex].getAttribute('data-nama');
         const qty = parseInt(document.getElementById('po-qty').value);
         const harga = parseInt(document.getElementById('po-harga').value);
 
-        if (!qty || !harga) return alert("Jumlah dan Harga tidak boleh kosong!");
+        if (!qty || qty <= 0 || !harga || harga <= 0) {
+            return alert("Qty dan Harga harus angka positif!");
+        }
 
         daftarPO.push({ id, nama, qty, harga, subtotal: qty * harga });
         renderTable();
         
+        // Reset input fields
         document.getElementById('po-qty').value = '';
         document.getElementById('po-harga').value = '';
+        document.getElementById('search-produk').value = '';
+        renderSelect(allProduk);
     }
 
     function renderTable() {
@@ -130,7 +162,7 @@
         let total = 0;
         
         if(daftarPO.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Belum ada barang dalam daftar.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Belum ada barang dalam daftar pembelian.</td></tr>';
             document.getElementById('grand-total').innerText = "Rp 0";
             return;
         }
@@ -156,28 +188,29 @@
     }
 
     async function simpanPO() {
-        if (daftarPO.length === 0) return alert("Tambahkan barang terlebih dahulu!");
+        if (daftarPO.length === 0) return alert("Daftar pembelian masih kosong!");
         const supplier = document.getElementById('po-supplier').value.trim() || "Umum";
         
-        if (!confirm("Konfirmasi simpan? Data akan masuk ke stok Kantin.")) return;
+        if (!confirm("Simpan data dan perbarui stok kantin?")) return;
         
         const btn = document.getElementById('btn-simpan');
         btn.disabled = true;
-        btn.innerText = "⏳ Memproses Data...";
+        btn.innerText = "⏳ Sedang Memproses...";
 
         try {
-            const notaData = { supplier, items: [...daftarPO], total: daftarPO.reduce((s, i) => s + i.subtotal, 0) };
+            const finalData = { supplier, items: [...daftarPO], total: daftarPO.reduce((s, i) => s + i.subtotal, 0) };
 
             for (const item of daftarPO) {
+                // 1. Ambil stok lama
                 const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
                 
-                // Update tabel produk
+                // 2. Update stok_sekarang dan harga_beli (modal) di tabel produk
                 await supabaseClient.from('produk').update({ 
-                    stok_sekarang: (parseInt(p.stok_sekarang || 0) + parseInt(item.qty)),
-                    harga_beli: parseInt(item.harga)
+                    stok_sekarang: (parseInt(p.stok_sekarang || 0) + item.qty),
+                    harga_beli: item.harga 
                 }).eq('id', item.id);
 
-                // Catat Riwayat Pembelian
+                // 3. Masukkan riwayat ke tabel pembelian
                 await supabaseClient.from('pembelian').insert([{
                     produk_id: item.id,
                     qty: item.qty,
@@ -187,25 +220,26 @@
                 }]);
             }
 
-            cetakNotaPO(notaData);
-            alert("✅ Pembelian Berhasil Disimpan & Stok Terupdate.");
+            cetakNota(finalData);
+            alert("✅ Sukses! Stok telah diperbarui.");
             location.reload();
 
         } catch (e) {
-            alert("Terjadi Error: " + e.message);
+            console.error(e);
+            alert("Error: " + e.message);
             btn.disabled = false;
             btn.innerText = "💾 SIMPAN, UPDATE STOK & CETAK NOTA";
         }
     }
 
-    function cetakNotaPO(data) {
+    function cetakNota(data) {
         const win = window.open('', '_blank', 'width=800,height=900');
         let rows = data.items.map(i => `
             <tr>
-                <td style="padding:5px; border-bottom:1px solid #ddd;">${i.nama}</td>
-                <td style="text-align:center; padding:5px; border-bottom:1px solid #ddd;">${i.qty}</td>
-                <td style="text-align:right; padding:5px; border-bottom:1px solid #ddd;">${i.harga.toLocaleString()}</td>
-                <td style="text-align:right; padding:5px; border-bottom:1px solid #ddd;">${i.subtotal.toLocaleString()}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee;">${i.nama}</td>
+                <td style="text-align:center; padding:8px; border-bottom:1px solid #eee;">${i.qty}</td>
+                <td style="text-align:right; padding:8px; border-bottom:1px solid #eee;">${i.harga.toLocaleString()}</td>
+                <td style="text-align:right; padding:8px; border-bottom:1px solid #eee;">${i.subtotal.toLocaleString()}</td>
             </tr>
         `).join('');
 
@@ -214,31 +248,30 @@
             <head>
                 <title>Nota PO - Finex Pos</title>
                 <style>
-                    body { font-family: sans-serif; padding: 40px; color: #333; }
-                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2c3e50; padding-bottom: 10px; }
-                    .logo { font-size: 24px; font-weight: bold; color: #3498db; }
-                    .info { margin-top: 20px; font-size: 14px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    .total { text-align: right; font-size: 20px; font-weight: bold; margin-top: 20px; }
-                    .signature-box { margin-top: 50px; display: flex; justify-content: space-between; }
-                    .sig { text-align: center; width: 200px; }
-                    .sig-space { height: 80px; }
-                    @media print { .no-print { display: none; } }
+                    body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--primary); padding-bottom: 10px; }
+                    .logo { font-size: 28px; font-weight: bold; color: #3498db; }
+                    table { width: 100%; border-collapse: collapse; margin: 30px 0; }
+                    .total { text-align: right; font-size: 22px; font-weight: bold; border-top: 2px dashed #333; padding-top: 10px; }
+                    .footer { margin-top: 50px; display: flex; justify-content: space-between; }
+                    .sig { text-align: center; width: 220px; }
                 </style>
             </head>
             <body onload="window.print()">
                 <div class="header">
-                    <div class="logo">FINEX POS <span style="color:#2c3e50">| KANTIN</span></div>
-                    <div style="text-align:right"><strong>NOTA PEMBELIAN</strong><br>No: PO-${Date.now()}</div>
-                </div>
-                <div class="info">
-                    <strong>Supplier:</strong> ${data.supplier}<br>
-                    <strong>Tanggal :</strong> ${new Date().toLocaleString('id-ID')}
+                    <div>
+                        <div class="logo">FINEX POS <span style="color:#2c3e50">| KANTIN</span></div>
+                        <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
+                    </div>
+                    <div style="text-align:right">
+                        <strong>NOTA PURCHASE ORDER</strong><br>
+                        Supplier: ${data.supplier}
+                    </div>
                 </div>
                 <table>
                     <thead>
                         <tr style="background:#f4f4f4;">
-                            <th style="padding:10px; text-align:left;">Nama Barang</th>
+                            <th style="padding:10px; text-align:left;">Produk</th>
                             <th style="padding:10px; text-align:center;">Qty</th>
                             <th style="padding:10px; text-align:right;">Harga Beli</th>
                             <th style="padding:10px; text-align:right;">Subtotal</th>
@@ -247,20 +280,10 @@
                     <tbody>${rows}</tbody>
                 </table>
                 <div class="total">GRAND TOTAL: Rp ${data.total.toLocaleString()}</div>
-                
-                <div class="signature-box">
-                    <div class="sig">
-                        <p>Penerima Barang,</p>
-                        <div class="sig-space"></div>
-                        <p>( ____________________ )</p>
-                    </div>
-                    <div class="sig">
-                        <p>Supplier/Pengirim,</p>
-                        <div class="sig-space"></div>
-                        <p>( ${data.supplier} )</p>
-                    </div>
+                <div class="footer">
+                    <div class="sig"><p>Hormat Kami,</p><br><br><br><p>( ________________ )</p></div>
+                    <div class="sig"><p>Supplier / Pengirim,</p><br><br><br><p>( ${data.supplier} )</p></div>
                 </div>
-                <p style="text-align:center; font-size:10px; margin-top:50px; color:#888;">Dokumen ini sah dicetak melalui Sistem Finex Pos</p>
             </body>
             </html>
         `);
