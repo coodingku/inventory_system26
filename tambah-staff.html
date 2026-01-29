@@ -136,26 +136,42 @@
         if(overlay) overlay.innerText = "Kamera Error";
     }
 }
-    // 3. Simpan ke Database employee_staff
-    async function simpanStaff() {
-        const nama = document.getElementById('nama_staff').value;
-        const jabatan = document.getElementById('jabatan').value;
+   async function simpanStaff() {
+    const nama = document.getElementById('nama_staff').value;
+    const jabatan = document.getElementById('jabatan').value;
+    const btnSave = document.getElementById('btn-save');
 
-        if (!nama || !faceDescriptor) return alert("Lengkapi data dan scan wajah!");
+    if (!nama) return alert("Mohon masukkan nama staff!");
+    if (!faceDescriptor) return alert("Wajah belum terdeteksi! Silakan klik 'Ambil Sampel Wajah' dulu.");
 
-        const { error } = await FinexDB.from('employee_staff').insert([{
-            nama_staff: nama,
-            jabatan: jabatan,
-            face_descriptor: faceDescriptor
-        }]);
+    btnSave.innerText = "⏳ Menyimpan...";
+    btnSave.disabled = true;
 
-        if (!error) {
-            alert("Karyawan berhasil didaftarkan!");
-            location.reload();
+    try {
+        const { data, error } = await FinexDB
+            .from('employee_staff')
+            .insert([{
+                nama_staff: nama,
+                jabatan: jabatan,
+                face_descriptor: faceDescriptor // Ini adalah string JSON
+            }])
+            .select();
+
+        if (error) {
+            console.error("Supabase Error:", error);
+            alert("Gagal Simpan ke Database: " + error.message);
         } else {
-            alert("Error: " + error.message);
+            alert("✅ Berhasil! Staff " + nama + " telah terdaftar di Kantin.");
+            location.reload();
         }
+    } catch (err) {
+        console.error("System Error:", err);
+        alert("Terjadi kesalahan sistem: " + err.message);
+    } finally {
+        btnSave.innerText = "💾 SIMPAN DATA KARYAWAN";
+        btnSave.disabled = false;
     }
+}
 
     // 4. Load & Tampilkan Daftar Staff
     async function loadStaffList() {
