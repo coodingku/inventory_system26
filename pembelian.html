@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Purchase Order</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        
+        /* Sidebar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        
+        .form-po { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 25px; align-items: end; }
+        label { display: block; font-size: 12px; margin-bottom: 5px; color: #666; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; box-sizing: border-box; }
+        
+        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-save { background: var(--success); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+        
+        .total-section { margin-top: 20px; text-align: right; font-size: 20px; font-weight: bold; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="produk.html">📦 Produk</a>
+    <a href="pembelian.html" class="active">📥 Pembelian (PO)</a>
+    <a href="manajemen-user.html">👥 Manajemen User</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
+</nav>
+
+<main>
+    <h1>Purchase Order (Barang Masuk)</h1>
+    <div class="card">
+        <h3>Input Barang Datang</h3>
+        <div class="form-po">
+            <div>
+                <label>Pilih Produk</label>
+                <select id="select-produk"></select>
+            </div>
+            <div>
+                <label>Jumlah (Qty)</label>
+                <input type="number" id="po-qty" placeholder="0">
+            </div>
+            <div>
+                <label>Harga Beli/Pcs</label>
+                <input type="number" id="po-harga" placeholder="Rp">
+            </div>
+            <div>
+                <label>Supplier (Opsional)</label>
+                <input type="text" id="po-supplier" placeholder="Nama Toko">
+            </div>
+            <button class="btn-add" onclick="tambahKeDaftar()">➕ Tambah</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Produk</th>
+                    <th>Qty</th>
+                    <th>Harga Satuan</th>
+                    <th>Subtotal</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="po-list">
+                </tbody>
+        </table>
+
+        <div class="total-section">
+            TOTAL PO: <span id="grand-total">Rp 0</span>
+        </div>
+
+        <button class="btn-save" onclick="simpanPO()">SIMPAN & UPDATE STOK KANTIN</button>
+    </div>
+</main>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let daftarPO = [];
+
+    window.onload = async () => {
+        const { data } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
+        const select = document.getElementById('select-produk');
+        select.innerHTML = data.map(p => `<option value="${p.id}" data-nama="${p.nama_barang}">${p.nama_barang}</option>`).join('');
+    };
+
+    function tambahKeDaftar() {
+        const select = document.getElementById('select-produk');
+        const id = select.value;
+        const nama = select.options[select.selectedIndex].getAttribute('data-nama');
+        const qty = parseInt(document.getElementById('po-qty').value);
+        const harga = parseFloat(document.getElementById('po-harga').value);
+        const supplier = document.getElementById('po-supplier').value;
+
+        if (!qty || !harga) return alert("Qty dan Harga harus diisi!");
+
+        daftarPO.push({ id, nama, qty, harga, supplier, subtotal: qty * harga });
+        renderTable();
+        
+        // Reset input
+        document.getElementById('po-qty').value = '';
+        document.getElementById('po-harga').value = '';
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('po-list');
+        let total = 0;
+        tbody.innerHTML = daftarPO.map((item, index) => {
+            total += item.subtotal;
+            return `
+                <tr>
+                    <td>${item.nama}</td>
+                    <td>${item.qty}</td>
+                    <td>Rp ${item.harga.toLocaleString()}</td>
+                    <td>Rp ${item.subtotal.toLocaleString()}</td>
+                    <td><button onclick="hapusItem(${index})" style="color:red; background:none; border:none; cursor:pointer;">❌</button></td>
+                </tr>
+            `;
+        }).join('');
+        document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
+    }
+
+    function hapusItem(index) {
+        daftarPO.splice(index, 1);
+        renderTable();
+    }
+
+    async function simpanPO() {
+        if (daftarPO.length === 0) return alert("Daftar pembelian masih kosong!");
+        if (!confirm("Simpan pembelian dan tambah stok barang?")) return;
+
+        try {
+            for (const item of daftarPO) {
+                // 1. Ambil stok saat ini
+                const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                
+                // 2. Update stok di tabel produk
+                await supabaseClient.from('produk').update({ 
+                    stok_sekarang: (p.stok_sekarang + item.qty),
+                    harga_beli: item.harga // Opsional: update harga modal terbaru
+                }).eq('id', item.id);
+
+                // 3. Catat riwayat pembelian (Pastikan Anda punya tabel 'pembelian' di Supabase)
+                await supabaseClient.from('pembelian').insert([{
+                    produk_id: item.id,
+                    qty: item.qty,
+                    harga_beli: item.harga,
+                    supplier: item.supplier,
+                    total_harga: item.subtotal
+                }]);
+            }
+
+            alert("Berhasil! Stok Kantin telah diperbarui.");
+            daftarPO = [];
+            renderTable();
+            location.reload();
+        } catch (e) {
+            alert("Terjadi kesalahan: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
