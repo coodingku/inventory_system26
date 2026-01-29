@@ -104,27 +104,38 @@
         });
     }
 
-    // 2. Scan Wajah untuk mendapatkan Descriptor
-    async function scanWajah() {
-        const video = document.getElementById('video');
-        const msg = document.getElementById('msg');
-        msg.innerText = "⏳ Memproses wajah... tetap diam.";
-        msg.style.color = "var(--accent)";
+   async function startVideo() {
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay-msg') || { innerText: "" };
 
-        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-
-        if (detection) {
-            faceDescriptor = JSON.stringify(Array.from(detection.descriptor));
-            msg.innerText = "✅ Sampel Wajah Berhasil Dikunci!";
-            msg.style.color = "var(--success)";
-            document.getElementById('btn-save').style.display = "block";
-            document.getElementById('btn-scan').innerText = "🔄 RESET SCAN";
-        } else {
-            msg.innerText = "❌ Wajah tidak terdeteksi. Coba lagi.";
-            msg.style.color = "var(--danger)";
+    const constraints = {
+        video: {
+            // Mencoba mencari kamera depan (user) secara default
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 }
         }
-    }
+    };
 
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        if(overlay) overlay.innerText = "Kamera Aktif";
+    } catch (err) {
+        console.error("Error Kamera:", err);
+        
+        // Penanganan Error Spesifik
+        if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+            alert("❌ Kamera tidak ditemukan! Pastikan webcam terpasang.");
+        } else if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+            alert("❌ Akses kamera ditolak! Mohon izinkan kamera di pengaturan browser.");
+        } else {
+            alert("❌ Gagal akses kamera: " + err.message);
+        }
+        
+        if(overlay) overlay.innerText = "Kamera Error";
+    }
+}
     // 3. Simpan ke Database employee_staff
     async function simpanStaff() {
         const nama = document.getElementById('nama_staff').value;
