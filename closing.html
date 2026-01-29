@@ -163,42 +163,60 @@
         }
 
         async function prosesClosing() {
-            const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
-            const selisih = fisik - totalSistem;
+    const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
+    const selisih = fisik - totalSistem;
 
-            if (!confirm("Konfirmasi Closing Finex Pos?")) return;
+    if (!confirm("Apakah Anda yakin ingin menutup shift dan menyimpan ke jurnal akuntansi?")) return;
 
-            try {
-                // 1. Kirim data ke Supabase
-                const { error } = await supabaseClient
-                    .from('kasir_log')
-                    .update({
-                        waktu_tutup: new Date().toISOString(),
-                        waktu_closing: new Date().toISOString(),
-                        total_tunai_sistem: totalSistem,
-                        total_tunai_fisik: fisik,
-                        selisih: selisih,
-                        saldo_akhir: totalSistem,
-                        status: 'Closed'
-                    })
-                    .eq('id', shiftId);
+    try {
+        // A. UPDATE STATUS KASIR
+        const { error: errLog } = await supabaseClient
+            .from('kasir_log')
+            .update({
+                waktu_tutup: new Date().toISOString(),
+                total_tunai_sistem: totalSistem,
+                total_tunai_fisik: fisik,
+                selisih: selisih,
+                status: 'Closed'
+            })
+            .eq('id', shiftId);
 
-                if (error) throw error;
+        if (errLog) throw errLog;
 
-                // 2. Cetak Struk
-                renderStruk(fisik, selisih);
-                window.print();
-
-                // 3. Pindah Halaman
-                alert("Shift Berhasil Ditutup!");
-                window.location.href = "dashboard.html";
-
-            } catch (err) {
-                alert("Gagal Closing: " + err.message);
-                console.error(err);
+        // B. CATAT KE JURNAL AKUNTANSI (Double Entry)
+        const tgl = new Date().toISOString();
+        const dataJurnal = [
+            {
+                tanggal: tgl,
+                no_bukti: `SHIFT-${shiftId}`,
+                kode_akun: '1101', // Masuk ke Kas
+                keterangan: `Penerimaan Penjualan Shift #${shiftId}`,
+                debit: dataCetak.net, // Angka pendapatan bersih
+                kredit: 0
+            },
+            {
+                tanggal: tgl,
+                no_bukti: `SHIFT-${shiftId}`,
+                kode_akun: '4101', // Dicatat sebagai Pendapatan
+                keterangan: `Pendapatan Kantin Shift #${shiftId}`,
+                debit: 0,
+                kredit: dataCetak.net
             }
-        }
+        ];
 
+        const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
+        if (errJurnal) throw errJurnal;
+
+        // C. FINISH
+        renderStruk(fisik, selisih);
+        window.print();
+        alert("Berhasil! Data Kasir ditutup & Jurnal Akuntansi tercatat.");
+        window.location.href = "dashboard.html";
+
+    } catch (err) {
+        alert("Terjadi kesalahan: " + err.message);
+    }
+}
         function renderStruk(fisik, selisih) {
             let itemRows = dataCetak.items.map(i => `<div style="display:flex; justify-content:space-between;"><span>${i.name.substring(0,18)} x${i.qty}</span><span>${i.sub.toLocaleString()}</span></div>`).join('');
             let methodRows = "";
