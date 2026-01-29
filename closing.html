@@ -13,7 +13,8 @@
         .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; }
         .method-header { margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent); color: var(--primary); font-size: 14px; font-weight: bold; }
         input { width: 100%; padding: 12px; margin-top: 10px; font-size: 20px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; font-weight: bold; color: var(--primary); }
-        .btn-close { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        .btn-close { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 16px; transition: 0.3s; }
+        .btn-close:hover { background: #1a252f; }
         
         #print-area { display: none; }
         @media print {
@@ -97,7 +98,6 @@
 
         async function loadDataClosing() {
             try {
-                // 1. Ambil Data Penjualan
                 const { data: sales } = await supabaseClient.from('penjualan').select('*').eq('kasir_id', shiftId);
                 
                 let itemMap = {};
@@ -112,7 +112,6 @@
                     methodMap[mtd] = (methodMap[mtd] || 0) + parseFloat(trx.grand_total || 0);
                     if (mtd === 'Tunai') dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
 
-                    // Parsing items terjual (asumsi disimpan dalam kolom JSON 'items')
                     let itemsArray = [];
                     try {
                         itemsArray = typeof trx.items === 'string' ? JSON.parse(trx.items) : (trx.items || []);
@@ -129,7 +128,6 @@
                 dataCetak.methods = methodMap;
                 totalSistem = dataCetak.awal + dataCetak.tunai_masuk;
 
-                // 2. Render UI Ringkasan Item
                 let htmlItems = "";
                 for (let name in itemMap) {
                     dataCetak.items.push({ name, qty: itemMap[name].qty, sub: itemMap[name].sub });
@@ -137,7 +135,6 @@
                 }
                 document.getElementById('list-barang').innerHTML = htmlItems || 'Tidak ada item terjual';
 
-                // 3. Render UI Lainnya
                 document.getElementById('txt-kotor').innerText = "Rp " + dataCetak.kotor.toLocaleString();
                 document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString();
                 document.getElementById('txt-net').innerText = "Rp " + dataCetak.net.toLocaleString();
@@ -165,13 +162,40 @@
             txt.style.color = selisih < 0 ? '#e74c3c' : '#27ae60';
         }
 
-        function prosesClosing() {
+        async function prosesClosing() {
             const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
             const selisih = fisik - totalSistem;
-            if (confirm("Konfirmasi Closing?")) {
+
+            if (!confirm("Konfirmasi Closing Finex Pos?")) return;
+
+            try {
+                // 1. Kirim data ke Supabase
+                const { error } = await supabaseClient
+                    .from('kasir_log')
+                    .update({
+                        waktu_tutup: new Date().toISOString(),
+                        waktu_closing: new Date().toISOString(),
+                        total_tunai_sistem: totalSistem,
+                        total_tunai_fisik: fisik,
+                        selisih: selisih,
+                        saldo_akhir: totalSistem,
+                        status: 'Closed'
+                    })
+                    .eq('id', shiftId);
+
+                if (error) throw error;
+
+                // 2. Cetak Struk
                 renderStruk(fisik, selisih);
                 window.print();
-                // Tambahkan logic update status database di sini jika perlu
+
+                // 3. Pindah Halaman
+                alert("Shift Berhasil Ditutup!");
+                window.location.href = "dashboard.html";
+
+            } catch (err) {
+                alert("Gagal Closing: " + err.message);
+                console.error(err);
             }
         }
 
@@ -183,22 +207,24 @@
             }
 
             document.getElementById('print-area').innerHTML = `
-                <div style="text-align:center"><b>CLOSING FINEX POS</b><br>${new Date().toLocaleString()}</div>
+                <div style="text-align:center"><b>CLOSING FINEX POS</b><br>Kantin Digital System<br>${new Date().toLocaleString()}</div>
                 ----------------------------<br>
                 <b>ITEM TERJUAL:</b><br>${itemRows}
                 ----------------------------<br>
-                <b>PENJUALAN:</b><br>
+                <b>RINGKASAN PENJUALAN:</b><br>
                 Kotor  : ${dataCetak.kotor.toLocaleString()}<br>
                 Diskon : -${dataCetak.diskon.toLocaleString()}<br>
                 Net    : ${dataCetak.net.toLocaleString()}<br>
                 ----------------------------<br>
-                <b>METODE:</b><br>${methodRows}
+                <b>RINCIAN METODE:</b><br>${methodRows}
                 ----------------------------<br>
                 Modal Awal : ${dataCetak.awal.toLocaleString()}<br>
                 Tunai Masuk: ${dataCetak.tunai_masuk.toLocaleString()}<br>
-                <b>SISTEM   : ${totalSistem.toLocaleString()}</b><br>
-                <b>FISIK    : ${fisik.toLocaleString()}</b><br>
-                <b>SELISIH  : ${selisih.toLocaleString()}</b>
+                <b>SIS. TUNAI : ${totalSistem.toLocaleString()}</b><br>
+                <b>FISIK LACI : ${fisik.toLocaleString()}</b><br>
+                <b>SELISIH    : ${selisih.toLocaleString()}</b><br>
+                ----------------------------<br>
+                <div style="text-align:center">SHIFT CLOSED</div>
             `;
         }
     </script>
