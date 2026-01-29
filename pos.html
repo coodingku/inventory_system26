@@ -198,7 +198,7 @@
     function openPayment() { if(cart.length === 0) return; document.getElementById('label-total-modal').innerText = "TOTAL: Rp " + state.total.toLocaleString(); document.getElementById('payModal').style.display = 'flex'; document.getElementById('cashInput').focus(); }
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-    async function executeTransaction() {
+ async function executeTransaction() {
         if (isSaving) return;
         const method = document.getElementById('payMethodSelect').value;
         const cash = parseFloat(document.getElementById('cashInput').value || 0);
@@ -207,7 +207,12 @@
         isSaving = true;
 
         const today = new Date().toISOString().split('T')[0];
-        const { data: lastSales } = await FinexDB.from('penjualan').select('no_invoice').gte('created_at', `${today}T00:00:00`).order('no_invoice', { ascending: false }).limit(1);
+        const { data: lastSales } = await FinexDB.from('penjualan')
+            .select('no_invoice')
+            .gte('created_at', `${today}T00:00:00`)
+            .order('no_invoice', { ascending: false })
+            .limit(1);
+
         let nextNumber = 1;
         if (lastSales && lastSales.length > 0) {
             const lastInv = lastSales[0].no_invoice;
@@ -217,40 +222,63 @@
         const inv = `INV-FN${nextNumber.toString().padStart(3, '0')}`;
         
         try {
+            // 1. SIMPAN KE TABEL PENJUALAN (MASTER)
             const { data: trx, error } = await FinexDB.from('penjualan').insert([{ 
-                no_invoice: inv, items: JSON.stringify(cart), subtotal: state.sub,
-                diskon: state.disc, grand_total: state.total, bayar: cash, 
-                kasir_id: currentLogId, metode_pembayaran: method
+                no_invoice: inv, 
+                subtotal: state.sub,
+                diskon: state.disc, 
+                grand_total: state.total, 
+                bayar: cash, 
+                kasir_id: currentLogId, 
+                metode_pembayaran: method
             }]).select().single();
 
             if (error) throw error;
 
+            // 2. SIMPAN KE TABEL PENJUALAN_DETAIL (BARIS PER BARANG)
+            // Ini bagian yang sebelumnya hilang sehingga laporan kosong
+            const detailItems = cart.map(item => ({
+                penjualan_id: trx.id, // ID dari tabel penjualan di atas
+                produk_id: item.id,
+                nama_barang: item.nama_barang,
+                qty: item.qty,
+                harga_satuan: item.harga,
+                subtotal_item: item.qty * item.harga
+            }));
+
+            const { error: errorDetail } = await FinexDB.from('penjualan_detail').insert(detailItems);
+            if (errorDetail) throw errorDetail;
+
+            // 3. POTONG STOK PRODUK
             for (const item of cart) {
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
+                await FinexDB.from('produk').update({ 
+                    stok_sekarang: (p.stok_sekarang - item.qty) 
+                }).eq('id', item.id);
             }
 
+            // LANJUTKAN KE PROSES CETAK & WA
             renderReceipt(inv, cash, method, state.sub, state.disc, state.total);
             document.getElementById('payModal').style.display = 'none';
 
-            // Jeda agar UI render nota fisik
             setTimeout(() => {
                 window.print();
-                // Munculkan Modal Kirim WA (Ini lebih aman dari pop-up blocker)
                 document.getElementById('waModal').style.display = 'flex';
                 document.getElementById('btnSendWA').onclick = () => {
                     const hp = document.getElementById('waNumber').value;
                     if(!hp) return alert("Masukkan nomor WA!");
-                    
                     const link = `https://${window.location.hostname}/invoice-view.html?id=${trx.id}`;
-                    const msg = `Halo, Terima kasih telah belanja di *BeautyBloom*.%0A%0A*Detail Nota:*%0ANo. Invoice: ${inv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0ALihat Nota Digital:%0A${link}`;
-                    
+                    const msg = `Halo, Terima kasih telah belanja di *Finex Pos*.%0A%0A*Detail Nota:*%0ANo. Invoice: ${inv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0ALihat Nota Digital:%0A${link}`;
                     window.open(`https://wa.me/${hp}?text=${msg}`, '_blank');
                     location.reload();
                 };
             }, 500);
 
-        } catch (e) { isSaving = false; alert(e.message); }
+        } catch (e) { 
+            isSaving = false; 
+            console.error("Gagal transaksi:", e);
+            alert("Error: " + e.message); 
+        }
     }
 
     function renderReceipt(inv, bayar, method, sub, disc, tot) {
