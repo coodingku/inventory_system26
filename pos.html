@@ -79,7 +79,7 @@
                 <select id="discSelect" onchange="calculateTotal()" style="padding:4px; border-radius:5px; width: auto;"></select>
             </div>
             <div class="summary-row" style="color: var(--danger);"><span>Potongan</span><span id="txt-disc">Rp 0</span></div>
-            <div class="summary-row"><span>Pajak (10%)</span><span id="txt-tax">Rp 0</span></div>
+            <div class="summary-row"><span>Pajak (--)</span><span id="txt-tax">Rp 0</span></div>
             <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
             <button class="btn-pay" onclick="openPayment()">PROSES BAYAR</button>
         </div>
@@ -100,7 +100,7 @@
     <div id="waModal" class="modal">
         <div class="modal-content">
             <h2 style="color: var(--success);">Berhasil!</h2>
-            <p>Kirim nota digital ke pelanggan?</p>
+            <p>Kirim nota digital?</p>
             <input type="number" id="waNumber" placeholder="628xxx" style="font-size: 18px; text-align: center;">
             <button class="btn-pay" id="btnSendWA" style="background:#25D366;">KIRIM WHATSAPP</button>
             <button onclick="location.reload()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Selesai</button>
@@ -121,9 +121,9 @@
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
-    const DOMAIN_URL = "https://inventory-system26.vercel.app";
     
     let cart = [];
+    let taxRate = 0.12; 
     let state = { sub: 0, disc: 0, tax: 0, total: 0, discName: "Tanpa Diskon", lastTrxId: null, lastInv: "", lastMethod: "" };
     let currentLogId = null;
     let isSaving = false;
@@ -132,8 +132,8 @@
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
         await checkActiveShift();
-        await loadMenu();
         await loadSettings();
+        await loadMenu();
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
         document.getElementById('btnSendWA').onclick = sendWhatsApp;
     };
@@ -150,10 +150,21 @@
     }
 
     async function loadSettings() {
+        // Ambil Pajak
+        const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
+        if (pData) taxRate = parseFloat(pData.nilai) / 100;
+
+        // Ambil Metode Bayar
         const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').eq('aktif', true);
         if (mtd) document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}">${m.nama_metode}</option>`).join('');
+        
+        // Ambil Diskon - Menggunakan BeautyBloom
         const { data: dsk } = await FinexDB.from('diskon').select('*');
-        document.getElementById('discSelect').innerHTML = '<option value="0" data-name="Tanpa Diskon">0%</option>' + (dsk || []).map(d => `<option value="${d.persen}" data-name="${d.nama_diskon}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
+        const diskonHTML = '<option value="0" data-name="Tanpa Promo">0%</option>' + 
+            (dsk || []).map(d => `<option value="${d.persen}" data-name="${d.nama_diskon}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
+        
+        document.getElementById('discSelect').innerHTML = diskonHTML;
+        calculateTotal();
     }
 
     async function loadMenu() {
@@ -173,70 +184,51 @@
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) { 
             if (cart[idx].qty < stokMaks) cart[idx].qty++; 
-            else alert("Stok di Store habis!"); 
+            else alert("Stok habis!"); 
         } else { cart.push({ id, nama_barang: nama, harga, qty: 1 }); }
         calculateTotal();
     }
 
-   // 1. Tambahkan variabel global ini di baris paling atas (di luar fungsi)
-let taxRate = 0.10; 
+    function delItem(i) { cart.splice(i, 1); calculateTotal(); }
 
-// 2. Pastikan fungsi loadSettings Anda memanggil data dari database
-async function loadSettings() {
-    // Ambil nilai dari tabel ppn ID 1
-    const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
-    if (pData) {
-        taxRate = parseFloat(pData.nilai) / 100; // Mengubah 12 menjadi 0.12
+    function calculateTotal() {
+        const ds = document.getElementById('discSelect');
+        if (!ds || ds.options.length === 0) return;
+
+        state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
+        state.disc = (state.sub * parseFloat(ds.value)) / 100;
+        
+        const dpp = state.sub - state.disc;
+        state.tax = dpp * taxRate; 
+        state.total = dpp + state.tax;
+
+        const selectedOpt = ds.options[ds.selectedIndex];
+        state.discName = selectedOpt ? selectedOpt.getAttribute('data-name') : "Tanpa Promo";
+
+        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
+        document.getElementById('txt-disc').innerText = "- Rp " + state.disc.toLocaleString();
+        document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
+        
+        const taxLabel = document.querySelector('#txt-tax').previousElementSibling;
+        if (taxLabel) taxLabel.innerText = `Pajak (${(taxRate * 100).toFixed(0)}%)`;
+
+        document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
+            <div class="cart-item">
+                <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
+                <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
+                <span onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
+            </div>`).join('');
     }
 
-    // ... kode load metode pembayaran dan diskon tetap sama ...
-}
-
-// 3. Ini fungsi calculateTotal yang sudah diperbaiki
-function calculateTotal() {
-    const ds = document.getElementById('discSelect');
-    
-    // Cegah error jika elemen discSelect belum siap
-    if (!ds || ds.options.length === 0) {
-        console.warn("Menunggu data diskon dimuat...");
-        return; 
+    function openPayment() { 
+        if(cart.length === 0) return; 
+        document.getElementById('label-total-modal').innerText = "Total: Rp " + state.total.toLocaleString(); 
+        document.getElementById('payModal').style.display = 'flex'; 
     }
 
-    state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
-    state.disc = (state.sub * parseFloat(ds.value)) / 100;
-    
-    const dpp = state.sub - state.disc;
-    
-    // Pastikan taxRate sudah mengambil nilai dari database (misal 12%)
-    // Jika taxRate belum terdefinisi, gunakan default 0.12
-    const currentTaxRate = (typeof taxRate !== 'undefined') ? taxRate : 0.12;
-    state.tax = dpp * currentTaxRate; 
-    
-    state.total = dpp + state.tax;
+    function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-    // Ambil nama diskon dengan aman
-    const selectedOption = ds.options[ds.selectedIndex];
-    state.discName = selectedOption ? selectedOption.getAttribute('data-name') : "Tanpa Diskon";
-
-    // Update Tampilan UI
-    document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
-    document.getElementById('txt-disc').innerText = "- Rp " + state.disc.toLocaleString();
-    document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
-    document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-    
-    // Update Label Pajak secara dinamis (Contoh: Pajak (12%))
-    const taxLabelElement = document.getElementById('txt-tax').previousElementSibling;
-    if (taxLabelElement) {
-        taxLabelElement.innerText = `Pajak (${(currentTaxRate * 100).toFixed(0)}%)`;
-    }
-
-    document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
-        <div class="cart-item">
-            <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
-            <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
-            <span onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
-        </div>`).join('');
-}
     async function executeTransaction() {
         if (isSaving) return;
         const method = document.getElementById('payMethodSelect').value;
@@ -255,30 +247,14 @@ function calculateTotal() {
             if (error) throw error;
             state.lastTrxId = trx.id;
 
-            let totalHPP = 0;
             for (const item of cart) {
                 await FinexDB.from('penjualan_detail').insert([{ 
                     penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
                     qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
                 }]);
-                const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
-                if (p) {
-                    totalHPP += (Number(p.harga_beli || 0) * item.qty);
-                    await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
-                }
+                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                if (p) await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
             }
-
-            const dpp = state.sub - state.disc;
-            const entries = [
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Penjualan ${inv}`, kode_akun: '1101', debit: state.total, kredit: 0 },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Pendapatan ${inv}`, kode_akun: '4101', debit: 0, kredit: dpp },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Pajak PB1 ${inv}`, kode_akun: '2102', debit: 0, kredit: state.tax },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `HPP ${inv}`, kode_akun: '5101', debit: totalHPP, kredit: 0 },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Stok keluar ${inv}`, kode_akun: '1102', debit: 0, kredit: totalHPP }
-            ];
-
-            const { error: jErr } = await FinexDB.from('jurnal_umum').insert(entries);
-            if (jErr) throw new Error("Gagal Jurnal: " + jErr.message);
 
             renderReceipt(inv, cash, method);
             document.getElementById('payModal').style.display = 'none';
@@ -288,31 +264,32 @@ function calculateTotal() {
 
     function renderReceipt(inv, bayar, method) {
         const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom: 2px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
+        const taxPercent = (taxRate * 100).toFixed(0);
+
         document.getElementById('print-area').innerHTML = `
             <div style="width:58mm; padding:10px; font-family:monospace; background:white; color:black;">
-                <center><b style="font-size:14px;">BeautyBloom</b><br>Jl Tukad Badung No 416 Renon<br>--------------------------</center>
+                <center><b style="font-size:14px;">BeautyBloom</b><br>POS System<br>--------------------------</center>
                 <div style="font-size:10px;">ID : ${inv}<br>Tgl: ${new Date().toLocaleString('id-ID')}<br>Ksr: ${session.username}</div>
                 --------------------------<br>${items}--------------------------<br>
                 <div style="font-size:11px;">
                     <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-                    ${state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Disc (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : ''}
-                    <div style="display:flex; justify-content:space-between;"><span>Pajak (10%):</span><span>${state.tax.toLocaleString()}</span></div>
+                    ${state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Promo:</span><span>-${state.disc.toLocaleString()}</span></div>` : ''}
+                    <div style="display:flex; justify-content:space-between;"><span>Pajak (${taxPercent}%):</span><span>${state.tax.toLocaleString()}</span></div>
                     <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
                 </div>
                 --------------------------<br>
                 <div style="font-size:10px;">Metode: ${method}<br>Bayar: ${bayar.toLocaleString()}<br>Kembali: ${(bayar - state.total).toLocaleString()}</div>
-                <center style="margin-top:10px; font-size:10px;">Terima Kasih Atas Kunjungan Anda</center>
+                <center style="margin-top:10px; font-size:10px;">Terima Kasih</center>
             </div>`;
     }
 
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        if (!hp) return alert("Masukkan nomor WA!");
+        if (!hp) return alert("Nomor WA kosong!");
         const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
-        const linkNota = `${DOMAIN_URL}/invoice-view.html?id=${state.lastTrxId}`;
-        const msg = `*NOTA BEUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A--------------------------%0A*Lihat Nota Digital:*%0A${linkNota}%0A--------------------------%0A_Terima kasih sudah berbelanja!_`;
+        const msg = `*NOTA BEAUTYBLOOM*%0AInv: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0A_Terima kasih!_`;
         window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
-        setTimeout(() => { location.reload(); }, 1000);
+        location.reload();
     }
 
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
