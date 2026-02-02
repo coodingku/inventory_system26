@@ -268,12 +268,32 @@
         `;
     }
 
-    function sendWhatsApp() {
+   function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        if (!hp) return alert("Isi nomor!");
-        const msg = `*NOTA Beautybloom*%0AInv: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0ATerima Kasih Atas Kunjungan Anda!`;
-        window.open(`https://wa.me/${hp.startsWith('0') ? '62'+hp.slice(1) : hp}?text=${msg}`, '_blank');
-        location.reload();
+        if (!hp) return alert("Masukkan nomor WA!");
+        const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
+        const linkNota = `${DOMAIN_URL}/invoice-view.html?id=${state.lastTrxId}`;
+        
+        const msg = `*NOTA BeautyBloom *%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A--------------------------%0A*Lihat Nota Digital:*%0A${linkNota}%0A--------------------------%0A_Terima kasih sudah berbelanja!_`;
+        
+        window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
+        setTimeout(() => { location.reload(); }, 1000);
+    }
+
+    function renderReceipt(inv, bayar, method) {
+        const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
+        document.getElementById('print-area').innerHTML = `
+            <div style="width:58mm; padding:10px; font-family:monospace; background:white;">
+                <center><b>FINEX POS</b><br>--------------------------</center>
+                ID: ${inv}<br>Tgl: ${new Date().toLocaleString('id-ID')}<br>Ksr: ${session.username}<br>
+                --------------------------<br>${items}--------------------------<br>
+                <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
+                ${state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Disc (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : ''}
+                <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
+                --------------------------<br>
+                Metode: ${method}<br>Bayar: Rp ${bayar.toLocaleString()}<br>Kembali: Rp ${(bayar - state.total).toLocaleString()}<br>
+                --------------------------<br><center style="margin-top:10px;">Terima Kasih Atas Kunjungan Anda</center>
+            </div>`;
     }
 
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
