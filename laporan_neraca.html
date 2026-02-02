@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Laporan Neraca</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; }
@@ -17,6 +18,14 @@
         main { flex: 1; padding: 30px; overflow-y: auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         
+        /* Toolbar untuk Filter & Aksi */
+        .toolbar { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; align-items: flex-end; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .toolbar input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .btn-filter { background: var(--accent); color: white; }
+        .btn-print { background: #95a5a6; color: white; }
+        .btn-export { background: #27ae60; color: white; }
+
         .neraca-container { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
         .card { background: var(--white); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 20px; }
         .card h3 { margin-top: 0; border-bottom: 2px solid var(--bg); padding-bottom: 10px; color: var(--primary); }
@@ -25,7 +34,7 @@
         td { padding: 12px 8px; border-bottom: 1px solid #f1f1f1; font-size: 14px; }
         .group-title { font-weight: bold; background: #f9f9f9; color: var(--accent); }
         .total-row { font-weight: bold; background: #f4f7f6; font-size: 15px; }
-        .text-right { text-align: right; }
+        .text-right { text-align: right; font-family: 'Courier New', monospace; }
         
         .balance-check { 
             grid-column: span 2; padding: 20px; border-radius: 12px; text-align: center;
@@ -33,6 +42,13 @@
         }
         .is-balanced { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .not-balanced { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        @media print {
+            nav, .toolbar { display: none !important; }
+            main { padding: 0; }
+            body { background: white; }
+            .card { box-shadow: none; border: 1px solid #eee; }
+        }
     </style>
 </head>
 <body>
@@ -44,26 +60,37 @@
     <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
     <a href="laba_rugi.html">📈 Laba Rugi</a>
     <a href="laporan_neraca.html" style="background: var(--accent); color:white;">⚖️ Laporan Neraca</a>
-    <a href="jurnal.html">📖 Jurnal Umum</a>
+    <a href="catat_jurnal.html">📖 Jurnal Umum</a>
 </nav>
 
 <main>
     <div class="header">
         <h1>Neraca Saldo</h1>
-        <div id="date-now">Per Tanggal: --</div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
+            <button class="btn btn-export" onclick="exportToExcel()">📥 Excel</button>
+        </div>
     </div>
 
-    <div class="neraca-container">
+    <div class="toolbar">
+        <div style="display:flex; flex-direction:column; gap:5px;">
+            <label style="font-size:11px; font-weight:bold;">Per Tanggal:</label>
+            <input type="date" id="filter-date">
+        </div>
+        <button class="btn btn-filter" onclick="calculateBalanceSheet()">Tampilkan</button>
+    </div>
+
+    <div class="neraca-container" id="report-content">
         <div class="card">
             <h3>AKTIVA (ASET)</h3>
-            <table>
+            <table id="table-aktiva">
                 <tr class="group-title"><td colspan="2">Aset Lancar</td></tr>
-                <tr><td>Kas dan Bank</td><td class="text-right" id="val-kas">Rp 0</td></tr>
-                <tr><td>Persediaan BeautyBloom</td><td class="text-right" id="val-stok">Rp 0</td></tr>
-                <tr><td>Piutang Pelanggan (Bon)</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
+                <tr><td>Kas dan Bank (1101/1102)</td><td class="text-right" id="val-kas">Rp 0</td></tr>
+                <tr><td>Persediaan BeautyBloom (1103)</td><td class="text-right" id="val-stok">Rp 0</td></tr>
+                <tr><td>Piutang Pelanggan</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
                 
                 <tr class="group-title"><td colspan="2">Aset Tetap</td></tr>
-                <tr><td>Peralatan & Inventaris</td><td class="text-right" id="val-alat">Rp 0</td></tr>
+                <tr><td>Peralatan & Inventaris (12xx)</td><td class="text-right" id="val-alat">Rp 0</td></tr>
                 
                 <tr class="total-row">
                     <td>TOTAL AKTIVA</td>
@@ -74,13 +101,13 @@
 
         <div class="card">
             <h3>PASIVA (KEWAJIBAN & MODAL)</h3>
-            <table>
+            <table id="table-pasiva">
                 <tr class="group-title"><td colspan="2">Kewajiban</td></tr>
-                <tr><td>Hutang Dagang (Supplier)</td><td class="text-right" id="val-hutang">Rp 0</td></tr>
-                <tr><td>Hutang Pajak (PB1)</td><td class="text-right" id="val-pajak">Rp 0</td></tr>
+                <tr><td>Hutang Dagang</td><td class="text-right" id="val-hutang">Rp 0</td></tr>
+                <tr><td>Hutang Pajak (2102)</td><td class="text-right" id="val-pajak">Rp 0</td></tr>
                 
                 <tr class="group-title"><td colspan="2">Modal</td></tr>
-                <tr><td>Modal Pemilik</td><td class="text-right" id="val-modal">Rp 0</td></tr>
+                <tr><td>Modal Pemilik (3xxx)</td><td class="text-right" id="val-modal">Rp 0</td></tr>
                 <tr><td>Laba Ditahan (Tahun Berjalan)</td><td class="text-right" id="val-laba">Rp 0</td></tr>
                 
                 <tr class="total-row">
@@ -102,70 +129,90 @@ const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
 window.onload = () => {
-    document.getElementById('date-now').innerText = "Per: " + new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+    // Set default tanggal hari ini
+    document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
     calculateBalanceSheet();
 };
 
 async function calculateBalanceSheet() {
+    const targetDate = document.getElementById('filter-date').value;
     try {
-        const { data: jurnal, error } = await FinexDB.from('jurnal_umum').select('*');
+        // Ambil data jurnal sampai tanggal yang dipilih
+        const { data: jurnal, error } = await FinexDB
+            .from('jurnal_umum')
+            .select('*')
+            .lte('tanggal', targetDate + 'T23:59:59');
+            
         if (error) throw error;
 
-        let accounts = {
+        let acc = {
             kas: 0, stok: 0, piutang: 0, alat: 0,
             hutang: 0, pajak: 0, modal: 0, laba: 0
         };
 
         (jurnal || []).forEach(j => {
             const k = j.kode_akun.toString();
-            const debet = parseFloat(j.debit || 0);
-            const kredit = parseFloat(j.kredit || 0);
-            const balance = debet - kredit;
+            const d = parseFloat(j.debit || 0);
+            const kr = parseFloat(j.kredit || 0);
 
-            // Logika Pemetaan Akun - DISESUAIKAN DENGAN KODE POLOS
-            if (k.startsWith('1101')) accounts.kas += balance;
-            if (k.startsWith('1102')) accounts.stok += balance;
-            if (k.startsWith('1103')) accounts.piutang += balance;
-            if (k.startsWith('12'))   accounts.alat += balance;
+            // AKTIVA (Normal Debit)
+            if (k.startsWith('1101') || k.startsWith('1102')) acc.kas += (d - kr);
+            if (k.startsWith('1103')) acc.stok += (d - kr);
+            if (k.startsWith('1104')) acc.piutang += (d - kr);
+            if (k.startsWith('12'))   acc.alat += (d - kr);
             
-            // Pasiva (Kredit dikurangi Debet)
-            if (k.startsWith('2101')) accounts.hutang += (kredit - debet);
-            if (k.startsWith('2102')) accounts.pajak += (kredit - debet); // Akun Pajak 2102
-            if (k.startsWith('3'))    accounts.modal += (kredit - debet);
+            // PASIVA (Normal Kredit)
+            if (k.startsWith('2101')) acc.hutang += (kr - d);
+            if (k.startsWith('2102')) acc.pajak += (kr - d);
+            if (k.startsWith('3'))    acc.modal += (kr - d);
             
-            // Laba Rugi (Pendapatan 4 - Beban 5/6)
-            if (k.startsWith('4')) accounts.laba += (kredit - debet);
-            if (k.startsWith('5') || k.startsWith('6')) accounts.laba -= (debet - kredit);
+            // LABA RUGI (Pendapatan 4 - Beban 5/6)
+            if (k.startsWith('4')) acc.laba += (kr - d);
+            if (k.startsWith('5') || k.startsWith('6')) acc.laba -= (d - kr);
         });
 
-        document.getElementById('val-kas').innerText = "Rp " + accounts.kas.toLocaleString();
-        document.getElementById('val-stok').innerText = "Rp " + accounts.stok.toLocaleString();
-        document.getElementById('val-piutang').innerText = "Rp " + accounts.piutang.toLocaleString();
-        document.getElementById('val-alat').innerText = "Rp " + accounts.alat.toLocaleString();
-        
-        document.getElementById('val-hutang').innerText = "Rp " + accounts.hutang.toLocaleString();
-        document.getElementById('val-pajak').innerText = "Rp " + accounts.pajak.toLocaleString();
-        document.getElementById('val-modal').innerText = "Rp " + accounts.modal.toLocaleString();
-        document.getElementById('val-laba').innerText = "Rp " + accounts.laba.toLocaleString();
+        const updateVal = (id, val) => document.getElementById(id).innerText = "Rp " + Math.round(val).toLocaleString('id-ID');
 
-        const totalAktiva = accounts.kas + accounts.stok + accounts.piutang + accounts.alat;
-        const totalPasiva = accounts.hutang + accounts.pajak + accounts.modal + accounts.laba;
+        updateVal('val-kas', acc.kas);
+        updateVal('val-stok', acc.stok);
+        updateVal('val-piutang', acc.piutang);
+        updateVal('val-alat', acc.alat);
+        updateVal('val-hutang', acc.hutang);
+        updateVal('val-pajak', acc.pajak);
+        updateVal('val-modal', acc.modal);
+        updateVal('val-laba', acc.laba);
 
-        document.getElementById('total-aktiva').innerText = "Rp " + totalAktiva.toLocaleString();
-        document.getElementById('total-pasiva').innerText = "Rp " + totalPasiva.toLocaleString();
+        const totalAktiva = acc.kas + acc.stok + acc.piutang + acc.alat;
+        const totalPasiva = acc.hutang + acc.pajak + acc.modal + acc.laba;
+
+        updateVal('total-aktiva', totalAktiva);
+        updateVal('total-pasiva', totalPasiva);
 
         const msgBox = document.getElementById('balance-msg');
-        if (Math.round(totalAktiva) === Math.round(totalPasiva)) {
+        if (Math.abs(totalAktiva - totalPasiva) < 1) { // Toleransi pembulatan < 1 Rupiah
             msgBox.className = "balance-check is-balanced";
             msgBox.innerText = "✅ STATUS: BALANCE (SEIMBANG)";
         } else {
             msgBox.className = "balance-check not-balanced";
-            msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: Rp " + (totalAktiva - totalPasiva).toLocaleString() + ")";
+            msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: Rp " + Math.round(totalAktiva - totalPasiva).toLocaleString('id-ID') + ")";
         }
 
     } catch (e) { 
         console.error("Gagal memuat Neraca:", e.message); 
     }
+}
+
+function exportToExcel() {
+    const wb = XLSX.utils.book_new();
+    const table1 = document.getElementById("table-aktiva");
+    const table2 = document.getElementById("table-pasiva");
+    
+    // Menggabungkan data sederhana untuk excel
+    const ws = XLSX.utils.table_to_sheet(table1);
+    XLSX.utils.sheet_add_dom(ws, table2, {origin: "D1"});
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Neraca Saldo");
+    XLSX.writeFile(wb, `Neraca_FinexPos_${document.getElementById('filter-date').value}.xlsx`);
 }
 </script>
 </body>
