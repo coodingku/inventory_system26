@@ -19,8 +19,9 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .form-group { display: grid; grid-template-columns: 1fr 2fr auto; gap: 15px; margin-bottom: 25px; align-items: end; }
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        /* Update grid untuk menampung kolom kategori */
+        .form-group { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr auto; gap: 15px; margin-bottom: 25px; align-items: end; }
+        input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; }
         button { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-add { background: var(--success); color: white; }
         .btn-add:hover { background: #219150; }
@@ -29,8 +30,14 @@
         th { background: #f8f9fa; color: #7f8c8d; text-align: left; padding: 15px; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; color: #2c3e50; }
         tr:hover { background: #fcfcfc; }
-        .btn-del { background: #fee; color: var(--danger); padding: 5px 10px; font-size: 12px; }
+        .btn-del { background: #fee; color: var(--danger); padding: 5px 10px; font-size: 12px; border-radius: 4px; }
         .btn-del:hover { background: var(--danger); color: white; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-aset { background: #e3f2fd; color: #1976d2; }
+        .badge-pendapatan { background: #e8f5e9; color: #2e7d32; }
+        .badge-beban { background: #fff3e0; color: #ef6c00; }
+        .badge-lain { background: #f5f5f5; color: #616161; }
     </style>
 </head>
 <body>
@@ -39,7 +46,8 @@
         <h2>Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
-        <a href="akun_jurnal.html" class="active">📖 Daftar Akun</a>
+        <a href="akun_jurnal.html" class="active">🏦 Daftar Akun</a>
+        <a href="jurnal.html">📖 Jurnal Umum</a>
         <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
     </nav>
 
@@ -54,11 +62,23 @@
             <div class="form-group">
                 <div>
                     <label style="display:block; font-size:12px; margin-bottom:5px;">Kode Akun</label>
-                    <input type="text" id="kode_akun" placeholder="Contoh: 2102">
+                    <input type="text" id="kode_akun" placeholder="Contoh: 1101">
                 </div>
                 <div>
                     <label style="display:block; font-size:12px; margin-bottom:5px;">Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Contoh: Hutang Pajak">
+                    <input type="text" id="nama_akun" placeholder="Contoh: Kas Utama">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; margin-bottom:5px;">Kategori</label>
+                    <select id="kategori_akun">
+                        <option value="">-- Pilih Kategori --</option>
+                        <option value="Aset Lancar">Aset Lancar</option>
+                        <option value="Aset Tetap">Aset Tetap</option>
+                        <option value="Kewajiban">Kewajiban</option>
+                        <option value="Modal">Modal</option>
+                        <option value="Pendapatan">Pendapatan</option>
+                        <option value="Beban">Beban</option>
+                    </select>
                 </div>
                 <button class="btn-add" onclick="saveAccount()">Simpan Akun</button>
             </div>
@@ -71,11 +91,12 @@
                     <tr>
                         <th>Kode Akun</th>
                         <th>Nama Akun</th>
+                        <th>Kategori</th>
                         <th style="text-align: right;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="3">Memuat data...</td></tr>
+                    <tr><td colspan="4">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -97,39 +118,53 @@
         if (error) return alert("Gagal memuat data: " + error.message);
 
         const tbody = document.getElementById('table-body');
-        tbody.innerHTML = data.map(acc => `
-            <tr>
-                <td><strong>${acc.kode_akun}</strong></td>
-                <td>${acc.nama_akun}</td>
-                <td style="text-align: right;">
-                    <button class="btn-del" onclick="deleteAccount('${acc.kode_akun}')">Hapus</button>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = data.map(acc => {
+            let badgeClass = 'badge-lain';
+            if(acc.kategori?.includes('Aset')) badgeClass = 'badge-aset';
+            if(acc.kategori?.includes('Pendapatan')) badgeClass = 'badge-pendapatan';
+            if(acc.kategori?.includes('Beban')) badgeClass = 'badge-beban';
+
+            return `
+                <tr>
+                    <td><strong>${acc.kode_akun}</strong></td>
+                    <td>${acc.nama_akun}</td>
+                    <td><span class="badge ${badgeClass}">${acc.kategori || 'N/A'}</span></td>
+                    <td style="text-align: right;">
+                        <button class="btn-del" onclick="deleteAccount('${acc.kode_akun}')">Hapus</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     async function saveAccount() {
         const kode = document.getElementById('kode_akun').value;
         const nama = document.getElementById('nama_akun').value;
+        const kategori = document.getElementById('kategori_akun').value;
 
-        if (!kode || !nama) return alert("Isi semua kolom!");
+        if (!kode || !nama || !kategori) return alert("Isi semua kolom termasuk kategori!");
 
         const { error } = await FinexDB
             .from('akun')
-            .insert([{ kode_akun: kode, nama_akun: nama }]);
+            .insert([{ 
+                kode_akun: kode, 
+                nama_akun: nama,
+                kategori: kategori 
+            }]);
 
         if (error) {
             alert("Gagal menyimpan: " + error.message);
         } else {
             document.getElementById('kode_akun').value = '';
             document.getElementById('nama_akun').value = '';
+            document.getElementById('kategori_akun').value = '';
             loadAccounts();
             showStatus("Akun berhasil ditambahkan!", "var(--success)");
         }
     }
 
     async function deleteAccount(kode) {
-        if (!confirm(`Hapus akun ${kode}? Jurnal yang menggunakan akun ini mungkin akan error.`)) return;
+        if (!confirm(`Hapus akun ${kode}? Data jurnal tidak akan terhapus namun nama akun mungkin tidak muncul.`)) return;
 
         const { error } = await FinexDB
             .from('akun')
