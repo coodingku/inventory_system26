@@ -121,7 +121,7 @@
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
     let cart = [];
     let taxRate = 0;
@@ -136,29 +136,30 @@
         await loadSettings();
         await loadMenu();
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
+        document.getElementById('btnSendWA').onclick = sendWhatsApp;
     };
 
     async function checkActiveShift() {
-        const { data } = await supabase.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
+        const { data } = await FinexDB.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
         if (data) currentLogId = data.id; else document.getElementById('openShiftModal').style.display = 'flex';
     }
 
     async function executeOpenShift() {
         const saldoAwal = parseFloat(document.getElementById('inputSaldoAwal').value || 0);
-        const { data, error } = await supabase.from('kasir_log').insert([{ kasir_nama: session.username, saldo_awal: saldoAwal, status: 'Open', waktu_buka: new Date().toISOString() }]).select().single();
+        const { data, error } = await FinexDB.from('kasir_log').insert([{ kasir_nama: session.username, saldo_awal: saldoAwal, status: 'Open', waktu_buka: new Date().toISOString() }]).select().single();
         if (!error) { currentLogId = data.id; document.getElementById('openShiftModal').style.display = 'none'; }
     }
 
     async function loadSettings() {
-        const { data: pData } = await supabase.from('ppn').select('nilai').eq('id', 1).single();
+        const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
         if (pData) taxRate = parseFloat(pData.nilai) / 100;
 
-        const { data: mtd } = await supabase.from('metode_pembayaran').select('*');
+        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*');
         if (mtd) {
             document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
         }
         
-        const { data: dsk } = await supabase.from('diskon').select('*');
+        const { data: dsk } = await FinexDB.from('diskon').select('*');
         document.getElementById('discSelect').innerHTML = '<option value="0" data-name="Tanpa Promo">0%</option>' + 
             (dsk || []).map(d => `<option value="${d.persen}" data-name="${d.nama_diskon}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
         calculateTotal();
@@ -166,7 +167,7 @@
 
     async function loadMenu() {
         const q = document.getElementById('search').value;
-        let query = supabase.from('produk').select('*').gt('stok_sekarang', 0);
+        let query = FinexDB.from('produk').select('*').gt('stok_sekarang', 0);
         if (q) query = query.ilike('nama_barang', `%${q}%`);
         const { data } = await query.order('nama_barang');
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
@@ -232,7 +233,7 @@
         const tgl = new Date().toISOString();
 
         try {
-            const { data: trx, error: errTrx } = await supabase.from('penjualan').insert([{ 
+            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
                 no_invoice: inv, subtotal: state.sub, diskon: state.disc, pajak: state.tax, 
                 grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method, tanggal: tgl 
             }]).select().single();
@@ -243,15 +244,15 @@
             state.lastMethod = method;
 
             for (const item of cart) {
-                await supabase.from('penjualan_detail').insert([{ 
+                await FinexDB.from('penjualan_detail').insert([{ 
                     penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
                     qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
                 }]);
-                const { data: p } = await supabase.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                if (p) await supabase.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                if (p) await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
             }
 
-            await supabase.from('jurnal_umum').insert([
+            await FinexDB.from('jurnal_umum').insert([
                 { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${method}`, debit: state.total, kredit: 0 },
                 { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${method}`, debit: 0, kredit: state.total }
             ]);
@@ -288,9 +289,7 @@
         if (!hp) return alert("Masukkan nomor WA!");
         const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
         
-        // Link dinamis ke invoice-view.html
         const linkNota = window.location.origin + `/invoice-view.html?id=${state.lastTrxId}`;
-        
         const msg = `*NOTA BEAUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A*Lihat Nota Digital:*%0A${linkNota}%0A%0A_Terima kasih sudah berbelanja!_`;
         
         window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
