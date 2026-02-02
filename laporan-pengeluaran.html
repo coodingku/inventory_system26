@@ -185,18 +185,33 @@
         document.getElementById('total-pengeluaran').innerText = "Rp " + grandTotal.toLocaleString();
     }
 
-    async function deleteExpense(id, info) {
-        if (!confirm(`Hapus catatan "${info}"?`)) return;
+async function hapusPengeluaran(id, keterangan, tanggal) {
+    if (!confirm("Hapus transaksi ini? Jurnal terkait juga akan dihapus.")) return;
 
-        const { error } = await FinexDB.from('pengeluaran').delete().eq('id', id);
-        if (error) {
-            alert("Gagal hapus: " + error.message);
-        } else {
-            // Berusaha hapus di jurnal umum juga jika ada yang sama keterangannya
-            await FinexDB.from('jurnal_umum').delete().eq('keterangan', info);
-            fetchExpenses();
-        }
+    try {
+        // 1. Hapus di tabel jurnal_umum dulu (berdasarkan keterangan & tanggal)
+        const { error: errJurnal } = await FinexDB
+            .from('jurnal_umum')
+            .delete()
+            .eq('keterangan', keterangan)
+            .eq('tanggal', tanggal);
+
+        if (errJurnal) throw errJurnal;
+
+        // 2. Baru hapus di tabel pengeluaran
+        const { error: errExp } = await FinexDB
+            .from('pengeluaran')
+            .delete()
+            .eq('id', id);
+
+        if (errExp) throw errExp;
+
+        alert("✅ Transaksi dan Jurnal berhasil dihapus. Laba Rugi & Neraca kini akurat.");
+        location.reload();
+    } catch (e) {
+        alert("Gagal menghapus: " + e.message);
     }
+}
 
     function exportToCSV() {
         if (currentData.length === 0) return alert("Data kosong");
