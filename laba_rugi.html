@@ -5,36 +5,58 @@
     <title>Finex Pos | Laporan Laba Rugi</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --bg: #f4f7f6; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .header-section { background: #eee; padding: 10px; font-weight: bold; margin-top: 20px; }
-        .total-net { margin-top: 30px; padding: 20px; background: var(--primary); color: white; border-radius: 8px; font-size: 20px; display: flex; justify-content: space-between; }
-        .btn-print { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; float: right; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; }
+        
+        /* Watermark/Logo Style */
+        .brand-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        .brand-header h1 { margin: 0; color: var(--primary); letter-spacing: 2px; font-size: 24px; }
+        .brand-header p { margin: 5px 0 0; color: #7f8c8d; font-size: 14px; }
+
+        .row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
+        .header-section { background: #f8f9fa; padding: 10px; font-weight: bold; margin-top: 25px; color: var(--primary); border-left: 4px solid var(--accent); }
+        
+        .total-net { margin-top: 40px; padding: 25px; background: var(--primary); color: white; border-radius: 8px; font-size: 22px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-print { background: var(--accent); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; margin-top: 20px; display: block; width: 100%; }
+        .btn-print:hover { background: #2980b9; }
+
+        @media print {
+            .btn-print { display: none; }
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; max-width: 100%; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center; color: var(--primary);">LAPORAN LABA RUGI</h2>
-    <p id="tgl-laporan" style="text-align:center; color: #666;"></p>
-    <hr>
+    <div class="brand-header">
+        <h1>BEAUTYBLOOM</h1>
+        <p>Laporan Laba Rugi Tahun Berjalan</p>
+        <p id="tgl-laporan" style="font-size: 12px; font-weight: bold; margin-top: 10px;"></p>
+    </div>
 
     <div class="header-section">PENDAPATAN</div>
     <div id="list-pendapatan"></div>
-    <div class="row" style="font-weight:bold;"><span>Total Pendapatan</span><span id="total-pendapatan">0</span></div>
+    <div class="row" style="font-weight:bold; background: #fff;">
+        <span>TOTAL PENDAPATAN</span>
+        <span id="total-pendapatan">Rp 0</span>
+    </div>
 
-    <div class="header-section">BEBAN OPERASIONAL</div>
+    <div class="header-section">HARGA POKOK & BEBAN</div>
     <div id="list-beban"></div>
-    <div class="row" style="font-weight:bold;"><span>Total Beban</span><span id="total-beban">0</span></div>
+    <div class="row" style="font-weight:bold; background: #fff;">
+        <span>TOTAL BEBAN</span>
+        <span id="total-beban">Rp 0</span>
+    </div>
 
     <div class="total-net">
-        <span>LABA (RUGI) BERSIH</span>
+        <span style="font-size: 16px;">LABA (RUGI) BERSIH</span>
         <span id="laba-bersih">Rp 0</span>
     </div>
     
-    <button class="btn-print" onclick="window.print()" style="margin-top:20px;">Cetak Laporan</button>
+    <button class="btn-print" onclick="window.print()">Cetak Laporan Resmi</button>
 </div>
 
 <script>
@@ -43,52 +65,74 @@
     const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
     window.onload = async () => {
-        document.getElementById('tgl-laporan').innerText = new Date().toLocaleDateString('id-ID', { dateStyle: 'long' });
+        document.getElementById('tgl-laporan').innerText = "Per Tanggal: " + new Date().toLocaleDateString('id-ID', { dateStyle: 'long' });
         loadLabaRugi();
     };
 
     async function loadLabaRugi() {
-        // Mengambil rekap saldo per akun
+        // Mengambil data jurnal dan join dengan tabel akun untuk dapat Kategori
         const { data, error } = await supabaseClient
             .from('jurnal_umum')
-            .select(`kode_akun, debit, kredit, akun(nama_akun, kategori)`);
+            .select(`
+                kode_akun, 
+                debit, 
+                kredit, 
+                akun (nama_akun, kategori)
+            `);
 
-        if (error) return alert(error.message);
+        if (error) return alert("Gagal memuat data: " + error.message);
 
         let rekap = {};
         data.forEach(j => {
+            if (!j.akun) return; // Lewati jika akun tidak ditemukan di master
+
             const k = j.kode_akun;
-            if(!rekap[k]) rekap[k] = { nama: j.akun.nama_akun, kat: j.akun.kategori, saldo: 0 };
+            if(!rekap[k]) {
+                rekap[k] = { 
+                    nama: j.akun.nama_akun, 
+                    kat: j.akun.kategori, 
+                    saldo: 0 
+                };
+            }
             
-            // Logika Saldo: Jika Pendapatan (Kredit - Debit), Jika Beban (Debit - Kredit)
-            if(j.akun.kategori === 'Pendapatan') rekap[k].saldo += (j.kredit - j.debit);
-            else if(j.akun.kategori === 'Beban') rekap[k].saldo += (j.debit - j.kredit);
+            // Logika Akuntansi:
+            // Pendapatan bertambah di Kredit
+            if(j.akun.kategori === 'Pendapatan') {
+                rekap[k].saldo += (parseFloat(j.kredit || 0) - parseFloat(j.debit || 0));
+            } 
+            // Beban bertambah di Debit
+            else if(j.akun.kategori === 'Beban') {
+                rekap[k].saldo += (parseFloat(j.debit || 0) - parseFloat(j.kredit || 0));
+            }
         });
 
-        let htmlPendapatan = '', htmlBeban = '';
+        let htmlP = '', htmlB = '';
         let totalP = 0, totalB = 0;
 
         for (let k in rekap) {
             const item = rekap[k];
-            const row = `<div class="row"><span>${item.nama}</span><span>${item.saldo.toLocaleString()}</span></div>`;
+            const row = `<div class="row"><span>${item.nama}</span><span>Rp ${item.saldo.toLocaleString()}</span></div>`;
             
             if(item.kat === 'Pendapatan') {
-                htmlPendapatan += row;
+                htmlP += row;
                 totalP += item.saldo;
             } else if(item.kat === 'Beban') {
-                htmlBeban += row;
+                htmlB += row;
                 totalB += item.saldo;
             }
         }
 
-        document.getElementById('list-pendapatan').innerHTML = htmlPendapatan || 'Tidak ada pendapatan';
-        document.getElementById('list-beban').innerHTML = htmlBeban || 'Tidak ada beban';
+        document.getElementById('list-pendapatan').innerHTML = htmlP || '<div class="row"><span>Belum ada transaksi</span><span>0</span></div>';
+        document.getElementById('list-beban').innerHTML = htmlB || '<div class="row"><span>Belum ada transaksi</span><span>0</span></div>';
+        
         document.getElementById('total-pendapatan').innerText = "Rp " + totalP.toLocaleString();
         document.getElementById('total-beban').innerText = "Rp " + totalB.toLocaleString();
         
         const bersih = totalP - totalB;
         const target = document.getElementById('laba-bersih');
         target.innerText = "Rp " + bersih.toLocaleString();
+        
+        // Warna indikator: Merah jika rugi, Hijau jika laba
         target.style.color = bersih < 0 ? '#ff7675' : '#55efc4';
     }
 </script>
