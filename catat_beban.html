@@ -2,61 +2,160 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Catat Pengeluaran</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Catat Pengeluaran BeautyBloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
-        .card { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input, select, button { width: 100%; padding: 10px; margin-top: 10px; box-sizing: border-box; }
-        button { background: #e74c3c; color: white; border: none; cursor: pointer; font-weight: bold; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        
+        /* Sidebar Navigasi */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        nav a.active { background: var(--accent); color: white; }
+        .logout-btn { margin-top: 50px; color: var(--danger); font-weight: bold; padding: 12px; cursor: pointer; border-radius: 8px; border: 1px solid var(--danger); text-align: center; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 250px; padding: 40px; min-height: 100vh; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+        
+        .card { width: 100%; max-width: 500px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .card h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        
+        label { font-size: 13px; font-weight: bold; color: #555; display: block; margin-top: 15px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-top: 8px; box-sizing: border-box; border-radius: 8px; border: 1px solid #ddd; font-family: inherit; }
+        
+        .btn-group { margin-top: 25px; display: flex; flex-direction: column; gap: 10px; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.3s; }
+        .btn-save { background: var(--danger); color: white; }
+        .btn-save:hover { background: #c0392b; transform: translateY(-2px); }
+        .btn-history { background: #eee; color: var(--primary); }
+        .btn-history:hover { background: #ddd; }
+
+        /* Area Cetak */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden !important; }
+            #print-area, #print-area * { visibility: visible !important; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; }
+        }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Catat Pengeluaran (Beban)</h2>
-    <label>Pilih Jenis Beban:</label>
-    <select id="kode_akun">
-        <option value="6101">Beban Listrik & Air</option>
-        <option value="6102">Beban Perlengkapan (Gas/Tissue)</option>
-        <option value="6103">Beban Gaji Karyawan</option>
-    </select>
-    
-    <input type="text" id="keterangan" placeholder="Keterangan (Contoh: Beli Gas Elpiji)">
-    <input type="number" id="nominal" placeholder="Nominal (Rp)">
-    
-    <button onclick="simpanBeban()">SIMPAN PENGELUARAN</button>
-    <br><br>
-    <a href="jurnal.html" style="font-size: 12px; color: gray;">Lihat Jurnal Umum</a>
-</div>
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="pos.html">🛒 Masuk Kasir</a>
+    <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+    <a href="pengeluaran.html" class="active">💸 Catat Pengeluaran</a>
+    <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
+    <a href="laporan-opening-closing.html">🕒 Log Shift Kasir</a>
+    <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
+</nav>
+
+<main>
+    <div class="card">
+        <h2>Catat Pengeluaran</h2>
+        <p style="color: #666; font-size: 13px;">Input beban operasional <b>BeautyBloom</b> ke Jurnal Umum.</p>
+        
+        <label>Tanggal Transaksi</label>
+        <input type="date" id="tanggal_beban">
+
+        <label>Jenis Beban (Kode Akun)</label>
+        <select id="kode_akun">
+            <option value="6101">6101 - Beban Listrik & Air</option>
+            <option value="6102">6102 - Beban Perlengkapan (Gas/Tissue)</option>
+            <option value="6103">6103 - Beban Gaji Karyawan</option>
+            <option value="6104">6104 - Beban Maintenance / Perbaikan</option>
+            <option value="6105">6105 - Beban Lain-lain</option>
+        </select>
+        
+        <label>Keterangan</label>
+        <textarea id="keterangan" rows="2" placeholder="Contoh: Pembelian isi ulang Gas Elpiji 3kg"></textarea>
+        
+        <label>Nominal Pengeluaran (Rp)</label>
+        <input type="number" id="nominal" placeholder="0">
+        
+        <div class="btn-group">
+            <button class="btn-save" onclick="simpanBeban()">💾 SIMPAN & CETAK NOTA</button>
+            <button class="btn-history" onclick="window.location.href='laporan-pengeluaran.html'">📑 Lihat Riwayat Beban</button>
+        </div>
+    </div>
+</main>
+
+<div id="print-area"></div>
 
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
+    // Default Tanggal Hari Ini
+    document.getElementById('tanggal_beban').value = new Date().toISOString().split('T')[0];
+
     async function simpanBeban() {
+        const tglInput = document.getElementById('tanggal_beban').value;
         const kode = document.getElementById('kode_akun').value;
         const ket = document.getElementById('keterangan').value;
         const nom = parseFloat(document.getElementById('nominal').value);
+        const teksAkun = document.getElementById('kode_akun').options[document.getElementById('kode_akun').selectedIndex].text;
 
-        if(!ket || !nom) return alert("Isi data dengan lengkap!");
+        if(!ket || !nom || !tglInput) return alert("Mohon lengkapi semua data!");
 
         const noBukti = "OUT-" + Date.now();
-        const tgl = new Date().toISOString();
+        // Gabungkan tanggal input dengan waktu presisi saat ini
+        const timeNow = new Date().toLocaleTimeString('en-GB');
+        const tglFix = `${tglInput}T${timeNow}.000Z`;
 
-        // Double Entry: Beban (Debit) dan Kas (Kredit)
+        // Double Entry Accounting
         const dataJurnal = [
-            { tanggal: tgl, no_bukti: noBukti, kode_akun: kode, keterangan: ket, debit: nom, kredit: 0 },
-            { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: nom }
+            { tanggal: tglFix, no_bukti: noBukti, kode_akun: kode, keterangan: ket, debit: nom, kredit: 0 },
+            { tanggal: tglFix, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: nom }
         ];
 
         const { error } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
         
-        if (error) alert("Gagal: " + error.message);
-        else {
-            alert("Pengeluaran berhasil dicatat!");
-            location.reload();
+        if (error) {
+            alert("Gagal menyimpan data: " + error.message);
+        } else {
+            alert("Berhasil! Mencetak nota pengeluaran...");
+            cetakNota(tglInput, noBukti, teksAkun, ket, nom);
+            setTimeout(() => { location.reload(); }, 1500);
+        }
+    }
+
+    function cetakNota(tgl, bukti, akun, ket, nom) {
+        const area = document.getElementById('print-area');
+        area.innerHTML = `
+            <div style="width: 58mm; padding: 2mm; font-family: monospace; font-size: 11px;">
+                <center>
+                    <b style="font-size: 14px;">BEAUTYBLOOM</b><br>
+                    BUKTI PENGELUARAN KAS<br>
+                    ----------------------------
+                </center>
+                No Bukti: ${bukti}<br>
+                Tanggal : ${tgl}<br>
+                Akun    : ${akun}<br>
+                ----------------------------<br>
+                Ket: ${ket}<br><br>
+                <b style="font-size: 13px;">TOTAL: Rp ${nom.toLocaleString()}</b><br>
+                ----------------------------<br>
+                <center>
+                    <br><br>
+                    (____________)<br>
+                    Admin / Kasir
+                </center>
+            </div>
+        `;
+        window.print();
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            localStorage.clear();
+            window.location.replace('login.html');
         }
     }
 </script>
