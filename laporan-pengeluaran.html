@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Pengeluaran</title>
+    <title>Finex Pos | Laporan Pengeluaran BeautyBloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --danger: #e74c3c; --success: #27ae60; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
         /* Sidebar */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
         nav h2 { color: var(--accent); text-align: center; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
@@ -18,16 +18,28 @@
 
         /* Content */
         main { flex: 1; margin-left: 250px; padding: 40px; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        
+        /* Stats Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border-left: 5px solid var(--accent); }
+        .stat-box h4 { margin: 0; color: #7f8c8d; font-size: 12px; text-transform: uppercase; }
+        .stat-box p { margin: 10px 0 0 0; font-size: 18px; font-weight: bold; color: var(--primary); }
+
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         .filter-group { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .btn-export { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; font-size: 13px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .badge-cat { background: #ebf5ff; color: #2980b9; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .btn-export { background: var(--success); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; }
-        .btn-void { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
-        .btn-void:hover { opacity: 0.8; }
+        .btn-void { color: var(--danger); background: none; border: 1px solid var(--danger); padding: 5px 8px; border-radius: 4px; cursor: pointer; transition: 0.3s; }
+        .btn-void:hover { background: var(--danger); color: white; }
+
+        @media print { nav { display: none; } main { margin-left: 0; } .btn-export, .filter-group, .btn-void { display: none; } }
     </style>
 </head>
 <body>
@@ -35,25 +47,33 @@
 <nav>
     <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="laporan-bill.html">📄 Laporan Penjualan</a>
-    <a href="laporan-opening-closing.html">🕒 Laporan Shift</a>
-    <a href="laporan-pengeluaran.html" class="active">💸 Laporan Pengeluaran</a>
+    <a href="pos.html">🛒 Masuk Kasir</a>
+    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
+    <a href="pengeluaran.html">💸 Catat Pengeluaran</a>
+    <a href="laporan-pengeluaran.html" class="active">📑 Laporan Beban</a>
+    <a href="laporan-bill.html">📄 Riwayat Penjualan</a>
     <a href="login.html" style="color: #e74c3c; margin-top: 50px;">🚪 Keluar</a>
 </nav>
 
 <main>
-    <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>Riwayat Pengeluaran BeautyBloom</h2>
-            <button class="btn-export" onclick="exportToCSV()">📥 Export Excel (CSV)</button>
+    <div class="header-flex">
+        <div>
+            <h2 style="margin:0;">Laporan Pengeluaran</h2>
+            <p style="color:gray; font-size:14px; margin-top:5px;">Rekapitulasi biaya operasional <b>BeautyBloom</b>.</p>
         </div>
-        
+        <button class="btn-export" onclick="exportToCSV()">📥 Simpan Excel (CSV)</button>
+    </div>
+
+    <div class="stats-grid" id="category-stats">
+        </div>
+
+    <div class="card">
         <div class="filter-group">
             <div>
-                <label style="font-size: 12px; display: block;">Pilih Bulan:</label>
-                <input type="month" id="filter-bulan" class="btn-filter" style="background: white; color: black; border: 1px solid #ddd;">
+                <label style="font-size: 12px; font-weight:bold;">Filter Bulan:</label><br>
+                <input type="month" id="filter-bulan" style="padding:8px; border-radius:5px; border:1px solid #ddd; margin-top:5px;">
             </div>
-            <button class="btn-filter" onclick="fetchExpenses()">Filter</button>
+            <button class="btn-filter" onclick="fetchExpenses()">Tampilkan Data</button>
         </div>
 
         <table>
@@ -62,17 +82,17 @@
                     <th>Tanggal</th>
                     <th>Kategori</th>
                     <th>Keterangan</th>
-                    <th>Jumlah (Rp)</th>
-                    <th>Petugas</th>
-                    <th style="text-align: center;">Aksi</th>
+                    <th>Nominal</th>
+                    <th style="text-align: center;">Opsi</th>
                 </tr>
             </thead>
-            <tbody id="expense-table-body"></tbody>
+            <tbody id="expense-table-body">
+                <tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr>
+            </tbody>
             <tfoot>
-                <tr style="background: #fdf2e9; font-weight: bold;">
-                    <td colspan="3" style="text-align: right;">TOTAL PENGELUARAN:</td>
-                    <td id="total-pengeluaran" style="color: #d35400;">Rp 0</td>
-                    <td colspan="2"></td>
+                <tr style="background: var(--primary); color: white; font-weight: bold;">
+                    <td colspan="3" style="text-align: right;">GRAND TOTAL:</td>
+                    <td id="total-pengeluaran" colspan="2">Rp 0</td>
                 </tr>
             </tfoot>
         </table>
@@ -86,93 +106,113 @@
 
     let currentData = [];
 
+    // Init tanggal bulan ini
+    const d = new Date();
+    document.getElementById('filter-bulan').value = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}`;
+
     async function fetchExpenses() {
         const filterMonth = document.getElementById('filter-bulan').value;
-        let query = FinexDB.from('pengeluaran').select('*, kasir_log(kasir_nama)').order('tanggal', { ascending: false });
+        const [year, month] = filterMonth.split('-');
+        const start = `${filterMonth}-01T00:00:00.000Z`;
+        const end = `${year}-${month}-${new Date(year, month, 0).getDate()}T23:59:59.999Z`;
 
-        if (filterMonth) {
-            const [year, month] = filterMonth.split('-');
-            const start = `${filterMonth}-01T00:00:00.000Z`;
-            const lastDay = new Date(year, month, 0).getDate();
-            const end = `${year}-${month}-${lastDay}T23:59:59.999Z`;
-            query = query.gte('tanggal', start).lte('tanggal', end);
-        }
+        const { data, error } = await FinexDB
+            .from('pengeluaran')
+            .select('*')
+            .gte('tanggal', start)
+            .lte('tanggal', end)
+            .order('tanggal', { ascending: false });
 
-        const { data, error } = await query;
-        if (error) return alert("Gagal ambil data: " + error.message);
-
+        if (error) return alert("Error: " + error.message);
+        
         currentData = data;
+        processStats(data);
         renderTable(data);
+    }
+
+    function processStats(data) {
+        const statsContainer = document.getElementById('category-stats');
+        const summary = {};
+        
+        // Hitung total per kategori
+        data.forEach(item => {
+            summary[item.kategori] = (summary[item.kategori] || 0) + parseFloat(item.jumlah || 0);
+        });
+
+        // Buat HTML box stats
+        let statsHTML = '';
+        for (const [kat, total] of Object.entries(summary)) {
+            statsHTML += `
+                <div class="stat-box">
+                    <h4>${kat}</h4>
+                    <p>Rp ${total.toLocaleString()}</p>
+                </div>
+            `;
+        }
+        
+        // Jika kosong
+        if(data.length === 0) statsHTML = '<div class="stat-box" style="border:none;"><h4>Data Kosong</h4><p>Rp 0</p></div>';
+        
+        statsContainer.innerHTML = statsHTML;
     }
 
     function renderTable(data) {
         const tbody = document.getElementById('expense-table-body');
-        let total = 0;
+        let grandTotal = 0;
 
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada data pengeluaran.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px;">Tidak ada riwayat beban di bulan ini.</td></tr>';
             document.getElementById('total-pengeluaran').innerText = "Rp 0";
             return;
         }
 
         tbody.innerHTML = data.map(item => {
-            total += (item.jumlah || 0);
+            const nominal = parseFloat(item.jumlah || 0);
+            grandTotal += nominal;
             return `
                 <tr>
                     <td>${new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'})}</td>
-                    <td><span style="background:#eee; padding:3px 8px; border-radius:5px;">${item.kategori}</span></td>
+                    <td><span class="badge-cat">${item.kategori}</span></td>
                     <td>${item.keterangan}</td>
-                    <td><b>Rp ${(item.jumlah || 0).toLocaleString()}</b></td>
-                    <td>${item.kasir_log ? item.kasir_log.kasir_nama : 'Admin'}</td>
+                    <td><b>Rp ${nominal.toLocaleString()}</b></td>
                     <td style="text-align: center;">
-                        <button class="btn-void" onclick="voidExpense('${item.id}', '${item.keterangan}')">🗑️ Hapus</button>
+                        <button class="btn-void" onclick="deleteExpense('${item.id}', '${item.keterangan}')">🗑️ Hapus</button>
                     </td>
                 </tr>
             `;
         }).join('');
 
-        document.getElementById('total-pengeluaran').innerText = "Rp " + total.toLocaleString();
+        document.getElementById('total-pengeluaran').innerText = "Rp " + grandTotal.toLocaleString();
     }
 
-    async function voidExpense(id, info) {
-        if (!confirm(`Hapus catatan pengeluaran: "${info}"?\nTindakan ini tidak dapat dibatalkan.`)) return;
+    async function deleteExpense(id, info) {
+        if (!confirm(`Hapus catatan "${info}"?`)) return;
 
-        try {
-            // 1. Hapus pengeluaran
-            const { error: errDel } = await FinexDB.from('pengeluaran').delete().eq('id', id);
-            if (errDel) throw errDel;
-
-            // 2. Jika Anda menggunakan sistem jurnal otomatis, kita hapus juga jurnalnya
-            // (Asumsi: no_bukti pengeluaran disimpan dengan format tertentu atau keterangan yang sama)
-            await FinexDB.from('jurnal_umum').delete().eq('keterangan', `Beban: ${info}`);
-
-            alert("Data pengeluaran berhasil dihapus.");
-            fetchExpenses(); // Refresh tabel
-        } catch (e) {
-            alert("Gagal menghapus: " + e.message);
+        const { error } = await FinexDB.from('pengeluaran').delete().eq('id', id);
+        if (error) {
+            alert("Gagal hapus: " + error.message);
+        } else {
+            // Berusaha hapus di jurnal umum juga jika ada yang sama keterangannya
+            await FinexDB.from('jurnal_umum').delete().eq('keterangan', info);
+            fetchExpenses();
         }
     }
 
     function exportToCSV() {
-        if (currentData.length === 0) return alert("Tidak ada data untuk diexport");
-        let csv = 'Tanggal,Kategori,Keterangan,Jumlah,Kasir\n';
-        currentData.forEach(row => {
-            csv += `${new Date(row.tanggal).toLocaleDateString('id-ID')},${row.kategori},${row.keterangan},${row.jumlah},${row.kasir_log?.kasir_nama || 'Admin'}\n`;
+        if (currentData.length === 0) return alert("Data kosong");
+        let csv = 'Tanggal,Kategori,Keterangan,Jumlah\n';
+        currentData.forEach(r => {
+            csv += `${r.tanggal.split('T')[0]},${r.kategori},${r.keterangan},${r.jumlah}\n`;
         });
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Laporan_Pengeluaran_BeautyBloom_${document.getElementById('filter-bulan').value}.csv`;
+        a.download = `Laporan_Beban_BeautyBloom_${document.getElementById('filter-bulan').value}.csv`;
         a.click();
     }
 
-    window.onload = () => {
-        const now = new Date();
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        document.getElementById('filter-bulan').value = `${now.getFullYear()}-${month}`;
-        fetchExpenses();
-    };
+    window.onload = fetchExpenses;
 </script>
 </body>
 </html>
