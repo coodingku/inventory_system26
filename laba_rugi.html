@@ -9,7 +9,6 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; }
         .container { max-width: 600px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; }
         
-        /* Watermark/Logo Style */
         .brand-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
         .brand-header h1 { margin: 0; color: var(--primary); letter-spacing: 2px; font-size: 24px; }
         .brand-header p { margin: 5px 0 0; color: #7f8c8d; font-size: 14px; }
@@ -24,7 +23,7 @@
         @media print {
             .btn-print { display: none; }
             body { background: white; padding: 0; }
-            .container { box-shadow: none; max-width: 100%; }
+            .container { box-shadow: none; max-width: 100%; border: none; }
         }
     </style>
 </head>
@@ -32,7 +31,7 @@
 
 <div class="container">
     <div class="brand-header">
-        <h1>BEAUTYBLOOM</h1>
+        <h1>Finex Pos</h1>
         <p>Laporan Laba Rugi Tahun Berjalan</p>
         <p id="tgl-laporan" style="font-size: 12px; font-weight: bold; margin-top: 10px;"></p>
     </div>
@@ -70,21 +69,24 @@
     };
 
     async function loadLabaRugi() {
-        // Mengambil data jurnal dan join dengan tabel akun untuk dapat Kategori
+        // PERBAIKAN: Menggunakan tabel 'jurnal' dan kolom 'debet'
         const { data, error } = await supabaseClient
-            .from('jurnal_umum')
+            .from('jurnal') 
             .select(`
                 kode_akun, 
-                debit, 
+                debet, 
                 kredit, 
                 akun (nama_akun, kategori)
             `);
 
-        if (error) return alert("Gagal memuat data: " + error.message);
+        if (error) {
+            console.error(error);
+            return alert("Gagal memuat data: " + error.message);
+        }
 
         let rekap = {};
         data.forEach(j => {
-            if (!j.akun) return; // Lewati jika akun tidak ditemukan di master
+            if (!j.akun) return; 
 
             const k = j.kode_akun;
             if(!rekap[k]) {
@@ -95,14 +97,14 @@
                 };
             }
             
-            // Logika Akuntansi:
-            // Pendapatan bertambah di Kredit
+            // Logika Akuntansi untuk Laba Rugi:
             if(j.akun.kategori === 'Pendapatan') {
-                rekap[k].saldo += (parseFloat(j.kredit || 0) - parseFloat(j.debit || 0));
+                // Pendapatan bertambah di Kredit
+                rekap[k].saldo += (parseFloat(j.kredit || 0) - parseFloat(j.debet || 0));
             } 
-            // Beban bertambah di Debit
             else if(j.akun.kategori === 'Beban') {
-                rekap[k].saldo += (parseFloat(j.debit || 0) - parseFloat(j.kredit || 0));
+                // Beban bertambah di Debet
+                rekap[k].saldo += (parseFloat(j.debet || 0) - parseFloat(j.kredit || 0));
             }
         });
 
@@ -111,6 +113,8 @@
 
         for (let k in rekap) {
             const item = rekap[k];
+            if (item.saldo === 0) continue; // Jangan tampilkan yang saldonya nol
+
             const row = `<div class="row"><span>${item.nama}</span><span>Rp ${item.saldo.toLocaleString()}</span></div>`;
             
             if(item.kat === 'Pendapatan') {
@@ -132,7 +136,7 @@
         const target = document.getElementById('laba-bersih');
         target.innerText = "Rp " + bersih.toLocaleString();
         
-        // Warna indikator: Merah jika rugi, Hijau jika laba
+        // Warna indikator: Merah jika rugi, Hijau cerah jika laba
         target.style.color = bersih < 0 ? '#ff7675' : '#55efc4';
     }
 </script>
