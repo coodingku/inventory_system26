@@ -68,7 +68,7 @@
         <div class="header-flex">
             <div>
                 <h2 style="margin:0;">Riwayat Shift Harian</h2>
-                <p style="color:#666; font-size: 14px; margin-top: 5px;">Data buka/tutup laci kasir <b>Finex Pos</b>.</p>
+                <p style="color:#666; font-size: 14px; margin-top: 5px;">Data buka/tutup laci kasir <b>BeautyBloom</b>.</p>
             </div>
             <div class="filter-group">
                 <label style="font-size: 13px; font-weight: bold;">Pilih Tanggal:</label>
@@ -103,22 +103,25 @@
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    document.getElementById('filter-date').valueAsDate = new Date();
+    // Inisialisasi tanggal hari ini dengan benar
+    document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
 
     async function fetchShiftLogs() {
         const filterDate = document.getElementById('filter-date').value;
         const tbody = document.getElementById('log-table-body');
         
-        let query = FinexDB.from('kasir_log').select('*');
+        if (!filterDate) return alert("Pilih tanggal terlebih dahulu.");
 
-        if (filterDate) {
-            // Pencarian berdasarkan tanggal lokal (start of day to end of day)
-            const start = `${filterDate}T00:00:00`;
-            const end = `${filterDate}T23:59:59`;
-            query = query.gte('waktu_buka', start).lte('waktu_buka', end);
-        }
+        // Format ISO yang aman untuk menghindari error out of range
+        const start = `${filterDate}T00:00:00.000Z`;
+        const end = `${filterDate}T23:59:59.999Z`;
 
-        const { data, error } = await query.order('waktu_buka', { ascending: false });
+        const { data, error } = await FinexDB
+            .from('kasir_log')
+            .select('*')
+            .gte('waktu_buka', start)
+            .lte('waktu_buka', end)
+            .order('waktu_buka', { ascending: false });
 
         if (error) {
             tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
@@ -131,7 +134,6 @@
         }
 
         tbody.innerHTML = data.map(log => {
-            // LOGIKA PERBAIKAN: Membaca waktu_tutup atau waktu_closing (menyesuaikan skema)
             const timeTutup = log.waktu_tutup || log.waktu_closing;
             const displayTutup = timeTutup 
                 ? new Date(timeTutup).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) 
@@ -156,20 +158,19 @@
     }
 
     function prepareReprint(log) {
-        const omzet = (log.saldo_akhir || 0) - (log.saldo_awal || 0);
         const timeTutup = log.waktu_tutup || log.waktu_closing;
         
         const strukHTML = `
             <div style="width:58mm; padding:2mm; font-family:monospace; font-size:11px; color:black;">
                 <center>
-                    <b style="font-size:14px;">FINEX POS KANTIN</b><br>
+                    <b style="font-size:14px;">BEAUTYBLOOM POS</b><br>
                     REPRINT LAPORAN CLOSING<br>
                     ----------------------------
                 </center>
                 ID Shift: #${log.id}<br>
-                Kasir   : ${log.kasir_nama}<br>
-                Buka    : ${new Date(log.waktu_buka).toLocaleString('id-ID')}<br>
-                Tutup   : ${timeTutup ? new Date(timeTutup).toLocaleString('id-ID') : '-'}<br>
+                Kasir    : ${log.kasir_nama}<br>
+                Buka     : ${new Date(log.waktu_buka).toLocaleString('id-ID')}<br>
+                Tutup    : ${timeTutup ? new Date(timeTutup).toLocaleString('id-ID') : '-'}<br>
                 ----------------------------<br>
                 Saldo Modal : Rp ${parseFloat(log.saldo_awal || 0).toLocaleString()}<br>
                 Total Tunai : Rp ${parseFloat(log.saldo_akhir || 0).toLocaleString()}<br>
@@ -195,6 +196,7 @@
         }
     }
 
+    // Panggil fungsi saat pertama kali dimuat
     fetchShiftLogs();
 </script>
 </body>
