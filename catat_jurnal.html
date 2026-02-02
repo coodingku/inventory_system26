@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jurnal Umum | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        nav a.active { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 240px; padding: 40px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        .jurnal-form { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
+        
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 13px; color: #7f8c8d; }
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #2c3e50; }
+        
+        .debit { color: var(--success); font-weight: bold; }
+        .kredit { color: var(--danger); font-weight: bold; }
+        .btn-save { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-save:hover { background: #1a252f; }
+        
+        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <h2>Finex Pos</h2>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="pos.html">🛒 Masuk Kasir</a>
+        <a href="akun_jurnal.html">🏦 Daftar Akun</a>
+        <a href="catat_jurnal.html" class="active">📖 Jurnal Umum</a>
+        <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
+    </nav>
+
+    <main>
+        <div class="header">
+            <h1>Jurnal Umum</h1>
+            <div id="status-msg"></div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top:0;">Input Transaksi Baru</h3>
+            <div class="jurnal-form">
+                <div>
+                    <label style="display:block; font-size: 12px; margin-bottom:5px;">Keterangan</label>
+                    <input type="text" id="ket" placeholder="Contoh: Bayar Listrik Toko">
+                </div>
+                <div>
+                    <label style="display:block; font-size: 12px; margin-bottom:5px;">Akun (Debet)</label>
+                    <select id="acc_debet"></select>
+                </div>
+                <div>
+                    <label style="display:block; font-size: 12px; margin-bottom:5px;">Akun (Kredit)</label>
+                    <select id="acc_kredit"></select>
+                </div>
+                <div>
+                    <label style="display:block; font-size: 12px; margin-bottom:5px;">Nominal (Rp)</label>
+                    <input type="number" id="nominal" placeholder="0">
+                </div>
+                <button class="btn-save" onclick="simpanJurnal()">Catat Transaksi</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top:0;">Riwayat Transaksi Terakhir</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Keterangan</th>
+                        <th>Kode Akun</th>
+                        <th>Debet</th>
+                        <th>Kredit</th>
+                    </tr>
+                </thead>
+                <tbody id="table-jurnal">
+                    <tr><td colspan="5" style="text-align:center;">Memuat data jurnal...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    window.onload = async () => {
+        await loadDropdowns();
+        await loadJurnal();
+    };
+
+    async function loadDropdowns() {
+        const { data, error } = await FinexDB.from('akun').select('kode_akun, nama_akun').order('kode_akun');
+        if (error) return console.error("Gagal load akun:", error);
+        
+        const options = data.map(a => `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`).join('');
+        document.getElementById('acc_debet').innerHTML = options;
+        document.getElementById('acc_kredit').innerHTML = options;
+    }
+
+    async function loadJurnal() {
+        const { data, error } = await FinexDB.from('jurnal').select('*').order('created_at', { ascending: false }).limit(50);
+        
+        const tbody = document.getElementById('table-jurnal');
+        if (error) {
+            tbody.innerHTML = `<tr><td colspan="5" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
+            return;
+        }
+
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Belum ada transaksi tercatat.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map(j => `
+            <tr>
+                <td style="font-size:12px; color:#888;">${new Date(j.created_at).toLocaleString('id-ID')}</td>
+                <td>${j.keterangan}</td>
+                <td><strong>${j.kode_akun}</strong></td>
+                <td class="debit">${j.debet > 0 ? 'Rp ' + Number(j.debet).toLocaleString() : '-'}</td>
+                <td class="kredit">${j.kredit > 0 ? 'Rp ' + Number(j.kredit).toLocaleString() : '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function simpanJurnal() {
+        const ket = document.getElementById('ket').value;
+        const debetAcc = document.getElementById('acc_debet').value;
+        const kreditAcc = document.getElementById('acc_kredit').value;
+        const nominal = parseInt(document.getElementById('nominal').value);
+
+        if (!ket || !nominal || nominal <= 0) return alert("Keterangan dan nominal harus diisi dengan benar!");
+        if (debetAcc === kreditAcc) return alert("Akun Debet dan Kredit tidak boleh sama!");
+
+        // System Double Entry: 1 Transaksi = 2 Baris Jurnal
+        const entries = [
+            { keterangan: ket, kode_akun: debetAcc, debet: nominal, kredit: 0 },
+            { keterangan: ket, kode_akun: kreditAcc, debet: 0, kredit: nominal }
+        ];
+
+        const { error } = await FinexDB.from('jurnal').insert(entries);
+        
+        if (error) {
+            alert("Gagal menyimpan jurnal: " + error.message);
+        } else {
+            document.getElementById('ket').value = '';
+            document.getElementById('nominal').value = '';
+            await loadJurnal();
+            alert("Transaksi berhasil dicatat ke Jurnal Umum!");
+        }
+    }
+</script>
+</body>
+</html>
