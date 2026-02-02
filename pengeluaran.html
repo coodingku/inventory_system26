@@ -35,9 +35,9 @@
         /* CSS KHUSUS CETAK */
         #print-area { display: none; }
         @media print {
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { display: block; position: absolute; left: 0; top: 0; width: 58mm; padding: 5px; color: black; font-family: 'Courier New', Courier, monospace; }
+            body * { visibility: hidden !important; }
+            #print-area, #print-area * { visibility: visible !important; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; padding: 5px; color: black; font-family: 'Courier New', Courier, monospace; }
         }
     </style>
 </head>
@@ -50,6 +50,10 @@
         <a href="laporan-bill.html">📄 Laporan Penjualan</a>
         <a href="laporan-pengeluaran.html">📑 Laporan Pengeluaran</a>
         <a href="pengeluaran.html" class="active">💸 Catat Pengeluaran</a>
+        
+        <div style="margin-top: 20px; font-size: 11px; color: #888; padding: 10px; border-top: 1px solid #444;">
+            KASIR AKTIF:<br><b id="display-nama-kasir" style="color: var(--accent);">Memuat...</b>
+        </div>
         <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
     </nav>
 
@@ -88,25 +92,44 @@
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    const session = JSON.parse(localStorage.getItem('finex_session'));
+    const sessionData = localStorage.getItem('finex_session');
+    const session = sessionData ? JSON.parse(sessionData) : null;
     let activeShiftId = null;
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
-        document.getElementById('cashier-display-side')?.innerText = session.username;
+        
+        // Tampilkan nama kasir dengan aman
+        const displayKasir = document.getElementById('display-nama-kasir');
+        if(displayKasir) displayKasir.innerText = session.username;
+        
         document.getElementById('exp-tanggal').value = new Date().toISOString().split('T')[0];
         await checkActiveShift();
     };
 
     async function checkActiveShift() {
-        const { data: shift } = await FinexDB.from('kasir_log').select('id, status').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
-        if (shift) {
-            activeShiftId = shift.id;
-            document.getElementById('shift-status').innerHTML = "✅ Kasir: " + session.username;
-            document.getElementById('btn-submit').disabled = false;
-        } else {
-            document.getElementById('shift-status').innerHTML = "⚠️ Shift Belum Dibuka!";
-            document.getElementById('shift-status').style.background = "#ffebee";
+        try {
+            const { data: shift, error } = await FinexDB
+                .from('kasir_log')
+                .select('id, status')
+                .eq('kasir_nama', session.username)
+                .eq('status', 'Open')
+                .maybeSingle();
+
+            const statusEl = document.getElementById('shift-status');
+            const btnSubmit = document.getElementById('btn-submit');
+
+            if (shift) {
+                activeShiftId = shift.id;
+                statusEl.innerHTML = "✅ Kasir: " + session.username;
+                btnSubmit.disabled = false;
+            } else {
+                statusEl.innerHTML = "⚠️ Shift Belum Dibuka!";
+                statusEl.style.background = "#ffebee";
+                statusEl.style.color = "#c0392b";
+            }
+        } catch (e) {
+            console.error("Gagal cek shift:", e);
         }
     }
 
@@ -124,25 +147,33 @@
         const tglFix = `${tgl}T${new Date().toLocaleTimeString('en-GB')}.000Z`;
 
         try {
-            // 1. Simpan ke Pengeluaran
-            await FinexDB.from('pengeluaran').insert([{ tanggal: tglFix, kategori: namaKat, keterangan: ket, jumlah: jumlah, kasir_id: activeShiftId }]);
+            // 1. Simpan ke tabel pengeluaran
+            const { error: err1 } = await FinexDB.from('pengeluaran').insert([{ 
+                tanggal: tglFix, 
+                kategori: namaKat, 
+                keterangan: ket, 
+                jumlah: jumlah, 
+                kasir_id: activeShiftId 
+            }]);
+            if (err1) throw err1;
 
-            // 2. Simpan ke Jurnal
+            // 2. Simpan ke jurnal_umum
             const dataJurnal = [
                 { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeAkun, keterangan: ket, debit: jumlah, kredit: 0 },
                 { tanggal: tglFix, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: jumlah }
             ];
-            await FinexDB.from('jurnal_umum').insert(dataJurnal);
+            const { error: err2 } = await FinexDB.from('jurnal_umum').insert(dataJurnal);
+            if (err2) throw err2;
 
-            // 3. CETAK NOTA
+            // 3. Siapkan nota dan cetak
             siapkanNota(noBukti, tgl, namaKat, ket, jumlah);
             
-            alert("Data Berhasil Disimpan!");
-            window.print(); // Pemicu cetak
+            alert("✅ Berhasil Disimpan & Mencetak Nota!");
+            window.print(); 
             
-            window.location.reload();
+            location.reload();
         } catch (e) {
-            alert("Gagal: " + e.message);
+            alert("Terjadi kesalahan: " + e.message);
         }
     }
 
@@ -151,29 +182,34 @@
         printArea.innerHTML = `
             <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:10px; margin-bottom:10px;">
                 <b style="font-size:16px;">BEAUTYBLOOM</b><br>
-                Bukti Pengeluaran Kasir<br>
+                NOTA PENGELUARAN KAS<br>
                 --------------------------
             </div>
-            <div style="font-size:12px; line-height:1.5;">
-                No. Bukti : ${bukti}<br>
-                Tanggal   : ${tgl}<br>
-                Kasir     : ${session.username}<br>
+            <div style="font-size:12px; line-height:1.6;">
+                Bukti : ${bukti}<br>
+                Tgl   : ${tgl}<br>
+                Kasir : ${session.username}<br>
                 --------------------------<br>
-                Kategori  : ${kat}<br>
-                Keterangan: ${ket}<br>
+                Kat   : ${kat}<br>
+                Ket   : ${ket}<br>
                 <div style="text-align:right; margin-top:10px; font-size:14px;">
-                    <b>TOTAL: Rp ${total.toLocaleString()}</b>
+                    <b>TOTAL: Rp ${total.toLocaleString('id-ID')}</b>
                 </div>
             </div>
-            <div style="text-align:center; margin-top:20px; font-size:10px;">
+            <div style="text-align:center; margin-top:30px; font-size:10px;">
                 --------------------------<br>
-                Tanda Tangan,<br><br><br><br>
+                Disetujui Oleh,<br><br><br><br>
                 ( ${session.username} )
             </div>
         `;
     }
 
-    function logout() { localStorage.clear(); window.location.replace('login.html'); }
+    function logout() { 
+        if(confirm("Keluar dari sistem?")) {
+            localStorage.clear(); 
+            window.location.replace('login.html'); 
+        }
+    }
 </script>
 </body>
 </html>
