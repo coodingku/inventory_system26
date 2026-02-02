@@ -9,14 +9,12 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        /* Navigasi Sidebar */
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
 
-        /* Main Area (Menu) */
         main { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; }
         .search-bar { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 25px; font-size: 16px; outline: none; box-sizing: border-box; }
         .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
@@ -24,20 +22,16 @@
         .card:hover { transform: translateY(-5px); border-bottom-color: var(--accent); }
         .stok-badge { position: absolute; top: 5px; right: 5px; background: #f8f9fa; font-size: 10px; padding: 2px 6px; border-radius: 10px; border: 1px solid #eee; }
 
-        /* Sidebar POS (Cart) */
         .sidebar-pos { width: 400px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
         .cart-header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; font-size: 18px; }
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
         .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 10px; }
         
-        /* Summary & Totals */
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #666; font-size: 14px; }
         .total-row { font-size: 24px; font-weight: bold; color: var(--primary); margin-top: 10px; padding-top: 10px; border-top: 2px solid #eee; }
-        .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-pay:hover { opacity: 0.9; transform: scale(0.98); }
+        .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
-        /* Modal Styles */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 380px; text-align: center; }
         .modal-content input, .modal-content select { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
@@ -125,13 +119,13 @@
     <div id="print-area"></div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
     let cart = [];
-    let taxRate = 0.12; 
-    let state = { sub: 0, disc: 0, tax: 0, total: 0, discName: "Tanpa Diskon", lastTrxId: null, lastInv: "", lastMethod: "" };
+    let taxRate = 0;
+    let state = { sub: 0, disc: 0, tax: 0, total: 0, discName: "Tanpa Promo", lastTrxId: null, lastInv: "", lastMethod: "" };
     let currentLogId = null;
     let isSaving = false;
     const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -142,44 +136,39 @@
         await loadSettings();
         await loadMenu();
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
-        document.getElementById('btnSendWA').onclick = sendWhatsApp;
     };
 
     async function checkActiveShift() {
-        const { data } = await FinexDB.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
+        const { data } = await supabase.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
         if (data) currentLogId = data.id; else document.getElementById('openShiftModal').style.display = 'flex';
     }
 
     async function executeOpenShift() {
         const saldoAwal = parseFloat(document.getElementById('inputSaldoAwal').value || 0);
-        const { data, error } = await FinexDB.from('kasir_log').insert([{ kasir_nama: session.username, saldo_awal: saldoAwal, status: 'Open', waktu_buka: new Date().toISOString() }]).select().single();
+        const { data, error } = await supabase.from('kasir_log').insert([{ kasir_nama: session.username, saldo_awal: saldoAwal, status: 'Open', waktu_buka: new Date().toISOString() }]).select().single();
         if (!error) { currentLogId = data.id; document.getElementById('openShiftModal').style.display = 'none'; }
     }
 
     async function loadSettings() {
-        const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
+        const { data: pData } = await supabase.from('ppn').select('nilai').eq('id', 1).single();
         if (pData) taxRate = parseFloat(pData.nilai) / 100;
 
-        // Ambil Metode Pembayaran yang sudah ada kode_akun-nya
-        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*');
+        const { data: mtd } = await supabase.from('metode_pembayaran').select('*');
         if (mtd) {
-            document.getElementById('payMethodSelect').innerHTML = mtd.map(m => 
-                `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`
-            ).join('');
+            document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
         }
         
-        const { data: dsk } = await FinexDB.from('diskon').select('*');
-        const diskonHTML = '<option value="0" data-name="Tanpa Promo">0%</option>' + 
+        const { data: dsk } = await supabase.from('diskon').select('*');
+        document.getElementById('discSelect').innerHTML = '<option value="0" data-name="Tanpa Promo">0%</option>' + 
             (dsk || []).map(d => `<option value="${d.persen}" data-name="${d.nama_diskon}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
-        document.getElementById('discSelect').innerHTML = diskonHTML;
         calculateTotal();
     }
 
     async function loadMenu() {
         const q = document.getElementById('search').value;
-        let query = FinexDB.from('produk').select('*').gt('stok_sekarang', 0);
+        let query = supabase.from('produk').select('*').gt('stok_sekarang', 0);
         if (q) query = query.ilike('nama_barang', `%${q}%`);
-        const { data } = await query.order('nama_barang', { ascending: true });
+        const { data } = await query.order('nama_barang');
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
                 <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
@@ -191,14 +180,16 @@
     function addCart(id, nama, harga, stokMaks) {
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) { 
-            if (cart[idx].qty < stokMaks) cart[idx].qty++; 
-            else alert("Stok maksimal tercapai!"); 
+            if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok habis!"); 
         } else { cart.push({ id, nama_barang: nama, harga, qty: 1 }); }
         calculateTotal();
     }
 
     function calculateTotal() {
         const ds = document.getElementById('discSelect');
+        const selectedOpt = ds.options[ds.selectedIndex];
+        state.discName = selectedOpt ? selectedOpt.getAttribute('data-name') : "Tanpa Promo";
+        
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
         state.disc = (state.sub * parseFloat(ds.value || 0)) / 100;
         const dpp = state.sub - state.disc;
@@ -241,8 +232,7 @@
         const tgl = new Date().toISOString();
 
         try {
-            // 1. Simpan Penjualan
-            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
+            const { data: trx, error: errTrx } = await supabase.from('penjualan').insert([{ 
                 no_invoice: inv, subtotal: state.sub, diskon: state.disc, pajak: state.tax, 
                 grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method, tanggal: tgl 
             }]).select().single();
@@ -252,22 +242,19 @@
             state.lastInv = inv;
             state.lastMethod = method;
 
-            // 2. Simpan Detail & Update Stok
             for (const item of cart) {
-                await FinexDB.from('penjualan_detail').insert([{ 
+                await supabase.from('penjualan_detail').insert([{ 
                     penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
                     qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
                 }]);
-                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                if (p) await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                const { data: p } = await supabase.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                if (p) await supabase.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
             }
 
-            // 3. JURNAL OTOMATIS (Integrasi Akuntansi)
-            const jurnalEntries = [
+            await supabase.from('jurnal_umum').insert([
                 { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${method}`, debit: state.total, kredit: 0 },
                 { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${method}`, debit: 0, kredit: state.total }
-            ];
-            await FinexDB.from('jurnal_umum').insert(jurnalEntries);
+            ]);
 
             renderReceipt(inv, cash, method);
             document.getElementById('payModal').style.display = 'none';
@@ -277,24 +264,36 @@
 
     function renderReceipt(inv, bayar, method) {
         const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
+        const diskonRow = state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Promo (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : '';
+        
         document.getElementById('print-area').innerHTML = `
-            <div style="width:58mm; padding:10px; font-family:monospace;">
-                <center><b>BeautyBloom</b><br>POS System<br>--------------------------</center>
+            <div style="width:58mm; padding:5px; font-family:monospace; color:black;">
+                <center><b>BEAUTYBLOOM</b><br>Nota Penjualan<br>--------------------------</center>
                 <div style="font-size:10px;">ID: ${inv}<br>Tgl: ${new Date().toLocaleString()}<br>Ksr: ${session.username}</div>
                 --------------------------<br>${items}--------------------------<br>
                 <div style="font-size:11px;">
                     <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
+                    ${diskonRow}
+                    <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${state.tax.toLocaleString()}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
                 </div>
                 --------------------------<br>
                 <div style="font-size:10px;">Metode: ${method}<br>Bayar: ${bayar.toLocaleString()}<br>Kembali: ${(bayar - state.total).toLocaleString()}</div>
+                <center style="margin-top:10px;">Terima Kasih</center>
             </div>`;
     }
 
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        const msg = `*NOTA BEAUTYBLOOM*%0ANo: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A_Terima kasih!_`;
-        window.open(`https://wa.me/${hp.startsWith('0') ? '62' + hp.slice(1) : hp}?text=${msg}`, '_blank');
+        if (!hp) return alert("Masukkan nomor WA!");
+        const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
+        
+        // Link dinamis ke invoice-view.html
+        const linkNota = window.location.origin + `/invoice-view.html?id=${state.lastTrxId}`;
+        
+        const msg = `*NOTA BEAUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A*Lihat Nota Digital:*%0A${linkNota}%0A%0A_Terima kasih sudah berbelanja!_`;
+        
+        window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
         location.reload();
     }
 
