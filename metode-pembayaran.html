@@ -6,7 +6,7 @@
     <title>Finex Pos | Metode Pembayaran</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
         /* Navigasi */
@@ -27,16 +27,20 @@
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
         
         .btn-save { background: var(--success); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-save:hover { background: #219150; }
+        .btn-edit { background: var(--warning); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-right: 5px; }
+        .btn-del { background: none; border: none; color: var(--danger); cursor: pointer; }
         
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
         .badge-akun { background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 5px; font-weight: bold; font-size: 12px; }
-        
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
-        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
+
+        /* Modal Edit */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 15px; width: 400px; }
+
+        .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: auto; }
     </style>
 </head>
 <body>
@@ -52,11 +56,6 @@
     <div class="nav-section">Operasional</div>
     <a href="manajemen-user.html">👥 Manajemen User</a>
     <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
-    
-    <div class="user-info">
-        <small>USER AKTIF:</small><br>
-        <b id="display-user-nav">Memuat...</b>
-    </div>
     <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
 </nav>
 
@@ -70,7 +69,7 @@
             </div>
             <div class="input-group">
                 <label>Hubungkan ke Akun Jurnal</label>
-                <select id="select-akun">
+                <select id="select-akun" class="akun-dropdown">
                     <option value="">Memuat Akun...</option>
                 </select>
             </div>
@@ -82,7 +81,7 @@
                 <tr>
                     <th>Nama Metode</th>
                     <th>Akun Jurnal (Aset)</th>
-                    <th style="width: 100px; text-align: center;">Aksi</th>
+                    <th style="width: 150px; text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="tabel-metode">
@@ -92,43 +91,42 @@
     </div>
 </main>
 
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3>Edit Metode Pembayaran</h3>
+        <input type="hidden" id="edit-id">
+        <div class="input-group" style="margin-bottom: 15px;">
+            <label>Nama Metode</label>
+            <input type="text" id="edit-nama">
+        </div>
+        <div class="input-group" style="margin-bottom: 20px;">
+            <label>Pilih Akun Jurnal</label>
+            <select id="edit-akun" class="akun-dropdown"></select>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-save" style="flex:1;" onclick="updateMetode()">💾 Simpan Perubahan</button>
+            <button onclick="tutupModal()" style="flex:1; border:none; border-radius:8px; cursor:pointer;">Batal</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    const sessionStr = localStorage.getItem('finex_session');
-    const userRole = localStorage.getItem('user_role');
+    window.onload = () => {
+        muatAkun();
+        muatMetode();
+    };
 
-    if (!sessionStr) {
-        window.location.replace('login.html');
-    } else {
-        const session = JSON.parse(sessionStr);
-        if (userRole !== 'admin' && session.role !== 'admin') {
-            alert("Akses Terbatas: Hanya untuk Admin.");
-            window.location.replace('pos.html');
-        } else {
-            window.onload = () => {
-                document.getElementById('display-user-nav').innerText = session.username;
-                muatAkun();
-                muatMetode();
-            };
-        }
-    }
-
-    // Fungsi mengambil daftar akun Aset (Kepala 1)
     async function muatAkun() {
-        const { data, error } = await supabaseClient
-            .from('akun')
-            .select('kode_akun, nama_akun')
-            .ilike('kode_akun', '1%') // Hanya ambil akun Aset/Harta
-            .order('kode_akun');
-        
-        const select = document.getElementById('select-akun');
+        const { data, error } = await supabaseClient.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '1%').order('kode_akun');
+        const dropdowns = document.querySelectorAll('.akun-dropdown');
         if (!error && data) {
-            select.innerHTML = '<option value="">-- Pilih Akun --</option>';
-            data.forEach(a => {
-                select.innerHTML += `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`;
+            dropdowns.forEach(select => {
+                select.innerHTML = '<option value="">-- Pilih Akun --</option>';
+                data.forEach(a => select.innerHTML += `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`);
             });
         }
     }
@@ -136,57 +134,69 @@
     async function muatMetode() {
         const { data, error } = await supabaseClient.from('metode_pembayaran').select('*').order('nama_metode');
         const tbody = document.getElementById('tabel-metode');
-        
         if (error) return;
-        if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Belum ada metode pembayaran.</td></tr>`;
-            return;
-        }
-
+        
         tbody.innerHTML = data.map(m => `
             <tr>
                 <td><b>${m.nama_metode}</b></td>
                 <td><span class="badge-akun">${m.kode_akun || 'Belum Terhubung'}</span></td>
                 <td style="text-align: center;">
-                    <button style="color:red; cursor:pointer; background:none; border:none;" onclick="hapusMetode('${m.id}', '${m.nama_metode}')">❌ Hapus</button>
+                    <button class="btn-edit" onclick="bukaModal('${m.id}', '${m.nama_metode}', '${m.kode_akun}')">✏️ Edit</button>
+                    <button class="btn-del" onclick="hapusMetode('${m.id}', '${m.nama_metode}')">❌</button>
                 </td>
             </tr>
         `).join('');
     }
 
     async function tambahMetode() {
-        const input = document.getElementById('new-metode');
-        const select = document.getElementById('select-akun');
-        const nama = input.value.trim();
-        const akun = select.value;
+        const nama = document.getElementById('new-metode').value;
+        const akun = document.getElementById('select-akun').value;
+        if(!nama || !akun) return alert("Lengkapi data!");
 
-        if(!nama || !akun) return alert("Isi nama metode dan pilih akun jurnal!");
+        const { error } = await supabaseClient.from('metode_pembayaran').insert([{ nama_metode: nama, kode_akun: akun }]);
+        if (!error) {
+            document.getElementById('new-metode').value = '';
+            muatMetode();
+        }
+    }
 
-        const { error } = await supabaseClient.from('metode_pembayaran').insert([{ 
-            nama_metode: nama,
+    // FUNGSI MODAL EDIT
+    function bukaModal(id, nama, akun) {
+        document.getElementById('edit-id').value = id;
+        document.getElementById('edit-nama').value = nama;
+        document.getElementById('edit-akun').value = akun;
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function tutupModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    async function updateMetode() {
+        const id = document.getElementById('edit-id').value;
+        const nama = document.getElementById('edit-nama').value;
+        const akun = document.getElementById('edit-akun').value;
+
+        const { error } = await supabaseClient.from('metode_pembayaran').update({ 
+            nama_metode: nama, 
             kode_akun: akun 
-        }]);
+        }).eq('id', id);
 
         if (!error) {
-            input.value = '';
-            select.value = '';
+            alert("Berhasil diperbarui");
+            tutupModal();
             muatMetode();
-        } else {
-            alert("Gagal menambah: " + error.message);
         }
     }
 
     async function hapusMetode(id, nama) {
         if(confirm(`Hapus metode "${nama}"?`)) {
-            const { error } = await supabaseClient.from('metode_pembayaran').delete().eq('id', id);
-            if (!error) muatMetode();
+            await supabaseClient.from('metode_pembayaran').delete().eq('id', id);
+            muatMetode();
         }
     }
 
-    function logout() {
-        localStorage.clear();
-        window.location.replace('login.html');
-    }
+    function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
 </html>
