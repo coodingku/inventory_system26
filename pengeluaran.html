@@ -99,7 +99,6 @@
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
         
-        // Perbaikan pengisian nama kasir agar tidak error
         const elNama = document.getElementById('nama-kasir-aktif');
         if(elNama) elNama.innerText = session.username;
         
@@ -129,29 +128,40 @@
         const kodeAkun = katRaw.split(' - ')[0];
         const namaKat = katRaw.split(' - ')[1];
         const noBukti = 'OUT-' + Date.now();
-        const tglFix = `${tgl}T${new Date().toLocaleTimeString('id-ID')}.000Z`;
+        
+        // PERBAIKAN: Gunakan format ISO Standard agar terbaca di Laporan
+        const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}.000Z`;
 
         try {
             // 1. Simpan ke tabel 'pengeluaran'
-            await FinexDB.from('pengeluaran').insert([{ 
-                tanggal: tglFix, kategori: namaKat, keterangan: ket, jumlah: jumlah, kasir_id: activeShiftId 
+            const { error: error1 } = await FinexDB.from('pengeluaran').insert([{ 
+                tanggal: tglFix, 
+                kategori: namaKat, 
+                keterangan: ket, 
+                jumlah: jumlah, 
+                kasir_id: activeShiftId 
             }]);
+            
+            if (error1) throw error1;
 
             // 2. Simpan ke tabel 'jurnal_umum'
             const dataJurnal = [
                 { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeAkun, keterangan: ket, debit: jumlah, kredit: 0 },
                 { tanggal: tglFix, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: jumlah }
             ];
-            await FinexDB.from('jurnal_umum').insert(dataJurnal);
+            const { error: error2 } = await FinexDB.from('jurnal_umum').insert(dataJurnal);
+            
+            if (error2) throw error2;
 
             // 3. Render Nota & Cetak
             siapkanNota(noBukti, tgl, namaKat, ket, jumlah);
-            alert("Data Berhasil Disimpan!");
+            alert("✅ Data Berhasil Disimpan ke Laporan!");
             window.print();
             
             location.reload();
         } catch (e) {
-            alert("Gagal: " + e.message);
+            console.error(e);
+            alert("Gagal menyimpan: " + e.message);
         }
     }
 
