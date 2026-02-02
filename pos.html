@@ -213,48 +213,80 @@
     function openPayment() { if(cart.length === 0) return; document.getElementById('label-total-modal').innerText = "Total: Rp " + state.total.toLocaleString(); document.getElementById('payModal').style.display = 'flex'; }
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-    async function executeTransaction() {
-        if (isSaving) return;
-        const method = document.getElementById('payMethodSelect').value;
-        const cash = parseFloat(document.getElementById('cashInput').value || 0);
-        if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
+  async function executeTransaction() {
+    if (isSaving) return;
+    const method = document.getElementById('payMethodSelect').value;
+    const cash = parseFloat(document.getElementById('cashInput').value || 0);
+    if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
+    
+    isSaving = true;
+    const inv = `INV-${Date.now().toString().slice(-6)}`;
+    state.lastInv = inv; 
+    state.lastMethod = method;
+
+    try {
+        // 1. Simpan ke tabel penjualan
+        const { data: trx, error } = await FinexDB.from('penjualan').insert([{ 
+            no_invoice: inv, 
+            subtotal: state.sub, 
+            diskon: state.disc, 
+            pajak: state.tax, 
+            grand_total: state.total, 
+            bayar: cash, 
+            kasir_id: currentLogId, 
+            metode_pembayaran: method 
+        }]).select().single();
         
-        isSaving = true;
-        const inv = `INV-${Date.now().toString().slice(-6)}`;
-        state.lastInv = inv; state.lastMethod = method;
+        if (error) throw error;
+        state.lastTrxId = trx.id;
 
-        try {
-            const { data: trx, error } = await FinexDB.from('penjualan').insert([{ no_invoice: inv, subtotal: state.sub, diskon: state.disc, pajak: state.tax, grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method }]).select().single();
-            if (error) throw error;
-            state.lastTrxId = trx.id;
+        let totalHPP = 0;
+        // 2. Simpan detail dan Update Stok
+        for (const item of cart) {
+            await FinexDB.from('penjualan_detail').insert([{ 
+                penjualan_id: trx.id, 
+                produk_id: item.id, 
+                nama_barang: item.nama_barang, 
+                qty: item.qty, 
+                harga_satuan: item.harga, 
+                subtotal_item: item.qty * item.harga 
+            }]);
 
-            let totalHPP = 0;
-            for (const item of cart) {
-                await FinexDB.from('penjualan_detail').insert([{ penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga }]);
-                const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
-                if (p) {
-                    totalHPP += (parseFloat(p.harga_beli || 0) * item.qty);
-                    await FinexDB.from('produk').update({ stok_sekarang: (p.stok_sekarang - item.qty) }).eq('id', item.id);
-                }
+            const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
+            if (p) {
+                totalHPP += (parseFloat(p.harga_beli || 0) * item.qty);
+                await FinexDB.from('produk').update({ 
+                    stok_sekarang: (p.stok_sekarang - item.qty) 
+                }).eq('id', item.id);
             }
+        }
 
-            // Jurnal Otomatis
-            const dpp = state.sub - state.disc;
-            const entries = [
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Penjualan ${inv}`, kode_akun: '1-1001', nama_akun: 'Kas', debit: state.total, kredit: 0 },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Pendapatan ${inv}`, kode_akun: '4-1001', nama_akun: 'Pendapatan Kantin', debit: 0, kredit: dpp },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Pajak PB1 ${inv}`, kode_akun: '2-1002', nama_akun: 'Hutang Pajak', debit: 0, kredit: state.tax },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `HPP ${inv}`, kode_akun: '5-1001', nama_akun: 'Harga Pokok Penjualan', debit: totalHPP, kredit: 0 },
-                { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Stok keluar ${inv}`, kode_akun: '1-1002', nama_akun: 'Persediaan Barang', debit: 0, kredit: totalHPP }
-            ];
-            await FinexDB.from('jurnal_umum').insert(entries);
+        // 3. Jurnal Otomatis (Kolom nama_akun dihapus agar tidak error 400)
+        const dpp = state.sub - state.disc;
+        const entries = [
+            { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Penjualan ${inv}`, kode_akun: '1-1001', debit: state.total, kredit: 0 },
+            { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Pendapatan ${inv}`, kode_akun: '4-1001', debit: 0, kredit: dpp },
+            { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Pajak PB1 ${inv}`, kode_akun: '2-1002', debit: 0, kredit: state.tax },
+            { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `HPP ${inv}`, kode_akun: '5-1001', debit: totalHPP, kredit: 0 },
+            { tanggal: new Date().toISOString(), no_bukti: inv, keterangan: `Stok keluar ${inv}`, kode_akun: '1-1002', debit: 0, kredit: totalHPP }
+        ];
 
-            renderReceipt(inv, cash, method);
-            document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
-        } catch (e) { isSaving = false; alert("Error: " + e.message); }
+        const { error: jErr } = await FinexDB.from('jurnal_umum').insert(entries);
+        if (jErr) throw new Error("Jurnal Error: " + jErr.message);
+
+        // 4. Finishing
+        renderReceipt(inv, cash, method);
+        document.getElementById('payModal').style.display = 'none';
+        setTimeout(() => { 
+            window.print(); 
+            document.getElementById('waModal').style.display = 'flex'; 
+        }, 500);
+
+    } catch (e) { 
+        isSaving = false; 
+        alert("Error: " + e.message); 
     }
-
+}
     function renderReceipt(inv, bayar, method) {
         const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
         document.getElementById('print-area').innerHTML = `
