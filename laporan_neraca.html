@@ -98,74 +98,81 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+   // Gunakan nama FinexDB agar tidak bentrok dengan variabel internal library
+const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    window.onload = () => {
-        document.getElementById('date-now').innerText = "Per: " + new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
-        calculateBalanceSheet();
-    };
+window.onload = () => {
+    document.getElementById('date-now').innerText = "Per: " + new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+    calculateBalanceSheet();
+};
 
-    async function calculateBalanceSheet() {
-        try {
-            // Ambil semua data jurnal
-            const { data: jurnal } = await supabase.from('jurnal_umum').select('*');
+async function calculateBalanceSheet() {
+    try {
+        // Ambil semua data jurnal dari FinexDB
+        const { data: jurnal, error } = await FinexDB.from('jurnal_umum').select('*');
+        
+        if (error) throw error;
+
+        let accounts = {
+            kas: 0, stok: 0, piutang: 0, alat: 0,
+            hutang: 0, pajak: 0, modal: 0, laba: 0
+        };
+
+        (jurnal || []).forEach(j => {
+            const k = j.kode_akun;
+            const debet = parseFloat(j.debit || 0);
+            const kredit = parseFloat(j.kredit || 0);
+            const balance = debet - kredit;
+
+            // Logika Pemetaan Akun
+            if (k.startsWith('1-1001')) accounts.kas += balance;
+            if (k.startsWith('1-1002')) accounts.stok += balance;
+            if (k.startsWith('1-1003')) accounts.piutang += balance;
+            if (k.startsWith('1-2'))    accounts.alat += balance;
             
-            let aktiva = 0; let pasiva = 0;
-            let accounts = {
-                kas: 0, stok: 0, piutang: 0, alat: 0,
-                hutang: 0, pajak: 0, modal: 0, laba: 0
-            };
-
-            jurnal.forEach(j => {
-                const k = j.kode_akun;
-                const balance = j.debit - j.kredit;
-
-                // Logika Pemetaan Akun (Sesuai kode yang kita buat di POS)
-                if (k.startsWith('1-1001')) accounts.kas += balance;
-                if (k.startsWith('1-1002')) accounts.stok += balance;
-                if (k.startsWith('1-1003')) accounts.piutang += balance;
-                if (k.startsWith('1-2'))    accounts.alat += balance;
-                
-                if (k.startsWith('2-'))      accounts.hutang += (j.kredit - j.debit);
-                if (k.startsWith('2-1002')) accounts.pajak += (j.kredit - j.debit);
-                if (k.startsWith('3-'))      accounts.modal += (j.kredit - j.debit);
-                
-                // Laba Rugi masuk ke Ekuitas (Akun Pendapatan 4 & Beban 5/6)
-                if (k.startsWith('4-')) accounts.laba += (j.kredit - j.debit);
-                if (k.startsWith('5-') || k.startsWith('6-')) accounts.laba -= (j.debit - j.kredit);
-            });
-
-            // Tampilkan ke UI
-            document.getElementById('val-kas').innerText = "Rp " + accounts.kas.toLocaleString();
-            document.getElementById('val-stok').innerText = "Rp " + accounts.stok.toLocaleString();
-            document.getElementById('val-piutang').innerText = "Rp " + accounts.piutang.toLocaleString();
-            document.getElementById('val-alat').innerText = "Rp " + accounts.alat.toLocaleString();
+            // Pasiva (Kredit dikurangi Debet)
+            if (k.startsWith('2-1001')) accounts.hutang += (kredit - debet);
+            if (k.startsWith('2-1002')) accounts.pajak += (kredit - debet);
+            if (k.startsWith('3-'))      accounts.modal += (kredit - debet);
             
-            document.getElementById('val-hutang').innerText = "Rp " + accounts.hutang.toLocaleString();
-            document.getElementById('val-pajak').innerText = "Rp " + accounts.pajak.toLocaleString();
-            document.getElementById('val-modal').innerText = "Rp " + accounts.modal.toLocaleString();
-            document.getElementById('val-laba').innerText = "Rp " + accounts.laba.toLocaleString();
+            // Laba Rugi (Pendapatan 4 - Beban 5/6)
+            if (k.startsWith('4-')) accounts.laba += (kredit - debet);
+            if (k.startsWith('5-') || k.startsWith('6-')) accounts.laba -= (debet - kredit);
+        });
 
-            const totalAktiva = accounts.kas + accounts.stok + accounts.piutang + accounts.alat;
-            const totalPasiva = accounts.hutang + accounts.pajak + accounts.modal + accounts.laba;
+        // Update tampilan UI
+        document.getElementById('val-kas').innerText = "Rp " + accounts.kas.toLocaleString();
+        document.getElementById('val-stok').innerText = "Rp " + accounts.stok.toLocaleString();
+        document.getElementById('val-piutang').innerText = "Rp " + accounts.piutang.toLocaleString();
+        document.getElementById('val-alat').innerText = "Rp " + accounts.alat.toLocaleString();
+        
+        document.getElementById('val-hutang').innerText = "Rp " + accounts.hutang.toLocaleString();
+        document.getElementById('val-pajak').innerText = "Rp " + accounts.pajak.toLocaleString();
+        document.getElementById('val-modal').innerText = "Rp " + accounts.modal.toLocaleString();
+        document.getElementById('val-laba').innerText = "Rp " + accounts.laba.toLocaleString();
 
-            document.getElementById('total-aktiva').innerText = "Rp " + totalAktiva.toLocaleString();
-            document.getElementById('total-pasiva').innerText = "Rp " + totalPasiva.toLocaleString();
+        const totalAktiva = accounts.kas + accounts.stok + accounts.piutang + accounts.alat;
+        const totalPasiva = accounts.hutang + accounts.pajak + accounts.modal + accounts.laba;
 
-            // Check Balance
-            const msgBox = document.getElementById('balance-msg');
-            if (Math.abs(totalAktiva - totalPasiva) < 1) { // Toleransi pembulatan
-                msgBox.className = "balance-check is-balanced";
-                msgBox.innerText = "✅ STATUS: BALANCE (SEIMBANG)";
-            } else {
-                msgBox.className = "balance-check not-balanced";
-                msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: Rp " + (totalAktiva - totalPasiva).toLocaleString() + ")";
-            }
+        document.getElementById('total-aktiva').innerText = "Rp " + totalAktiva.toLocaleString();
+        document.getElementById('total-pasiva').innerText = "Rp " + totalPasiva.toLocaleString();
 
-        } catch (e) { console.error(e); }
+        const msgBox = document.getElementById('balance-msg');
+        // Gunakan pembulatan untuk cek balance agar tidak error karena koma kecil
+        if (Math.round(totalAktiva) === Math.round(totalPasiva)) {
+            msgBox.className = "balance-check is-balanced";
+            msgBox.innerText = "✅ STATUS: BALANCE (SEIMBANG)";
+        } else {
+            msgBox.className = "balance-check not-balanced";
+            msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: Rp " + (totalAktiva - totalPasiva).toLocaleString() + ")";
+        }
+
+    } catch (e) { 
+        console.error("Gagal memuat Neraca:", e.message); 
     }
+}
 </script>
 </body>
 </html>
