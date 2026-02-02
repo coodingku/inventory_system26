@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | Kelola Penjualan Manual</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        main { flex: 1; margin-left: 240px; padding: 40px; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; align-items: start; }
+        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: var(--primary); }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        
+        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-submit { background: var(--success); color: white; width: 100%; margin-top: 10px; }
+        .btn-cancel { background: #95a5a6; color: white; width: 100%; margin-top: 5px; display: none; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 13px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #eee; color: #7f8c8d; }
+        td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+        
+        .btn-action { padding: 5px 8px; border-radius: 5px; border: none; cursor: pointer; color: white; font-size: 11px; }
+        .btn-edit { background: var(--warning); margin-right: 5px; }
+        .btn-delete { background: var(--danger); }
+        
+        .badge-manual { background: #e8f4fd; color: #3498db; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="pos.html">🛒 Masuk Kasir</a>
+    <a href="catat_jurnal.html">📖 Jurnal Umum</a>
+    <a href="input_penjualan_manual.html" style="background: var(--accent); color:white;">✍️ Penjualan Manual</a>
+    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
+    <a href="laba_rugi.html">📈 Laba Rugi</a>
+</nav>
+
+<main>
+    <h1>Kelola Penjualan Manual</h1>
+    
+    <div class="grid-layout">
+        <div class="card">
+            <h3 id="form-title">Input Penjualan Baru</h3>
+            <input type="hidden" id="edit-no-bukti">
+            
+            <div class="form-group">
+                <label>Tanggal Transaksi</label>
+                <input type="date" id="tgl_transaksi">
+            </div>
+
+            <div class="form-group">
+                <label>Metode Pembayaran</label>
+                <select id="akun_debit">
+                    <option value="1101">1101 - Kas Tunai</option>
+                    <option value="1102">1102 - Bank (BCA/QRIS)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Total Penjualan (Rp)</label>
+                <input type="number" id="nominal_jual" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label>Keterangan</label>
+                <textarea id="keterangan" rows="2" placeholder="Rekap Penjualan..."></textarea>
+            </div>
+
+            <button id="btn-save" class="btn btn-submit" onclick="simpanTransaksi()">Simpan ke Jurnal</button>
+            <button id="btn-cancel" class="btn btn-cancel" onclick="resetForm()">Batal Edit</button>
+        </div>
+
+        <div class="card">
+            <h3>Riwayat Input Manual</h3>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Keterangan</th>
+                            <th>Nominal</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-manual">
+                        <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    let isEditing = false;
+
+    window.onload = () => {
+        document.getElementById('tgl_transaksi').value = new Date().toISOString().split('T')[0];
+        loadHistory();
+    };
+
+    async function loadHistory() {
+        // Hanya ambil data dengan awalan bukti MNL- (Input Manual)
+        const { data, error } = await FinexDB.from('jurnal_umum')
+            .select('*')
+            .ilike('no_bukti', 'MNL-%')
+            .order('tanggal', { ascending: false });
+
+        const tbody = document.getElementById('list-manual');
+        if (error || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada data manual.</td></tr>';
+            return;
+        }
+
+        // Karena Double Entry, kita filter agar hanya muncul 1 baris per No Bukti (ambil yang debit saja)
+        const displayData = data.filter(j => j.debit > 0);
+
+        tbody.innerHTML = displayData.map(j => `
+            <tr>
+                <td>${new Date(j.tanggal).toLocaleDateString('id-ID')}</td>
+                <td><span class="badge-manual">${j.no_bukti}</span><br>${j.keterangan}</td>
+                <td style="font-weight:bold;">Rp ${Number(j.debit).toLocaleString()}</td>
+                <td>
+                    <button class="btn-action btn-edit" onclick="editData('${j.no_bukti}', '${j.tanggal}', ${j.debit}, '${j.keterangan}', '${j.kode_akun}')">✎</button>
+                    <button class="btn-action btn-delete" onclick="hapusData('${j.no_bukti}')">🗑</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function simpanTransaksi() {
+        const tgl = document.getElementById('tgl_transaksi').value;
+        const akunDebit = document.getElementById('akun_debit').value;
+        const nominal = parseFloat(document.getElementById('nominal_jual').value);
+        const ket = document.getElementById('keterangan').value;
+        const editNoBukti = document.getElementById('edit-no-bukti').value;
+
+        if (!tgl || !nominal) return alert("Lengkapi data!");
+
+        // Jika sedang edit, hapus dulu data lama
+        if (isEditing) {
+            await FinexDB.from('jurnal_umum').delete().eq('no_bukti', editNoBukti);
+        }
+
+        const noBukti = isEditing ? editNoBukti : "MNL-" + Date.now().toString().slice(-6);
+        const tglISO = tgl + "T12:00:00";
+
+        const entries = [
+            { tanggal: tglISO, no_bukti: noBukti, keterangan: ket, kode_akun: akunDebit, debit: nominal, kredit: 0 },
+            { tanggal: tglISO, no_bukti: noBukti, keterangan: ket, kode_akun: '4101', debit: 0, kredit: nominal }
+        ];
+
+        const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+        
+        if (error) alert("Error: " + error.message);
+        else {
+            alert(isEditing ? "Data Berhasil Diperbarui!" : "Data Berhasil Disimpan!");
+            resetForm();
+            loadHistory();
+        }
+    }
+
+    function editData(noBukti, tgl, nominal, ket, akun) {
+        isEditing = true;
+        document.getElementById('form-title').innerText = "Edit Transaksi " + noBukti;
+        document.getElementById('edit-no-bukti').value = noBukti;
+        document.getElementById('tgl_transaksi').value = tgl.split('T')[0];
+        document.getElementById('nominal_jual').value = nominal;
+        document.getElementById('keterangan').value = ket;
+        document.getElementById('akun_debit').value = akun;
+        
+        document.getElementById('btn-save').innerText = "Perbarui Transaksi";
+        document.getElementById('btn-cancel').style.display = "block";
+    }
+
+    async function hapusData(noBukti) {
+        if (!confirm("Hapus transaksi " + noBukti + "? Tindakan ini tidak bisa dibatalkan.")) return;
+        
+        const { error } = await FinexDB.from('jurnal_umum').delete().eq('no_bukti', noBukti);
+        if (error) alert("Gagal hapus");
+        else loadHistory();
+    }
+
+    function resetForm() {
+        isEditing = false;
+        document.getElementById('form-title').innerText = "Input Penjualan Baru";
+        document.getElementById('edit-no-bukti').value = "";
+        document.getElementById('nominal_jual').value = "";
+        document.getElementById('keterangan').value = "";
+        document.getElementById('btn-save').innerText = "Simpan ke Jurnal";
+        document.getElementById('btn-cancel').style.display = "none";
+    }
+</script>
+</body>
+</html>
