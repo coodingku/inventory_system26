@@ -64,8 +64,7 @@
         <button class="btn-export" onclick="exportToCSV()">📥 Simpan Excel (CSV)</button>
     </div>
 
-    <div class="stats-grid" id="category-stats">
-        </div>
+    <div class="stats-grid" id="category-stats"></div>
 
     <div class="card">
         <div class="filter-group">
@@ -106,13 +105,15 @@
 
     let currentData = [];
 
-    // Init tanggal bulan ini
+    // Set filter ke bulan saat ini saat halaman dibuka
     const d = new Date();
     document.getElementById('filter-bulan').value = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}`;
 
     async function fetchExpenses() {
         const filterMonth = document.getElementById('filter-bulan').value;
         const [year, month] = filterMonth.split('-');
+        
+        // Buat range tanggal awal dan akhir bulan
         const start = `${filterMonth}-01T00:00:00.000Z`;
         const end = `${year}-${month}-${new Date(year, month, 0).getDate()}T23:59:59.999Z`;
 
@@ -134,25 +135,21 @@
         const statsContainer = document.getElementById('category-stats');
         const summary = {};
         
-        // Hitung total per kategori
         data.forEach(item => {
             summary[item.kategori] = (summary[item.kategori] || 0) + parseFloat(item.jumlah || 0);
         });
 
-        // Buat HTML box stats
         let statsHTML = '';
         for (const [kat, total] of Object.entries(summary)) {
             statsHTML += `
                 <div class="stat-box">
                     <h4>${kat}</h4>
-                    <p>Rp ${total.toLocaleString()}</p>
+                    <p>Rp ${total.toLocaleString('id-ID')}</p>
                 </div>
             `;
         }
         
-        // Jika kosong
         if(data.length === 0) statsHTML = '<div class="stat-box" style="border:none;"><h4>Data Kosong</h4><p>Rp 0</p></div>';
-        
         statsContainer.innerHTML = statsHTML;
     }
 
@@ -174,44 +171,46 @@
                     <td>${new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'})}</td>
                     <td><span class="badge-cat">${item.kategori}</span></td>
                     <td>${item.keterangan}</td>
-                    <td><b>Rp ${nominal.toLocaleString()}</b></td>
+                    <td><b>Rp ${nominal.toLocaleString('id-ID')}</b></td>
                     <td style="text-align: center;">
-                        <button class="btn-void" onclick="deleteExpense('${item.id}', '${item.keterangan}')">🗑️ Hapus</button>
+                        <button class="btn-void" onclick="deleteExpense('${item.id}', '${item.keterangan}', '${item.tanggal}')">🗑️ Hapus</button>
                     </td>
                 </tr>
             `;
         }).join('');
 
-        document.getElementById('total-pengeluaran').innerText = "Rp " + grandTotal.toLocaleString();
+        document.getElementById('total-pengeluaran').innerText = "Rp " + grandTotal.toLocaleString('id-ID');
     }
 
-async function hapusPengeluaran(id, keterangan, tanggal) {
-    if (!confirm("Hapus transaksi ini? Jurnal terkait juga akan dihapus.")) return;
+    // FUNGSI HAPUS: Menghapus data di tabel 'pengeluaran' DAN 'jurnal_umum'
+    async function deleteExpense(id, keterangan, tanggal) {
+        if (!confirm("Hapus transaksi ini? Jurnal terkait juga akan dihapus agar Laba Rugi & Neraca tetap akurat.")) return;
 
-    try {
-        // 1. Hapus di tabel jurnal_umum dulu (berdasarkan keterangan & tanggal)
-        const { error: errJurnal } = await FinexDB
-            .from('jurnal_umum')
-            .delete()
-            .eq('keterangan', keterangan)
-            .eq('tanggal', tanggal);
+        try {
+            // 1. Hapus di tabel jurnal_umum (Integrasi Akuntansi)
+            // Menggunakan keterangan dan tanggal sebagai kunci pencocokan
+            const { error: errJurnal } = await FinexDB
+                .from('jurnal_umum')
+                .delete()
+                .eq('keterangan', keterangan)
+                .eq('tanggal', tanggal);
 
-        if (errJurnal) throw errJurnal;
+            if (errJurnal) console.error("Jurnal tidak ditemukan atau gagal dihapus:", errJurnal.message);
 
-        // 2. Baru hapus di tabel pengeluaran
-        const { error: errExp } = await FinexDB
-            .from('pengeluaran')
-            .delete()
-            .eq('id', id);
+            // 2. Hapus di tabel pengeluaran (Laporan)
+            const { error: errExp } = await FinexDB
+                .from('pengeluaran')
+                .delete()
+                .eq('id', id);
 
-        if (errExp) throw errExp;
+            if (errExp) throw errExp;
 
-        alert("✅ Transaksi dan Jurnal berhasil dihapus. Laba Rugi & Neraca kini akurat.");
-        location.reload();
-    } catch (e) {
-        alert("Gagal menghapus: " + e.message);
+            alert("✅ Transaksi dan Jurnal berhasil dihapus.");
+            fetchExpenses(); // Refresh data tanpa reload halaman
+        } catch (e) {
+            alert("Gagal menghapus: " + e.message);
+        }
     }
-}
 
     function exportToCSV() {
         if (currentData.length === 0) return alert("Data kosong");
@@ -227,6 +226,7 @@ async function hapusPengeluaran(id, keterangan, tanggal) {
         a.click();
     }
 
+    // Jalankan saat pertama kali dibuka
     window.onload = fetchExpenses;
 </script>
 </body>
