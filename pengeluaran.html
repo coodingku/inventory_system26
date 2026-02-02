@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Catat Pengeluaran Kantin</title>
+    <title>Finex Pos | Catat Pengeluaran BeautyBloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #e67e22; }
@@ -12,37 +12,40 @@
         /* Sidebar Navigasi */
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.3s; display: block; }
+        nav h2 span { color: white; font-size: 12px; display: block; letter-spacing: 2px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.3s; display: block; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; text-decoration: none; cursor: pointer; }
 
         /* Area Konten Utama */
         main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
         .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; position: relative; }
-        h2 { color: var(--primary); text-align: center; margin-top: 0; margin-bottom: 25px; }
+        h2 { color: var(--primary); text-align: center; margin-top: 0; margin-bottom: 5px; }
+        .sub-title { text-align: center; color: #888; font-size: 13px; margin-bottom: 25px; }
         
-        label { font-size: 13px; font-weight: bold; color: #666; display: block; margin-bottom: 8px; }
-        select, input { width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; outline: none; }
-        select:focus, input:focus { border-color: var(--warning); }
+        label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
+        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 15px; outline: none; }
+        select:focus, input:focus { border-color: var(--accent); }
 
-        .btn-save { width: 100%; padding: 15px; background: var(--warning); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
-        .btn-save:hover:not(:disabled) { background: #d35400; transform: translateY(-2px); }
+        .btn-save { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; margin-top: 10px; }
+        .btn-save:hover:not(:disabled) { background: #2980b9; transform: translateY(-2px); }
         .btn-save:disabled { background: #ccc; cursor: not-allowed; }
         
-        .info-shift { background: #fff3e0; color: #e65100; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; text-align: center; border: 1px solid #ffe0b2; font-weight: bold; }
+        .info-shift { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; border: 1px solid #bbdefb; }
         
-        /* Overlay untuk Shift Close */
-        .overlay-close { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); border-radius: 20px; z-index: 10; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; box-sizing: border-box; }
+        /* Overlay Shift */
+        .overlay-close { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); border-radius: 20px; z-index: 10; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
+        <h2>Finex Pos <span>BEAUTYBLOOM</span></h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Kasir POS</a>
         <a href="laporan-bill.html">📄 Laporan Penjualan</a>
-        <a href="pengeluaran.html" class="active" style="background:var(--warning); color:white;">💸 Catat Pengeluaran</a>
+        <a href="laporan-pengeluaran.html">📑 Laporan Pengeluaran</a>
+        <a href="pengeluaran.html" class="active">💸 Catat Pengeluaran</a>
         <a onclick="doClosing()" style="background:var(--danger); color:white; font-weight:bold; margin-top:10px;">🏁 Closing Shift</a>
         
         <div style="margin-top: 20px; font-size: 11px; color: #888; padding: 10px;">
@@ -56,29 +59,34 @@
             <div id="lock-overlay" class="overlay-close">
                 <div style="font-size: 50px; margin-bottom: 10px;">🔒</div>
                 <h3 style="color: var(--danger); margin: 0;">Shift Terkunci</h3>
-                <p style="color: #666; font-size: 14px;">Anda belum membuka Shift atau Shift Anda sudah <b>Close</b>. Tidak dapat mencatat pengeluaran.</p>
-                <button onclick="window.location.href='pos.html'" style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 5px; cursor: pointer;">Buka Shift Sekarang</button>
+                <p style="color: #666; font-size: 14px;">Buka Shift di menu POS terlebih dahulu untuk mencatat pengeluaran BeautyBloom.</p>
+                <button onclick="window.location.href='pos.html'" style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 15px;">Buka Shift</button>
             </div>
 
-            <h2>💸 Pengeluaran Kantin</h2>
+            <h2>BeautyBloom</h2>
+            <div class="sub-title">Pencatatan Beban & Pengeluaran Kas</div>
             
-            <div id="shift-status" class="info-shift">Mengecek status shift aktif...</div>
+            <div id="shift-status" class="info-shift">Mengecek status shift...</div>
             
-            <label>Kategori:</label>
+            <label>Tanggal Transaksi:</label>
+            <input type="date" id="exp-tanggal">
+
+            <label>Kategori Pengeluaran:</label>
             <select id="exp-kategori">
-                <option value="Gas">Gas</option>
-                <option value="Galon">Galon</option>
-                <option value="Bahan Baku">Bahan Baku</option>
-                <option value="Lain-lain">Lain-lain</option>
+                <option value="6101 - Listrik & Air">Listrik & Air</option>
+                <option value="6102 - Perlengkapan">Perlengkapan Salon/Toko</option>
+                <option value="6103 - Gaji Karyawan">Gaji Karyawan</option>
+                <option value="6104 - Sewa Tempat">Sewa Tempat</option>
+                <option value="6105 - Lain-lain">Beban Lain-lain</option>
             </select>
 
             <label>Keterangan:</label>
-            <input type="text" id="exp-ket" placeholder="Contoh: Beli Gas Elpiji 3kg">
+            <input type="text" id="exp-ket" placeholder="Contoh: Bayar Listrik Bulan Januari">
 
             <label>Jumlah (Rp):</label>
             <input type="number" id="exp-jumlah" placeholder="0">
 
-            <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()" disabled>SIMPAN DATA</button>
+            <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()" disabled>SIMPAN PENGELUARAN</button>
         </div>
     </main>
 
@@ -93,12 +101,12 @@
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
         document.getElementById('cashier-display').innerText = session.username;
+        document.getElementById('exp-tanggal').value = new Date().toISOString().split('T')[0];
         await checkActiveShift();
     };
 
     async function checkActiveShift() {
-        // Cek status shift terakhir untuk user ini
-        const { data: shift, error } = await FinexDB
+        const { data: shift } = await FinexDB
             .from('kasir_log')
             .select('id, status')
             .eq('kasir_nama', session.username)
@@ -114,56 +122,54 @@
             statusEl.innerHTML = "✅ Shift Aktif: " + session.username;
             statusEl.style.background = "#e8f5e9";
             statusEl.style.color = "#2e7d32";
-            statusEl.style.borderColor = "#c8e6c9";
             btnSubmit.disabled = false;
-            overlay.style.display = "none";
         } else {
-            statusEl.innerHTML = "⚠️ Shift Belum Dibuka / Sudah Close";
-            statusEl.style.background = "#ffebee";
-            statusEl.style.color = "#c62828";
-            statusEl.style.borderColor = "#ffcdd2";
+            overlay.style.display = "flex";
             btnSubmit.disabled = true;
-            overlay.style.display = "flex"; // Tampilkan overlay pemberitahuan
-            
-            // Opsional: Langsung tampilkan alert saat masuk
-            alert("⚠️ Akses Ditolak: Anda belum membuka Shift atau Shift Anda sudah Close.");
         }
     }
 
     async function simpanPengeluaran() {
-        const kategori = document.getElementById('exp-kategori').value;
+        const tgl = document.getElementById('exp-tanggal').value;
+        const katRaw = document.getElementById('exp-kategori').value;
         const ket = document.getElementById('exp-ket').value;
         const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
+        
+        if(!ket || !jumlah || !tgl) return alert("Harap isi semua kolom!");
 
-        if(!ket || !jumlah) return alert("Harap isi semua kolom!");
-        if(!activeShiftId) return alert("Shift ID tidak ditemukan!");
+        const kodeAkun = katRaw.split(' - ')[0];
+        const namaKat = katRaw.split(' - ')[1];
+        const tglFix = `${tgl}T${new Date().toLocaleTimeString('en-GB')}.000Z`;
 
-        const { error } = await FinexDB.from('pengeluaran').insert([{
-            kategori: kategori,
-            keterangan: ket,
-            jumlah: jumlah,
-            kasir_id: activeShiftId
-        }]);
+        try {
+            // 1. Masuk ke tabel PENGELUARAN (Untuk Laporan Riwayat)
+            const { error: err1 } = await FinexDB.from('pengeluaran').insert([{
+                tanggal: tglFix,
+                kategori: namaKat,
+                keterangan: ket,
+                jumlah: jumlah,
+                kasir_id: activeShiftId
+            }]);
+            if (err1) throw err1;
 
-        if (!error) {
-            alert("✅ Pengeluaran Kantin berhasil dicatat!");
-            window.location.href = 'pos.html';
-        } else {
-            alert("Gagal simpan: " + error.message);
+            // 2. Masuk ke tabel JURNAL_UMUM (Untuk Keuangan/Neraca)
+            const dataJurnal = [
+                { tanggal: tglFix, no_bukti: 'OUT-'+Date.now(), kode_akun: kodeAkun, keterangan: ket, debit: jumlah, kredit: 0 },
+                { tanggal: tglFix, no_bukti: 'OUT-'+Date.now(), kode_akun: '1101', keterangan: ket, debit: 0, kredit: jumlah }
+            ];
+            const { error: err2 } = await FinexDB.from('jurnal_umum').insert(dataJurnal);
+            if (err2) throw err2;
+
+            alert("✅ Pengeluaran BeautyBloom Berhasil Dicatat!");
+            window.location.reload();
+
+        } catch (e) {
+            alert("Gagal menyimpan data: " + e.message);
         }
     }
 
-    function doClosing() {
-        if(confirm("Apakah Anda ingin menutup shift?")) {
-            window.location.href = "closing.html";
-        }
-    }
-
-    function logout() {
-        localStorage.clear();
-        window.location.replace('login.html');
-    }
+    function doClosing() { if(confirm("Tutup shift sekarang?")) window.location.href = "closing.html"; }
+    function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
-
 </body>
 </html>
