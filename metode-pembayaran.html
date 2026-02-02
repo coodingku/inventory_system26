@@ -19,13 +19,21 @@
         /* Konten */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .form-group { display: flex; gap: 10px; margin-bottom: 25px; }
-        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
-        .btn-save { background: var(--success); color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        /* Form Styling */
+        .form-container { display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; margin-bottom: 25px; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 12px; font-weight: bold; color: #666; }
+        input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
+        
+        .btn-save { background: var(--success); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-save:hover { background: #219150; }
         
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
+        .badge-akun { background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 5px; font-weight: bold; font-size: 12px; }
         
         .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
         .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
@@ -55,19 +63,30 @@
 <main>
     <h1>Metode Pembayaran Kantin</h1>
     <div class="card">
-        <div class="form-group">
-            <input type="text" id="new-metode" placeholder="Tambah metode (Contoh: QRIS, Tunai, Debet)">
+        <div class="form-container">
+            <div class="input-group">
+                <label>Nama Metode</label>
+                <input type="text" id="new-metode" placeholder="Contoh: QRIS, Tunai">
+            </div>
+            <div class="input-group">
+                <label>Hubungkan ke Akun Jurnal</label>
+                <select id="select-akun">
+                    <option value="">Memuat Akun...</option>
+                </select>
+            </div>
             <button class="btn-save" onclick="tambahMetode()">➕ Tambah</button>
         </div>
+
         <table>
             <thead>
                 <tr>
                     <th>Nama Metode</th>
+                    <th>Akun Jurnal (Aset)</th>
                     <th style="width: 100px; text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="tabel-metode">
-                <tr><td colspan="2" style="text-align:center;">Memuat data...</td></tr>
+                <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
             </tbody>
         </table>
     </div>
@@ -78,25 +97,39 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    // --- PROTEKSI ANTI-LOOP ---
     const sessionStr = localStorage.getItem('finex_session');
     const userRole = localStorage.getItem('user_role');
 
-    // Jika tidak ada sesi sama sekali, lempar ke login
     if (!sessionStr) {
         window.location.replace('login.html');
     } else {
         const session = JSON.parse(sessionStr);
-        // Jika ada sesi tapi bukan admin, lempar ke POS (Jangan ke login agar tidak loop)
         if (userRole !== 'admin' && session.role !== 'admin') {
             alert("Akses Terbatas: Hanya untuk Admin.");
             window.location.replace('pos.html');
         } else {
-            // Jika Admin, jalankan aplikasi
             window.onload = () => {
                 document.getElementById('display-user-nav').innerText = session.username;
+                muatAkun();
                 muatMetode();
             };
+        }
+    }
+
+    // Fungsi mengambil daftar akun Aset (Kepala 1)
+    async function muatAkun() {
+        const { data, error } = await supabaseClient
+            .from('akun')
+            .select('kode_akun, nama_akun')
+            .ilike('kode_akun', '1%') // Hanya ambil akun Aset/Harta
+            .order('kode_akun');
+        
+        const select = document.getElementById('select-akun');
+        if (!error && data) {
+            select.innerHTML = '<option value="">-- Pilih Akun --</option>';
+            data.forEach(a => {
+                select.innerHTML += `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`;
+            });
         }
     }
 
@@ -106,13 +139,14 @@
         
         if (error) return;
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">Belum ada metode pembayaran.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Belum ada metode pembayaran.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = data.map(m => `
             <tr>
                 <td><b>${m.nama_metode}</b></td>
+                <td><span class="badge-akun">${m.kode_akun || 'Belum Terhubung'}</span></td>
                 <td style="text-align: center;">
                     <button style="color:red; cursor:pointer; background:none; border:none;" onclick="hapusMetode('${m.id}', '${m.nama_metode}')">❌ Hapus</button>
                 </td>
@@ -122,13 +156,23 @@
 
     async function tambahMetode() {
         const input = document.getElementById('new-metode');
+        const select = document.getElementById('select-akun');
         const nama = input.value.trim();
-        if(!nama) return;
+        const akun = select.value;
 
-        const { error } = await supabaseClient.from('metode_pembayaran').insert([{ nama_metode: nama }]);
+        if(!nama || !akun) return alert("Isi nama metode dan pilih akun jurnal!");
+
+        const { error } = await supabaseClient.from('metode_pembayaran').insert([{ 
+            nama_metode: nama,
+            kode_akun: akun 
+        }]);
+
         if (!error) {
             input.value = '';
+            select.value = '';
             muatMetode();
+        } else {
+            alert("Gagal menambah: " + error.message);
         }
     }
 
