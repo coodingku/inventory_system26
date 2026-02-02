@@ -178,32 +178,52 @@
         calculateTotal();
     }
 
-    function calculateTotal() {
-        const ds = document.getElementById('discSelect');
-        state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
-        state.disc = (state.sub * parseFloat(ds.value)) / 100;
-        const dpp = state.sub - state.disc;
-        state.tax = dpp * 0.10; 
-        state.total = dpp + state.tax;
-        state.discName = ds.options[ds.selectedIndex].getAttribute('data-name');
+   // 1. Tambahkan variabel global ini di baris paling atas (di luar fungsi)
+let taxRate = 0.10; 
 
-        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
-        document.getElementById('txt-disc').innerText = "- Rp " + state.disc.toLocaleString();
-        document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-        
-        document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
-            <div class="cart-item">
-                <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
-                <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
-                <span onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
-            </div>`).join('');
+// 2. Pastikan fungsi loadSettings Anda memanggil data dari database
+async function loadSettings() {
+    // Ambil nilai dari tabel ppn ID 1
+    const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
+    if (pData) {
+        taxRate = parseFloat(pData.nilai) / 100; // Mengubah 12 menjadi 0.12
     }
 
-    function delItem(i) { cart.splice(i, 1); calculateTotal(); }
-    function openPayment() { if(cart.length === 0) return; document.getElementById('label-total-modal').innerText = "Total: Rp " + state.total.toLocaleString(); document.getElementById('payModal').style.display = 'flex'; }
-    function closePayment() { document.getElementById('payModal').style.display = 'none'; }
+    // ... kode load metode pembayaran dan diskon tetap sama ...
+}
 
+// 3. Ini fungsi calculateTotal yang sudah diperbaiki
+function calculateTotal() {
+    const ds = document.getElementById('discSelect');
+    state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
+    state.disc = (state.sub * parseFloat(ds.value)) / 100;
+    
+    // DPP (Dasar Pengenaan Pajak)
+    const dpp = state.sub - state.disc;
+    
+    // Pajak sekarang mengikuti variabel taxRate (0.12)
+    state.tax = dpp * taxRate; 
+    
+    state.total = dpp + state.tax;
+    state.discName = ds.options[ds.selectedIndex].getAttribute('data-name');
+
+    // Update Tampilan UI
+    document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
+    document.getElementById('txt-disc').innerText = "- Rp " + state.disc.toLocaleString();
+    document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
+    document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
+    
+    // Mengupdate label "Pajak (10%)" menjadi "Pajak (12%)" secara otomatis
+    const labelPajak = document.querySelector('#txt-tax').previousElementSibling;
+    if(labelPajak) labelPajak.innerText = `Pajak (${(taxRate * 100).toFixed(0)}%)`;
+
+    document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
+        <div class="cart-item">
+            <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
+            <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
+            <span onclick="delItem(${i})" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
+        </div>`).join('');
+}
     async function executeTransaction() {
         if (isSaving) return;
         const method = document.getElementById('payMethodSelect').value;
