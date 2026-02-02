@@ -195,17 +195,28 @@ async function loadSettings() {
 // 3. Ini fungsi calculateTotal yang sudah diperbaiki
 function calculateTotal() {
     const ds = document.getElementById('discSelect');
+    
+    // Cegah error jika elemen discSelect belum siap
+    if (!ds || ds.options.length === 0) {
+        console.warn("Menunggu data diskon dimuat...");
+        return; 
+    }
+
     state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
     state.disc = (state.sub * parseFloat(ds.value)) / 100;
     
-    // DPP (Dasar Pengenaan Pajak)
     const dpp = state.sub - state.disc;
     
-    // Pajak sekarang mengikuti variabel taxRate (0.12)
-    state.tax = dpp * taxRate; 
+    // Pastikan taxRate sudah mengambil nilai dari database (misal 12%)
+    // Jika taxRate belum terdefinisi, gunakan default 0.12
+    const currentTaxRate = (typeof taxRate !== 'undefined') ? taxRate : 0.12;
+    state.tax = dpp * currentTaxRate; 
     
     state.total = dpp + state.tax;
-    state.discName = ds.options[ds.selectedIndex].getAttribute('data-name');
+
+    // Ambil nama diskon dengan aman
+    const selectedOption = ds.options[ds.selectedIndex];
+    state.discName = selectedOption ? selectedOption.getAttribute('data-name') : "Tanpa Diskon";
 
     // Update Tampilan UI
     document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
@@ -213,9 +224,11 @@ function calculateTotal() {
     document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
     document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
     
-    // Mengupdate label "Pajak (10%)" menjadi "Pajak (12%)" secara otomatis
-    const labelPajak = document.querySelector('#txt-tax').previousElementSibling;
-    if(labelPajak) labelPajak.innerText = `Pajak (${(taxRate * 100).toFixed(0)}%)`;
+    // Update Label Pajak secara dinamis (Contoh: Pajak (12%))
+    const taxLabelElement = document.getElementById('txt-tax').previousElementSibling;
+    if (taxLabelElement) {
+        taxLabelElement.innerText = `Pajak (${(currentTaxRate * 100).toFixed(0)}%)`;
+    }
 
     document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
         <div class="cart-item">
