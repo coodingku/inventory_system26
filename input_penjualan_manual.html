@@ -3,211 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin | Kelola Penjualan Manual</title>
+    <title>Detail Penjualan | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
-        nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
-        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        .filter-box { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end; }
+        input, button { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        button { cursor: pointer; font-weight: bold; }
+        .btn-filter { background: var(--accent); color: white; border: none; }
+        .btn-export { background: #27ae60; color: white; border: none; }
 
-        main { flex: 1; margin-left: 240px; padding: 40px; }
-        .grid-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; align-items: start; }
-        
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: var(--primary); }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
-        
-        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-submit { background: var(--success); color: white; width: 100%; margin-top: 10px; }
-        .btn-cancel { background: #95a5a6; color: white; width: 100%; margin-top: 5px; display: none; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 13px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid #eee; color: #7f8c8d; }
-        td { padding: 10px 12px; border-bottom: 1px solid #eee; }
-        
-        .btn-action { padding: 5px 8px; border-radius: 5px; border: none; cursor: pointer; color: white; font-size: 11px; }
-        .btn-edit { background: var(--warning); margin-right: 5px; }
-        .btn-delete { background: var(--danger); }
-        
-        .badge-manual { background: #e8f4fd; color: #3498db; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; text-align: center; }
+        td { padding: 8px; border: 1px solid #ddd; text-align: right; }
+        .text-left { text-align: left; }
+        .subtotal-row { background: #eef7ff; font-weight: bold; }
+        .grandtotal-row { background: #2c3e50; color: white; font-weight: bold; font-size: 13px; }
+        .metode-pill { background: #eee; padding: 2px 5px; border-radius: 4px; font-size: 10px; margin-right: 3px; }
     </style>
 </head>
 <body>
 
-<nav>
-    <h2>Finex Pos</h2>
-    <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Masuk Kasir</a>
-    <a href="catat_jurnal.html">📖 Jurnal Umum</a>
-    <a href="input_penjualan_manual.html" style="background: var(--accent); color:white;">✍️ Penjualan Manual</a>
-    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
-    <a href="laba_rugi.html">📈 Laba Rugi</a>
-</nav>
-
-<main>
-    <h1>Kelola Penjualan Manual</h1>
-    
-    <div class="grid-layout">
-        <div class="card">
-            <h3 id="form-title">Input Penjualan Baru</h3>
-            <input type="hidden" id="edit-no-bukti">
-            
-            <div class="form-group">
-                <label>Tanggal Transaksi</label>
-                <input type="date" id="tgl_transaksi">
-            </div>
-
-            <div class="form-group">
-                <label>Metode Pembayaran</label>
-                <select id="akun_debit">
-                    <option value="1101">1101 - Kas Tunai</option>
-                    <option value="1102">1102 - Bank (BCA/QRIS)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Total Penjualan (Rp)</label>
-                <input type="number" id="nominal_jual" placeholder="0">
-            </div>
-
-            <div class="form-group">
-                <label>Keterangan</label>
-                <textarea id="keterangan" rows="2" placeholder="Rekap Penjualan..."></textarea>
-            </div>
-
-            <button id="btn-save" class="btn btn-submit" onclick="simpanTransaksi()">Simpan ke Jurnal</button>
-            <button id="btn-cancel" class="btn btn-cancel" onclick="resetForm()">Batal Edit</button>
-        </div>
-
-        <div class="card">
-            <h3>Riwayat Input Manual</h3>
-            <div style="overflow-x:auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Tanggal</th>
-                            <th>Keterangan</th>
-                            <th>Nominal</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="list-manual">
-                        <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+<div class="container">
+    <div class="header">
+        <h2>Laporan Detail Penjualan (Pajak & Service)</h2>
+        <div>
+            <button class="btn-export" onclick="exportToExcel()">📥 Export Excel</button>
+            <button onclick="window.print()">🖨️ Print</button>
         </div>
     </div>
-</main>
+
+    <div class="filter-box">
+        <div>
+            <label style="display:block; font-size:11px;">Mulai Tanggal:</label>
+            <input type="date" id="date-start">
+        </div>
+        <div>
+            <label style="display:block; font-size:11px;">Sampai Tanggal:</label>
+            <input type="date" id="date-end">
+        </div>
+        <button class="btn-filter" onclick="loadDetailLaporan()">Tampilkan Laporan</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table id="table-laporan">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>No. Invoice</th>
+                    <th>Gross (Kotor)</th>
+                    <th>Diskon</th>
+                    <th>Net Sales</th>
+                    <th>DDP (Net/1.155)</th>
+                    <th>Service (5%)</th>
+                    <th>PB1 (10%)</th>
+                    <th>Metode</th>
+                    <th>Grand Total</th>
+                </tr>
+            </thead>
+            <tbody id="report-body">
+                <tr><td colspan="10" style="text-align:center;">Pilih tanggal dan klik tampilkan.</td></tr>
+            </tbody>
+            <tfoot id="report-footer"></tfoot>
+        </table>
+    </div>
+</div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
-    let isEditing = false;
+window.onload = () => {
+    const now = new Date();
+    document.getElementById('date-start').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('date-end').value = now.toISOString().split('T')[0];
+};
 
-    window.onload = () => {
-        document.getElementById('tgl_transaksi').value = new Date().toISOString().split('T')[0];
-        loadHistory();
-    };
+async function loadDetailLaporan() {
+    const start = document.getElementById('date-start').value;
+    const end = document.getElementById('date-end').value;
+    
+    // Ambil data dari tabel transaksi (sesuaikan nama tabel Anda jika berbeda, misal 'penjualan' atau 'orders')
+    const { data: trx, error } = await FinexDB.from('penjualan')
+        .select('*')
+        .gte('created_at', start + 'T00:00:00')
+        .lte('created_at', end + 'T23:59:59')
+        .order('created_at', { ascending: true });
 
-    async function loadHistory() {
-        // Hanya ambil data dengan awalan bukti MNL- (Input Manual)
-        const { data, error } = await FinexDB.from('jurnal_umum')
-            .select('*')
-            .ilike('no_bukti', 'MNL-%')
-            .order('tanggal', { ascending: false });
+    if (error) return alert("Gagal ambil data: " + error.message);
 
-        const tbody = document.getElementById('list-manual');
-        if (error || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada data manual.</td></tr>';
-            return;
-        }
+    let html = '';
+    let totals = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
+    
+    // Objek untuk grouping per tanggal (metode pembayaran)
+    let dailyMethods = {};
 
-        // Karena Double Entry, kita filter agar hanya muncul 1 baris per No Bukti (ambil yang debit saja)
-        const displayData = data.filter(j => j.debit > 0);
+    trx.forEach(row => {
+        const tgl = new Date(row.created_at).toLocaleDateString('id-ID');
+        const gross = parseFloat(row.total_kotor || 0);
+        const disc = parseFloat(row.diskon || 0);
+        const net = gross - disc;
+        
+        // Rumus Khusus User
+        const ddp = net / 1.155;
+        const svc = ddp * 0.05;
+        const pb1 = (ddp + svc) * 0.10;
+        const grand = net; // Net biasanya sudah termasuk tax & svc di sistem POS
 
-        tbody.innerHTML = displayData.map(j => `
+        // Grouping Metode Pembayaran per Tanggal
+        if (!dailyMethods[tgl]) dailyMethods[tgl] = new Set();
+        dailyMethods[tgl].add(row.metode_bayar);
+
+        totals.gross += gross; totals.disc += disc; totals.net += net;
+        totals.ddp += ddp; totals.svc += svc; totals.pb1 += pb1; totals.grand += grand;
+
+        html += `
             <tr>
-                <td>${new Date(j.tanggal).toLocaleDateString('id-ID')}</td>
-                <td><span class="badge-manual">${j.no_bukti}</span><br>${j.keterangan}</td>
-                <td style="font-weight:bold;">Rp ${Number(j.debit).toLocaleString()}</td>
-                <td>
-                    <button class="btn-action btn-edit" onclick="editData('${j.no_bukti}', '${j.tanggal}', ${j.debit}, '${j.keterangan}', '${j.kode_akun}')">✎</button>
-                    <button class="btn-action btn-delete" onclick="hapusData('${j.no_bukti}')">🗑</button>
-                </td>
+                <td class="text-left">${tgl}</td>
+                <td class="text-left">${row.no_invoice || row.id}</td>
+                <td>${gross.toLocaleString()}</td>
+                <td>${disc.toLocaleString()}</td>
+                <td>${net.toLocaleString()}</td>
+                <td>${ddp.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                <td>${svc.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                <td>${pb1.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                <td><span class="metode-pill">${row.metode_bayar}</span></td>
+                <td style="font-weight:bold;">${grand.toLocaleString()}</td>
             </tr>
-        `).join('');
-    }
+        `;
+    });
 
-    async function simpanTransaksi() {
-        const tgl = document.getElementById('tgl_transaksi').value;
-        const akunDebit = document.getElementById('akun_debit').value;
-        const nominal = parseFloat(document.getElementById('nominal_jual').value);
-        const ket = document.getElementById('keterangan').value;
-        const editNoBukti = document.getElementById('edit-no-bukti').value;
+    document.getElementById('report-body').innerHTML = html;
 
-        if (!tgl || !nominal) return alert("Lengkapi data!");
+    // Footer Total Akhir
+    document.getElementById('report-footer').innerHTML = `
+        <tr class="grandtotal-row">
+            <td colspan="2">GRAND TOTAL</td>
+            <td>${totals.gross.toLocaleString()}</td>
+            <td>${totals.disc.toLocaleString()}</td>
+            <td>${totals.net.toLocaleString()}</td>
+            <td>${totals.ddp.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+            <td>${totals.svc.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+            <td>${totals.pb1.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+            <td>-</td>
+            <td>${totals.grand.toLocaleString()}</td>
+        </tr>
+    `;
+}
 
-        // Jika sedang edit, hapus dulu data lama
-        if (isEditing) {
-            await FinexDB.from('jurnal_umum').delete().eq('no_bukti', editNoBukti);
-        }
-
-        const noBukti = isEditing ? editNoBukti : "MNL-" + Date.now().toString().slice(-6);
-        const tglISO = tgl + "T12:00:00";
-
-        const entries = [
-            { tanggal: tglISO, no_bukti: noBukti, keterangan: ket, kode_akun: akunDebit, debit: nominal, kredit: 0 },
-            { tanggal: tglISO, no_bukti: noBukti, keterangan: ket, kode_akun: '4101', debit: 0, kredit: nominal }
-        ];
-
-        const { error } = await FinexDB.from('jurnal_umum').insert(entries);
-        
-        if (error) alert("Error: " + error.message);
-        else {
-            alert(isEditing ? "Data Berhasil Diperbarui!" : "Data Berhasil Disimpan!");
-            resetForm();
-            loadHistory();
-        }
-    }
-
-    function editData(noBukti, tgl, nominal, ket, akun) {
-        isEditing = true;
-        document.getElementById('form-title').innerText = "Edit Transaksi " + noBukti;
-        document.getElementById('edit-no-bukti').value = noBukti;
-        document.getElementById('tgl_transaksi').value = tgl.split('T')[0];
-        document.getElementById('nominal_jual').value = nominal;
-        document.getElementById('keterangan').value = ket;
-        document.getElementById('akun_debit').value = akun;
-        
-        document.getElementById('btn-save').innerText = "Perbarui Transaksi";
-        document.getElementById('btn-cancel').style.display = "block";
-    }
-
-    async function hapusData(noBukti) {
-        if (!confirm("Hapus transaksi " + noBukti + "? Tindakan ini tidak bisa dibatalkan.")) return;
-        
-        const { error } = await FinexDB.from('jurnal_umum').delete().eq('no_bukti', noBukti);
-        if (error) alert("Gagal hapus");
-        else loadHistory();
-    }
-
-    function resetForm() {
-        isEditing = false;
-        document.getElementById('form-title').innerText = "Input Penjualan Baru";
-        document.getElementById('edit-no-bukti').value = "";
-        document.getElementById('nominal_jual').value = "";
-        document.getElementById('keterangan').value = "";
-        document.getElementById('btn-save').innerText = "Simpan ke Jurnal";
-        document.getElementById('btn-cancel').style.display = "none";
-    }
+function exportToExcel() {
+    const table = document.getElementById("table-laporan");
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Detail Penjualan" });
+    XLSX.writeFile(wb, "Laporan_Detail_Penjualan_Finex.xlsx");
+}
 </script>
+
 </body>
 </html>
