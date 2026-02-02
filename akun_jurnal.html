@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Akun | BeautyBloom</title>
+    <title>Manajemen Akun | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
@@ -35,6 +35,7 @@
         .badge-aset { background: #e3f2fd; color: #1976d2; }
         .badge-pendapatan { background: #e8f5e9; color: #2e7d32; }
         .badge-beban { background: #fff3e0; color: #ef6c00; }
+        .badge-lain { background: #eee; color: #666; }
 
         /* Modal Style */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
@@ -106,11 +107,12 @@
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0;">Edit Data Akun</h3>
-            <input type="hidden" id="edit_id">
-            <label style="font-size:12px;">Kode Akun</label>
-            <input type="text" id="edit_kode" style="margin-bottom:15px;">
+            <label style="font-size:12px;">Kode Akun (Tidak dapat diubah)</label>
+            <input type="text" id="edit_kode" readonly style="background:#f0f0f0; margin-bottom:15px;">
+            
             <label style="font-size:12px;">Nama Akun</label>
             <input type="text" id="edit_nama" style="margin-bottom:15px;">
+            
             <label style="font-size:12px;">Kategori</label>
             <select id="edit_kategori" style="margin-bottom:20px;">
                 <option value="Aset Lancar">Aset Lancar</option>
@@ -120,6 +122,7 @@
                 <option value="Pendapatan">Pendapatan</option>
                 <option value="Beban">Beban</option>
             </select>
+            
             <div style="display:flex; gap:10px;">
                 <button class="btn-add" style="flex:1;" onclick="updateAccount()">Update</button>
                 <button style="flex:1; background:#ddd;" onclick="closeModal()">Batal</button>
@@ -143,6 +146,7 @@
             let badgeClass = 'badge-aset';
             if(acc.kategori?.includes('Pendapatan')) badgeClass = 'badge-pendapatan';
             if(acc.kategori?.includes('Beban')) badgeClass = 'badge-beban';
+            if(acc.kategori?.includes('Kewajiban') || acc.kategori?.includes('Modal')) badgeClass = 'badge-lain';
 
             return `
                 <tr>
@@ -150,8 +154,8 @@
                     <td>${acc.nama_akun}</td>
                     <td><span class="badge ${badgeClass}">${acc.kategori || 'N/A'}</span></td>
                     <td style="text-align: right;">
-                        <button class="btn-edit" onclick="openEdit('${acc.id}', '${acc.kode_akun}', '${acc.nama_akun}', '${acc.kategori}')">Edit</button>
-                        <button class="btn-del" onclick="deleteAccount('${acc.id}')">Hapus</button>
+                        <button class="btn-edit" onclick="openEdit('${acc.kode_akun}', '${acc.nama_akun}', '${acc.kategori}')">Edit</button>
+                        <button class="btn-del" onclick="deleteAccount('${acc.kode_akun}')">Hapus</button>
                     </td>
                 </tr>
             `;
@@ -166,12 +170,16 @@
         if (!kode || !nama || !kategori) return alert("Lengkapi data!");
 
         const { error } = await FinexDB.from('akun').insert([{ kode_akun: kode, nama_akun: nama, kategori: kategori }]);
-        if (error) alert(error.message);
-        else { location.reload(); }
+        if (error) alert("Error: " + error.message);
+        else { 
+            document.getElementById('kode_akun').value = '';
+            document.getElementById('nama_akun').value = '';
+            loadAccounts(); 
+            showStatus("Akun berhasil disimpan!", "var(--success)");
+        }
     }
 
-    function openEdit(id, kode, nama, kategori) {
-        document.getElementById('edit_id').value = id;
+    function openEdit(kode, nama, kategori) {
         document.getElementById('edit_kode').value = kode;
         document.getElementById('edit_nama').value = nama;
         document.getElementById('edit_kategori').value = kategori;
@@ -181,21 +189,33 @@
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
     async function updateAccount() {
-        const id = document.getElementById('edit_id').value;
+        const kode = document.getElementById('edit_kode').value;
         const { error } = await FinexDB.from('akun').update({
-            kode_akun: document.getElementById('edit_kode').value,
             nama_akun: document.getElementById('edit_nama').value,
             kategori: document.getElementById('edit_kategori').value
-        }).eq('id', id);
+        }).eq('kode_akun', kode);
 
-        if (error) alert(error.message);
-        else { closeModal(); loadAccounts(); }
+        if (error) {
+            alert("Gagal update: " + error.message);
+        } else {
+            closeModal();
+            loadAccounts();
+            showStatus("Akun berhasil diperbarui!", "var(--success)");
+        }
     }
 
-    async function deleteAccount(id) {
-        if (!confirm("Hapus akun ini?")) return;
-        const { error } = await FinexDB.from('akun').delete().eq('id', id);
-        if (!error) loadAccounts();
+    async function deleteAccount(kode) {
+        if (!confirm(`Hapus akun ${kode}?`)) return;
+        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', kode);
+        if (error) alert("Gagal menghapus: " + error.message);
+        else loadAccounts();
+    }
+
+    function showStatus(msg, color) {
+        const div = document.getElementById('status-msg');
+        div.innerText = msg;
+        div.style.color = color;
+        setTimeout(() => div.innerText = '', 3000);
     }
 </script>
 </body>
