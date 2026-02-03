@@ -11,7 +11,7 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; overflow-x: hidden; }
         .absen-card { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; position: relative; }
         
-        #video-container { width: 100%; height: 340px; background: #000; border-radius: 20px; overflow: hidden; margin: 15px 0; position: relative; border: 4px solid #f0f0f0; }
+        #video-container { width: 100%; height: 340px; background: #000; border-radius: 20px; overflow: hidden; margin: 15px 0; position: relative; border: 4px solid #f0f0f0; display: flex; justify-content: center; align-items: center; }
         video { width: 100%; height: 100%; object-fit: cover; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
@@ -20,7 +20,7 @@
         .btn-scan:active { transform: scale(0.98); }
         .btn-disabled { background: #d1d1d1 !important; cursor: not-allowed; box-shadow: none !important; color: #777; }
         
-        #overlay-msg { position: absolute; top: 15px; left: 15px; color: white; background: rgba(0,0,0,0.5); font-size: 11px; padding: 5px 12px; border-radius: 20px; backdrop-filter: blur(4px); }
+        #overlay-msg { position: absolute; top: 15px; left: 15px; color: white; background: rgba(0,0,0,0.5); font-size: 11px; padding: 5px 12px; border-radius: 20px; backdrop-filter: blur(4px); z-index: 10; }
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
@@ -42,11 +42,11 @@
     </div>
 
     <div id="status-scan" style="font-weight: bold; margin-bottom: 15px; color: #555; min-height: 24px; font-size: 14px;">
-        <div class="loader"></div> Memuat data biometrik staff...
+        <div class="loader"></div> Memuat AI...
     </div>
 
     <div class="instruction">
-        Pastikan wajah terlihat jelas tanpa masker dan berada dalam area terang untuk hasil terbaik.
+        Pastikan wajah sejajar dengan kamera dan dalam kondisi pencahayaan yang cukup.
     </div>
 
     <button id="btn-action" class="btn-scan btn-disabled" onclick="mulaiVerifikasi()" disabled>
@@ -70,28 +70,26 @@
             const statusEl = document.getElementById('status-scan');
             const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
             
-            // 1. Muat Model (SSD Mobilenet jauh lebih stabil dibanding TinyFace)
+            // Menggunakan SSD Mobilenet (Lebih Akurat)
             await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
             await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
             isAILoaded = true;
 
-            // 2. Ambil Data Staff
             const { data: staffData } = await FinexDB.from('employee_staff').select('nama_staff, face_descriptor');
             
-            labeledDescriptors = staffData.filter(s => s.face_descriptor).map(s => {
+            labeledDescriptors = (staffData || []).filter(s => s.face_descriptor).map(s => {
                 try {
                     const desc = new Float32Array(JSON.parse(s.face_descriptor));
                     return new faceapi.LabeledFaceDescriptors(s.nama_staff, [desc]);
                 } catch(e) { return null; }
             }).filter(x => x !== null);
 
-            // 3. Ambil Config Toko
             const { data: locData } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
             configToko = locData || { latitude: -8.65, longitude: 115.21, radius_meter: 100 };
 
-            statusEl.innerText = "Sistem Siap. Silakan berdiri di depan kamera.";
-            document.getElementById('overlay-msg').innerText = "AI AKTIF • WAJIB DIAM 1 DETIK";
+            statusEl.innerText = "Sistem Siap. Wajah harus terlihat di kotak.";
+            document.getElementById('overlay-msg').innerText = "SCANNER READY";
             
             startCamera();
             trackLocation();
@@ -101,30 +99,33 @@
         }
     }
 
-    function startCamera() {
+    async function startCamera() {
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay-canvas');
         
-        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => alert("Kamera Error: " + err.message));
-
-        video.onloadedmetadata = () => {
-            const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
-            faceapi.matchDimensions(canvas, displaySize);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } 
+            });
+            video.srcObject = stream;
             
-            // Loop deteksi visual untuk membantu staff memposisikan wajah
-            setInterval(async () => {
-                if(!isAILoaded) return;
-                const detection = await faceapi.detectSingleFace(video).withFaceLandmarks();
-                canvas.getContext('2d').clearRect(0,0, canvas.width, canvas.height);
+            video.onloadedmetadata = () => {
+                const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+                faceapi.matchDimensions(canvas, displaySize);
                 
-                if (detection) {
-                    const resized = faceapi.resizeResults(detection, displaySize);
-                    faceapi.draw.drawDetections(canvas, resized);
-                }
-            }, 300);
-        };
+                // Visual feedback loop
+                setInterval(async () => {
+                    if(!isAILoaded) return;
+                    const detections = await faceapi.detectAllFaces(video).withFaceLandmarks();
+                    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                    
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    faceapi.draw.drawDetections(canvas, resizedDetections);
+                }, 200);
+            };
+        } catch (err) {
+            alert("Kamera Error: " + err.message);
+        }
     }
 
     function trackLocation() {
@@ -142,7 +143,6 @@
                 statusBox.innerHTML = `✅ Area BeautyBloom (${Math.round(dist)}m)`;
                 statusBox.style.background = "#e8f5e9";
                 statusBox.style.color = "#2e7d32";
-                statusBox.style.borderColor = "#c8e6c9";
                 btn.disabled = false;
                 btn.classList.remove('btn-disabled');
                 isInside = true;
@@ -150,7 +150,6 @@
                 statusBox.innerHTML = `❌ Diluar Radius! Jarak: ${Math.round(dist)}m`;
                 statusBox.style.background = "#ffebee";
                 statusBox.style.color = "#c62828";
-                statusBox.style.borderColor = "#ffcdd2";
                 btn.disabled = true;
                 btn.classList.add('btn-disabled');
                 isInside = false;
@@ -167,37 +166,40 @@
     }
 
     async function mulaiVerifikasi() {
-        if (!isInside) return alert("Anda harus berada di area BeautyBloom!");
-        if (labeledDescriptors.length === 0) return alert("Data wajah belum didaftarkan.");
+        if (!isInside) return alert("Anda diluar area!");
         
         const video = document.getElementById('video');
         const status = document.getElementById('status-scan');
         const btn = document.getElementById('btn-action');
         
         btn.disabled = true;
-        status.innerHTML = `<div class="loader"></div> ⏳ Menghitung Identitas Biometrik...`;
+        status.innerHTML = `<div class="loader"></div> ⏳ Memproses Biometrik...`;
 
-        // Deteksi High Quality
-        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        // Lakukan 3 kali percobaan cepat jika gagal deteksi pertama kali
+        let detection = null;
+        for(let i=0; i<3; i++) {
+            detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+            if(detection) break;
+            await new Promise(r => setTimeout(r, 300)); // Jeda antar retry
+        }
 
         if (detection) {
-            // Threshold 0.5 cukup aman untuk variasi cahaya
-            const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+            const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.55);
             const match = faceMatcher.findBestMatch(detection.descriptor);
 
             if (match.label !== 'unknown') {
-                status.innerText = "✅ Selamat, " + match.label + " Dikenali!";
+                status.innerText = "✅ Berhasil: " + match.label;
                 status.style.color = "var(--success)";
                 await simpanAbsensi(match.label);
             } else {
-                status.innerText = "❌ Wajah Tidak Dikenali!";
+                status.innerText = "❌ Wajah Tidak Terdaftar";
                 status.style.color = "var(--danger)";
-                setTimeout(() => { resetStatus(status, btn); }, 3000);
+                setTimeout(() => resetStatus(status, btn), 3000);
             }
         } else {
-            status.innerText = "⚠️ Dekatkan Wajah ke Kamera";
+            status.innerText = "⚠️ Gagal Mendeteksi Wajah. Coba lebih tenang.";
             status.style.color = "orange";
-            setTimeout(() => { resetStatus(status, btn); }, 2000);
+            setTimeout(() => resetStatus(status, btn), 2000);
         }
     }
 
@@ -210,23 +212,25 @@
     async function simpanAbsensi(nama) {
         const now = new Date();
         const tglStr = now.toISOString().split('T')[0];
-        
-        const { data: aktif } = await FinexDB.from('presensi')
-            .select('*').eq('nama_staff', nama).eq('tanggal', tglStr).eq('status', 'Aktif').maybeSingle();
+        try {
+            const { data: aktif } = await FinexDB.from('presensi')
+                .select('*').eq('nama_staff', nama).eq('tanggal', tglStr).eq('status', 'Aktif').maybeSingle();
 
-        if (aktif) {
-            // Check-out
-            const { error } = await FinexDB.from('presensi').update({ waktu_pulang: now.toISOString(), status: 'Selesai' }).eq('id', aktif.id);
-            if (!error) alert(`✅ Terimakasih ${nama}! Absen PULANG berhasil.`);
-        } else {
-            // Check-in
-            const { error } = await FinexDB.from('presensi').insert([{ 
-                nama_staff: nama, tanggal: tglStr, waktu_masuk: now.toISOString(), 
-                lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
-            }]);
-            if (!error) alert(`✅ Selamat Bekerja ${nama}! Absen MASUK berhasil.`);
+            if (aktif) {
+                await FinexDB.from('presensi').update({ waktu_pulang: now.toISOString(), status: 'Selesai' }).eq('id', aktif.id);
+                alert(`✅ Terimakasih ${nama}! Absen PULANG berhasil.`);
+            } else {
+                await FinexDB.from('presensi').insert([{ 
+                    nama_staff: nama, tanggal: tglStr, waktu_masuk: now.toISOString(), 
+                    lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
+                }]);
+                alert(`✅ Selamat Bekerja ${nama}! Absen MASUK berhasil.`);
+            }
+            location.reload();
+        } catch (e) {
+            alert("Error DB: " + e.message);
+            resetStatus(document.getElementById('status-scan'), document.getElementById('btn-action'));
         }
-        location.reload();
     }
 
     window.onload = init;
