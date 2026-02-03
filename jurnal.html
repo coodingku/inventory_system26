@@ -119,10 +119,23 @@
         const to = document.getElementById('date-to').value;
 
         try {
-            // Mengambil data jurnal dan join dengan tabel akun_jurnal
+            // STEP 1: Ambil semua akun jurnal dulu untuk referensi nama (Manual Join)
+            const { data: akunData, error: akunError } = await supabaseClient
+                .from('akun_jurnal')
+                .select('kode_akun, nama_akun');
+            
+            if (akunError) throw akunError;
+
+            // Buat Map agar pencarian nama akun cepat
+            const akunMap = {};
+            akunData.forEach(a => {
+                akunMap[String(a.kode_akun)] = a.nama_akun;
+            });
+
+            // STEP 2: Ambil data jurnal (Flat, tanpa relasi kurung yang menyebabkan error)
             const { data, error } = await supabaseClient
                 .from('jurnal_umum')
-                .select(`*, akun_jurnal(nama_akun)`) // Pastikan relasi tabel benar
+                .select('*') 
                 .gte('tanggal', from + 'T00:00:00')
                 .lte('tanggal', to + 'T23:59:59')
                 .order('tanggal', { ascending: true });
@@ -142,13 +155,16 @@
                     sumDebit += deb;
                     sumKredit += kre;
 
+                    // Ambil nama akun dari Map yang dibuat di Step 1
+                    const namaAkunRef = akunMap[String(j.kode_akun)] || 'Akun Tidak Terdefinisi';
+
                     html += `
                         <tr>
                             <td style="font-size:12px;">${new Date(j.tanggal).toLocaleString('id-ID')}</td>
                             <td><code style="background:#eee; padding:2px 5px; border-radius:4px;">${j.no_bukti || '-'}</code></td>
                             <td>
                                 <b>${j.keterangan}</b><br>
-                                <small style="color:#666">${j.akun_jurnal?.nama_akun || 'Akun Tidak Terdefinisi'}</small>
+                                <small style="color:#666">${namaAkunRef}</small>
                             </td>
                             <td><span style="color:var(--accent); font-weight:bold;">${j.kode_akun}</span></td>
                             <td class="debit-val">${deb > 0 ? 'Rp ' + deb.toLocaleString() : '-'}</td>
@@ -162,9 +178,8 @@
             document.getElementById('total-debit').innerText = "Rp " + sumDebit.toLocaleString();
             document.getElementById('total-kredit').innerText = "Rp " + sumKredit.toLocaleString();
 
-            // Peringatan jika jurnal tidak balance
             const summaryBox = document.querySelector('.summary-box');
-            if (Math.abs(sumDebit - sumKredit) > 0.1) {
+            if (Math.abs(sumDebit - sumKredit) > 1) {
                 summaryBox.style.border = "2px solid var(--danger)";
                 summaryBox.title = "Peringatan: Jurnal tidak seimbang!";
             } else {
@@ -172,6 +187,7 @@
             }
 
         } catch (err) {
+            console.error(err);
             alert("Gagal memuat data jurnal BeautyBloom: " + err.message);
         }
     }
