@@ -3,11 +3,11 @@
 <head>
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
-    <title>Finex Pos | Laporan Penjualan</title>
+    <title>Finex Pos | Laporan Penjualan BeautyBloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
         
         nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 100; }
@@ -62,13 +62,14 @@
         <a href="penyesuaian.html">🔄 Stok In/Out</a>
         <a href="manajemen-user.html">👥 Manajemen User</a>
         <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
+        <a href="laporan-stok.html">📋 Laporan Stok</a>
     </div>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
     <a href="pos.html" style="background: #27ae60; color: white; text-align: center;">🛒 Masuk Kasir</a>
 </nav>
 
 <main>
-    <h1>📑 Laporan Penjualan</h1>
+    <h1>📑 Laporan Penjualan BeautyBloom</h1>
     
     <div class="filter-card">
         <div class="input-group">
@@ -184,16 +185,22 @@
         const item = window.currentLaporan.find(i => i.no_invoice === invoiceNo);
         if (!item) return;
 
-        let daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
-        let itemsHtml = daftarBarang.map(it => `
+        // Fetch detail barang secara async untuk preview yang lebih akurat
+        renderDetailPreview(item);
+    }
+
+    async function renderDetailPreview(item) {
+        const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', item.id);
+        
+        let itemsHtml = (details || []).map(it => `
             <div class="detail-row">
-                <span>${it.nama_barang || it.nama} (x${it.qty})</span>
-                <span>Rp ${(it.qty * it.harga).toLocaleString()}</span>
+                <span>${it.nama_barang} (x${it.qty})</span>
+                <span>Rp ${(it.qty * it.harga_satuan).toLocaleString()}</span>
             </div>`).join('');
 
         document.getElementById('preview-body').innerHTML = `
             <div style="text-align: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color:var(--primary)">FINEX POS KANTIN</h3>
+                <h3 style="margin: 0; color:var(--primary)">BEAUTYBLOOM POS</h3>
                 <small>Detail Nota Penjualan</small>
             </div>
             <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
@@ -207,25 +214,24 @@
                 <div class="detail-row" style="font-weight:bold; font-size:15px;"><span>TOTAL</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
             </div>`;
 
-        document.getElementById('confirm-print-btn').onclick = () => { reprintBill(invoiceNo); closePreview(); };
+        document.getElementById('confirm-print-btn').onclick = () => { reprintBill(item.no_invoice, details); closePreview(); };
         document.getElementById('modal-preview').style.display = 'flex';
     }
 
     function closePreview() { document.getElementById('modal-preview').style.display = 'none'; }
 
-    function reprintBill(invoiceNo) {
+    function reprintBill(invoiceNo, details) {
         const item = window.currentLaporan.find(i => i.no_invoice === invoiceNo);
         if (!item) return;
-        let daftarBarang = typeof item.items === 'string' ? JSON.parse(item.items) : (item.items || []);
         
-        let itemRows = daftarBarang.map(it => `
+        let itemRows = (details || []).map(it => `
             <div style="display:flex; justify-content:space-between;">
-                <span>${(it.nama_barang || it.nama).substring(0,18)} x${it.qty}</span>
-                <span>${(it.qty * it.harga).toLocaleString()}</span>
+                <span>${it.nama_barang.substring(0,18)} x${it.qty}</span>
+                <span>${(it.qty * it.harga_satuan).toLocaleString()}</span>
             </div>`).join('');
 
         document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center"><b>FINEX POS KANTIN</b><br><small>SALINAN NOTA</small><hr></div>
+            <div style="text-align:center"><b>BEAUTYBLOOM POS</b><br><small>SALINAN NOTA</small><hr></div>
             <div style="font-size:10px;">Inv: ${item.no_invoice}<br>Tgl: ${new Date(item.created_at).toLocaleString('id-ID')}</div><hr>
             ${itemRows}<hr>
             <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
@@ -233,116 +239,101 @@
         window.print();
     }
 
- async function voidBill(id, invoiceNo) {
-    if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke BeautyBloom otomatis.`)) return;
-    
-    const dataBill = window.currentLaporan.find(i => i.id == id);
-    if (!dataBill) return alert("Data tidak ditemukan.");
+    async function voidBill(id, invoiceNo) {
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke BeautyBloom dan tercatat di Kartu Stok.`)) return;
+        
+        try {
+            // 1. Ambil detail item
+            const { data: details, error: errDetail } = await supabaseClient
+                .from('penjualan_detail')
+                .select('produk_id, qty, nama_barang')
+                .eq('penjualan_id', id);
 
-    try {
-        // 1. Ambil detail item dari tabel penjualan_detail (Cara paling akurat)
-        const { data: details, error: errDetail } = await supabaseClient
-            .from('penjualan_detail')
-            .select('produk_id, qty')
-            .eq('penjualan_id', id);
+            if (errDetail) throw new Error("Gagal mengambil rincian barang: " + errDetail.message);
 
-        if (errDetail) throw new Error("Gagal mengambil rincian barang: " + errDetail.message);
-
-        // 2. Jika detail ditemukan, kembalikan stok menggunakan produk_id
-        if (details && details.length > 0) {
-            for (const item of details) {
-                // Ambil stok sekarang
-                const { data: p } = await supabaseClient
-                    .from('produk')
-                    .select('stok_sekarang')
-                    .eq('id', item.produk_id)
-                    .single();
-
-                if (p) {
-                    await supabaseClient
+            // 2. Kembalikan stok & Catat di riwayat_stok
+            if (details && details.length > 0) {
+                for (const item of details) {
+                    const { data: p } = await supabaseClient
                         .from('produk')
-                        .update({ stok_sekarang: (p.stok_sekarang || 0) + item.qty })
-                        .eq('id', item.produk_id);
+                        .select('stok_sekarang')
+                        .eq('id', item.produk_id)
+                        .single();
+
+                    if (p) {
+                        const stokBaru = (p.stok_sekarang || 0) + item.qty;
+                        
+                        // Update stok produk
+                        await supabaseClient
+                            .from('produk')
+                            .update({ stok_sekarang: stokBaru })
+                            .eq('id', item.produk_id);
+
+                        // CATAT RIWAYAT STOK (Agar terupdate otomatis di laporan-stok.html)
+                        await supabaseClient.from('riwayat_stok').insert([{
+                            id_produk: item.produk_id,
+                            tipe: 'MASUK',
+                            jumlah: item.qty,
+                            stok_akhir: stokBaru,
+                            admin_nama: 'Admin (Void)',
+                            keterangan: `VOID Penjualan ${invoiceNo} - ${item.nama_barang}`
+                        }]);
+                    }
                 }
             }
+
+            // 3. Hapus Jurnal Umum
+            await supabaseClient.from('jurnal_umum').delete().eq('no_bukti', invoiceNo);
+
+            // 4. Hapus Detail & Header Penjualan
+            await supabaseClient.from('penjualan_detail').delete().eq('penjualan_id', id);
+            const { error: deleteError } = await supabaseClient.from('penjualan').delete().eq('id', id);
+
+            if (deleteError) throw deleteError;
+
+            alert(`✅ Nota ${invoiceNo} berhasil di-VOID. Stok telah dikembalikan.`);
+            fetchLaporan();
+        } catch (err) {
+            console.error(err);
+            alert("Gagal proses Void: " + err.message);
         }
-
-        // 3. Hapus Jurnal Umum terkait agar laporan keuangan sinkron
-        await supabaseClient.from('jurnal_umum').delete().eq('no_bukti', invoiceNo);
-
-        // 4. Hapus Detail Penjualan
-        await supabaseClient.from('penjualan_detail').delete().eq('penjualan_id', id);
-
-        // 5. Hapus Penjualan Utama
-        const { error: deleteError } = await supabaseClient
-            .from('penjualan')
-            .delete()
-            .eq('id', id);
-
-        if (deleteError) throw deleteError;
-
-        alert(`✅ Nota ${invoiceNo} berhasil dihapus & stok telah kembali ke BeautyBloom.`);
-        fetchLaporan();
-    } catch (err) {
-        console.error(err);
-        alert("Gagal proses Void: " + err.message);
     }
-}
 
     async function exportKeExcel() {
-        // Cek data di layar
         if (!window.currentLaporan || window.currentLaporan.length === 0) {
-            return alert("Tidak ada data untuk diexport. Silakan klik 'Tampilkan' terlebih dahulu.");
+            return alert("Tidak ada data untuk diexport.");
         }
 
         let dataExcel = [];
-        
-        window.currentLaporan.forEach(nota => {
-            let daftarBarang = [];
-            try {
-                daftarBarang = typeof nota.items === 'string' ? JSON.parse(nota.items) : (nota.items || []);
-            } catch (e) {
-                console.error("Gagal parsing items:", nota.no_invoice);
-            }
-
-            if (daftarBarang.length === 0) {
+        for (const nota of window.currentLaporan) {
+            const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', nota.id);
+            
+            if (!details || details.length === 0) {
                 dataExcel.push({
                     "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
                     "No Invoice": nota.no_invoice,
-                    "Nama Barang": "(Tidak ada rincian)",
-                    "Qty": 0,
-                    "Harga Satuan": 0,
-                    "Subtotal Item": 0,
-                    "Metode": nota.metode_pembayaran,
-                    "Diskon Nota": nota.diskon || 0,
-                    "Total Net": nota.grand_total || 0
+                    "Nama Barang": "-", "Qty": 0, "Harga": 0, "Metode": nota.metode_pembayaran, "Total Net": nota.grand_total
                 });
             } else {
-                daftarBarang.forEach((item, index) => {
+                details.forEach((item, index) => {
                     dataExcel.push({
                         "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
                         "No Invoice": nota.no_invoice,
-                        "Nama Barang": item.nama_barang || item.nama,
+                        "Nama Barang": item.nama_barang,
                         "Qty": item.qty,
-                        "Harga Satuan": item.harga,
-                        "Subtotal Item": item.qty * item.harga,
+                        "Harga Satuan": item.harga_satuan,
+                        "Subtotal": item.qty * item.harga_satuan,
                         "Metode": nota.metode_pembayaran,
-                        "Diskon Nota": index === 0 ? (nota.diskon || 0) : 0,
-                        "Total Net": index === 0 ? (nota.grand_total || 0) : 0
+                        "Grand Total Nota": index === 0 ? nota.grand_total : ""
                     });
                 });
             }
-        });
-
-        try {
-            const ws = XLSX.utils.json_to_sheet(dataExcel);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Laporan Penjualan");
-            XLSX.writeFile(wb, `Laporan_FinexPos_${new Date().toISOString().split('T')[0]}.xlsx`);
-            alert("✅ Export Berhasil!");
-        } catch (err) {
-            alert("Gagal Export: " + err.message);
         }
+
+        const ws = XLSX.utils.json_to_sheet(dataExcel);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Laporan Penjualan");
+        XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 </script>
 </body>
