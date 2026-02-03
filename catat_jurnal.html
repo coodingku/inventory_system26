@@ -6,7 +6,7 @@
     <title>Jurnal Umum | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
@@ -31,13 +31,16 @@
         .kredit-val { color: var(--danger); font-weight: bold; text-align: right; }
         
         .btn-save { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; white-space: nowrap; }
-        .btn-modal { background: #8e44ad; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+        .btn-modal { background: #8e44ad; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-stock { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        .action-group { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
+        <h2>BeautyBloom</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
         <a href="akun_jurnal.html">🏦 Daftar Akun</a>
@@ -49,7 +52,10 @@
     <main>
         <div class="header">
             <h1>Jurnal Umum</h1>
-            <button class="btn-modal" onclick="inputModalCepat()">💰 Input Modal Awal</button>
+            <div class="action-group">
+                <button class="btn-stock" onclick="inputStokAwal()">📦 Input Stok Awal (1103)</button>
+                <button class="btn-modal" onclick="inputModalCepat()">💰 Input Modal Tunai (1101)</button>
+            </div>
         </div>
 
         <div class="card">
@@ -115,8 +121,7 @@
     }
 
     async function loadJurnal() {
-        // Menggunakan tabel 'jurnal_umum' sesuai database Anda
-        const { data, error } = await FinexDB.from('jurnal_umum').select('*').order('tanggal', { ascending: false }).limit(40);
+        const { data, error } = await FinexDB.from('jurnal_umum').select('*').order('tanggal', { ascending: false }).limit(50);
         
         const tbody = document.getElementById('table-jurnal');
         if (error) {
@@ -148,7 +153,6 @@
         const noBukti = "JR-" + Date.now().toString().slice(-6);
         const tgl = new Date().toISOString();
 
-        // Entri berpasangan (Double Entry)
         const entries = [
             { tanggal: tgl, no_bukti: noBukti, keterangan: ket, kode_akun: debetAcc, debit: nominal, kredit: 0 },
             { tanggal: tgl, no_bukti: noBukti, keterangan: ket, kode_akun: kreditAcc, debit: 0, kredit: nominal }
@@ -156,31 +160,51 @@
 
         const { error } = await FinexDB.from('jurnal_umum').insert(entries);
         
-        if (error) {
-            alert("Gagal: " + error.message);
-        } else {
+        if (error) alert("Gagal: " + error.message);
+        else {
             alert("Transaksi Berhasil Dicatat!");
             location.reload();
         }
     }
 
-    async function inputModalCepat() {
-        const nominal = prompt("Masukkan Jumlah Modal Awal (Rp):", "5000000");
+    async function inputStokAwal() {
+        const nominal = prompt("Masukkan Total Nilai Stok Barang (Rp):", "5000000");
         if (!nominal || isNaN(nominal)) return;
 
         const tgl = new Date().toISOString();
-        const noBukti = "MODAL-" + Date.now().toString().slice(-4);
+        const noBukti = "STOK-" + Date.now().toString().slice(-4);
 
-        // Otomatis: Kas (1101) di DEBIT, Modal Pemilik (3101) di KREDIT
+        // LOGIKA: Persediaan (1103) DEBIT, Modal (3101) KREDIT
         const entries = [
-            { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Awal', kode_akun: '1101', debit: nominal, kredit: 0 },
-            { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Awal', kode_akun: '3101', debit: 0, kredit: nominal }
+            { tanggal: tgl, no_bukti: noBukti, keterangan: 'Saldo Awal Persediaan Barang', kode_akun: '1103', debit: nominal, kredit: 0 },
+            { tanggal: tgl, no_bukti: noBukti, keterangan: 'Saldo Awal Persediaan Barang', kode_akun: '3101', debit: 0, kredit: nominal }
         ];
 
         const { error } = await FinexDB.from('jurnal_umum').insert(entries);
         if (error) alert("Gagal: " + error.message);
         else {
-            alert("Modal Berhasil Ditambahkan ke Kas!");
+            alert("Stok Awal Berhasil Ditambahkan ke Persediaan!");
+            location.reload();
+        }
+    }
+
+    async function inputModalCepat() {
+        const nominal = prompt("Masukkan Jumlah Modal Tunai (Rp):", "10000000");
+        if (!nominal || isNaN(nominal)) return;
+
+        const tgl = new Date().toISOString();
+        const noBukti = "MODAL-" + Date.now().toString().slice(-4);
+
+        // LOGIKA: Kas (1101) DEBIT, Modal (3101) KREDIT
+        const entries = [
+            { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Tunai', kode_akun: '1101', debit: nominal, kredit: 0 },
+            { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Tunai', kode_akun: '3101', debit: 0, kredit: nominal }
+        ];
+
+        const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+        if (error) alert("Gagal: " + error.message);
+        else {
+            alert("Modal Tunai Berhasil Ditambahkan ke Kas!");
             location.reload();
         }
     }
