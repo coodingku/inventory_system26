@@ -3,54 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Face ID & Geofencing BeautyBloom</title>
+    <title>Finex Pos | Face ID BeautyBloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; overflow-x: hidden; }
-        .absen-card { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; position: relative; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .absen-card { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
         
-        #video-container { width: 100%; height: 340px; background: #000; border-radius: 20px; overflow: hidden; margin: 15px 0; position: relative; border: 4px solid #f0f0f0; display: flex; justify-content: center; align-items: center; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #video-wrapper { width: 100%; position: relative; border-radius: 18px; overflow: hidden; background: #000; border: 4px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); aspect-ratio: 4/3; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); filter: contrast(1.1) brightness(1.1); }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
 
-        .geo-status { padding: 12px; border-radius: 12px; font-size: 13px; font-weight: bold; margin-bottom: 15px; transition: 0.3s; border: 1px solid transparent; }
-        .btn-scan { background: var(--accent); color: white; padding: 18px; width: 100%; border: none; border-radius: 14px; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 6px 15px rgba(233, 30, 99, 0.3); transition: 0.2s; }
-        .btn-scan:active { transform: scale(0.98); }
-        .btn-disabled { background: #d1d1d1 !important; cursor: not-allowed; box-shadow: none !important; color: #777; }
+        .status-badge { padding: 10px 15px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 15px; display: block; }
+        .geo-ok { background: #e8f5e9; color: #2e7d32; }
+        .geo-fail { background: #ffebee; color: #c62828; }
+
+        .btn-scan { background: var(--accent); color: white; padding: 16px; width: 100%; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; margin-top: 10px; }
+        .btn-scan:disabled { background: #ccc; cursor: not-allowed; transform: none; }
         
-        #overlay-msg { position: absolute; top: 15px; left: 15px; color: white; background: rgba(0,0,0,0.5); font-size: 11px; padding: 5px 12px; border-radius: 20px; backdrop-filter: blur(4px); z-index: 10; }
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        .instruction { font-size: 12px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+        #log { margin-top: 15px; font-size: 13px; color: #666; font-weight: 500; min-height: 20px; }
+        .loader { width: 14px; height: 14px; border: 2px solid #ddd; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; margin-right: 5px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="absen-card">
-    <h2 style="margin:0; color: var(--primary); letter-spacing: -0.5px;">Finex Face ID</h2>
-    <div style="color: var(--accent); font-weight: bold; margin-bottom: 15px; font-size: 14px; text-transform: uppercase;">BeautyBloom Beauty Center</div>
-    
-    <div id="geo-status" class="geo-status" style="background:#f5f5f5; color: #999;">📍 Mendeteksi Lokasi Toko...</div>
+    <h2 style="margin: 0 0 5px 0; color: var(--primary);">Finex Face ID</h2>
+    <p style="margin: 0 0 20px 0; color: var(--accent); font-weight: bold; font-size: 14px;">BeautyBloom Beauty Center</p>
 
-    <div id="video-container">
+    <div id="geo-status" class="status-badge geo-fail">📍 Mendeteksi Lokasi...</div>
+
+    <div id="video-wrapper">
         <video id="video" autoplay playsinline muted></video>
-        <canvas id="overlay-canvas"></canvas>
-        <div id="overlay-msg">Mengaktifkan Sensor...</div>
+        <canvas id="overlay"></canvas>
     </div>
 
-    <div id="status-scan" style="font-weight: bold; margin-bottom: 15px; color: #555; min-height: 24px; font-size: 14px;">
-        <div class="loader"></div> Memuat AI...
-    </div>
+    <div id="log">Menunggu AI & Kamera...</div>
 
-    <div class="instruction">
-        Pastikan wajah sejajar dengan kamera dan dalam kondisi pencahayaan yang cukup.
-    </div>
-
-    <button id="btn-action" class="btn-scan btn-disabled" onclick="mulaiVerifikasi()" disabled>
-        MULAI SCAN WAJAH
+    <button id="btn-action" class="btn-scan" onclick="prosesAbsen()" disabled>
+        SCAN WAJAH SEKARANG
     </button>
 </div>
 
@@ -63,177 +56,148 @@
     let configToko = null;
     let userLoc = { lat: 0, lon: 0 };
     let isInside = false;
-    let isAILoaded = false;
+    let currentDetection = null;
 
-    async function init() {
+    async function setupAI() {
+        const log = document.getElementById('log');
         try {
-            const statusEl = document.getElementById('status-scan');
             const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
+            log.innerHTML = `<div class="loader"></div> Memuat Model AI...`;
             
-            // Menggunakan SSD Mobilenet (Lebih Akurat)
-            await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-            isAILoaded = true;
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
 
-            const { data: staffData } = await FinexDB.from('employee_staff').select('nama_staff, face_descriptor');
+            log.innerHTML = `<div class="loader"></div> Mengambil Data Staff...`;
+            const { data: staff } = await FinexDB.from('employee_staff').select('nama_staff, face_descriptor');
             
-            labeledDescriptors = (staffData || []).filter(s => s.face_descriptor).map(s => {
-                try {
-                    const desc = new Float32Array(JSON.parse(s.face_descriptor));
-                    return new faceapi.LabeledFaceDescriptors(s.nama_staff, [desc]);
-                } catch(e) { return null; }
+            labeledDescriptors = (staff || []).map(s => {
+                if(!s.face_descriptor) return null;
+                return new faceapi.LabeledFaceDescriptors(s.nama_staff, [new Float32Array(JSON.parse(s.face_descriptor))]);
             }).filter(x => x !== null);
 
-            const { data: locData } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
-            configToko = locData || { latitude: -8.65, longitude: 115.21, radius_meter: 100 };
+            const { data: loc } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
+            configToko = loc || { latitude: -8.65, longitude: 115.21, radius_meter: 100 };
 
-            statusEl.innerText = "Sistem Siap. Wajah harus terlihat di kotak.";
-            document.getElementById('overlay-msg').innerText = "SCANNER READY";
-            
-            startCamera();
-            trackLocation();
+            log.innerText = "Sistem Siap. Posisikan wajah Anda.";
+            initCamera();
+            initGeo();
         } catch (e) {
-            console.error(e);
-            document.getElementById('status-scan').innerHTML = `<span style='color:var(--danger);'>Error: ${e.message}</span>`;
+            log.innerHTML = `<b style="color:red">Gagal: ${e.message}</b>`;
         }
     }
 
-    async function startCamera() {
+    async function initCamera() {
         const video = document.getElementById('video');
-        const canvas = document.getElementById('overlay-canvas');
-        
+        const canvas = document.getElementById('overlay');
+        const log = document.getElementById('log');
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } 
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
             video.srcObject = stream;
-            
+
             video.onloadedmetadata = () => {
                 const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
                 faceapi.matchDimensions(canvas, displaySize);
-                
-                // Visual feedback loop
+
+                // Deteksi Berulang untuk Visual & Kesiapan
                 setInterval(async () => {
-                    if(!isAILoaded) return;
-                    const detections = await faceapi.detectAllFaces(video).withFaceLandmarks();
-                    const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                    
+                    const detection = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
                     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                    faceapi.draw.drawDetections(canvas, resizedDetections);
-                }, 200);
+                    
+                    if (detection) {
+                        currentDetection = detection;
+                        const resized = faceapi.resizeResults(detection, displaySize);
+                        faceapi.draw.drawDetections(canvas, resized);
+                        
+                        if (isInside) {
+                            document.getElementById('btn-action').disabled = false;
+                            log.innerHTML = `<span style="color:var(--success)">Wajah Terdeteksi! Silakan klik tombol.</span>`;
+                        }
+                    } else {
+                        currentDetection = null;
+                        document.getElementById('btn-action').disabled = true;
+                        if(isInside) log.innerText = "Posisikan wajah tepat di tengah.";
+                    }
+                }, 400);
             };
         } catch (err) {
-            alert("Kamera Error: " + err.message);
+            log.innerText = "Kamera diblokir atau tidak ditemukan.";
         }
     }
 
-    function trackLocation() {
+    function initGeo() {
         if (!navigator.geolocation) return;
-        navigator.geolocation.watchPosition(pos => {
-            userLoc.lat = pos.coords.latitude;
-            userLoc.lon = pos.coords.longitude;
-            if (!configToko) return;
-
-            const dist = hitungJarak(userLoc.lat, userLoc.lon, configToko.latitude, configToko.longitude);
-            const statusBox = document.getElementById('geo-status');
-            const btn = document.getElementById('btn-action');
-
+        navigator.geolocation.watchPosition(p => {
+            userLoc.lat = p.coords.latitude;
+            userLoc.lon = p.coords.longitude;
+            const dist = calcDist(userLoc.lat, userLoc.lon, configToko.latitude, configToko.longitude);
+            const badge = document.getElementById('geo-status');
+            
             if (dist <= configToko.radius_meter) {
-                statusBox.innerHTML = `✅ Area BeautyBloom (${Math.round(dist)}m)`;
-                statusBox.style.background = "#e8f5e9";
-                statusBox.style.color = "#2e7d32";
-                btn.disabled = false;
-                btn.classList.remove('btn-disabled');
                 isInside = true;
+                badge.className = "status-badge geo-ok";
+                badge.innerText = `✅ Di Area BeautyBloom (${Math.round(dist)}m)`;
             } else {
-                statusBox.innerHTML = `❌ Diluar Radius! Jarak: ${Math.round(dist)}m`;
-                statusBox.style.background = "#ffebee";
-                statusBox.style.color = "#c62828";
-                btn.disabled = true;
-                btn.classList.add('btn-disabled');
                 isInside = false;
+                badge.className = "status-badge geo-fail";
+                badge.innerText = `❌ Diluar Radius! (${Math.round(dist)}m)`;
             }
         }, null, { enableHighAccuracy: true });
     }
 
-    function hitungJarak(lat1, lon1, lat2, lon2) {
+    function calcDist(lat1, lon1, lat2, lon2) {
         const R = 6371e3;
         const dPhi = (lat2 - lat1) * Math.PI/180;
-        const dLambda = (lon2 - lon1) * Math.PI/180;
-        const a = Math.sin(dPhi/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLambda/2)**2;
+        const dLon = (lon2 - lon1) * Math.PI/180;
+        const a = Math.sin(dPhi/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    async function mulaiVerifikasi() {
-        if (!isInside) return alert("Anda diluar area!");
+    async function prosesAbsen() {
+        if (!currentDetection || labeledDescriptors.length === 0) return;
         
-        const video = document.getElementById('video');
-        const status = document.getElementById('status-scan');
-        const btn = document.getElementById('btn-action');
+        const log = document.getElementById('log');
+        log.innerHTML = `<div class="loader"></div> Mencocokkan identitas...`;
         
-        btn.disabled = true;
-        status.innerHTML = `<div class="loader"></div> ⏳ Memproses Biometrik...`;
+        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+        const match = faceMatcher.findBestMatch(currentDetection.descriptor);
 
-        // Lakukan 3 kali percobaan cepat jika gagal deteksi pertama kali
-        let detection = null;
-        for(let i=0; i<3; i++) {
-            detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-            if(detection) break;
-            await new Promise(r => setTimeout(r, 300)); // Jeda antar retry
-        }
-
-        if (detection) {
-            const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.55);
-            const match = faceMatcher.findBestMatch(detection.descriptor);
-
-            if (match.label !== 'unknown') {
-                status.innerText = "✅ Berhasil: " + match.label;
-                status.style.color = "var(--success)";
-                await simpanAbsensi(match.label);
-            } else {
-                status.innerText = "❌ Wajah Tidak Terdaftar";
-                status.style.color = "var(--danger)";
-                setTimeout(() => resetStatus(status, btn), 3000);
-            }
+        if (match.label !== 'unknown') {
+            log.innerHTML = `<b style="color:var(--success)">Berhasil! Halo ${match.label}</b>`;
+            await saveToDB(match.label);
         } else {
-            status.innerText = "⚠️ Gagal Mendeteksi Wajah. Coba lebih tenang.";
-            status.style.color = "orange";
-            setTimeout(() => resetStatus(status, btn), 2000);
+            log.innerHTML = `<b style="color:var(--danger)">Wajah tidak dikenali!</b>`;
+            setTimeout(() => { if(isInside) log.innerText = "Coba lagi dengan posisi lebih tenang."; }, 3000);
         }
     }
 
-    function resetStatus(el, btn) {
-        el.innerText = "Sistem Siap. Silakan coba lagi.";
-        el.style.color = "#555";
-        btn.disabled = false;
-    }
+    async function saveToDB(nama) {
+        const tgl = new Date().toISOString().split('T')[0];
+        const now = new Date().toISOString();
+        
+        const { data: aktif } = await FinexDB.from('presensi')
+            .select('*').eq('nama_staff', nama).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
 
-    async function simpanAbsensi(nama) {
-        const now = new Date();
-        const tglStr = now.toISOString().split('T')[0];
-        try {
-            const { data: aktif } = await FinexDB.from('presensi')
-                .select('*').eq('nama_staff', nama).eq('tanggal', tglStr).eq('status', 'Aktif').maybeSingle();
-
-            if (aktif) {
-                await FinexDB.from('presensi').update({ waktu_pulang: now.toISOString(), status: 'Selesai' }).eq('id', aktif.id);
-                alert(`✅ Terimakasih ${nama}! Absen PULANG berhasil.`);
-            } else {
-                await FinexDB.from('presensi').insert([{ 
-                    nama_staff: nama, tanggal: tglStr, waktu_masuk: now.toISOString(), 
-                    lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
-                }]);
-                alert(`✅ Selamat Bekerja ${nama}! Absen MASUK berhasil.`);
-            }
-            location.reload();
-        } catch (e) {
-            alert("Error DB: " + e.message);
-            resetStatus(document.getElementById('status-scan'), document.getElementById('btn-action'));
+        if (aktif) {
+            await FinexDB.from('presensi').update({ waktu_pulang: now, status: 'Selesai' }).eq('id', aktif.id);
+            alert("Absen PULANG Berhasil!");
+        } else {
+            await FinexDB.from('presensi').insert([{ 
+                nama_staff: nama, tanggal: tgl, waktu_masuk: now, 
+                lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
+            }]);
+            alert("Absen MASUK Berhasil!");
         }
+        location.reload();
     }
 
-    window.onload = init;
+    window.onload = setupAI;
 </script>
 </body>
 </html>
