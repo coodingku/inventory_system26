@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Staff & Absensi | BeautyBloom Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: 400px 1fr; gap: 25px; }
+        
+        @media (max-width: 950px) { .container { grid-template-columns: 1fr; } }
+
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin-bottom: 25px; position: relative; }
+        h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
+        
+        /* Absen & Video Section */
+        #video-wrapper { width: 100%; height: 300px; background: #000; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 15px; border: 3px solid #eee; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .geo-badge { font-size: 11px; padding: 5px 10px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; display: inline-block; }
+        .geo-ok { background: #e8f5e9; color: #2e7d32; }
+        .geo-fail { background: #ffebee; color: #c62828; }
+
+        /* Form Elements */
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; transition: 0.2s; font-size: 14px; }
+        .btn-scan { background: #607d8b; color: white; }
+        .btn-save { background: var(--success); color: white; display: none; }
+        .btn-absen { background: var(--accent); color: white; margin-top: 15px; font-size: 16px; box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3); }
+        .btn:disabled { background: #ccc !important; cursor: not-allowed; opacity: 0.7; box-shadow: none; }
+
+        /* Tables */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; background: #fafafa; font-size: 11px; color: #888; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        
+        .status-pill { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .pill-aktif { background: #e3f2fd; color: #1565c0; }
+        .pill-selesai { background: #e8f5e9; color: #2e7d32; }
+
+        #debug-log { background: #333; color: #00ff00; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 11px; margin-top: 10px; min-height: 40px; overflow: hidden; }
+        .loading-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.9); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="loading-screen" class="loading-overlay">
+    <div style="font-weight:bold; color: var(--accent); margin-bottom: 10px;">Menyiapkan Sistem BeautyBloom...</div>
+    <div id="load-status" style="font-size: 12px; color: #666;">Memuat Model AI...</div>
+</div>
+
+<div class="container">
+    <div class="sidebar">
+        <div class="card">
+            <h3 id="form-title">👤 Absensi & Staff</h3>
+            
+            <div id="geo-info" class="geo-badge geo-fail">
+                📍 Mendeteksi Lokasi...
+            </div>
+
+            <div id="video-wrapper">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="overlay-canvas"></canvas>
+            </div>
+
+            <div id="reg-form">
+                <div id="status-detection" style="font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; font-weight: bold;">
+                    Silakan posisikan wajah di tengah kamera
+                </div>
+
+                <button id="btn-absen" class="btn btn-absen" onclick="prosesAbsensi()" disabled>
+                    MASUK / PULANG SEKARANG
+                </button>
+
+                <div style="margin: 20px 0; border-top: 1px dashed #ddd; padding-top: 15px;">
+                    <small style="color:#aaa; display:block; margin-bottom:10px;">PENGATURAN DATA STAFF:</small>
+                    <input type="hidden" id="edit-id">
+                    <input type="text" id="nama_staff" placeholder="Nama Lengkap Karyawan">
+                    <input type="text" id="jabatan" placeholder="Jabatan (Therapist/Kasir)">
+                    
+                    <button id="btn-scan" class="btn btn-scan" onclick="scanWajah()">📸 AMBIL SAMPEL WAJAH</button>
+                    <button id="btn-save" class="btn btn-save" onclick="simpanData()">💾 SIMPAN DATA STAFF</button>
+                    <button id="btn-cancel" class="btn" onclick="resetForm()" style="display:none; background:#eee;">Batal Edit</button>
+                </div>
+            </div>
+            
+            <div id="debug-log">Log: Menunggu inisialisasi...</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="card">
+            <h3>📋 Team BeautyBloom</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nama Staff</th>
+                            <th>Jabatan</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staff-body">
+                        <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🕒 Kehadiran Hari Ini</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Staff</th>
+                            <th>Jam Masuk</th>
+                            <th>Jam Pulang</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="presensi-body">
+                        <tr><td colspan="4" style="text-align:center;">Belum ada aktivitas hari ini.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let labeledDescriptors = [];
+    let currentDescriptor = null;
+    let userLoc = { lat: 0, lon: 0 };
+    let configToko = null;
+    let isInside = false;
+    let isModelsLoaded = false;
+
+    function log(txt) { document.getElementById('debug-log').innerText = "> " + txt; }
+
+    window.onload = async () => {
+        const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
+        const loadStatus = document.getElementById('load-status');
+        
+        try {
+            log("Memuat Model AI...");
+            // Menggunakan SsdMobilenetv1 untuk akurasi yang jauh lebih baik daripada TinyFace
+            await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+            loadStatus.innerText = "Memuat Landmark...";
+            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+            loadStatus.innerText = "Memuat Recognition...";
+            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+            
+            isModelsLoaded = true;
+            loadStatus.innerText = "Mengambil Lokasi Toko...";
+            
+            const { data: locData } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
+            configToko = locData || { latitude: -8.6500, longitude: 115.2167, radius_meter: 100 };
+
+            document.getElementById('loading-screen').style.display = 'none';
+            log("Sistem Siap.");
+            
+            startCamera();
+            trackLocation();
+            muatDataStaff();
+            muatDataPresensi();
+        } catch(e) { 
+            log("Gagal: " + e.message); 
+            loadStatus.innerText = "Error: " + e.message;
+        }
+    };
+
+    function startCamera() {
+        const video = document.getElementById('video');
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => log("Kamera Error: " + err.message));
+
+        video.onloadedmetadata = () => {
+            const canvas = document.getElementById('overlay-canvas');
+            const statusDet = document.getElementById('status-detection');
+            
+            setInterval(async () => {
+                if(!isModelsLoaded) return;
+
+                const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+                
+                // Gunakan deteksi tunggal untuk kecepatan di UI, tapi dengan akurasi tinggi
+                const detection = await faceapi.detectSingleFace(video).withFaceLandmarks();
+                
+                canvas.getContext('2d').clearRect(0,0, canvas.width, canvas.height);
+                
+                if (detection) {
+                    const resized = faceapi.resizeResults(detection, displaySize);
+                    faceapi.draw.drawDetections(canvas, resized);
+                    statusDet.innerText = "✅ Wajah Terdeteksi - Silakan Klik Tombol";
+                    statusDet.style.color = "var(--success)";
+                } else {
+                    statusDet.innerText = "❌ Wajah Tidak Terlihat Jelas";
+                    statusDet.style.color = "var(--danger)";
+                }
+            }, 500);
+        };
+    }
+
+    function trackLocation() {
+        if (!navigator.geolocation) return log("GPS tidak didukung.");
+        navigator.geolocation.watchPosition(pos => {
+            userLoc.lat = pos.coords.latitude;
+            userLoc.lon = pos.coords.longitude;
+            
+            if (!configToko) return;
+            const dist = hitungJarak(userLoc.lat, userLoc.lon, configToko.latitude, configToko.longitude);
+            
+            const badge = document.getElementById('geo-info');
+            const btnAbsen = document.getElementById('btn-absen');
+            
+            if (dist <= configToko.radius_meter) {
+                badge.className = "geo-badge geo-ok";
+                badge.innerText = `✅ Di Area BeautyBloom (${Math.round(dist)}m)`;
+                btnAbsen.disabled = false;
+                isInside = true;
+            } else {
+                badge.className = "geo-badge geo-fail";
+                badge.innerText = `❌ Diluar Radius! (${Math.round(dist)}m)`;
+                btnAbsen.disabled = true;
+                isInside = false;
+            }
+        }, err => log("Gagal akses lokasi: " + err.message), { enableHighAccuracy: true });
+    }
+
+    function hitungJarak(lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const dPhi = (lat2 - lat1) * Math.PI/180;
+        const dLambda = (lon2 - lon1) * Math.PI/180;
+        const a = Math.sin(dPhi/2) ** 2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLambda/2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    async function muatDataStaff() {
+        const { data } = await FinexDB.from('employee_staff').select('*').order('nama_staff');
+        const tbody = document.getElementById('staff-body');
+        
+        if (data) {
+            labeledDescriptors = data.filter(s => s.face_descriptor).map(s => {
+                try {
+                    const desc = new Float32Array(JSON.parse(s.face_descriptor));
+                    return new faceapi.LabeledFaceDescriptors(s.nama_staff, [desc]);
+                } catch(e) { return null; }
+            }).filter(x => x !== null);
+
+            tbody.innerHTML = data.map(s => `
+                <tr>
+                    <td><b>${s.nama_staff}</b></td>
+                    <td>${s.jabatan || '-'}</td>
+                    <td>
+                        <button onclick="editStaff('${s.id}', '${s.nama_staff}', '${s.jabatan}')" style="border:none; background:none; cursor:pointer;">✏️</button>
+                        <button onclick="hapusStaff('${s.id}', '${s.nama_staff}')" style="border:none; background:none; cursor:pointer;">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    async function muatDataPresensi() {
+        const hariIni = new Date().toISOString().split('T')[0];
+        const { data } = await FinexDB.from('presensi').select('*').eq('tanggal', hariIni).order('waktu_masuk', { ascending: false });
+        const tbody = document.getElementById('presensi-body');
+        
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map(p => `
+                <tr>
+                    <td>${p.nama_staff}</td>
+                    <td>${new Date(p.waktu_masuk).toLocaleTimeString('id-ID')}</td>
+                    <td>${p.waktu_pulang ? new Date(p.waktu_pulang).toLocaleTimeString('id-ID') : '-'}</td>
+                    <td><span class="status-pill ${p.status === 'Aktif' ? 'pill-aktif' : 'pill-selesai'}">${p.status}</span></td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    async function scanWajah() {
+        const btn = document.getElementById('btn-scan');
+        btn.disabled = true;
+        btn.innerText = "⏳ Sedang Memindai...";
+        
+        log("Menganalisis wajah (High Quality)...");
+        const video = document.getElementById('video');
+        
+        // Gunakan SsdMobilenetv1 untuk pengambilan sampel data yang presisi
+        const result = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        
+        if (result) {
+            currentDescriptor = JSON.stringify(Array.from(result.descriptor));
+            log("✅ Sampel Wajah Berhasil Diambil.");
+            document.getElementById('btn-save').style.display = 'block';
+            btn.innerText = "📸 RE-SCAN WAJAH";
+        } else {
+            alert("Gagal mendeteksi wajah. Pastikan cahaya terang dan wajah tidak tertutup masker/kacamata gelap.");
+            btn.innerText = "📸 AMBIL SAMPEL WAJAH";
+        }
+        btn.disabled = false;
+    }
+
+    async function prosesAbsensi() {
+        if (!isInside) return alert("Anda diluar jangkauan toko!");
+        
+        const btn = document.getElementById('btn-absen');
+        btn.disabled = true;
+        btn.innerText = "⏳ VERIFIKASI WAJAH...";
+        
+        log("Memverifikasi Identitas...");
+        const video = document.getElementById('video');
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+        if (!detection || labeledDescriptors.length === 0) {
+            alert("Wajah tidak terdeteksi atau data staff belum didaftarkan.");
+            btn.disabled = false;
+            btn.innerText = "MASUK / PULANG SEKARANG";
+            return;
+        }
+
+        // Gunakan threshold 0.5 untuk toleransi yang lebih baik di kondisi cahaya berubah
+        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+        const match = faceMatcher.findBestMatch(detection.descriptor);
+
+        if (match.label === 'unknown') {
+            alert("Maaf, wajah Anda tidak terdaftar sebagai Staff BeautyBloom.");
+            btn.disabled = false;
+            btn.innerText = "MASUK / PULANG SEKARANG";
+            return;
+        }
+
+        const nama = match.label;
+        const tgl = new Date().toISOString().split('T')[0];
+        const now = new Date().toISOString();
+
+        try {
+            const { data: aktif } = await FinexDB.from('presensi').select('*').eq('nama_staff', nama).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
+
+            if (aktif) {
+                await FinexDB.from('presensi').update({ waktu_pulang: now, status: 'Selesai' }).eq('id', aktif.id);
+                alert(`✅ Terimakasih ${nama}! Absen pulang berhasil.`);
+            } else {
+                await FinexDB.from('presensi').insert([{ nama_staff: nama, tanggal: tgl, waktu_masuk: now, status: 'Aktif', lokasi_masuk: `${userLoc.lat},${userLoc.lon}` }]);
+                alert(`✅ Selamat Bekerja ${nama}! Absen masuk berhasil.`);
+            }
+            muatDataPresensi();
+        } catch(e) {
+            alert("Gagal mencatat ke database: " + e.message);
+        }
+
+        btn.disabled = false;
+        btn.innerText = "MASUK / PULANG SEKARANG";
+    }
+
+    async function simpanData() {
+        const id = document.getElementById('edit-id').value;
+        const nama = document.getElementById('nama_staff').value;
+        const jab = document.getElementById('jabatan').value;
+
+        if(!nama) return alert("Nama wajib diisi!");
+
+        let err;
+        if(id) {
+            const upData = { nama_staff: nama, jabatan: jab };
+            if(currentDescriptor) upData.face_descriptor = currentDescriptor;
+            const { error } = await FinexDB.from('employee_staff').update(upData).eq('id', id);
+            err = error;
+        } else {
+            if(!currentDescriptor) return alert("Ambil sampel wajah dulu!");
+            const { error } = await FinexDB.from('employee_staff').insert([{ nama_staff: nama, jabatan: jab, face_descriptor: currentDescriptor }]);
+            err = error;
+        }
+
+        if(!err) {
+            alert("Data Staff Berhasil Disimpan!");
+            resetForm();
+            muatDataStaff();
+        }
+    }
+
+    function editStaff(id, nama, jab) {
+        document.getElementById('edit-id').value = id;
+        document.getElementById('nama_staff').value = nama;
+        document.getElementById('jabatan').value = jab;
+        document.getElementById('form-title').innerText = "✏️ Edit Staff";
+        document.getElementById('btn-save').style.display = 'block';
+        document.getElementById('btn-cancel').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function hapusStaff(id, nama) {
+        if(confirm(`Hapus ${nama} dari database? Data absensi lama tidak akan hilang.`)) {
+            await FinexDB.from('employee_staff').delete().eq('id', id);
+            muatDataStaff();
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('edit-id').value = "";
+        document.getElementById('nama_staff').value = "";
+        document.getElementById('jabatan').value = "";
+        document.getElementById('btn-save').style.display = 'none';
+        document.getElementById('btn-cancel').style.display = 'none';
+        document.getElementById('form-title').innerText = "👤 Absensi & Staff";
+        currentDescriptor = null;
+    }
+</script>
+</body>
+</html>
