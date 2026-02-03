@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audit & Rekonsiliasi | Finex Pos</title>
+    <title>Audit & Auto-Fix | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
+        :root { --primary: #2c3e50; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
@@ -17,16 +17,18 @@
         main { flex: 1; margin-left: 240px; padding: 40px; }
         .audit-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         
-        .status-badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .status-ok { background: #e8f5e9; color: var(--success); }
         .status-error { background: #ffebee; color: var(--danger); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid #eee; background: #f8f9fa; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #eee; background: #f8f9fa; font-size: 13px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
         
-        .diff-amount { color: var(--danger); font-weight: bold; }
-        .btn-audit { background: var(--accent); color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-audit { background: var(--accent); color: white; }
+        .btn-fix { background: var(--warning); color: white; font-size: 11px; }
+        .btn-fix:hover { background: #d68910; }
     </style>
 </head>
 <body>
@@ -36,39 +38,40 @@
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="pos.html">🛒 Masuk Kasir</a>
     <a href="input_penjualan_manual.html">✍️ Penjualan Manual</a>
-    <a href="audit_rekonsiliasi.html" style="background: var(--accent); color:white;">🔍 Audit Rekonsiliasi</a>
+    <a href="audit_rekonsiliasi.html" style="background: var(--accent); color:white;">🔍 Audit & Auto-Fix</a>
     <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
     <a href="laba_rugi.html">📈 Laba Rugi</a>
 </nav>
 
 <main>
-    <h1>Audit & Rekonsiliasi Jurnal</h1>
-    <p>Memastikan sinkronisasi antara <strong>Tabel Penjualan</strong> dan <strong>Jurnal Umum</strong>.</p>
+    <h1>Audit & Rekonsiliasi Otomatis</h1>
+    <p>Sistem deteksi selisih antara data transaksi kasir dan pembukuan jurnal.</p>
 
     <div class="audit-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Pengecekan Selisih Transaksi</h3>
-            <button class="btn-audit" onclick="runAudit()">Jalankan Audit Sekarang</button>
+            <h3>Daftar Selisih Transaksi</h3>
+            <button class="btn btn-audit" onclick="runAudit()">Jalankan Audit</button>
         </div>
         
         <table id="audit-table">
             <thead>
                 <tr>
-                    <th>No. Invoice</th>
-                    <th>Total di Penjualan</th>
-                    <th>Total di Jurnal</th>
+                    <th>Invoice</th>
+                    <th>Sales Net</th>
+                    <th>Jurnal Kas</th>
                     <th>Selisih</th>
                     <th>Status</th>
+                    <th>Tindakan</th>
                 </tr>
             </thead>
             <tbody id="audit-body">
-                <tr><td colspan="5" style="text-align:center;">Klik "Jalankan Audit" untuk memulai pengecekan data.</td></tr>
+                <tr><td colspan="6" style="text-align:center;">Klik "Jalankan Audit" untuk memvalidasi data.</td></tr>
             </tbody>
         </table>
     </div>
 
     <div class="audit-card" id="summary-card" style="display:none;">
-        <h3>Ringkasan Hasil Audit</h3>
+        <h3>Kesimpulan Audit</h3>
         <div id="summary-content"></div>
     </div>
 </main>
@@ -80,59 +83,80 @@
 
     async function runAudit() {
         const tbody = document.getElementById('audit-body');
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sedang melakukan audit mendalam...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Menganalisa sinkronisasi data...</td></tr>';
 
         try {
-            // 1. Ambil data penjualan (menggunakan subtotal - diskon sebagai acuan net)
-            const { data: sales } = await FinexDB.from('penjualan').select('no_invoice, subtotal, diskon');
-            
-            // 2. Ambil data jurnal (filter hanya akun pendapatan/kas agar tidak double count)
-            const { data: jurnal } = await FinexDB.from('jurnal_umum').select('no_bukti, debit, kredit');
+            const { data: sales } = await FinexDB.from('penjualan').select('*');
+            const { data: jurnal } = await FinexDB.from('jurnal_umum').select('*');
 
             let html = '';
-            let issuesCount = 0;
+            let issues = 0;
 
             sales.forEach(s => {
                 const netSales = parseFloat(s.subtotal || 0) - parseFloat(s.diskon || 0);
+                const relatedJurnal = jurnal.filter(j => j.no_bukti === (s.no_invoice || s.id.toString()));
                 
-                // Cari nilai terkait di jurnal berdasarkan no_invoice
-                // Kita ambil nilai Debit (Kas/Bank) yang masuk untuk invoice tersebut
-                const relatedJurnal = jurnal.filter(j => j.no_bukti === s.no_invoice);
+                // Hitung total debit (sisi kas) di jurnal untuk invoice ini
                 const totalInJurnal = relatedJurnal.reduce((sum, j) => sum + parseFloat(j.debit || 0), 0);
-
                 const diff = netSales - totalInJurnal;
-                const isMatch = Math.abs(diff) < 1; // Toleransi pembulatan
+                const isMatch = Math.abs(diff) < 1;
 
-                if (!isMatch) issuesCount++;
+                if (!isMatch) issues++;
 
                 html += `
                     <tr>
-                        <td>${s.no_invoice}</td>
+                        <td><strong>${s.no_invoice || 'N/A'}</strong></td>
                         <td>Rp ${netSales.toLocaleString()}</td>
                         <td>Rp ${totalInJurnal.toLocaleString()}</td>
-                        <td class="${isMatch ? '' : 'diff-amount'}">Rp ${diff.toLocaleString()}</td>
+                        <td style="color:${isMatch ? 'black' : 'red'}">Rp ${diff.toLocaleString()}</td>
+                        <td><span class="status-badge ${isMatch ? 'status-ok' : 'status-error'}">${isMatch ? 'MATCH' : 'MISMATCH'}</span></td>
                         <td>
-                            <span class="status-badge ${isMatch ? 'status-ok' : 'status-error'}">
-                                ${isMatch ? 'MATCH' : 'SELISIH'}
-                            </span>
+                            ${!isMatch ? `<button class="btn btn-fix" onclick="autoFix('${s.no_invoice}', ${diff}, '${s.metode_pembayaran}')">Auto-Fix</button>` : '-'}
                         </td>
                     </tr>
                 `;
             });
 
-            tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;">Tidak ada data penjualan ditemukan.</td></tr>';
-            
-            // Tampilkan Ringkasan
-            const summary = document.getElementById('summary-card');
-            summary.style.display = 'block';
-            document.getElementById('summary-content').innerHTML = `
-                <p>Total Transaksi Dicek: <strong>${sales.length}</strong></p>
-                <p>Transaksi Bermasalah: <strong style="color:${issuesCount > 0 ? 'red' : 'green'}">${issuesCount}</strong></p>
-                <p style="font-size: 13px; color: #666;"><em>Note: Jika terdapat selisih, pastikan Anda telah melakukan posting jurnal untuk transaksi tersebut atau cek apakah ada jurnal yang terhapus secara manual.</em></p>
-            `;
+            tbody.innerHTML = html;
+            document.getElementById('summary-card').style.display = 'block';
+            document.getElementById('summary-content').innerHTML = `Ditemukan <b>${issues}</b> transaksi tidak sinkron.`;
 
-        } catch (e) {
-            alert("Audit Gagal: " + e.message);
+        } catch (e) { alert("Kesalahan: " + e.message); }
+    }
+
+    async function autoFix(noInvoice, selisih, metode) {
+        if (!confirm(`Perbaiki selisih Rp ${selisih.toLocaleString()} untuk invoice ${noInvoice}?`)) return;
+
+        const tgl = new Date().toISOString();
+        const akunDebit = (metode === 'QRIS' || metode === 'Bank') ? '1102' : '1101'; // Default ke Kas jika bukan Bank
+
+        // Jurnal Penyesuaian agar Jurnal = Penjualan
+        const fixEntries = [
+            { 
+                tanggal: tgl, 
+                no_bukti: noInvoice, 
+                keterangan: "Auto-Fix Rekonsiliasi", 
+                kode_akun: akunDebit, 
+                debit: selisih, 
+                kredit: 0 
+            },
+            { 
+                tanggal: tgl, 
+                no_bukti: noInvoice, 
+                keterangan: "Auto-Fix Rekonsiliasi", 
+                kode_akun: '4101', 
+                debit: 0, 
+                kredit: selisih 
+            }
+        ];
+
+        const { error } = await FinexDB.from('jurnal_umum').insert(fixEntries);
+
+        if (error) {
+            alert("Gagal Fix: " + error.message);
+        } else {
+            alert("Berhasil! Transaksi kini sudah sinkron.");
+            runAudit(); // Refresh data
         }
     }
 </script>
