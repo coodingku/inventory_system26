@@ -6,7 +6,7 @@
     <title>Audit & Auto-Fix | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
@@ -26,18 +26,20 @@
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
         
         .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-audit { background: var(--accent); color: white; }
+        .btn-audit { background: var(--primary); color: white; }
         .btn-fix { background: var(--warning); color: white; font-size: 11px; }
         .btn-fix:hover { background: #d68910; }
+        
+        .loading-spinner { color: var(--accent); font-weight: bold; padding: 20px; text-align: center; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2>BeautyBloom</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="pos.html">🛒 Masuk Kasir</a>
-    <a href="input_penjualan_manual.html">✍️ Penjualan Manual</a>
+    <a href="catat_jurnal.html">📖 Jurnal Umum</a>
     <a href="audit_rekonsiliasi.html" style="background: var(--accent); color:white;">🔍 Audit & Auto-Fix</a>
     <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
     <a href="laba_rugi.html">📈 Laba Rugi</a>
@@ -45,20 +47,20 @@
 
 <main>
     <h1>Audit & Rekonsiliasi Otomatis</h1>
-    <p>Sistem deteksi selisih antara data transaksi kasir dan pembukuan jurnal.</p>
+    <p>Memastikan sinkronisasi antara Kasir dan Jurnal Umum (Akuntansi).</p>
 
     <div class="audit-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Daftar Selisih Transaksi</h3>
-            <button class="btn btn-audit" onclick="runAudit()">Jalankan Audit</button>
+            <h3>Daftar Validasi Transaksi</h3>
+            <button class="btn btn-audit" onclick="runAudit()">Jalankan Audit Sistem</button>
         </div>
         
         <table id="audit-table">
             <thead>
                 <tr>
                     <th>Invoice</th>
-                    <th>Sales Net</th>
-                    <th>Jurnal Kas</th>
+                    <th>Penjualan (Kasir)</th>
+                    <th>Jurnal (Pendapatan)</th>
                     <th>Selisih</th>
                     <th>Status</th>
                     <th>Tindakan</th>
@@ -83,35 +85,37 @@
 
     async function runAudit() {
         const tbody = document.getElementById('audit-body');
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Menganalisa sinkronisasi data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner">Menganalisa sinkronisasi data BeautyBloom...</td></tr>';
 
         try {
-            const { data: sales } = await FinexDB.from('penjualan').select('*');
+            // Ambil data penjualan dan jurnal
+            const { data: sales } = await FinexDB.from('penjualan').select('*').order('tanggal', { ascending: false }).limit(20);
             const { data: jurnal } = await FinexDB.from('jurnal_umum').select('*');
 
             let html = '';
             let issues = 0;
 
             sales.forEach(s => {
-                const netSales = parseFloat(s.subtotal || 0) - parseFloat(s.diskon || 0);
-                const relatedJurnal = jurnal.filter(j => j.no_bukti === (s.no_invoice || s.id.toString()));
+                const totalSales = parseFloat(s.grand_total || 0);
                 
-                // Hitung total debit (sisi kas) di jurnal untuk invoice ini
-                const totalInJurnal = relatedJurnal.reduce((sum, j) => sum + parseFloat(j.debit || 0), 0);
-                const diff = netSales - totalInJurnal;
+                // Cari entri pendapatan (4101) di jurnal untuk invoice ini
+                const relatedJurnal = jurnal.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === '4101');
+                const totalInJurnal = relatedJurnal.reduce((sum, j) => sum + parseFloat(j.kredit || 0), 0);
+                
+                const diff = totalSales - totalInJurnal;
                 const isMatch = Math.abs(diff) < 1;
 
                 if (!isMatch) issues++;
 
                 html += `
                     <tr>
-                        <td><strong>${s.no_invoice || 'N/A'}</strong></td>
-                        <td>Rp ${netSales.toLocaleString()}</td>
+                        <td><strong>${s.no_invoice}</strong><br><small style="color:#888">${new Date(s.tanggal).toLocaleDateString()}</small></td>
+                        <td>Rp ${totalSales.toLocaleString()}</td>
                         <td>Rp ${totalInJurnal.toLocaleString()}</td>
-                        <td style="color:${isMatch ? 'black' : 'red'}">Rp ${diff.toLocaleString()}</td>
-                        <td><span class="status-badge ${isMatch ? 'status-ok' : 'status-error'}">${isMatch ? 'MATCH' : 'MISMATCH'}</span></td>
+                        <td style="color:${isMatch ? 'black' : 'red'}; font-weight:bold">Rp ${diff.toLocaleString()}</td>
+                        <td><span class="status-badge ${isMatch ? 'status-ok' : 'status-error'}">${isMatch ? 'SYNCED' : 'MISMATCH'}</span></td>
                         <td>
-                            ${!isMatch ? `<button class="btn btn-fix" onclick="autoFix('${s.no_invoice}', ${diff}, '${s.metode_pembayaran}')">Auto-Fix</button>` : '-'}
+                            ${!isMatch ? `<button class="btn btn-fix" onclick="deepFix('${s.no_invoice}', ${s.id})">Re-Sync Jurnal</button>` : '<span style="color:gray">OK</span>'}
                         </td>
                     </tr>
                 `;
@@ -119,44 +123,62 @@
 
             tbody.innerHTML = html;
             document.getElementById('summary-card').style.display = 'block';
-            document.getElementById('summary-content').innerHTML = `Ditemukan <b>${issues}</b> transaksi tidak sinkron.`;
+            document.getElementById('summary-content').innerHTML = issues > 0 
+                ? `⚠️ Ditemukan <b>${issues}</b> transaksi yang perlu disinkronisasi ulang.` 
+                : `✅ Semua transaksi sudah sinkron dengan pembukuan.`;
 
-        } catch (e) { alert("Kesalahan: " + e.message); }
+        } catch (e) { 
+            tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Kesalahan: ${e.message}</td></tr>`;
+        }
     }
 
-    async function autoFix(noInvoice, selisih, metode) {
-        if (!confirm(`Perbaiki selisih Rp ${selisih.toLocaleString()} untuk invoice ${noInvoice}?`)) return;
+    // Fungsi Deep Fix: Menghapus jurnal lama dan menulis ulang berdasarkan data kasir yang valid
+    async function deepFix(noInvoice, penjualanId) {
+        if (!confirm(`Tulis ulang jurnal untuk ${noInvoice}? Ini akan memperbaiki nilai Pendapatan dan HPP agar sesuai standar.`)) return;
 
-        const tgl = new Date().toISOString();
-        const akunDebit = (metode === 'QRIS' || metode === 'Bank') ? '1102' : '1101'; // Default ke Kas jika bukan Bank
-
-        // Jurnal Penyesuaian agar Jurnal = Penjualan
-        const fixEntries = [
-            { 
-                tanggal: tgl, 
-                no_bukti: noInvoice, 
-                keterangan: "Auto-Fix Rekonsiliasi", 
-                kode_akun: akunDebit, 
-                debit: selisih, 
-                kredit: 0 
-            },
-            { 
-                tanggal: tgl, 
-                no_bukti: noInvoice, 
-                keterangan: "Auto-Fix Rekonsiliasi", 
-                kode_akun: '4101', 
-                debit: 0, 
-                kredit: selisih 
+        try {
+            // 1. Ambil data asli dari Penjualan & Detailnya
+            const { data: salesHeader } = await FinexDB.from('penjualan').select('*').eq('id', penjualanId).single();
+            const { data: salesDetail } = await FinexDB.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
+            
+            // 2. Hitung ulang HPP berdasarkan harga beli produk saat ini
+            let totalHPP = 0;
+            for (const item of salesDetail) {
+                const { data: prod } = await FinexDB.from('produk').select('harga_beli').eq('id', item.produk_id).single();
+                if (prod) {
+                    totalHPP += (parseFloat(prod.harga_beli || 0) * item.qty);
+                }
             }
-        ];
 
-        const { error } = await FinexDB.from('jurnal_umum').insert(fixEntries);
+            // 3. Tentukan Akun Kas berdasarkan metode pembayaran
+            const mtd = salesHeader.metode_pembayaran;
+            const akunKas = (mtd === 'QRIS' || mtd === 'Bank' || mtd === 'Transfer') ? '1102' : '1101';
 
-        if (error) {
-            alert("Gagal Fix: " + error.message);
-        } else {
-            alert("Berhasil! Transaksi kini sudah sinkron.");
-            runAudit(); // Refresh data
+            // 4. Hapus Jurnal Lama
+            await FinexDB.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
+
+            // 5. Masukkan Jurnal Baru yang Benar
+            const tgl = salesHeader.tanggal;
+            const entries = [
+                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync POS: ${noInvoice}`, kode_akun: akunKas, debit: salesHeader.grand_total, kredit: 0 },
+                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync POS: ${noInvoice}`, kode_akun: '4101', debit: 0, kredit: salesHeader.grand_total }
+            ];
+
+            if (totalHPP > 0) {
+                entries.push(
+                    { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync HPP: ${noInvoice}`, kode_akun: '5101', debit: totalHPP, kredit: 0 },
+                    { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync HPP: ${noInvoice}`, kode_akun: '1103', debit: 0, kredit: totalHPP }
+                );
+            }
+
+            const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+            if (error) throw error;
+
+            alert("Sinkronisasi Berhasil! Jurnal telah diperbaiki.");
+            runAudit();
+
+        } catch (e) {
+            alert("Gagal Sinkronisasi: " + e.message);
         }
     }
 </script>
