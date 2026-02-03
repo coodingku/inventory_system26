@@ -236,7 +236,6 @@ async function executeTransaction() {
         return alert("Metode '" + method + "' belum dihubungkan ke akun akuntansi. Hubungi Admin.");
     }
 
-    // Kunci proses agar tidak terinput dua kali
     isSaving = true;
     const btn = document.getElementById('payButton');
     if (btn) {
@@ -251,10 +250,10 @@ async function executeTransaction() {
         // 2. Simpan Header Penjualan
         const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
             no_invoice: inv, 
-            subtotal: state.sub, 
-            diskon: state.disc, 
-            pajak: state.tax, 
-            grand_total: state.total, 
+            subtotal: Math.round(state.sub), 
+            diskon: Math.round(state.disc), 
+            pajak: Math.round(state.tax), 
+            grand_total: Math.round(state.total), 
             bayar: cash, 
             kasir_id: currentLogId, 
             metode_pembayaran: method, 
@@ -268,9 +267,8 @@ async function executeTransaction() {
 
         let totalHPP = 0; 
 
-        // 3. Proses Detail Item (Looping Cart)
+        // 3. Proses Detail Item & Hitung HPP
         for (const item of cart) {
-            // Simpan Detail Penjualan
             await FinexDB.from('penjualan_detail').insert([{ 
                 penjualan_id: trx.id, 
                 produk_id: item.id, 
@@ -280,7 +278,6 @@ async function executeTransaction() {
                 subtotal_item: item.qty * item.harga 
             }]);
 
-            // Ambil data produk untuk Stok & HPP (Gunakan harga_beli untuk HPP)
             const { data: p } = await FinexDB.from('produk')
                 .select('stok_sekarang, harga_beli')
                 .eq('id', item.id)
@@ -291,10 +288,8 @@ async function executeTransaction() {
                 const modalSatuan = parseFloat(p.harga_beli || 0);
                 totalHPP += (modalSatuan * item.qty);
 
-                // Update Stok Fisik
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
-                // Catat di Kartu Stok
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
@@ -306,6 +301,81 @@ async function executeTransaction() {
             }
         }
 
+        // 4. JURNAL AKUNTANSI STANDARD (Mencegah Laba Bias)
+        const totalPenjualanBruto = Math.round(state.total);
+        const nilaiHPP = Math.round(totalHPP);
+
+        const barisJurnal = [
+            { 
+                tanggal: tgl, 
+                no_bukti: inv, 
+                kode_akun: String(kodeAkunAset), 
+                keterangan: `Penerimaan Kas - ${inv}`, 
+                debit: totalPenjualanBruto, 
+                kredit: 0 
+            },
+            { 
+                tanggal: tgl, 
+                no_bukti: inv, 
+                kode_akun: '4101', 
+                keterangan: `Penjualan Bruto - ${inv}`, 
+                debit: 0, 
+                kredit: totalPenjualanBruto 
+            },
+            { 
+                tanggal: tgl, 
+                no_bukti: inv, 
+                kode_akun: '5101', 
+                keterangan: `HPP (Beban Pokok) - ${inv}`, 
+                debit: nilaiHPP, 
+                kredit: 0 
+            },
+            { 
+                tanggal: tgl, 
+                no_bukti: inv, 
+                kode_akun: '1103', 
+                keterangan: `Pengurangan Stok - ${inv}`, 
+                debit: 0, 
+                kredit: nilaiHPP 
+            }
+        ];
+
+        const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert(barisJurnal);
+        
+        if (errJurnal) {
+            console.error("Gagal Jurnal:", errJurnal);
+            alert("PERINGATAN: Penjualan tersimpan, tapi JURNAL GAGAL: " + errJurnal.message);
+        }
+
+        // 5. Finalisasi Transaksi
+        if (typeof renderReceipt === "function") renderReceipt(inv, cash, method);
+        
+        const payModal = document.getElementById('payModal');
+        if (payModal) payModal.style.display = 'none';
+        
+        setTimeout(() => { 
+            window.print(); 
+            const waModal = document.getElementById('waModal');
+            if (waModal) waModal.style.display = 'flex';
+            
+            if (typeof resetOrder === "function") resetOrder();
+            isSaving = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "BAYAR SEKARANG";
+            }
+        }, 500);
+
+    } catch (e) { 
+        isSaving = false; 
+        console.error("Kesalahan Transaksi:", e);
+        alert("Sistem gagal memproses transaksi: " + e.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "BAYAR SEKARANG";
+        }
+    }
+}
         // 4. Jurnal Keuangan Otomatis (Double-Entry System)
         // Kita pastikan angka yang dikirim adalah angka bersih (Math.round untuk hindari float error)
         const barisJurnal = [
