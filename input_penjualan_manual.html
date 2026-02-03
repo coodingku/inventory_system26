@@ -22,9 +22,9 @@
         th { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; text-align: center; }
         td { padding: 8px; border: 1px solid #ddd; text-align: right; }
         .text-left { text-align: left; }
-        .subtotal-row { background: #eef7ff; font-weight: bold; }
         .grandtotal-row { background: #2c3e50; color: white; font-weight: bold; font-size: 13px; }
-        .metode-pill { background: #eee; padding: 2px 5px; border-radius: 4px; font-size: 10px; margin-right: 3px; }
+        .metode-pill { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 10px; color: #2c3e50; font-weight: bold; }
+        .rekap-row { background: #fdfdfd; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -89,7 +89,6 @@ async function loadDetailLaporan() {
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
-    // Ambil data dari tabel transaksi (sesuaikan nama tabel Anda jika berbeda, misal 'penjualan' atau 'orders')
     const { data: trx, error } = await FinexDB.from('penjualan')
         .select('*')
         .gte('created_at', start + 'T00:00:00')
@@ -100,9 +99,7 @@ async function loadDetailLaporan() {
 
     let html = '';
     let totals = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
-    
-    // Objek untuk grouping per tanggal (metode pembayaran)
-    let dailyMethods = {};
+    let rekapMetode = {};
 
     trx.forEach(row => {
         const tgl = new Date(row.created_at).toLocaleDateString('id-ID');
@@ -110,15 +107,17 @@ async function loadDetailLaporan() {
         const disc = parseFloat(row.diskon || 0);
         const net = gross - disc;
         
-        // Rumus Khusus User
+        // Penyesuaian nama kolom sesuai DB Anda: metode_pembayaran
+        const mtd = row.metode_pembayaran || 'Tunai';
+
         const ddp = net / 1.155;
         const svc = ddp * 0.05;
         const pb1 = (ddp + svc) * 0.10;
-        const grand = net; // Net biasanya sudah termasuk tax & svc di sistem POS
+        const grand = net;
 
-        // Grouping Metode Pembayaran per Tanggal
-        if (!dailyMethods[tgl]) dailyMethods[tgl] = new Set();
-        dailyMethods[tgl].add(row.metode_bayar);
+        // Hitung Rekap per Metode
+        if (!rekapMetode[mtd]) rekapMetode[mtd] = 0;
+        rekapMetode[mtd] += grand;
 
         totals.gross += gross; totals.disc += disc; totals.net += net;
         totals.ddp += ddp; totals.svc += svc; totals.pb1 += pb1; totals.grand += grand;
@@ -133,7 +132,7 @@ async function loadDetailLaporan() {
                 <td>${ddp.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                 <td>${svc.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                 <td>${pb1.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
-                <td><span class="metode-pill">${row.metode_bayar}</span></td>
+                <td style="text-align:center;"><span class="metode-pill">${mtd}</span></td>
                 <td style="font-weight:bold;">${grand.toLocaleString()}</td>
             </tr>
         `;
@@ -141,8 +140,8 @@ async function loadDetailLaporan() {
 
     document.getElementById('report-body').innerHTML = html;
 
-    // Footer Total Akhir
-    document.getElementById('report-footer').innerHTML = `
+    // Footer: Grand Total + Ringkasan Metode Pembayaran
+    let footerHtml = `
         <tr class="grandtotal-row">
             <td colspan="2">GRAND TOTAL</td>
             <td>${totals.gross.toLocaleString()}</td>
@@ -154,7 +153,20 @@ async function loadDetailLaporan() {
             <td>-</td>
             <td>${totals.grand.toLocaleString()}</td>
         </tr>
+        <tr style="height:20px;"></tr>
+        <tr style="background:#eee;"><td colspan="10" style="text-align:left; font-weight:bold; padding-left:10px;">RINGKASAN METODE PEMBAYARAN</td></tr>
     `;
+
+    for (const [namaMtd, nilai] of Object.entries(rekapMetode)) {
+        footerHtml += `
+            <tr class="rekap-row">
+                <td colspan="9" style="text-align:right;">TOTAL ${namaMtd.toUpperCase()} :</td>
+                <td>Rp ${nilai.toLocaleString()}</td>
+            </tr>
+        `;
+    }
+
+    document.getElementById('report-footer').innerHTML = footerHtml;
 }
 
 function exportToExcel() {
@@ -163,6 +175,5 @@ function exportToExcel() {
     XLSX.writeFile(wb, "Laporan_Detail_Penjualan_Finex.xlsx");
 }
 </script>
-
 </body>
 </html>
