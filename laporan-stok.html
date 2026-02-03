@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
@@ -32,8 +32,12 @@
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .badge-masuk { background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
-        .badge-keluar { background: #ffebee; color: #c62828; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        /* Badge Styling */
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; }
+        .badge-masuk { background: #e8f5e9; color: #2e7d32; }
+        .badge-keluar { background: #ffebee; color: #c62828; }
+        .badge-void { background: #fff3e0; color: #ef6c00; border: 1px solid var(--warning); }
+        
         .col-saldo { background: #f0f7ff; font-weight: bold; text-align: center; }
     </style>
 </head>
@@ -69,6 +73,7 @@
                 <option value="ALL">Semua</option>
                 <option value="MASUK">Masuk (+)</option>
                 <option value="KELUAR">Keluar (-)</option>
+                <option value="VOID">Void (Pembatalan)</option>
             </select>
         </div>
         <button class="btn-search" onclick="fetchRiwayat()">Cari Data 🔍</button>
@@ -124,7 +129,12 @@
                 .lte('created_at', `${end}T23:59:59`)
                 .order('created_at', { ascending: false });
 
-            if (tipe !== 'ALL') query = query.eq('tipe', tipe);
+            // Logika Filter diperbaiki agar lebih sensitif terhadap kata VOID
+            if (tipe === 'VOID') {
+                query = query.or('tipe.eq.VOID,keterangan.ilike.%VOID%');
+            } else if (tipe !== 'ALL') {
+                query = query.eq('tipe', tipe);
+            }
 
             const { data, error } = await query;
             if (error) throw error;
@@ -138,18 +148,33 @@
             }
 
             data.forEach(item => {
-                const isMasuk = item.tipe.toUpperCase() === 'MASUK';
+                const ket = (item.keterangan || '').toUpperCase();
+                const isVoid = ket.includes('VOID') || item.tipe === 'VOID';
+                const isMasuk = item.tipe.toUpperCase() === 'MASUK' || isVoid;
+                
+                let badgeClass = isMasuk ? 'badge-masuk' : 'badge-keluar';
+                let label = item.tipe;
+                let colorAmount = isMasuk ? '#27ae60' : '#e74c3c';
+
+                if (isVoid) {
+                    badgeClass = 'badge-void';
+                    label = 'VOID';
+                    colorAmount = 'var(--warning)';
+                }
+
                 tbody.innerHTML += `
                     <tr>
                         <td style="color:#888; font-size:12px;">${new Date(item.created_at).toLocaleString('id-ID')}</td>
                         <td><b>${item.produk ? item.produk.nama_barang : 'Produk Dihapus'}</b></td>
-                        <td><span class="${isMasuk ? 'badge-masuk' : 'badge-keluar'}">${item.tipe}</span></td>
-                        <td style="font-weight:bold; color:${isMasuk ? '#27ae60' : '#e74c3c'}">
+                        <td><span class="badge ${badgeClass}">${label}</span></td>
+                        <td style="font-weight:bold; color:${colorAmount}">
                             ${isMasuk ? '+' : '-'}${item.jumlah}
                         </td>
                         <td class="col-saldo">${item.stok_akhir || '-'}</td>
                         <td>${item.admin_nama || 'System'}</td>
-                        <td style="color:#999; font-style:italic;">${item.keterangan || '-'}</td>
+                        <td style="font-size:12px; ${isVoid ? 'color:var(--warning); font-weight:600;' : 'color:#999; font-style:italic;'}">
+                            ${item.keterangan || '-'}
+                        </td>
                     </tr>
                 `;
             });
