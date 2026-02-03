@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Pajak Tahunan | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #c0392b; --bg: #f4f7f6; --success: #27ae60; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav h2 { color: #e74c3c; text-align: center; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        main { flex: 1; margin-left: 240px; padding: 40px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        .header-pajak { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #ddd; font-size: 13px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
+        .total-row { background: #fff5f5; font-weight: bold; color: var(--accent); }
+        .tax-calc { background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #c8e6c9; }
+        
+        @media print {
+            nav { display: none; }
+            main { margin-left: 0; padding: 0; }
+            .btn-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="laporan_perbandingan.html">📈 Perbandingan</a>
+    <a href="laporan_pajak_tahunan.html" style="background:var(--accent); color:white;">🧾 Pajak Tahunan</a>
+    <a href="laba_rugi.html">💰 Laba Rugi</a>
+</nav>
+
+<main>
+    <div class="card">
+        <div class="header-pajak">
+            <div>
+                <h1 style="margin:0; color:var(--primary);">Laporan Rekapitulasi Pajak</h1>
+                <p style="color:gray;">Tahun Pajak: <span id="currentYear">2026</span></p>
+            </div>
+            <button onclick="window.print()" class="btn-print" style="padding:10px 20px; cursor:pointer;">🖨️ Cetak Laporan</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Bulan</th>
+                    <th>Omzet Bruto (Pendapatan)</th>
+                    <th>Pajak PB1 (10%) Terpungut</th>
+                    <th>Estimasi PPh Final (0.5%)</th>
+                </tr>
+            </thead>
+            <tbody id="tax-body">
+                </tbody>
+            <tfoot>
+                <tr class="total-row" id="tax-total">
+                    </tr>
+            </tfoot>
+        </table>
+
+        <div class="tax-calc">
+            <strong>Catatan Audit Pajak:</strong>
+            <p id="tax-note" style="margin: 5px 0 0 0; font-size: 13px;"></p>
+        </div>
+    </div>
+</main>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+    window.onload = loadTaxReport;
+
+    async function loadTaxReport() {
+        // Ambil data jurnal pendapatan (kode 4) dan pajak (jika ada kode akun hutang pajak)
+        const { data: jurnal } = await FinexDB.from('jurnal_umum')
+            .select('*')
+            .gte('tanggal', '2026-01-01T00:00:00')
+            .lte('tanggal', '2026-12-31T23:59:59');
+
+        let monthlyData = Array(12).fill(0).map(() => ({ omzet: 0, pb1: 0 }));
+
+        jurnal.forEach(j => {
+            const bulanIndex = new Date(j.tanggal).getMonth();
+            if (j.kode_akun.startsWith('4')) {
+                monthlyData[bulanIndex].omzet += parseFloat(j.kredit || 0);
+            }
+            // Asumsi PB1 masuk ke akun kewajiban 2101 jika Anda memisahkannya
+            if (j.kode_akun === '2101') {
+                monthlyData[bulanIndex].pb1 += parseFloat(j.kredit || 0);
+            }
+        });
+
+        let html = '';
+        let totalOmzet = 0;
+        let totalPB1 = 0;
+        let totalPPh = 0;
+
+        monthlyData.forEach((m, i) => {
+            const pph = m.omzet * 0.005; // Estimasi PPh Final 0.5%
+            totalOmzet += m.omzet;
+            totalPB1 += m.pb1;
+            totalPPh += pph;
+
+            html += `
+                <tr>
+                    <td>${bulanNames[i]}</td>
+                    <td>Rp ${m.omzet.toLocaleString()}</td>
+                    <td>Rp ${m.pb1.toLocaleString()}</td>
+                    <td style="color:#c0392b;">Rp ${pph.toLocaleString()}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('tax-body').innerHTML = html;
+        document.getElementById('tax-total').innerHTML = `
+            <td>TOTAL TAHUNAN</td>
+            <td>Rp ${totalOmzet.toLocaleString()}</td>
+            <td>Rp ${totalPB1.toLocaleString()}</td>
+            <td>Rp ${totalPPh.toLocaleString()}</td>
+        `;
+
+        document.getElementById('tax-note').innerHTML = `
+            Total Omzet Bruto Tahun 2026 adalah <strong>Rp ${totalOmzet.toLocaleString()}</strong>. 
+            Estimasi kewajiban PPh Final (PP 23) yang harus dibayarkan ke Kas Negara adalah <strong>Rp ${totalPPh.toLocaleString()}</strong>.
+        `;
+    }
+</script>
+</body>
+</html>
