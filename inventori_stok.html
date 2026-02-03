@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventori & Aset | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #8e44ad; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-sizing: border-box; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 240px; padding: 40px; }
+        .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        
+        .grid-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--accent); }
+        .stat-card small { color: #666; font-size: 12px; }
+        .stat-card h2 { margin: 5px 0 0 0; color: var(--primary); }
+
+        .card-table { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 13px; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
+        .low-stock { background: #fff5f5; color: #c0392b; font-weight: bold; }
+        .badge { padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; }
+        .badge-ok { background: #e8f5e9; color: #2e7d32; }
+        .badge-low { background: #ffebee; color: #c62828; }
+
+        .btn-update { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="pos.html">🛒 Kasir Kantin</a>
+    <a href="inventori_stok.html" class="active">📦 Inventori Stok</a>
+    <a href="laporan_perbandingan.html">📈 Bandingkan Bulan</a>
+    <a href="laba_rugi.html">💰 Laba Rugi</a>
+</nav>
+
+<main>
+    <div class="header-box">
+        <h1>Manajemen Stok & Aset</h1>
+        <button onclick="loadInventory()" style="padding:10px; cursor:pointer;">🔄 Refresh Data</button>
+    </div>
+
+    <div class="grid-stats">
+        <div class="stat-card">
+            <small>Total Item Produk</small>
+            <h2 id="total-items">0</h2>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--success);">
+            <small>Total Nilai Aset (Harga Beli)</small>
+            <h2 id="total-asset-value">Rp 0</h2>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--warning);">
+            <small>Item Stok Menipis (< 10)</small>
+            <h2 id="total-low-stock">0</h2>
+        </div>
+    </div>
+
+    <div class="card-table">
+        <h3>Daftar Produk & Valuasi Stok</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nama Barang</th>
+                    <th>Harga Beli</th>
+                    <th>Stok Saat Ini</th>
+                    <th>Satuan</th>
+                    <th>Nilai Aset</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="inventory-body">
+                </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+
+    window.onload = loadInventory;
+
+    async function loadInventory() {
+        const { data: produk, error } = await FinexDB.from('produk').select('*').order('nama_barang');
+
+        if (error) return alert("Gagal muat stok: " + error.message);
+
+        let html = '';
+        let totalAsset = 0;
+        let lowStockCount = 0;
+
+        produk.forEach(p => {
+            // Perhitungan Nilai Aset: Stok x Harga Beli (jika harga beli belum ada, gunakan 0)
+            const hrgBeli = p.harga_beli || 0;
+            const nilaiAset = p.stok_sekarang * hrgBeli;
+            totalAsset += nilaiAset;
+
+            const isLow = p.stok_sekarang < 10;
+            if (isLow) lowStockCount++;
+
+            html += `
+                <tr class="${isLow ? 'low-stock' : ''}">
+                    <td><strong>${p.nama_barang}</strong></td>
+                    <td>Rp ${hrgBeli.toLocaleString()}</td>
+                    <td>${p.stok_sekarang}</td>
+                    <td>pcs</td>
+                    <td><strong>Rp ${nilaiAset.toLocaleString()}</strong></td>
+                    <td>
+                        <span class="badge ${isLow ? 'badge-low' : 'badge-ok'}">
+                            ${isLow ? 'Stok Rendah' : 'Tersedia'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn-update" onclick="updateStok('${p.id}', '${p.nama_barang}', ${p.stok_sekarang})">➕ Tambah</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('inventory-body').innerHTML = html;
+        document.getElementById('total-items').innerText = produk.length;
+        document.getElementById('total-asset-value').innerText = "Rp " + totalAsset.toLocaleString();
+        document.getElementById('total-low-stock').innerText = lowStockCount;
+    }
+
+    async function updateStok(id, nama, stokSkrg) {
+        const tambah = prompt(`Tambah stok untuk ${nama}:`, "0");
+        if (tambah === null || tambah === "" || isNaN(tambah)) return;
+
+        const totalBaru = parseInt(stokSkrg) + parseInt(tambah);
+
+        const { error } = await FinexDB.from('produk').update({ stok_sekarang: totalBaru }).eq('id', id);
+
+        if (!error) {
+            alert("Stok berhasil diperbarui!");
+            loadInventory();
+        } else {
+            alert("Gagal update: " + error.message);
+        }
+    }
+</script>
+</body>
+</html>
