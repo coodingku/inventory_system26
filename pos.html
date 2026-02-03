@@ -222,8 +222,9 @@ async function executeTransaction() {
     const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
     const cash = parseFloat(document.getElementById('cashInput').value || 0);
 
-    if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
-    if (!kodeAkunAset) return alert("Metode ini belum dihubungkan ke akun jurnal!");
+    // Validasi Awal
+    if (method === "Tunai" && cash < state.total) return alert("Uang pembayaran kurang!");
+    if (!kodeAkunAset) return alert("Metode pembayaran '" + method + "' belum dihubungkan ke Kode Akun Jurnal. Harap hubungkan di menu Metode Pembayaran.");
 
     isSaving = true;
     const inv = `INV-${Date.now().toString().slice(-6)}`;
@@ -249,12 +250,12 @@ async function executeTransaction() {
         state.lastInv = inv;
         state.lastMethod = method;
 
-        let totalHPP = 0; // Untuk hitung Laba Rugi Akurat
+        let totalHPP = 0; 
 
-        // 2. Proses Detail Item, Stok, dan Kartu Stok
+        // 2. Proses Detail Item & Hitung HPP
         for (const item of cart) {
-            // Simpan Detail Penjualan
-            const { error: errDet } = await FinexDB.from('penjualan_detail').insert([{ 
+            // Simpan Detail
+            await FinexDB.from('penjualan_detail').insert([{ 
                 penjualan_id: trx.id, 
                 produk_id: item.id, 
                 nama_barang: item.nama_barang, 
@@ -262,52 +263,63 @@ async function executeTransaction() {
                 harga_satuan: item.harga, 
                 subtotal_item: item.qty * item.harga 
             }]);
-            if (errDet) console.error("Gagal simpan detail:", errDet);
 
-            // Ambil data produk terbaru untuk stok dan HPP
+            // Ambil data produk untuk stok & harga beli (HPP)
             const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
             
             if (p) {
                 const stokBaru = p.stok_sekarang - item.qty;
-                totalHPP += (parseFloat(p.harga_beli || 0) * item.qty);
+                const hargaBeliSatuan = parseFloat(p.harga_beli || 0);
+                totalHPP += (hargaBeliSatuan * item.qty);
 
-                // Update Stok Produk
+                // Update Stok
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
-                // Integrasi Kartu Stok
+                // Kartu Stok
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
                     jumlah: item.qty,
                     stok_akhir: stokBaru,
-                    admin_nama: session.username || 'Kasir',
+                    admin_nama: session.username || 'Kasir BeautyBloom',
                     keterangan: `Penjualan ${inv}`
                 }]);
             }
         }
 
         // 3. Jurnal Keuangan Otomatis (BeautyBloom Accounting)
-        // Dibungkus try-catch terpisah agar jika jurnal gagal, invoice tetap muncul
-        try {
-            const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${inv}`, debit: state.total, kredit: 0 },
-                { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan - ${inv}`, debit: 0, kredit: state.total },
+        // PERBAIKAN: Pastikan kode akun dikirim sebagai STRING agar tidak error di Supabase
+        const entriJurnal = [
+            { tanggal: tgl, no_bukti: inv, kode_akun: String(kodeAkunAset), keterangan: `Penjualan - ${inv}`, debit: state.total, kredit: 0 },
+            { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan - ${inv}`, debit: 0, kredit: state.total }
+        ];
+
+        // Hanya masukkan HPP jika nilainya > 0 (menghindari jurnal kosong)
+        if (totalHPP > 0) {
+            entriJurnal.push(
                 { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP Penjualan - ${inv}`, debit: totalHPP, kredit: 0 },
                 { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Pengurangan Persediaan - ${inv}`, debit: 0, kredit: totalHPP }
-            ]);
-            
-            if (errJurnal) throw errJurnal;
-        } catch (jurnalErr) {
-            console.error("Gagal mencatat ke jurnal_umum:", jurnalErr);
-            // Memberikan notifikasi tanpa menghentikan proses cetak struk
-            console.warn("Invoice berhasil tapi jurnal gagal. Cek relasi kode akun.");
+            );
         }
 
-        // 4. Finalisasi UI dan Cetak Struk
+        console.log("Mengirim data jurnal:", entriJurnal);
+
+        const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert(entriJurnal);
+        
+        if (errJurnal) {
+            console.error("Error Detail Jurnal:", errJurnal);
+            // Jika error karena kode akun tidak ada, beritahu admin kode mana yang bermasalah
+            if (errJurnal.code === '23503') {
+                alert("Gagal catat jurnal: Salah satu Kode Akun (4101, 5101, atau 1103) tidak ditemukan di tabel Akun Jurnal.");
+            } else {
+                alert("Jurnal gagal: " + errJurnal.message);
+            }
+        }
+
+        // 4. Finalisasi
         renderReceipt(inv, cash, method);
         document.getElementById('payModal').style.display = 'none';
         
-        // Timeout untuk memastikan rendering struk selesai sebelum print dialog muncul
         setTimeout(() => { 
             window.print(); 
             document.getElementById('waModal').style.display = 'flex'; 
@@ -315,8 +327,8 @@ async function executeTransaction() {
 
     } catch (e) { 
         isSaving = false; 
-        console.error("Transaksi Gagal:", e);
-        alert("Gagal memproses transaksi: " + e.message); 
+        console.error("Transaksi Gagal Total:", e);
+        alert("Terjadi kesalahan fatal: " + e.message); 
     }
 }
     function renderReceipt(inv, bayar, method) {
