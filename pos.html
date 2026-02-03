@@ -215,51 +215,85 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-    async function executeTransaction() {
-        if (isSaving) return;
-        const mtdEl = document.getElementById('payMethodSelect');
-        const method = mtdEl.value;
-        const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
-        const cash = parseFloat(document.getElementById('cashInput').value || 0);
+  async function executeTransaction() {
+    if (isSaving) return;
+    const mtdEl = document.getElementById('payMethodSelect');
+    const method = mtdEl.value;
+    const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
+    const cash = parseFloat(document.getElementById('cashInput').value || 0);
 
-        if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
-        if (!kodeAkunAset) return alert("Metode ini belum dihubungkan ke akun jurnal!");
+    if (method === "Tunai" && cash < state.total) return alert("Uang kurang!");
+    if (!kodeAkunAset) return alert("Metode ini belum dihubungkan ke akun jurnal!");
 
-        isSaving = true;
-        const inv = `INV-${Date.now().toString().slice(-6)}`;
-        const tgl = new Date().toISOString();
+    isSaving = true;
+    const inv = `INV-${Date.now().toString().slice(-6)}`;
+    const tgl = new Date().toISOString();
 
-        try {
-            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
-                no_invoice: inv, subtotal: state.sub, diskon: state.disc, pajak: state.tax, 
-                grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method, tanggal: tgl 
-            }]).select().single();
-            if (errTrx) throw errTrx;
+    try {
+        // 1. Simpan Header Penjualan
+        const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
+            no_invoice: inv, subtotal: state.sub, diskon: state.disc, pajak: state.tax, 
+            grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method, tanggal: tgl 
+        }]).select().single();
+        if (errTrx) throw errTrx;
 
-            state.lastTrxId = trx.id;
-            state.lastInv = inv;
-            state.lastMethod = method;
+        state.lastTrxId = trx.id;
+        state.lastInv = inv;
+        state.lastMethod = method;
 
-            for (const item of cart) {
-                await FinexDB.from('penjualan_detail').insert([{ 
-                    penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
-                    qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
+        let totalHPP = 0; // Untuk hitung Laba Rugi Akurat
+
+        // 2. Proses Detail Item, Stok, dan Kartu Stok
+        for (const item of cart) {
+            // Simpan Detail
+            await FinexDB.from('penjualan_detail').insert([{ 
+                penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
+                qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
+            }]);
+
+            // Ambil data produk terbaru untuk hitung stok_akhir dan HPP
+            const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
+            
+            if (p) {
+                const stokBaru = p.stok_sekarang - item.qty;
+                totalHPP += (p.harga_beli * item.qty); // Akumulasi modal barang
+
+                // Update Stok Produk
+                await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+
+                // --- INTEGRASI KARTU STOK BEAUTYBLOOM ---
+                await FinexDB.from('riwayat_stok').insert([{
+                    id_produk: item.id,
+                    tipe: 'KELUAR',
+                    jumlah: item.qty,
+                    stok_akhir: stokBaru, // Kolom yang baru kita tambah via SQL tadi
+                    admin_nama: session.username,
+                    keterangan: `Penjualan ${inv}`
                 }]);
-                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                if (p) await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
             }
+        }
 
-            await FinexDB.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${method}`, debit: state.total, kredit: 0 },
-                { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${method}`, debit: 0, kredit: state.total }
-            ]);
+        // 3. Jurnal Keuangan Otomatis (BeautyBloom Full Accounting)
+        await FinexDB.from('jurnal_umum').insert([
+            // Aset (Kas/Bank) bertambah
+            { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${inv}`, debit: state.total, kredit: 0 },
+            // Pendapatan bertambah
+            { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan - ${inv}`, debit: 0, kredit: state.total },
+            // HPP (Beban) bertambah (Hanya jika modal/harga_beli diisi)
+            { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP Penjualan - ${inv}`, debit: totalHPP, kredit: 0 },
+            // Persediaan berkurang
+            { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Pengurangan Persediaan - ${inv}`, debit: 0, kredit: totalHPP }
+        ]);
 
-            renderReceipt(inv, cash, method);
-            document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
-        } catch (e) { isSaving = false; alert("Error: " + e.message); }
+        renderReceipt(inv, cash, method);
+        document.getElementById('payModal').style.display = 'none';
+        setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
+    } catch (e) { 
+        isSaving = false; 
+        console.error(e);
+        alert("Error: " + e.message); 
     }
-
+}
     function renderReceipt(inv, bayar, method) {
         const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
         const diskonRow = state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Promo (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : '';
