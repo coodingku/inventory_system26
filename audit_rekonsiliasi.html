@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit & Rekonsiliasi | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        main { flex: 1; margin-left: 240px; padding: 40px; }
+        .audit-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        .status-badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-ok { background: #e8f5e9; color: var(--success); }
+        .status-error { background: #ffebee; color: var(--danger); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #eee; background: #f8f9fa; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
+        .diff-amount { color: var(--danger); font-weight: bold; }
+        .btn-audit { background: var(--accent); color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="pos.html">🛒 Masuk Kasir</a>
+    <a href="input_penjualan_manual.html">✍️ Penjualan Manual</a>
+    <a href="audit_rekonsiliasi.html" style="background: var(--accent); color:white;">🔍 Audit Rekonsiliasi</a>
+    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
+    <a href="laba_rugi.html">📈 Laba Rugi</a>
+</nav>
+
+<main>
+    <h1>Audit & Rekonsiliasi Jurnal</h1>
+    <p>Memastikan sinkronisasi antara <strong>Tabel Penjualan</strong> dan <strong>Jurnal Umum</strong>.</p>
+
+    <div class="audit-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Pengecekan Selisih Transaksi</h3>
+            <button class="btn-audit" onclick="runAudit()">Jalankan Audit Sekarang</button>
+        </div>
+        
+        <table id="audit-table">
+            <thead>
+                <tr>
+                    <th>No. Invoice</th>
+                    <th>Total di Penjualan</th>
+                    <th>Total di Jurnal</th>
+                    <th>Selisih</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="audit-body">
+                <tr><td colspan="5" style="text-align:center;">Klik "Jalankan Audit" untuk memulai pengecekan data.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="audit-card" id="summary-card" style="display:none;">
+        <h3>Ringkasan Hasil Audit</h3>
+        <div id="summary-content"></div>
+    </div>
+</main>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    async function runAudit() {
+        const tbody = document.getElementById('audit-body');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sedang melakukan audit mendalam...</td></tr>';
+
+        try {
+            // 1. Ambil data penjualan (menggunakan subtotal - diskon sebagai acuan net)
+            const { data: sales } = await FinexDB.from('penjualan').select('no_invoice, subtotal, diskon');
+            
+            // 2. Ambil data jurnal (filter hanya akun pendapatan/kas agar tidak double count)
+            const { data: jurnal } = await FinexDB.from('jurnal_umum').select('no_bukti, debit, kredit');
+
+            let html = '';
+            let issuesCount = 0;
+
+            sales.forEach(s => {
+                const netSales = parseFloat(s.subtotal || 0) - parseFloat(s.diskon || 0);
+                
+                // Cari nilai terkait di jurnal berdasarkan no_invoice
+                // Kita ambil nilai Debit (Kas/Bank) yang masuk untuk invoice tersebut
+                const relatedJurnal = jurnal.filter(j => j.no_bukti === s.no_invoice);
+                const totalInJurnal = relatedJurnal.reduce((sum, j) => sum + parseFloat(j.debit || 0), 0);
+
+                const diff = netSales - totalInJurnal;
+                const isMatch = Math.abs(diff) < 1; // Toleransi pembulatan
+
+                if (!isMatch) issuesCount++;
+
+                html += `
+                    <tr>
+                        <td>${s.no_invoice}</td>
+                        <td>Rp ${netSales.toLocaleString()}</td>
+                        <td>Rp ${totalInJurnal.toLocaleString()}</td>
+                        <td class="${isMatch ? '' : 'diff-amount'}">Rp ${diff.toLocaleString()}</td>
+                        <td>
+                            <span class="status-badge ${isMatch ? 'status-ok' : 'status-error'}">
+                                ${isMatch ? 'MATCH' : 'SELISIH'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;">Tidak ada data penjualan ditemukan.</td></tr>';
+            
+            // Tampilkan Ringkasan
+            const summary = document.getElementById('summary-card');
+            summary.style.display = 'block';
+            document.getElementById('summary-content').innerHTML = `
+                <p>Total Transaksi Dicek: <strong>${sales.length}</strong></p>
+                <p>Transaksi Bermasalah: <strong style="color:${issuesCount > 0 ? 'red' : 'green'}">${issuesCount}</strong></p>
+                <p style="font-size: 13px; color: #666;"><em>Note: Jika terdapat selisih, pastikan Anda telah melakukan posting jurnal untuk transaksi tersebut atau cek apakah ada jurnal yang terhapus secara manual.</em></p>
+            `;
+
+        } catch (e) {
+            alert("Audit Gagal: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
