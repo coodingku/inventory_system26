@@ -6,7 +6,7 @@
     <title>Jurnal Umum | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
@@ -33,11 +33,8 @@
         .btn-save { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; white-space: nowrap; }
         .btn-modal { background: #8e44ad; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-stock { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-fix { background: var(--warning); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         .action-group { display: flex; gap: 10px; }
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-        .status-mismatch { background: #fff3cd; color: #856404; }
     </style>
 </head>
 <body>
@@ -56,15 +53,9 @@
         <div class="header">
             <h1>Jurnal Umum</h1>
             <div class="action-group">
-                <button class="btn-fix" onclick="perbaikiMappingPendapatan()">⚡ Perbaiki Mapping (INV-014784)</button>
                 <button class="btn-stock" onclick="inputStokAwal()">📦 Input Stok Awal (1103)</button>
                 <button class="btn-modal" onclick="inputModalCepat()">💰 Input Modal Tunai (1101)</button>
             </div>
-        </div>
-
-        <div class="card">
-            <h3 style="margin-top:0;">Audit Sinkronisasi Kasir</h3>
-            <p style="font-size: 13px; color: #666;">Gunakan fitur ini jika Pendapatan di Laba Rugi tidak sesuai dengan Total Penjualan di Kasir.</p>
         </div>
 
         <div class="card">
@@ -98,7 +89,7 @@
                         <th>Tanggal</th>
                         <th>No. Bukti</th>
                         <th>Keterangan</th>
-                        <th>Akun</th>
+                        <th>Kode Akun</th>
                         <th style="text-align: right;">Debet</th>
                         <th style="text-align: right;">Kredit</th>
                     </tr>
@@ -123,6 +114,7 @@
     async function loadDropdowns() {
         const { data, error } = await FinexDB.from('akun').select('kode_akun, nama_akun').order('kode_akun');
         if (error) return console.error(error);
+        
         const options = data.map(a => `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`).join('');
         document.getElementById('acc_debet').innerHTML = options;
         document.getElementById('acc_kredit').innerHTML = options;
@@ -130,11 +122,13 @@
 
     async function loadJurnal() {
         const { data, error } = await FinexDB.from('jurnal_umum').select('*').order('tanggal', { ascending: false }).limit(50);
+        
         const tbody = document.getElementById('table-jurnal');
         if (error) {
             tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
             return;
         }
+
         tbody.innerHTML = data.map(j => `
             <tr>
                 <td style="font-size:11px; color:#888;">${new Date(j.tanggal).toLocaleDateString('id-ID')}</td>
@@ -147,84 +141,72 @@
         `).join('');
     }
 
-    // FUNGSI UNTUK MEMPERBAIKI KESALAHAN MAPPING PENDAPATAN
-    async function perbaikiMappingPendapatan() {
-        const noInvoice = "INV-014784";
-        const hargaJualRiil = 199000;
-        const hppRiil = 59500;
-        const tgl = new Date().toISOString();
-
-        if(!confirm(`Sistem mendeteksi selisih pada ${noInvoice}. Perbaiki nilai Pendapatan menjadi Rp 199.000?`)) return;
-
-        try {
-            // 1. Hapus entri lama yang salah untuk invoice ini agar tidak double
-            await FinexDB.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
-
-            // 2. Masukkan Entri Jurnal yang Benar (Standar Akuntansi)
-            const correctEntries = [
-                // PENJUALAN: Kas (D) vs Pendapatan (K) -> Nilai Kotor Rp 199.000
-                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Penjualan ${noInvoice}`, kode_akun: '1101', debit: hargaJualRiil, kredit: 0 },
-                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Penjualan ${noInvoice}`, kode_akun: '4101', debit: 0, kredit: hargaJualRiil },
-                
-                // HPP: Beban HPP (D) vs Persediaan (K) -> Nilai Modal Rp 59.500
-                { tanggal: tgl, no_bukti: noInvoice, keterangan: `HPP ${noInvoice}`, kode_akun: '5101', debit: hppRiil, kredit: 0 },
-                { tanggal: tgl, no_bukti: noInvoice, keterangan: `HPP ${noInvoice}`, kode_akun: '1103', debit: 0, kredit: hppRiil }
-            ];
-
-            const { error } = await FinexDB.from('jurnal_umum').insert(correctEntries);
-            if (error) throw error;
-
-            alert("Sinkronisasi Berhasil! Laba Rugi sekarang akan menampilkan:\n- Pendapatan: 199.000\n- HPP: 59.500\n- Laba Kotor: 139.500");
-            location.reload();
-
-        } catch (err) {
-            alert("Gagal memperbaiki: " + err.message);
-        }
-    }
-
     async function simpanJurnal() {
         const ket = document.getElementById('ket').value;
         const debetAcc = document.getElementById('acc_debet').value;
         const kreditAcc = document.getElementById('acc_kredit').value;
         const nominal = parseFloat(document.getElementById('nominal').value);
+
         if (!ket || !nominal || nominal <= 0) return alert("Isi data dengan benar!");
+        if (debetAcc === kreditAcc) return alert("Akun Debet & Kredit tidak boleh sama!");
+
         const noBukti = "JR-" + Date.now().toString().slice(-6);
         const tgl = new Date().toISOString();
+
         const entries = [
             { tanggal: tgl, no_bukti: noBukti, keterangan: ket, kode_akun: debetAcc, debit: nominal, kredit: 0 },
             { tanggal: tgl, no_bukti: noBukti, keterangan: ket, kode_akun: kreditAcc, debit: 0, kredit: nominal }
         ];
+
         const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+        
         if (error) alert("Gagal: " + error.message);
-        else { alert("Transaksi Berhasil Dicatat!"); location.reload(); }
+        else {
+            alert("Transaksi Berhasil Dicatat!");
+            location.reload();
+        }
     }
 
     async function inputStokAwal() {
-        const nominal = prompt("Masukkan Total Nilai Stok Barang (Harga Modal):", "5000000");
+        const nominal = prompt("Masukkan Total Nilai Stok Barang (Rp):", "5000000");
         if (!nominal || isNaN(nominal)) return;
+
         const tgl = new Date().toISOString();
         const noBukti = "STOK-" + Date.now().toString().slice(-4);
+
+        // LOGIKA: Persediaan (1103) DEBIT, Modal (3101) KREDIT
         const entries = [
             { tanggal: tgl, no_bukti: noBukti, keterangan: 'Saldo Awal Persediaan Barang', kode_akun: '1103', debit: nominal, kredit: 0 },
             { tanggal: tgl, no_bukti: noBukti, keterangan: 'Saldo Awal Persediaan Barang', kode_akun: '3101', debit: 0, kredit: nominal }
         ];
+
         const { error } = await FinexDB.from('jurnal_umum').insert(entries);
         if (error) alert("Gagal: " + error.message);
-        else { alert("Stok Awal Berhasil!"); location.reload(); }
+        else {
+            alert("Stok Awal Berhasil Ditambahkan ke Persediaan!");
+            location.reload();
+        }
     }
 
     async function inputModalCepat() {
-        const nominal = prompt("Masukkan Jumlah Modal Tunai:", "10000000");
+        const nominal = prompt("Masukkan Jumlah Modal Tunai (Rp):", "10000000");
         if (!nominal || isNaN(nominal)) return;
+
         const tgl = new Date().toISOString();
         const noBukti = "MODAL-" + Date.now().toString().slice(-4);
+
+        // LOGIKA: Kas (1101) DEBIT, Modal (3101) KREDIT
         const entries = [
             { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Tunai', kode_akun: '1101', debit: nominal, kredit: 0 },
             { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Tunai', kode_akun: '3101', debit: 0, kredit: nominal }
         ];
+
         const { error } = await FinexDB.from('jurnal_umum').insert(entries);
         if (error) alert("Gagal: " + error.message);
-        else { alert("Modal Berhasil!"); location.reload(); }
+        else {
+            alert("Modal Tunai Berhasil Ditambahkan ke Kas!");
+            location.reload();
+        }
     }
 </script>
 </body>
