@@ -22,7 +22,10 @@
         .btn-scan { background: var(--accent); color: white; padding: 18px; width: 100%; border: none; border-radius: 16px; font-weight: 800; cursor: pointer; font-size: 16px; transition: 0.3s; box-shadow: 0 6px 15px rgba(233, 30, 99, 0.3); }
         .btn-scan:disabled { background: #eee; color: #aaa; box-shadow: none; cursor: not-allowed; }
         
-        #instruction { font-size: 14px; color: #555; margin-bottom: 15px; font-weight: 500; min-height: 40px; line-height: 1.4; }
+        #instruction { font-size: 15px; color: #333; margin-bottom: 15px; font-weight: 600; min-height: 50px; line-height: 1.4; padding: 10px; border-radius: 12px; transition: all 0.3s; }
+        .success-bg { background: #d4edda; color: #155724 !important; border: 1px solid #c3e6cb; }
+        .danger-bg { background: #f8d7da; color: #721c24 !important; border: 1px solid #f5c6cb; }
+
         .loader { width: 18px; height: 18px; border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; margin-right: 10px; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -41,7 +44,7 @@
     </div>
 
     <div id="instruction">
-        <div class="loader"></div> Mengunduh kecerdasan buatan...
+        <div class="loader"></div> Menginisialisasi Sistem...
     </div>
 
     <button id="btn-action" class="btn-scan" onclick="prosesAbsen()" disabled>
@@ -59,13 +62,13 @@
     let userLoc = { lat: 0, lon: 0 };
     let isGeoValid = false;
     let detectionResult = null;
+    let isProcessing = false;
 
     async function init() {
         const info = document.getElementById('instruction');
         try {
             const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
             
-            // Gunakan TinyFaceDetector (Lebih Cepat & Agresif)
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
@@ -81,7 +84,7 @@
             const { data: loc } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
             configToko = loc || { latitude: -8.65, longitude: 115.21, radius_meter: 100 };
 
-            info.innerText = "Sistem Siap. Posisikan wajah Anda di depan kamera.";
+            info.innerText = "Sistem Siap. Posisikan wajah Anda.";
             startCamera();
             startGeo();
         } catch (e) {
@@ -105,9 +108,10 @@
                 faceapi.matchDimensions(canvas, displaySize);
 
                 setInterval(async () => {
-                    // Gunakan TinyFaceDetectorOptions (inputSize lebih kecil = lebih cepat)
+                    if (isProcessing) return;
+
                     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 }))
-                        .withFaceLandmarks(true) // true = use tiny landmarks
+                        .withFaceLandmarks(true)
                         .withFaceDescriptor();
 
                     const ctx = canvas.getContext('2d');
@@ -117,7 +121,6 @@
                         detectionResult = detection;
                         const resized = faceapi.resizeResults(detection, displaySize);
                         
-                        // Gambar Box Sederhana
                         ctx.strokeStyle = '#27ae60';
                         ctx.lineWidth = 4;
                         const b = resized.detection.box;
@@ -125,12 +128,14 @@
                         
                         if (isGeoValid) {
                             document.getElementById('btn-action').disabled = false;
-                            info.innerHTML = `<span style="color:var(--success)">Wajah Terdeteksi! Klik tombol di bawah.</span>`;
+                            info.innerHTML = `<span style="color:var(--success)">Wajah Terdeteksi! Siap Absen.</span>`;
+                            info.classList.remove('danger-bg');
                         }
                     } else {
                         detectionResult = null;
                         document.getElementById('btn-action').disabled = true;
                         if(isGeoValid) info.innerText = "Arahkan wajah ke kotak kamera.";
+                        info.classList.remove('success-bg', 'danger-bg');
                     }
                 }, 200);
             };
@@ -168,28 +173,41 @@
     }
 
     async function prosesAbsen() {
-        if (!detectionResult || labeledDescriptors.length === 0) return;
+        if (!detectionResult || labeledDescriptors.length === 0 || isProcessing) return;
         
         const info = document.getElementById('instruction');
         const btn = document.getElementById('btn-action');
         
+        isProcessing = true;
         btn.disabled = true;
-        info.innerHTML = `<div class="loader"></div> Mengenali wajah...`;
+        info.innerHTML = `<div class="loader"></div> Mencocokkan biometrik...`;
         
-        // Face Matcher dengan toleransi lebih longgar (0.6)
         const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
         const match = faceMatcher.findBestMatch(detectionResult.descriptor);
 
         if (match.label !== 'unknown') {
-            info.innerHTML = `<b style="color:var(--success)">Halo, ${match.label}!</b>`;
-            await simpanAbsensi(match.label);
+            // BERHASIL TERDETEKSI - TAMPILKAN NAMA DENGAN JELAS
+            info.classList.add('success-bg');
+            info.innerHTML = `🌟 <b>TERVERIFIKASI: ${match.label.toUpperCase()}</b><br><small>Mohon tunggu sebentar...</small>`;
+            
+            // Jeda 1.5 detik agar user bisa membaca namanya sebelum alert muncul
+            setTimeout(async () => {
+                await simpanAbsensi(match.label);
+            }, 1500);
+            
         } else {
-            info.innerHTML = `<b style="color:var(--danger)">Wajah tidak terdaftar!</b>`;
-            setTimeout(() => { btn.disabled = false; }, 3000);
+            // GAGAL TERDETEKSI
+            info.classList.add('danger-bg');
+            info.innerHTML = `❌ <b>WAJAH TIDAK DIKENALI</b><br><small>Coba lagi dalam 3 detik...</small>`;
+            setTimeout(() => { 
+                isProcessing = false; 
+                info.classList.remove('danger-bg');
+            }, 3000);
         }
     }
 
     async function simpanAbsensi(nama) {
+        const info = document.getElementById('instruction');
         const tgl = new Date().toISOString().split('T')[0];
         const jam = new Date().toISOString();
         
@@ -199,17 +217,18 @@
 
             if (cek) {
                 await FinexDB.from('presensi').update({ waktu_pulang: jam, status: 'Selesai' }).eq('id', cek.id);
-                alert("Absen PULANG Berhasil!");
+                alert(`Terima kasih ${nama}, Absen PULANG Berhasil!`);
             } else {
                 await FinexDB.from('presensi').insert([{ 
                     nama_staff: nama, tanggal: tgl, waktu_masuk: jam, 
                     lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
                 }]);
-                alert("Absen MASUK Berhasil!");
+                alert(`Halo ${nama}, Absen MASUK Berhasil! Selamat bekerja.`);
             }
             location.reload();
         } catch (e) {
             alert("Gagal simpan data: " + e.message);
+            isProcessing = false;
             location.reload();
         }
     }
