@@ -38,6 +38,8 @@
         .kredit-val { text-align: right; color: var(--danger); font-weight: bold; }
         .summary-box { display: flex; justify-content: flex-end; gap: 40px; margin-top: 20px; padding: 20px; background: #fff5f8; border-radius: 8px; font-weight: bold; border: 1px solid #fce4ec; }
 
+        .error-hint { background: #fff3f3; color: #d32f2f; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #d32f2f; display: none; }
+
         @media print {
             nav, .toolbar, .header .btn { display: none !important; }
             main { margin-left: 0; padding: 0; }
@@ -58,6 +60,8 @@
 </nav>
 
 <main>
+    <div id="error-display" class="error-hint"></div>
+
     <div class="header">
         <h2 style="margin:0;">Buku Jurnal Umum BeautyBloom</h2>
         <div style="display: flex; gap: 10px;">
@@ -114,25 +118,34 @@
         fetchJurnal();
     };
 
+    function showError(msg) {
+        const errDiv = document.getElementById('error-display');
+        errDiv.style.display = 'block';
+        errDiv.innerHTML = `<b>Peringatan:</b> ${msg}<br><small>Saran: Pastikan tabel 'akun' sudah ada dan RLS sudah diizinkan (Enable Policy SELECT).</small>`;
+    }
+
     async function fetchJurnal() {
         const from = document.getElementById('date-from').value;
         const to = document.getElementById('date-to').value;
+        document.getElementById('error-display').style.display = 'none';
 
         try {
-            // STEP 1: Ambil semua akun jurnal dulu untuk referensi nama (Manual Join)
+            // STEP 1: Ambil data dari tabel 'akun' (disesuaikan dari akun_jurnal)
             const { data: akunData, error: akunError } = await supabaseClient
-                .from('akun_jurnal')
+                .from('akun')
                 .select('kode_akun, nama_akun');
             
-            if (akunError) throw akunError;
-
-            // Buat Map agar pencarian nama akun cepat
             const akunMap = {};
-            akunData.forEach(a => {
-                akunMap[String(a.kode_akun)] = a.nama_akun;
-            });
+            if (akunError) {
+                console.warn("Tabel 'akun' bermasalah:", akunError.message);
+                showError("Gagal memuat daftar nama akun dari tabel 'akun'.");
+            } else {
+                akunData.forEach(a => {
+                    akunMap[String(a.kode_akun)] = a.nama_akun;
+                });
+            }
 
-            // STEP 2: Ambil data jurnal (Flat, tanpa relasi kurung yang menyebabkan error)
+            // STEP 2: Ambil data jurnal
             const { data, error } = await supabaseClient
                 .from('jurnal_umum')
                 .select('*') 
@@ -155,8 +168,8 @@
                     sumDebit += deb;
                     sumKredit += kre;
 
-                    // Ambil nama akun dari Map yang dibuat di Step 1
-                    const namaAkunRef = akunMap[String(j.kode_akun)] || 'Akun Tidak Terdefinisi';
+                    // Menggunakan data dari map tabel 'akun'
+                    const namaAkunRef = akunMap[String(j.kode_akun)] || 'Nama Akun Belum Terdaftar';
 
                     html += `
                         <tr>
@@ -178,17 +191,10 @@
             document.getElementById('total-debit').innerText = "Rp " + sumDebit.toLocaleString();
             document.getElementById('total-kredit').innerText = "Rp " + sumKredit.toLocaleString();
 
-            const summaryBox = document.querySelector('.summary-box');
-            if (Math.abs(sumDebit - sumKredit) > 1) {
-                summaryBox.style.border = "2px solid var(--danger)";
-                summaryBox.title = "Peringatan: Jurnal tidak seimbang!";
-            } else {
-                summaryBox.style.border = "1px solid #fce4ec";
-            }
-
         } catch (err) {
             console.error(err);
-            alert("Gagal memuat data jurnal BeautyBloom: " + err.message);
+            showError(err.message);
+            document.getElementById('body-jurnal').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">${err.message}</td></tr>`;
         }
     }
 
