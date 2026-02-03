@@ -215,7 +215,7 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-  async function executeTransaction() {
+async function executeTransaction() {
     if (isSaving) return;
     const mtdEl = document.getElementById('payMethodSelect');
     const method = mtdEl.value;
@@ -232,9 +232,17 @@
     try {
         // 1. Simpan Header Penjualan
         const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
-            no_invoice: inv, subtotal: state.sub, diskon: state.disc, pajak: state.tax, 
-            grand_total: state.total, bayar: cash, kasir_id: currentLogId, metode_pembayaran: method, tanggal: tgl 
+            no_invoice: inv, 
+            subtotal: state.sub, 
+            diskon: state.disc, 
+            pajak: state.tax, 
+            grand_total: state.total, 
+            bayar: cash, 
+            kasir_id: currentLogId, 
+            metode_pembayaran: method, 
+            tanggal: tgl 
         }]).select().single();
+        
         if (errTrx) throw errTrx;
 
         state.lastTrxId = trx.id;
@@ -245,53 +253,70 @@
 
         // 2. Proses Detail Item, Stok, dan Kartu Stok
         for (const item of cart) {
-            // Simpan Detail
-            await FinexDB.from('penjualan_detail').insert([{ 
-                penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
-                qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
+            // Simpan Detail Penjualan
+            const { error: errDet } = await FinexDB.from('penjualan_detail').insert([{ 
+                penjualan_id: trx.id, 
+                produk_id: item.id, 
+                nama_barang: item.nama_barang, 
+                qty: item.qty, 
+                harga_satuan: item.harga, 
+                subtotal_item: item.qty * item.harga 
             }]);
+            if (errDet) console.error("Gagal simpan detail:", errDet);
 
-            // Ambil data produk terbaru untuk hitung stok_akhir dan HPP
+            // Ambil data produk terbaru untuk stok dan HPP
             const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
             
             if (p) {
                 const stokBaru = p.stok_sekarang - item.qty;
-                totalHPP += (p.harga_beli * item.qty); // Akumulasi modal barang
+                totalHPP += (parseFloat(p.harga_beli || 0) * item.qty);
 
                 // Update Stok Produk
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
-                // --- INTEGRASI KARTU STOK BEAUTYBLOOM ---
+                // Integrasi Kartu Stok
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
                     jumlah: item.qty,
-                    stok_akhir: stokBaru, // Kolom yang baru kita tambah via SQL tadi
-                    admin_nama: session.username,
+                    stok_akhir: stokBaru,
+                    admin_nama: session.username || 'Kasir',
                     keterangan: `Penjualan ${inv}`
                 }]);
             }
         }
 
-        // 3. Jurnal Keuangan Otomatis (BeautyBloom Full Accounting)
-        await FinexDB.from('jurnal_umum').insert([
-            // Aset (Kas/Bank) bertambah
-            { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${inv}`, debit: state.total, kredit: 0 },
-            // Pendapatan bertambah
-            { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan - ${inv}`, debit: 0, kredit: state.total },
-            // HPP (Beban) bertambah (Hanya jika modal/harga_beli diisi)
-            { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP Penjualan - ${inv}`, debit: totalHPP, kredit: 0 },
-            // Persediaan berkurang
-            { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Pengurangan Persediaan - ${inv}`, debit: 0, kredit: totalHPP }
-        ]);
+        // 3. Jurnal Keuangan Otomatis (BeautyBloom Accounting)
+        // Dibungkus try-catch terpisah agar jika jurnal gagal, invoice tetap muncul
+        try {
+            const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert([
+                { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penjualan - ${inv}`, debit: state.total, kredit: 0 },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan - ${inv}`, debit: 0, kredit: state.total },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP Penjualan - ${inv}`, debit: totalHPP, kredit: 0 },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Pengurangan Persediaan - ${inv}`, debit: 0, kredit: totalHPP }
+            ]);
+            
+            if (errJurnal) throw errJurnal;
+        } catch (jurnalErr) {
+            console.error("Gagal mencatat ke jurnal_umum:", jurnalErr);
+            // Memberikan notifikasi tanpa menghentikan proses cetak struk
+            console.warn("Invoice berhasil tapi jurnal gagal. Cek relasi kode akun.");
+        }
 
+        // 4. Finalisasi UI dan Cetak Struk
         renderReceipt(inv, cash, method);
         document.getElementById('payModal').style.display = 'none';
-        setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
+        
+        // Timeout untuk memastikan rendering struk selesai sebelum print dialog muncul
+        setTimeout(() => { 
+            window.print(); 
+            document.getElementById('waModal').style.display = 'flex'; 
+        }, 500);
+
     } catch (e) { 
         isSaving = false; 
-        console.error(e);
-        alert("Error: " + e.message); 
+        console.error("Transaksi Gagal:", e);
+        alert("Gagal memproses transaksi: " + e.message); 
     }
 }
     function renderReceipt(inv, bayar, method) {
