@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analisis Perbandingan Bulanan | Finex Pos</title>
+    <title>Analisis Perbandingan | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
-        /* Sidebar Navigation */
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-sizing: border-box; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; transition: 0.3s; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
 
-        /* Main Content */
         main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; }
         .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         
@@ -29,7 +27,6 @@
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .card h3 { margin-top: 0; color: var(--primary); font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         
-        /* Statistics Styling */
         .stat-box { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f9f9f9; }
         .stat-label { font-size: 14px; color: #666; }
         .stat-value { font-weight: bold; font-size: 16px; }
@@ -37,7 +34,6 @@
         .trend-up { color: var(--success); font-weight: bold; }
         .trend-down { color: var(--danger); font-weight: bold; }
         
-        /* Table Styling */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { background: #f8f9fa; padding: 15px; text-align: left; font-size: 13px; color: #333; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
@@ -77,13 +73,13 @@
             </select>
         </div>
         <div style="flex:1; text-align: right; font-size: 12px; color: #666; font-style: italic;">
-            Membandingkan data bulan terpilih dengan satu bulan sebelumnya.
+            Perbandingan otomatis dengan satu bulan sebelumnya.
         </div>
     </div>
 
     <div class="grid-compare">
         <div class="card">
-            <h3>Visualisasi Pendapatan vs Profit</h3>
+            <h3>Visualisasi Tren</h3>
             <div style="height: 300px;">
                 <canvas id="chartCompare"></canvas>
             </div>
@@ -125,7 +121,7 @@
 
     window.onload = () => {
         const monthSel = document.getElementById('selectMonth');
-        const currentMonth = new Date().getMonth(); // Ambil bulan saat ini (Feb = 1)
+        const currentMonth = new Date().getMonth(); 
         
         bulanNames.forEach((name, i) => {
             const opt = document.createElement('option');
@@ -142,13 +138,13 @@
         const currM = parseInt(document.getElementById('selectMonth').value);
         const year = parseInt(document.getElementById('selectYear').value);
         
-        // Tentukan bulan sebelumnya (handle jika Januari balik ke Desember tahun lalu)
         const prevM = currM === 0 ? 11 : currM - 1;
         const prevYear = currM === 0 ? year - 1 : year;
 
-        // Ambil data Jurnal Umum untuk rentang 2 bulan tersebut
+        // --- DINAMIS UNTUK FEBRUARI & BULAN LAIN ---
         const startDate = `${prevYear}-${(prevM + 1).toString().padStart(2, '0')}-01T00:00:00`;
-        const endDate = `${year}-${(currM + 1).toString().padStart(2, '0')}-31T23:59:59`;
+        const lastDayCurr = new Date(year, currM + 1, 0).getDate();
+        const endDate = `${year}-${(currM + 1).toString().padStart(2, '0')}-${lastDayCurr}T23:59:59`;
 
         const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
             .select('*')
@@ -179,7 +175,6 @@
         const pProfit = stats.prev.sales - stats.prev.expense;
         const cProfit = stats.curr.sales - stats.curr.expense;
 
-        // Fungsi Hitung Growth
         const getGrowth = (oldVal, newVal) => {
             if (oldVal === 0) return newVal > 0 ? 100 : 0;
             return ((newVal - oldVal) / oldVal * 100).toFixed(1);
@@ -188,7 +183,6 @@
         const gSales = getGrowth(stats.prev.sales, stats.curr.sales);
         const gProfit = getGrowth(pProfit, cProfit);
 
-        // Update Tabel UI
         document.getElementById('label-prev').innerText = bulanNames[prevM] + ' ' + prevYear;
         document.getElementById('label-curr').innerText = bulanNames[currM] + ' ' + year;
 
@@ -213,7 +207,10 @@
             </tr>
         `;
 
-        // Update Ringkasan UI
+        renderSummaryAndChart(stats, pProfit, cProfit, prevM, currM);
+    }
+
+    function renderSummaryAndChart(stats, pProfit, cProfit, prevM, currM) {
         const statusProfit = cProfit >= pProfit ? 
             `<span class="trend-up">MENINGKAT 📈</span>` : 
             `<span class="trend-down">MENURUN 📉</span>`;
@@ -224,7 +221,6 @@
             <div class="stat-box"><span class="stat-label">Efisiensi Biaya:</span> <span class="stat-value">${stats.curr.expense < stats.prev.expense ? 'Lebih Hemat' : 'Meningkat'}</span></div>
         `;
 
-        // Render / Update Chart
         if (myChart) myChart.destroy();
         const ctx = document.getElementById('chartCompare').getContext('2d');
         myChart = new Chart(ctx, {
