@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Stok Lengkap</title>
+    <title>BeautyBloom | Kartu Stok Lengkap</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
@@ -17,10 +17,8 @@
         nav a.active { background: var(--accent); color: white; }
         
         main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); }
-        
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         
-        /* Filter Toolbar */
         .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
@@ -34,25 +32,25 @@
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .badge { padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 11px; text-transform: uppercase; }
-        .badge-masuk { background: #e8f5e9; color: #2e7d32; }
-        .badge-keluar { background: #ffebee; color: #c62828; }
+        .badge-masuk { background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        .badge-keluar { background: #ffebee; color: #c62828; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        .col-saldo { background: #f0f7ff; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2>BeautyBloom</h2>
     <a href="index.html">📊 Dashboard</a>
     <a href="laporan-penjualan.html">📑 Penjualan</a>
-    <a href="laporan-stok.html" class="active">📋 Riwayat Stok</a>
+    <a href="laporan-stok.html" class="active">📋 Kartu Stok</a>
     <a href="penyesuaian.html">🔄 Stok In/Out</a>
     <a href="produk.html">📦 Data Produk</a>
 </nav>
 
 <main>
     <div class="header-flex">
-        <h1>Laporan Arus Barang</h1>
+        <h1>Riwayat Arus Barang BeautyBloom</h1>
         <button class="btn-export" onclick="exportKeExcel()">📗 Export Excel</button>
     </div>
 
@@ -81,15 +79,16 @@
             <thead>
                 <tr>
                     <th>Waktu</th>
-                    <th>Nama Barang</th>
-                    <th>Tipe</th>
+                    <th>Nama Produk</th>
+                    <th>Aksi</th>
                     <th>Jumlah</th>
+                    <th style="background: #e1f0ff;">Saldo Akhir</th>
                     <th>Admin</th>
                     <th>Keterangan</th>
                 </tr>
             </thead>
             <tbody id="stok-body">
-                <tr><td colspan="6" style="text-align:center">Silakan klik "Cari Data"</td></tr>
+                <tr><td colspan="7" style="text-align:center">Memuat data BeautyBloom...</td></tr>
             </tbody>
         </table>
     </div>
@@ -102,7 +101,6 @@
 
     let currentDisplayData = [];
 
-    // Set tanggal default ke hari ini
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('startDate').value = today;
@@ -117,7 +115,7 @@
 
         try {
             const tbody = document.getElementById('stok-body');
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Memuat...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Menghubungkan ke BeautyBloom DB...</td></tr>';
 
             let query = supabaseClient
                 .from('riwayat_stok')
@@ -126,9 +124,7 @@
                 .lte('created_at', `${end}T23:59:59`)
                 .order('created_at', { ascending: false });
 
-            if (tipe !== 'ALL') {
-                query = query.eq('tipe', tipe);
-            }
+            if (tipe !== 'ALL') query = query.eq('tipe', tipe);
 
             const { data, error } = await query;
             if (error) throw error;
@@ -137,7 +133,7 @@
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Tidak ada data ditemukan pada periode ini.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Belum ada aktivitas stok di BeautyBloom.</td></tr>';
                 return;
             }
 
@@ -147,38 +143,36 @@
                     <tr>
                         <td style="color:#888; font-size:12px;">${new Date(item.created_at).toLocaleString('id-ID')}</td>
                         <td><b>${item.produk ? item.produk.nama_barang : 'Produk Dihapus'}</b></td>
-                        <td><span class="badge ${isMasuk ? 'badge-masuk' : 'badge-keluar'}">${item.tipe}</span></td>
+                        <td><span class="${isMasuk ? 'badge-masuk' : 'badge-keluar'}">${item.tipe}</span></td>
                         <td style="font-weight:bold; color:${isMasuk ? '#27ae60' : '#e74c3c'}">
                             ${isMasuk ? '+' : '-'}${item.jumlah}
                         </td>
-                        <td>${item.admin_nama || 'Admin'}</td>
+                        <td class="col-saldo">${item.stok_akhir || '-'}</td>
+                        <td>${item.admin_nama || 'System'}</td>
                         <td style="color:#999; font-style:italic;">${item.keterangan || '-'}</td>
                     </tr>
                 `;
             });
         } catch (e) {
-            alert("Gagal memuat data: " + e.message);
+            alert("Error: " + e.message);
         }
     }
 
     function exportKeExcel() {
-        if (currentDisplayData.length === 0) return alert("Cari data terlebih dahulu sebelum export!");
-
+        if (currentDisplayData.length === 0) return alert("Pilih data dulu!");
         const dataExcel = currentDisplayData.map(item => ({
-            "Tanggal & Waktu": new Date(item.created_at).toLocaleString('id-ID'),
-            "Nama Barang": item.produk ? item.produk.nama_barang : 'Dihapus',
-            "Tipe Arus": item.tipe.toUpperCase(),
-            "Jumlah Qty": item.jumlah,
-            "Nama Admin": item.admin_nama,
-            "Catatan": item.keterangan || "-"
+            "Waktu": new Date(item.created_at).toLocaleString('id-ID'),
+            "Produk": item.produk ? item.produk.nama_barang : '?',
+            "Tipe": item.tipe,
+            "Qty": item.jumlah,
+            "Saldo Akhir": item.stok_akhir,
+            "Admin": item.admin_nama,
+            "Keterangan": item.keterangan
         }));
-
         const ws = XLSX.utils.json_to_sheet(dataExcel);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Laporan Stok");
-        
-        const fileName = `FinexPos_Stok_${document.getElementById('startDate').value}_sd_${document.getElementById('endDate').value}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        XLSX.utils.book_append_sheet(wb, ws, "Stok_BeautyBloom");
+        XLSX.writeFile(wb, `Stok_BeautyBloom_${Date.now()}.xlsx`);
     }
 </script>
 </body>
