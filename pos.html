@@ -216,22 +216,39 @@
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
 async function executeTransaction() {
+    // 1. Double-Click Protection & Inisialisasi
     if (isSaving) return;
+    
     const mtdEl = document.getElementById('payMethodSelect');
+    if (!mtdEl) return alert("Elemen metode pembayaran tidak ditemukan!");
+    
     const method = mtdEl.value;
-    const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
+    const selectedOption = mtdEl.options[mtdEl.selectedIndex];
+    const kodeAkunAset = selectedOption ? selectedOption.getAttribute('data-akun') : null;
     const cash = parseFloat(document.getElementById('cashInput').value || 0);
 
-    // Validasi Awal
-    if (method === "Tunai" && cash < state.total) return alert("Uang pembayaran kurang!");
-    if (!kodeAkunAset) return alert("Metode pembayaran '" + method + "' belum dihubungkan ke Kode Akun Jurnal. Harap hubungkan di menu Metode Pembayaran.");
+    // Validasi Pembayaran
+    if (method === "Tunai" && cash < state.total) {
+        return alert("Maaf, uang pembayaran kurang dari total tagihan.");
+    }
+    
+    if (!kodeAkunAset) {
+        return alert("Metode '" + method + "' belum dihubungkan ke akun akuntansi. Hubungi Admin.");
+    }
 
+    // Kunci proses agar tidak terinput dua kali
     isSaving = true;
+    const btn = document.getElementById('payButton');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Sedang Memproses...";
+    }
+
     const inv = `INV-${Date.now().toString().slice(-6)}`;
     const tgl = new Date().toISOString();
 
     try {
-        // 1. Simpan Header Penjualan
+        // 2. Simpan Header Penjualan
         const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
             no_invoice: inv, 
             subtotal: state.sub, 
@@ -244,17 +261,16 @@ async function executeTransaction() {
             tanggal: tgl 
         }]).select().single();
         
-        if (errTrx) throw errTrx;
+        if (errTrx) throw new Error("Gagal menyimpan header penjualan: " + errTrx.message);
 
         state.lastTrxId = trx.id;
         state.lastInv = inv;
-        state.lastMethod = method;
 
         let totalHPP = 0; 
 
-        // 2. Proses Detail Item & Hitung HPP
+        // 3. Proses Detail Item (Looping Cart)
         for (const item of cart) {
-            // Simpan Detail
+            // Simpan Detail Penjualan
             await FinexDB.from('penjualan_detail').insert([{ 
                 penjualan_id: trx.id, 
                 produk_id: item.id, 
@@ -264,18 +280,21 @@ async function executeTransaction() {
                 subtotal_item: item.qty * item.harga 
             }]);
 
-            // Ambil data produk untuk stok & harga beli (HPP)
-            const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
+            // Ambil data produk untuk Stok & HPP (Gunakan harga_beli untuk HPP)
+            const { data: p } = await FinexDB.from('produk')
+                .select('stok_sekarang, harga_beli')
+                .eq('id', item.id)
+                .single();
             
             if (p) {
-                const stokBaru = p.stok_sekarang - item.qty;
-                const hargaBeliSatuan = parseFloat(p.harga_beli || 0);
-                totalHPP += (hargaBeliSatuan * item.qty);
+                const stokBaru = (p.stok_sekarang || 0) - item.qty;
+                const modalSatuan = parseFloat(p.harga_beli || 0);
+                totalHPP += (modalSatuan * item.qty);
 
-                // Update Stok
+                // Update Stok Fisik
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
-                // Kartu Stok
+                // Catat di Kartu Stok
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
@@ -287,48 +306,73 @@ async function executeTransaction() {
             }
         }
 
-        // 3. Jurnal Keuangan Otomatis (BeautyBloom Accounting)
-        // PERBAIKAN: Pastikan kode akun dikirim sebagai STRING agar tidak error di Supabase
-        const entriJurnal = [
-            { tanggal: tgl, no_bukti: inv, kode_akun: String(kodeAkunAset), keterangan: `Penjualan - ${inv}`, debit: state.total, kredit: 0 },
-            { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan - ${inv}`, debit: 0, kredit: state.total }
+        // 4. Jurnal Keuangan Otomatis (Double-Entry System)
+        // Kita pastikan angka yang dikirim adalah angka bersih (Math.round untuk hindari float error)
+        const barisJurnal = [
+            { 
+                tanggal: tgl, 
+                no_bukti: inv, 
+                kode_akun: String(kodeAkunAset), 
+                keterangan: `Penjualan POS - ${inv}`, 
+                debit: state.total, 
+                kredit: 0 
+            },
+            { 
+                tanggal: tgl, 
+                no_bukti: inv, 
+                kode_akun: '4101', 
+                keterangan: `Pendapatan Penjualan - ${inv}`, 
+                debit: 0, 
+                kredit: state.total 
+            }
         ];
 
-        // Hanya masukkan HPP jika nilainya > 0 (menghindari jurnal kosong)
+        // Tambahkan entri HPP jika modal > 0
         if (totalHPP > 0) {
-            entriJurnal.push(
-                { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP Penjualan - ${inv}`, debit: totalHPP, kredit: 0 },
-                { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Pengurangan Persediaan - ${inv}`, debit: 0, kredit: totalHPP }
+            barisJurnal.push(
+                { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP - ${inv}`, debit: totalHPP, kredit: 0 },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Persediaan Berkurang - ${inv}`, debit: 0, kredit: totalHPP }
             );
         }
 
-        console.log("Mengirim data jurnal:", entriJurnal);
-
-        const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert(entriJurnal);
+        // Eksekusi Insert Jurnal
+        const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert(barisJurnal);
         
         if (errJurnal) {
-            console.error("Error Detail Jurnal:", errJurnal);
-            // Jika error karena kode akun tidak ada, beritahu admin kode mana yang bermasalah
-            if (errJurnal.code === '23503') {
-                alert("Gagal catat jurnal: Salah satu Kode Akun (4101, 5101, atau 1103) tidak ditemukan di tabel Akun Jurnal.");
-            } else {
-                alert("Jurnal gagal: " + errJurnal.message);
-            }
+            console.error("Gagal Jurnal:", errJurnal);
+            const msg = errJurnal.code === '23503' 
+                ? "Salah satu Kode Akun belum terdaftar di master data." 
+                : errJurnal.message;
+            alert("PERINGATAN: Penjualan tersimpan, tapi JURNAL GAGAL: " + msg);
         }
 
-        // 4. Finalisasi
-        renderReceipt(inv, cash, method);
-        document.getElementById('payModal').style.display = 'none';
+        // 5. Finalisasi Transaksi
+        if (typeof renderReceipt === "function") renderReceipt(inv, cash, method);
+        
+        const payModal = document.getElementById('payModal');
+        if (payModal) payModal.style.display = 'none';
         
         setTimeout(() => { 
             window.print(); 
-            document.getElementById('waModal').style.display = 'flex'; 
+            const waModal = document.getElementById('waModal');
+            if (waModal) waModal.style.display = 'flex';
+            
+            if (typeof resetOrder === "function") resetOrder();
+            isSaving = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "BAYAR SEKARANG";
+            }
         }, 500);
 
     } catch (e) { 
         isSaving = false; 
-        console.error("Transaksi Gagal Total:", e);
-        alert("Terjadi kesalahan fatal: " + e.message); 
+        console.error("Kesalahan Transaksi:", e);
+        alert("Sistem gagal memproses transaksi: " + e.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "BAYAR SEKARANG";
+        }
     }
 }
     function renderReceipt(inv, bayar, method) {
