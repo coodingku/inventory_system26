@@ -3,70 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Staff | Finex Pos</title>
+    <title>Manajemen Staff | BeautyBloom Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 400px 1fr; gap: 20px; }
+        .container { max-width: 1100px; margin: auto; display: grid; grid-template-columns: 420px 1fr; gap: 25px; }
         
-        @media (max-width: 850px) { .container { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
 
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); }
+        h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; display: flex; align-items: center; gap: 10px; }
 
-        #video { width: 100%; border-radius: 10px; background: #000; height: 250px; object-fit: cover; margin-bottom: 10px; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        #video-wrapper { width: 100%; height: 300px; background: #000; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 15px; border: 3px solid #eee; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 5px; }
-        .btn-scan { background: var(--accent); color: white; }
+        input { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 14px; }
+        input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1); }
+        
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; transition: 0.2s; font-size: 14px; }
+        .btn-scan { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(233, 30, 99, 0.2); }
+        .btn-scan:hover { background: #d81b60; }
         .btn-save { background: var(--success); color: white; display: none; }
+        .btn-cancel { background: #eee; color: #666; display: none; }
         
         /* Table Style */
+        .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 12px; background: #f8f9fa; font-size: 13px; color: #666; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { text-align: left; padding: 15px; background: #fafafa; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        td { padding: 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #444; }
+        tr:hover { background: #fcfcfc; }
         
-        .action-btns { display: flex; gap: 5px; }
-        .btn-edit { background: #f1c40f; color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; }
-        .btn-del { background: var(--danger); color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; }
+        .action-btns { display: flex; gap: 8px; }
+        .btn-icon { border: none; padding: 8px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .btn-edit { background: #fff3e0; color: #ef6c00; }
+        .btn-del { background: #ffebee; color: #c62828; }
+        .btn-icon:hover { transform: scale(1.1); }
         
-        #debug-log { background: #fdfdfd; border: 1px solid #ddd; padding: 8px; border-radius: 5px; font-size: 11px; margin-top: 10px; max-height: 60px; overflow-y: auto; color: #666; }
+        #debug-log { background: #f9f9f9; border-radius: 8px; padding: 10px; font-size: 12px; margin-top: 15px; border-left: 4px solid var(--accent); color: #666; }
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid var(--accent); border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <!-- Panel Registrasi -->
     <div class="card">
         <h3 id="form-title">👤 Registrasi Staff</h3>
-        <video id="video" autoplay playsinline muted></video>
+        
+        <div id="video-wrapper">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="overlay-canvas"></canvas>
+        </div>
         
         <input type="hidden" id="edit-id">
         <input type="text" id="nama_staff" placeholder="Nama Lengkap Karyawan">
-        <input type="text" id="jabatan" placeholder="Jabatan (Kasir/Admin/dll)">
+        <input type="text" id="jabatan" placeholder="Jabatan (Kasir/Therapist/Admin)">
         
         <button id="btn-scan" class="btn btn-scan" onclick="scanWajah()">📸 AMBIL SAMPEL WAJAH</button>
         <button id="btn-save" class="btn btn-save" onclick="simpanData()">💾 SIMPAN KARYAWAN</button>
-        <button id="btn-cancel" class="btn" onclick="resetForm()" style="display:none; background:#ccc;">Batal Edit</button>
+        <button id="btn-cancel" class="btn btn-cancel" onclick="resetForm()">Batal Edit</button>
         
         <div id="debug-log">Log: Menunggu AI...</div>
     </div>
 
+    <!-- Panel Daftar Staff -->
     <div class="card">
-        <h3>📋 Daftar Employee-Staff</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Nama Staff</th>
-                    <th>Jabatan</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-            <tbody id="staff-body">
-                <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
-            </tbody>
-        </table>
+        <h3>📋 Daftar Team BeautyBloom</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Staff</th>
+                        <th>Jabatan</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="staff-body">
+                    <tr><td colspan="3" style="text-align:center; padding: 40px;"><div class="loader"></div> Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -82,35 +102,65 @@
     window.onload = async () => {
         const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
         try {
+            log("Memuat AI Model (TinyFace)...");
             await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
             ]);
-            log("AI Siap.");
+            log("AI Siap. Posisikan wajah di tengah.");
             startCamera();
             muatDataStaff();
-        } catch(e) { log("Gagal muat AI."); }
+        } catch(e) { 
+            log("Gagal muat AI. Periksa koneksi."); 
+            console.error(e);
+        }
     };
 
     async function startCamera() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            document.getElementById('video').srcObject = stream;
-        } catch(e) { log("Kamera tidak ditemukan."); }
+            const video = document.getElementById('video');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+            video.srcObject = stream;
+            
+            video.onloadedmetadata = () => {
+                const canvas = document.getElementById('overlay-canvas');
+                setInterval(async () => {
+                    const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+                    faceapi.matchDimensions(canvas, displaySize);
+                    
+                    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+                    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                    
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    faceapi.draw.drawDetections(canvas, resizedDetections);
+                }, 200);
+            };
+        } catch(e) { 
+            log("Akses kamera ditolak/tidak ada."); 
+        }
     }
 
     async function scanWajah() {
-        log("Memindai wajah...");
         const video = document.getElementById('video');
-        const result = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        const btn = document.getElementById('btn-scan');
+        
+        btn.disabled = true;
+        log("⏳ Menganalisis wajah (Mohon diam)...");
+        
+        // Gunakan TinyFaceDetector agar responsif
+        const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
         
         if (result) {
             currentDescriptor = JSON.stringify(Array.from(result.descriptor));
-            log("✅ Wajah terkunci.");
+            log("✅ Sampel Wajah Berhasil Diambil.");
             document.getElementById('btn-save').style.display = 'block';
+            btn.innerText = "🔄 AMBIL ULANG SAMPEL";
+            btn.disabled = false;
         } else {
-            alert("Wajah tidak terdeteksi, coba lagi.");
+            alert("Wajah tidak terdeteksi dengan jelas. Pastikan cahaya cukup dan wajah tidak terhalang.");
+            btn.disabled = false;
+            log("Gagal: Wajah tidak terdeteksi.");
         }
     }
 
@@ -119,13 +169,20 @@
         const tbody = document.getElementById('staff-body');
         
         if (data) {
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Belum ada staff terdaftar.</td></tr>`;
+                return;
+            }
             tbody.innerHTML = data.map(s => `
                 <tr>
-                    <td><b>${s.nama_staff}</b></td>
-                    <td>${s.jabatan || '-'}</td>
+                    <td>
+                        <div style="font-weight:600; color:var(--primary)">${s.nama_staff}</div>
+                        <div style="font-size:11px; color:#999">ID: ${s.id.slice(0,8)}</div>
+                    </td>
+                    <td><span style="background:#f0f4f8; padding:4px 10px; border-radius:20px; font-size:12px;">${s.jabatan || 'Staff'}</span></td>
                     <td class="action-btns">
-                        <button class="btn-edit" onclick="editStaff('${s.id}', '${s.nama_staff}', '${s.jabatan}')">✏️</button>
-                        <button class="btn-del" onclick="hapusStaff('${s.id}', '${s.nama_staff}')">🗑️</button>
+                        <button class="btn-icon btn-edit" title="Edit" onclick="editStaff('${s.id}', '${s.nama_staff}', '${s.jabatan}')">✏️</button>
+                        <button class="btn-icon btn-del" title="Hapus" onclick="hapusStaff('${s.id}', '${s.nama_staff}')">🗑️</button>
                     </td>
                 </tr>
             `).join('');
@@ -136,41 +193,59 @@
         const id = document.getElementById('edit-id').value;
         const nama = document.getElementById('nama_staff').value;
         const jab = document.getElementById('jabatan').value;
+        const btnSave = document.getElementById('btn-save');
 
-        if(!nama) return alert("Nama tidak boleh kosong!");
+        if(!nama) return alert("Nama wajib diisi!");
+        
+        btnSave.disabled = true;
+        btnSave.innerText = "Menyimpan...";
 
-        let result;
+        let res;
         if(id) {
-            // Update
-            result = await FinexDB.from('employee_staff').update({ nama_staff: nama, jabatan: jab }).eq('id', id);
+            // Update Nama/Jabatan saja (Wajah tetap kecuali discan ulang)
+            const payload = { nama_staff: nama, jabatan: jab };
+            if(currentDescriptor) payload.face_descriptor = currentDescriptor;
+            
+            res = await FinexDB.from('employee_staff').update(payload).eq('id', id);
         } else {
-            // Insert Baru
-            result = await FinexDB.from('employee_staff').insert([{ nama_staff: nama, jabatan: jab, face_descriptor: currentDescriptor }]);
+            // Input Baru
+            if(!currentDescriptor) return alert("Anda harus mengambil sampel wajah terlebih dahulu!");
+            res = await FinexDB.from('employee_staff').insert([{ 
+                nama_staff: nama, 
+                jabatan: jab, 
+                face_descriptor: currentDescriptor 
+            }]);
         }
 
-        if (!result.error) {
-            alert("Data berhasil disimpan!");
+        if (!res.error) {
+            alert("Berhasil disimpan!");
             resetForm();
             muatDataStaff();
         } else {
-            alert("Gagal: " + result.error.message);
+            alert("Error: " + res.error.message);
         }
+        btnSave.disabled = false;
+        btnSave.innerText = "💾 SIMPAN KARYAWAN";
     }
 
     function editStaff(id, nama, jab) {
         document.getElementById('edit-id').value = id;
         document.getElementById('nama_staff').value = nama;
         document.getElementById('jabatan').value = jab;
-        document.getElementById('form-title').innerText = "✏️ Edit Staff";
+        document.getElementById('form-title').innerText = "✏️ Edit Profile Staff";
+        
         document.getElementById('btn-save').style.display = 'block';
         document.getElementById('btn-cancel').style.display = 'block';
-        document.getElementById('btn-scan').style.display = 'none'; // Sembunyikan scan saat edit nama
+        document.getElementById('btn-scan').innerText = "📸 UPDATE WAJAH (OPSIONAL)";
+        log("Mode Edit: Ubah data atau scan ulang wajah.");
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function hapusStaff(id, nama) {
-        if(confirm(`Hapus staff ${nama}? Data absen tidak akan hilang tapi staff tidak bisa login lagi.`)) {
+        if(confirm(`Hapus data ${nama}? Tindakan ini permanen.`)) {
             const { error } = await FinexDB.from('employee_staff').delete().eq('id', id);
             if(!error) muatDataStaff();
+            else alert("Gagal hapus: " + error.message);
         }
     }
 
@@ -182,7 +257,10 @@
         document.getElementById('btn-save').style.display = 'none';
         document.getElementById('btn-cancel').style.display = 'none';
         document.getElementById('btn-scan').style.display = 'block';
+        document.getElementById('btn-scan').innerText = "📸 AMBIL SAMPEL WAJAH";
+        document.getElementById('btn-scan').disabled = false;
         currentDescriptor = null;
+        log("Siap meregistrasi staff baru.");
     }
 </script>
 </body>
