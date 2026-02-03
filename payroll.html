@@ -27,12 +27,13 @@
         .stat-card p { margin: 10px 0 0 0; font-size: 22px; font-weight: bold; color: var(--primary); }
 
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 10px; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: flex-end; background: #f8f9fa; padding: 20px; border-radius: 10px; }
         
         .input-control { display: flex; flex-direction: column; gap: 5px; }
         .input-control label { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; }
         
         select, input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; background: white; }
+        .btn-filter { background: var(--info); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
@@ -43,7 +44,7 @@
         .status-early { background: #ffebee; color: var(--danger); }
         .status-active { background: #fff3e0; color: var(--warning); }
 
-        .summary-box { background: #f0f4f8; padding: 15px; border-radius: 10px; border-left: 5px solid var(--info); margin-bottom: 20px; }
+        .summary-box { background: #fff9db; padding: 15px; border-radius: 10px; border-left: 5px solid var(--warning); margin-bottom: 20px; font-size: 14px; }
         .total-row { background: #fdf2f5; font-weight: bold; font-size: 16px; }
         .total-row td { border-top: 2px solid var(--accent); color: var(--accent); padding: 20px 15px; }
 
@@ -54,7 +55,7 @@
         .text-success { color: var(--success); font-weight: bold; }
 
         @media print {
-            nav, .filter-group, .btn-print { display: none; }
+            nav, .filter-group, .btn-print, .summary-box { display: none; }
             main { margin-left: 0; padding: 0; }
             .card { box-shadow: none; border: 1px solid #eee; }
         }
@@ -75,14 +76,14 @@
         <div class="header">
             <div>
                 <h1 style="margin:0">Rekap & Payroll Staff</h1>
-                <p style="color:#666; margin-top:5px">Dasar: Rp 1.800.000 / 26 Hari Kerja (Min. 8 Jam/hari).</p>
+                <p style="color:#666; margin-top:5px">Siklus Gaji Fleksibel (Cut-off kustom).</p>
             </div>
             <button class="btn-print" onclick="window.print()">🖨️ Cetak Laporan</button>
         </div>
 
         <div class="stats-grid">
             <div class="stat-card blue">
-                <h3>Target Hari Kerja</h3>
+                <h3>Target Kerja</h3>
                 <p id="stat-target-hari">26 Hari</p>
             </div>
             <div class="stat-card">
@@ -90,11 +91,11 @@
                 <p id="stat-total-hadir">0 Hari</p>
             </div>
             <div class="stat-card red">
-                <h3>Potongan Pulang Awal</h3>
+                <h3>Total Potongan</h3>
                 <p id="stat-total-potongan">Rp 0</p>
             </div>
             <div class="stat-card green">
-                <h3>Total Payroll Bersih</h3>
+                <h3>Total Gaji Bersih</h3>
                 <p id="stat-total-payroll">Rp 0</p>
             </div>
         </div>
@@ -102,38 +103,29 @@
         <div class="card">
             <div class="filter-group">
                 <div class="input-control">
-                    <label>Bulan</label>
-                    <select id="filter-month" onchange="loadData()">
-                        <option value="1">Januari</option>
-                        <option value="2">Februari</option>
-                        <option value="3">Maret</option>
-                        <option value="4">April</option>
-                        <option value="5">Mei</option>
-                        <option value="6">Juni</option>
-                        <option value="7">Juli</option>
-                        <option value="8">Agustus</option>
-                        <option value="9">September</option>
-                        <option value="10">Oktober</option>
-                        <option value="11">November</option>
-                        <option value="12">Desember</option>
-                    </select>
+                    <label>Dari Tanggal</label>
+                    <input type="date" id="date-start">
                 </div>
                 <div class="input-control">
-                    <label>Tahun</label>
-                    <select id="filter-year" onchange="loadData()"></select>
+                    <label>Sampai Tanggal</label>
+                    <input type="date" id="date-end">
                 </div>
                 <div class="input-control">
-                    <label>Gaji Pokok (26 hari)</label>
-                    <input type="number" id="base-salary" value="1800000" oninput="renderTable()">
+                    <label>Gaji Pokok</label>
+                    <input type="number" id="base-salary" value="1800000" style="width: 120px">
                 </div>
                 <div class="input-control">
-                    <label>Target Hari</label>
-                    <input type="number" id="target-days" value="26" style="width: 80px" oninput="renderTable()">
+                    <label>Aturan Hari</label>
+                    <input type="number" id="target-days" value="26" style="width: 80px">
                 </div>
+                <button class="btn-filter" onclick="loadData()">🔍 Tampilkan Data</button>
             </div>
 
             <div class="summary-box">
-                <strong>💡 Info Aturan:</strong> Gaji harian = Gaji Pokok / Target Hari. Jika jam kerja < 8 jam, gaji harian dihitung proporsional: <code>(Jam / 8) * Gaji Harian</code>. Izin/Sakit dianggap hadir 8 jam.
+                <strong>📌 Logika Penggajian:</strong><br>
+                1. Gaji Harian = Gaji Pokok / Aturan Hari (Contoh: 1.800.000 / 26 = Rp 69.231/hari).<br>
+                2. Izin & Sakit tetap dibayar full (dihitung 8 jam).<br>
+                3. Pulang Awal (< 8 jam) akan dipotong proporsional per jam.
             </div>
 
             <table>
@@ -143,17 +135,17 @@
                         <th>Jam Masuk</th>
                         <th>Jam Pulang</th>
                         <th>Total Jam</th>
-                        <th>Status Jam</th>
+                        <th>Status</th>
                         <th>Gaji Harian</th>
-                        <th>Keterangan</th>
+                        <th>Catatan</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
+                    <tr><td colspan="7" style="text-align:center;">Pilih tanggal dan klik Tampilkan Data.</td></tr>
                 </tbody>
                 <tfoot>
                     <tr class="total-row">
-                        <td colspan="5" style="text-align: right;">GRAND TOTAL PAYROLL</td>
+                        <td colspan="5" style="text-align: right;">GRAND TOTAL KESELURUHAN</td>
                         <td id="footer-total-payroll" colspan="2">Rp 0</td>
                     </tr>
                 </tfoot>
@@ -169,33 +161,34 @@
     let currentLogs = [];
 
     window.onload = () => {
-        setupFilters();
+        // Set default date range: Tgl 10 bulan lalu s/d Tgl 10 bulan ini
+        const now = new Date();
+        const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 10);
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 10);
+        
+        document.getElementById('date-start').value = prevMonth.toISOString().split('T')[0];
+        document.getElementById('date-end').value = thisMonth.toISOString().split('T')[0];
+        
         loadData();
     };
 
-    function setupFilters() {
-        const now = new Date();
-        const yearSelect = document.getElementById('filter-year');
-        const currentYear = now.getFullYear();
-        for(let i = currentYear + 1; i >= currentYear - 2; i--) {
-            yearSelect.innerHTML += `<option value="${i}" ${i === currentYear ? 'selected' : ''}>${i}</option>`;
-        }
-        document.getElementById('filter-month').value = now.getMonth() + 1;
-    }
-
     async function loadData() {
-        const month = parseInt(document.getElementById('filter-month').value);
-        const year = parseInt(document.getElementById('filter-year').value);
+        const start = document.getElementById('date-start').value;
+        const end = document.getElementById('date-end').value;
         const tbody = document.getElementById('table-body');
         
-        try {
-            const firstDay = new Date(year, month - 1, 1).toISOString().split('T')[0];
-            const lastDay = new Date(year, month, 0).toISOString().split('T')[0];
+        if (!start || !end) {
+            alert("Harap pilih range tanggal!");
+            return;
+        }
 
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Sedang mengambil data...</td></tr>';
+        
+        try {
             const { data: logs, error } = await FinexDB.from('presensi')
                 .select('*')
-                .gte('tanggal', firstDay)
-                .lte('tanggal', lastDay)
+                .gte('tanggal', start)
+                .lte('tanggal', end)
                 .order('tanggal', { ascending: false });
 
             if (error) throw error;
@@ -212,8 +205,10 @@
         const targetDays = parseInt(document.getElementById('target-days').value) || 26;
         const dailyRate = baseSalary / targetDays;
 
+        document.getElementById('stat-target-hari').innerText = targetDays + " Hari";
+
         if (currentLogs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data pada periode ini.</td></tr>';
             updateStats(0, 0, 0);
             return;
         }
@@ -233,25 +228,25 @@
                 jamKerja = (pulang - masuk) / (1000 * 60 * 60);
             }
 
-            // Aturan: Izin/Sakit (jika ada flag) atau status tertentu bisa dianggap 8 jam.
-            // Di sini kita asumsikan jika "Selesai" tapi jam < 8, maka potong.
-            // Jika status adalah "Izin" atau "Sakit" (misal nanti ada field kategori), maka jamKerja = 8.
-            // Untuk saat ini kita cek jam kerja real.
-            
             let gajiHariIni = dailyRate;
             let statusJam = "Normal";
-            let ket = "Hadir Full";
+            let ket = "Full Day";
 
+            // Jika status Aktif (masih bekerja), jangan hitung gaji dulu atau beri peringatan
             if (log.status === 'Aktif') {
                 statusJam = "Sesi Aktif";
-                gajiHariIni = 0; // Belum dihitung sampai checkout
-                ket = "Menunggu Checkout";
-            } else if (jamKerja < 7.9) { // Toleransi sedikit
-                statusJam = "Pulang Awal";
+                gajiHariIni = 0;
+                ket = "Masih Bekerja";
+            } 
+            // Aturan Izin/Sakit: Anda menyebutkan izin/sakit tetap full. 
+            // Karena di tabel presensi saat ini belum ada kolom kategori, 
+            // sistem menganggap status 'Selesai' dengan jam < 8 sebagai pulang awal.
+            else if (jamKerja < 7.8) { 
                 gajiHariIni = (jamKerja / 8) * dailyRate;
                 const potongan = dailyRate - gajiHariIni;
                 totalPotongan += potongan;
-                ket = `Potongan: ${formatRupiah(potongan)}`;
+                ket = `Potong: ${formatRupiah(potongan)}`;
+                statusJam = "Kurang Jam";
             }
 
             totalPayroll += gajiHariIni;
@@ -261,12 +256,12 @@
                     <td><strong>${log.nama_staff}</strong><br><small>${log.tanggal}</small></td>
                     <td>${masuk.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
                     <td>${pulang ? pulang.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
-                    <td class="${jamKerja < 7.9 && log.status !== 'Aktif' ? 'text-danger' : ''}">
+                    <td class="${jamKerja < 7.8 && log.status !== 'Aktif' ? 'text-danger' : ''}">
                         ${jamKerja.toFixed(2)} Jam
                     </td>
                     <td>
-                        <span class="status-pill ${log.status === 'Aktif' ? 'status-active' : (jamKerja < 7.9 ? 'status-early' : 'status-normal')}">
-                            ${log.status === 'Aktif' ? '⏳ Aktif' : (jamKerja < 7.9 ? '⚠️ Kurang Jam' : '✅ Lengkap')}
+                        <span class="status-pill ${log.status === 'Aktif' ? 'status-active' : (jamKerja < 7.8 ? 'status-early' : 'status-normal')}">
+                            ${log.status === 'Aktif' ? '⏳ Aktif' : (jamKerja < 7.8 ? '⚠️ Pulang Awal' : '✅ Lengkap')}
                         </span>
                     </td>
                     <td class="text-success">${formatRupiah(gajiHariIni)}</td>
