@@ -215,6 +215,7 @@
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
+// Pastikan tidak ada kode yang menggantung di atas fungsi ini
 async function executeTransaction() {
     // 1. Double-Click Protection & Inisialisasi
     if (isSaving) return;
@@ -269,6 +270,7 @@ async function executeTransaction() {
 
         // 3. Proses Detail Item & Hitung HPP
         for (const item of cart) {
+            // Simpan Detail Penjualan
             await FinexDB.from('penjualan_detail').insert([{ 
                 penjualan_id: trx.id, 
                 produk_id: item.id, 
@@ -278,6 +280,7 @@ async function executeTransaction() {
                 subtotal_item: item.qty * item.harga 
             }]);
 
+            // Ambil data produk untuk Stok & HPP
             const { data: p } = await FinexDB.from('produk')
                 .select('stok_sekarang, harga_beli')
                 .eq('id', item.id)
@@ -288,8 +291,10 @@ async function executeTransaction() {
                 const modalSatuan = parseFloat(p.harga_beli || 0);
                 totalHPP += (modalSatuan * item.qty);
 
+                // Update Stok Fisik
                 await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
 
+                // Catat di Kartu Stok
                 await FinexDB.from('riwayat_stok').insert([{
                     id_produk: item.id,
                     tipe: 'KELUAR',
@@ -301,7 +306,7 @@ async function executeTransaction() {
             }
         }
 
-        // 4. JURNAL AKUNTANSI STANDARD (Mencegah Laba Bias)
+        // 4. JURNAL AKUNTANSI STANDARD
         const totalPenjualanBruto = Math.round(state.total);
         const nilaiHPP = Math.round(totalHPP);
 
@@ -345,75 +350,6 @@ async function executeTransaction() {
         if (errJurnal) {
             console.error("Gagal Jurnal:", errJurnal);
             alert("PERINGATAN: Penjualan tersimpan, tapi JURNAL GAGAL: " + errJurnal.message);
-        }
-
-        // 5. Finalisasi Transaksi
-        if (typeof renderReceipt === "function") renderReceipt(inv, cash, method);
-        
-        const payModal = document.getElementById('payModal');
-        if (payModal) payModal.style.display = 'none';
-        
-        setTimeout(() => { 
-            window.print(); 
-            const waModal = document.getElementById('waModal');
-            if (waModal) waModal.style.display = 'flex';
-            
-            if (typeof resetOrder === "function") resetOrder();
-            isSaving = false;
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = "BAYAR SEKARANG";
-            }
-        }, 500);
-
-    } catch (e) { 
-        isSaving = false; 
-        console.error("Kesalahan Transaksi:", e);
-        alert("Sistem gagal memproses transaksi: " + e.message);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerText = "BAYAR SEKARANG";
-        }
-    }
-}
-        // 4. Jurnal Keuangan Otomatis (Double-Entry System)
-        // Kita pastikan angka yang dikirim adalah angka bersih (Math.round untuk hindari float error)
-        const barisJurnal = [
-            { 
-                tanggal: tgl, 
-                no_bukti: inv, 
-                kode_akun: String(kodeAkunAset), 
-                keterangan: `Penjualan POS - ${inv}`, 
-                debit: state.total, 
-                kredit: 0 
-            },
-            { 
-                tanggal: tgl, 
-                no_bukti: inv, 
-                kode_akun: '4101', 
-                keterangan: `Pendapatan Penjualan - ${inv}`, 
-                debit: 0, 
-                kredit: state.total 
-            }
-        ];
-
-        // Tambahkan entri HPP jika modal > 0
-        if (totalHPP > 0) {
-            barisJurnal.push(
-                { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP - ${inv}`, debit: totalHPP, kredit: 0 },
-                { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Persediaan Berkurang - ${inv}`, debit: 0, kredit: totalHPP }
-            );
-        }
-
-        // Eksekusi Insert Jurnal
-        const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert(barisJurnal);
-        
-        if (errJurnal) {
-            console.error("Gagal Jurnal:", errJurnal);
-            const msg = errJurnal.code === '23503' 
-                ? "Salah satu Kode Akun belum terdaftar di master data." 
-                : errJurnal.message;
-            alert("PERINGATAN: Penjualan tersimpan, tapi JURNAL GAGAL: " + msg);
         }
 
         // 5. Finalisasi Transaksi
