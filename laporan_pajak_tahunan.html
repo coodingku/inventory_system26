@@ -20,16 +20,19 @@
         .header-pajak { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
         
         table { width: 100%; border-collapse: collapse; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #ddd; font-size: 13px; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #ddd; font-size: 13px; color: #666; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
         .total-row { background: #fff5f5; font-weight: bold; color: var(--accent); }
-        .tax-calc { background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #c8e6c9; }
+        .tax-calc { background: #eef2f7; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #d1d9e6; }
         
+        .badge-tax { padding: 4px 8px; background: #e8f5e9; color: #2e7d32; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
         @media print {
             nav { display: none; }
             main { margin-left: 0; padding: 0; }
             .btn-print { display: none; }
+            .card { box-shadow: none; border: none; }
         }
     </style>
 </head>
@@ -48,31 +51,34 @@
         <div class="header-pajak">
             <div>
                 <h1 style="margin:0; color:var(--primary);">Laporan Rekapitulasi Pajak</h1>
-                <p style="color:gray;">Tahun Pajak: <span id="currentYear">2026</span></p>
+                <p style="color:gray;">Unit Usaha: <strong>BeautyBloom</strong> | Tahun Pajak: <span id="currentYear">2026</span></p>
             </div>
-            <button onclick="window.print()" class="btn-print" style="padding:10px 20px; cursor:pointer;">🖨️ Cetak Laporan</button>
+            <button onclick="window.print()" class="btn-print" style="padding:10px 20px; cursor:pointer; background: white; border: 1px solid #ddd; border-radius: 8px; font-weight: 600;">🖨️ Cetak Laporan</button>
         </div>
 
         <table>
             <thead>
                 <tr>
                     <th>Bulan</th>
-                    <th>Omzet Bruto (Pendapatan)</th>
-                    <th>Pajak PB1 (10%) Terpungut</th>
-                    <th>Estimasi PPh Final (0.5%)</th>
+                    <th>Omzet Bruto (Include PB1)</th>
+                    <th>Dasar Pengenaan (DPP)</th>
+                    <th>Pajak PB1 (10%) <span class="badge-tax">Daerah</span></th>
+                    <th>PPh Final (0.5%) <span class="badge-tax">Pusat</span></th>
                 </tr>
             </thead>
             <tbody id="tax-body">
-                </tbody>
+                <!-- Data loaded by JS -->
+            </tbody>
             <tfoot>
                 <tr class="total-row" id="tax-total">
-                    </tr>
+                    <!-- Totals loaded by JS -->
+                </tr>
             </tfoot>
         </table>
 
         <div class="tax-calc">
-            <strong>Catatan Audit Pajak:</strong>
-            <p id="tax-note" style="margin: 5px 0 0 0; font-size: 13px;"></p>
+            <strong style="color:var(--primary);">💡 Informasi Perpajakan BeautyBloom:</strong>
+            <p id="tax-note" style="margin: 8px 0 0 0; font-size: 13px; line-height: 1.5; color: #444;"></p>
         </div>
     </div>
 </main>
@@ -87,42 +93,55 @@
     window.onload = loadTaxReport;
 
     async function loadTaxReport() {
-        // Ambil data jurnal pendapatan (kode 4) dan pajak (jika ada kode akun hutang pajak)
-        const { data: jurnal } = await FinexDB.from('jurnal_umum')
+        const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
             .select('*')
             .gte('tanggal', '2026-01-01T00:00:00')
             .lte('tanggal', '2026-12-31T23:59:59');
 
-        let monthlyData = Array(12).fill(0).map(() => ({ omzet: 0, pb1: 0 }));
+        if (error) {
+            console.error("Gagal mengambil data:", error);
+            return;
+        }
+
+        let monthlyData = Array(12).fill(0).map(() => ({ omzet: 0, pb1_recorded: 0 }));
 
         jurnal.forEach(j => {
             const bulanIndex = new Date(j.tanggal).getMonth();
+            // Akun Pendapatan (Kode 4)
             if (j.kode_akun.startsWith('4')) {
                 monthlyData[bulanIndex].omzet += parseFloat(j.kredit || 0);
             }
-            // Asumsi PB1 masuk ke akun kewajiban 2101 jika Anda memisahkannya
+            // Akun Hutang Pajak PB1 (2101) jika dicatat manual
             if (j.kode_akun === '2101') {
-                monthlyData[bulanIndex].pb1 += parseFloat(j.kredit || 0);
+                monthlyData[bulanIndex].pb1_recorded += parseFloat(j.kredit || 0);
             }
         });
 
         let html = '';
         let totalOmzet = 0;
+        let totalDPP = 0;
         let totalPB1 = 0;
         let totalPPh = 0;
 
         monthlyData.forEach((m, i) => {
-            const pph = m.omzet * 0.005; // Estimasi PPh Final 0.5%
+            // Logika: Karena harga BeautyBloom include pajak (110%), 
+            // maka PB1 adalah 10/110 dari total bruto.
+            const estimasiPB1 = m.pb1_recorded > 0 ? m.pb1_recorded : (m.omzet * 10 / 110);
+            const dpp = m.omzet - estimasiPB1;
+            const pph = dpp * 0.005; // PPh 0.5% dari DPP (Net of PB1)
+
             totalOmzet += m.omzet;
-            totalPB1 += m.pb1;
+            totalDPP += dpp;
+            totalPB1 += estimasiPB1;
             totalPPh += pph;
 
             html += `
                 <tr>
                     <td>${bulanNames[i]}</td>
-                    <td>Rp ${m.omzet.toLocaleString()}</td>
-                    <td>Rp ${m.pb1.toLocaleString()}</td>
-                    <td style="color:#c0392b;">Rp ${pph.toLocaleString()}</td>
+                    <td>Rp ${m.omzet.toLocaleString('id-ID')}</td>
+                    <td style="color:#2980b9;">Rp ${dpp.toLocaleString('id-ID')}</td>
+                    <td>Rp ${estimasiPB1.toLocaleString('id-ID')}</td>
+                    <td style="color:#c0392b; font-weight:bold;">Rp ${pph.toLocaleString('id-ID')}</td>
                 </tr>
             `;
         });
@@ -130,14 +149,17 @@
         document.getElementById('tax-body').innerHTML = html;
         document.getElementById('tax-total').innerHTML = `
             <td>TOTAL TAHUNAN</td>
-            <td>Rp ${totalOmzet.toLocaleString()}</td>
-            <td>Rp ${totalPB1.toLocaleString()}</td>
-            <td>Rp ${totalPPh.toLocaleString()}</td>
+            <td>Rp ${totalOmzet.toLocaleString('id-ID')}</td>
+            <td>Rp ${totalDPP.toLocaleString('id-ID')}</td>
+            <td>Rp ${totalPB1.toLocaleString('id-ID')}</td>
+            <td>Rp ${totalPPh.toLocaleString('id-ID')}</td>
         `;
 
         document.getElementById('tax-note').innerHTML = `
-            Total Omzet Bruto Tahun 2026 adalah <strong>Rp ${totalOmzet.toLocaleString()}</strong>. 
-            Estimasi kewajiban PPh Final (PP 23) yang harus dibayarkan ke Kas Negara adalah <strong>Rp ${totalPPh.toLocaleString()}</strong>.
+            Berdasarkan Omzet Bruto <strong>BeautyBloom</strong> sebesar <strong>Rp ${totalOmzet.toLocaleString('id-ID')}</strong>:<br>
+            1. <strong>PB1 (Pajak Restoran 10%):</strong> Sebesar Rp ${totalPB1.toLocaleString('id-ID')} harus disetorkan ke BAPENDA Daerah.<br>
+            2. <strong>DPP (Dasar Pengenaan Pajak):</strong> Sebesar Rp ${totalDPP.toLocaleString('id-ID')} adalah pendapatan bersih sebelum pajak penghasilan.<br>
+            3. <strong>PPh Final UMKM (0.5%):</strong> Estimasi setoran pusat adalah <strong>Rp ${totalPPh.toLocaleString('id-ID')}</strong> (Dihitung dari DPP).
         `;
     }
 </script>
