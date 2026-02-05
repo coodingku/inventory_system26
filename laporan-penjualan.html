@@ -3,7 +3,8 @@
 <head>
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
-    <title>Finex Pos | Laporan Penjualan BeautyBloom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Laporan Penjualan Detail</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -24,56 +25,38 @@
         button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; display: flex; align-items: center; gap: 5px; }
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
-        .btn-print { background: #95a5a6; color: white; padding: 6px 10px; }
         .btn-void { background: var(--danger); color: white; padding: 6px 10px; }
+        .btn-detail { background: #3498db; color: white; padding: 6px 10px; }
 
         .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); }
         td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: top; }
-        .total-row { background: #f1f2f6; font-weight: bold; font-size: 16px; }
-
-        .method-badge { background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; }
-        .badge-tunai { background: #e8f5e9; color: #2e7d32; }
-        .badge-qris { background: #fff3e0; color: #ef6c00; }
+        
+        .status-void { color: #95a5a6 !important; font-style: italic; text-decoration: line-through; }
+        .method-badge { background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
 
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
-
-        #print-area { display: none; }
-        @media print {
-            body * { display: none !important; }
-            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; color: black; padding: 5px; }
-            #print-area hr { border: none; border-top: 1px dashed black; }
-        }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 2000; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); }
     </style>
 </head>
 <body>
 
+<div id="loading" class="loading-overlay">Memproses... Mohon Tunggu...</div>
+
 <nav>
     <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="dashboard.html">📊 Dashboard</a>
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
-        <a href="laporan-stok.html">📋 Laporan Stok</a>
-    </div>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white; text-align: center;">🛒 Masuk Kasir</a>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="produk.html">📦 Produk</a>
+    <a href="metode-pembayaran.html">💳 Metode Bayar</a>
+    <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
+    <a href="pos.html" style="background: #27ae60; color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
 </nav>
 
 <main>
-    <h1>📑 Laporan Rincian Penjualan</h1>
+    <h1>📑 Laporan Penjualan Detail</h1>
     
     <div class="filter-card">
         <div class="input-group">
@@ -90,10 +73,11 @@
                 <option value="all">Semua Metode</option>
                 <option value="Tunai">Tunai</option>
                 <option value="QRIS">QRIS</option>
+                <option value="Transfer">Transfer</option>
             </select>
         </div>
         <button class="btn-filter" onclick="fetchLaporan()">🔍 Tampilkan</button>
-        <button class="btn-export" onclick="exportKeExcel()">Excel 📥</button>
+        <button class="btn-export" onclick="exportKeExcel()">Export Excel 📥</button>
     </div>
 
     <div class="table-container">
@@ -101,42 +85,44 @@
             <thead>
                 <tr>
                     <th>Waktu</th>
-                    <th>Invoice</th>
-                    <th>Metode (Rincian)</th>
-                    <th>Nominal Masuk</th>
+                    <th>No. Bill</th>
+                    <th>Metode</th>
+                    <th>Subtotal</th>
+                    <th>Diskon</th>
+                    <th>Net Rec.</th>
+                    <th>Status</th>
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="report-body"></tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td colspan="3" style="text-align: right;">TOTAL PENERIMAAN:</td>
-                    <td id="total-sum">Rp 0</td>
-                    <td></td>
-                </tr>
-            </tfoot>
         </table>
     </div>
 </main>
 
-<div id="modal-preview" class="modal">
+<!-- Modal Void Confirmation -->
+<div id="modal-void" class="modal">
     <div class="modal-content">
-        <div id="preview-body"></div>
-        <div style="margin-top:20px; display:flex; gap:10px;">
-            <button id="confirm-print-btn" style="flex:1; padding:12px; background:#27ae60; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Cetak Nota</button>
-            <button onclick="closePreview()" style="flex:1; padding:12px; background:#95a5a6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Tutup</button>
+        <h3>Konfirmasi Void</h3>
+        <p>Apakah Anda yakin ingin membatalkan (void) transaksi <b id="void-inv-no"></b>?</p>
+        <p style="font-size: 13px; color: #e74c3c; background: #fdf2f2; padding: 10px; border-radius: 5px; border-left: 4px solid #e74c3c;">
+            <b>PENTING:</b><br>
+            - Stok barang akan otomatis dikembalikan ke gudang.<br>
+            - Status transaksi akan diubah menjadi Void.
+        </p>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button onclick="processVoid()" style="flex:1; background:var(--danger); color:white; padding:12px; border-radius:8px;">Ya, Void Transaksi</button>
+            <button onclick="closeModal('modal-void')" style="flex:1; background:#eee; color:#333; padding:12px; border-radius:8px;">Batal</button>
         </div>
     </div>
 </div>
-
-<div id="print-area"></div>
 
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    window.processedData = []; // Data yang sudah dipecah per metode
+    let currentReportData = [];
+    let selectedVoidInv = null;
 
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
@@ -146,147 +132,169 @@
     };
 
     async function fetchLaporan() {
+        showLoading(true);
         const from = document.getElementById('date-from').value + "T00:00:00";
         const to = document.getElementById('date-to').value + "T23:59:59";
         const filterMethod = document.getElementById('filter-method').value;
 
-        // Ambil Jurnal Umum (karena di sini tersimpan rincian split)
-        // Kita ambil semua debit di akun Kas/Bank (11xxx)
-        let query = supabaseClient
+        // 1. Ambil Jurnal Penerimaan Kas (Split Bill source)
+        const { data: journals, error: jErr } = await supabaseClient
             .from('jurnal_umum')
             .select('*')
             .gte('created_at', from)
             .lte('created_at', to)
             .gt('debit', 0)
-            .ilike('kode_akun', '11%')
+            .ilike('kode_akun', '11%');
+
+        if (jErr) { console.error(jErr); showLoading(false); return; }
+
+        // 2. Ambil Data Penjualan & Detail
+        const { data: sales, error: sErr } = await supabaseClient
+            .from('penjualan')
+            .select('*, penjualan_detail(*)')
+            .gte('created_at', from)
+            .lte('created_at', to)
             .order('created_at', { ascending: false });
 
-        const { data: journals, error } = await query;
-        if (error) return alert("Gagal ambil data: " + error.message);
+        if (sErr) { console.error(sErr); showLoading(false); return; }
 
-        // Filter berdasarkan metode jika dipilih (misal: "Terima Tunai")
-        let filteredJournals = journals;
+        // 3. Mapping Data
+        let mapped = journals.map(j => {
+            const sale = sales.find(s => s.no_invoice === j.no_bukti);
+            if (!sale) return null;
+
+            const methodClean = j.keterangan.replace('Terima ', '');
+            
+            return {
+                id_penjualan: sale.id,
+                waktu: j.created_at,
+                no_invoice: j.no_bukti,
+                metode: methodClean,
+                nominal_bayar: j.debit,
+                subtotal_bill: sale.subtotal,
+                diskon_bill: sale.diskon,
+                net_bill: sale.grand_total,
+                status: sale.status || 'Success',
+                raw_items: sale.penjualan_detail,
+                items_text: sale.penjualan_detail.map(d => `${d.nama_barang} (x${d.qty})`).join(', ')
+            };
+        }).filter(x => x !== null);
+
         if (filterMethod !== 'all') {
-            filteredJournals = journals.filter(j => j.keterangan.toLowerCase().includes(filterMethod.toLowerCase()));
+            mapped = mapped.filter(m => m.metode.toLowerCase().includes(filterMethod.toLowerCase()));
         }
 
-        window.processedData = filteredJournals;
-        renderTable(filteredJournals);
+        currentReportData = mapped;
+        renderTable(mapped);
+        showLoading(false);
     }
 
     function renderTable(data) {
         const body = document.getElementById('report-body');
-        let totalAll = 0;
         body.innerHTML = '';
         
         data.forEach(item => {
-            totalAll += parseFloat(item.debit || 0);
-            
-            // Ekstrak nama metode dari keterangan jurnal (contoh: "Terima Tunai" -> "Tunai")
-            const displayMethod = item.keterangan.replace('Terima ', '');
-            const badgeClass = displayMethod.toLowerCase().includes('tunai') ? 'badge-tunai' : 
-                               displayMethod.toLowerCase().includes('qris') ? 'badge-qris' : '';
-
+            const isVoid = item.status.toLowerCase() === 'void';
             body.innerHTML += `
-                <tr>
-                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                    <td><b>${item.no_bukti}</b></td>
-                    <td><span class="method-badge ${badgeClass}">${displayMethod}</span></td>
-                    <td><b>Rp ${parseFloat(item.debit || 0).toLocaleString()}</b></td>
-                    <td style="text-align: center;">
-                        <button class="btn-print" onclick="showPreview('${item.no_bukti}')">👁️ Detail Nota</button>
+                <tr class="${isVoid ? 'status-void' : ''}">
+                    <td>${new Date(item.waktu).toLocaleString('id-ID')}</td>
+                    <td>${item.no_invoice}</td>
+                    <td><span class="method-badge">${item.metode}</span></td>
+                    <td>Rp ${parseFloat(item.subtotal_bill).toLocaleString()}</td>
+                    <td style="color:red">-Rp ${parseFloat(item.diskon_bill).toLocaleString()}</td>
+                    <td style="font-weight:bold">Rp ${parseFloat(item.nominal_bayar).toLocaleString()}</td>
+                    <td>${item.status}</td>
+                    <td style="text-align: center; display:flex; gap:5px; justify-content:center;">
+                        <button class="btn-detail" title="Lihat Item" onclick="alert('Items: ${item.items_text}')">👁️</button>
+                        ${!isVoid ? `<button class="btn-void" onclick="confirmVoid('${item.no_invoice}')">Void</button>` : ''}
                     </td>
                 </tr>`;
         });
-        document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
     }
 
-    async function showPreview(invoiceNo) {
-        // Cari data penjualan asli untuk detail item
-        const { data: sale } = await supabaseClient.from('penjualan').select('*').eq('no_invoice', invoiceNo).single();
-        if (!sale) return alert("Data penjualan tidak ditemukan.");
-
-        const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', sale.id);
-        const { data: journals } = await supabaseClient
-            .from('jurnal_umum')
-            .select('keterangan, debit')
-            .eq('no_bukti', invoiceNo)
-            .gt('debit', 0)
-            .ilike('kode_akun', '11%');
-        
-        renderDetailPreview(sale, details, journals);
+    function confirmVoid(inv) {
+        selectedVoidInv = inv;
+        document.getElementById('void-inv-no').innerText = inv;
+        document.getElementById('modal-void').style.display = 'flex';
     }
 
-    function renderDetailPreview(item, details, journals) {
-        let itemsHtml = (details || []).map(it => `
-            <div class="detail-row">
-                <span>${it.nama_barang} (x${it.qty})</span>
-                <span>Rp ${(it.qty * it.harga_satuan).toLocaleString()}</span>
-            </div>`).join('');
+    function closeModal() { document.getElementById('modal-void').style.display = 'none'; }
+    function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
 
-        let payHtml = (journals || []).map(j => `
-            <div class="detail-row" style="color:#555; font-style:italic;">
-                <span>${j.keterangan.replace('Terima ', '') || 'Bayar'}</span>
-                <span>Rp ${j.debit.toLocaleString()}</span>
-            </div>`).join('');
+    async function processVoid() {
+        showLoading(true);
+        try {
+            // 1. Ambil detail transaksi untuk update stok
+            const { data: detailTrans, error: errGet } = await supabaseClient
+                .from('penjualan_detail')
+                .select('barcode, qty')
+                .eq('no_invoice', selectedVoidInv);
 
-        document.getElementById('preview-body').innerHTML = `
-            <div style="text-align: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color:var(--primary)">BEAUTYBLOOM POS</h3>
-                <small>Struk Penjualan</small>
-            </div>
-            <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
-                <b>Invoice :</b> ${item.no_invoice}<br>
-                <b>Waktu   :</b> ${new Date(item.created_at).toLocaleString('id-ID')}
-            </div>
-            <div>${itemsHtml}</div>
-            <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px;">
-                <div class="detail-row"><span>Subtotal</span><span>Rp ${parseFloat(item.subtotal).toLocaleString()}</span></div>
-                <div class="detail-row" style="color:red"><span>Diskon</span><span>-Rp ${parseFloat(item.diskon).toLocaleString()}</span></div>
-                <div class="detail-row" style="font-weight:bold; font-size:15px; border-bottom:none;"><span>TOTAL BILL</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
-            </div>
-            <div style="background:#f9f9f9; padding:10px; border-radius:8px; margin-top:10px; border:1px solid #eee;">
-                <div style="font-size:11px; font-weight:bold; margin-bottom:5px; color:var(--accent);">RINCIAN PEMBAYARAN:</div>
-                ${payHtml}
-            </div>`;
+            if (errGet) throw errGet;
 
-        document.getElementById('confirm-print-btn').onclick = () => { reprintBill(item, details); closePreview(); };
-        document.getElementById('modal-preview').style.display = 'flex';
+            // 2. Loop balikkan stok satu per satu
+            for (const item of detailTrans) {
+                // Ambil stok sekarang
+                const { data: prod, error: pErr } = await supabaseClient
+                    .from('produk')
+                    .select('stok')
+                    .eq('barcode', item.barcode)
+                    .single();
+                
+                if (prod) {
+                    const newStok = parseFloat(prod.stok) + parseFloat(item.qty);
+                    await supabaseClient
+                        .from('produk')
+                        .update({ stok: newStok })
+                        .eq('barcode', item.barcode);
+                }
+            }
+
+            // 3. Update status penjualan
+            const { error: errUpdate } = await supabaseClient
+                .from('penjualan')
+                .update({ status: 'Void' })
+                .eq('no_invoice', selectedVoidInv);
+
+            if (errUpdate) throw errUpdate;
+
+            alert("Transaksi Void Berhasil. Stok telah dikembalikan.");
+            closeModal();
+            fetchLaporan();
+        } catch (e) {
+            console.error(e);
+            alert("Terjadi kesalahan saat proses void: " + e.message);
+        } finally {
+            showLoading(false);
+        }
     }
 
-    function closePreview() { document.getElementById('modal-preview').style.display = 'none'; }
+    function exportKeExcel() {
+        if (currentReportData.length === 0) return alert("Tidak ada data untuk diexport.");
 
-    function reprintBill(item, details) {
-        let itemRows = (details || []).map(it => `
-            <div style="display:flex; justify-content:space-between;">
-                <span>${it.nama_barang.substring(0,18)} x${it.qty}</span>
-                <span>${(it.qty * it.harga_satuan).toLocaleString()}</span>
-            </div>`).join('');
-
-        document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center"><b>BEAUTYBLOOM POS</b><br><small>SALINAN NOTA</small><hr></div>
-            <div style="font-size:10px;">Inv: ${item.no_invoice}<br>Tgl: ${new Date(item.created_at).toLocaleString('id-ID')}</div><hr>
-            ${itemRows}<hr>
-            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
-            <div style="text-align:center; margin-top:10px;"><hr>Terima Kasih</div>`;
-        window.print();
-    }
-
-    async function exportKeExcel() {
-        if (!window.processedData || window.processedData.length === 0) return alert("Tidak ada data untuk diexport.");
-
-        const dataExcel = window.processedData.map(item => ({
-            "Waktu": new Date(item.created_at).toLocaleString('id-ID'),
-            "No Invoice": item.no_bukti,
-            "Metode": item.keterangan.replace('Terima ', ''),
-            "Nominal": item.debit,
-            "Keterangan": item.keterangan
+        const dataExcel = currentReportData.map(item => ({
+            "Tanggal/Waktu": new Date(item.waktu).toLocaleString('id-ID'),
+            "No Bill": item.no_invoice,
+            "Metode Bayar": item.metode,
+            "Detail Item": item.items_text,
+            "Total Kotor (Gross)": item.subtotal_bill,
+            "Total Diskon": item.diskon_bill,
+            "Total Net (Grand Total)": item.net_bill,
+            "Penerimaan Nominal": item.nominal_bayar,
+            "Status": item.status
         }));
 
         const ws = XLSX.utils.json_to_sheet(dataExcel);
+        
+        // Atur lebar kolom agar rapi
+        ws['!cols'] = [
+            { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 50 }, 
+            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }
+        ];
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Laporan Penerimaan");
-        XLSX.writeFile(wb, `Laporan_Rincian_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Detail Penjualan");
+        XLSX.writeFile(wb, `Laporan_BeautyBloom_${selectedVoidInv || 'Export'}_${new Date().getTime()}.xlsx`);
     }
 </script>
 </body>
