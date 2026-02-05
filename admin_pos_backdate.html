@@ -20,10 +20,17 @@
         .card { background: white; padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; border: 1px solid transparent; }
         .card:hover { border: 1px solid var(--accent); background: #fffcf9; }
 
-        .sidebar-pos { width: 400px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        .sidebar-pos { width: 420px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
         .admin-header { padding: 15px; background: #fff3e0; border-bottom: 1px solid #ffe0b2; }
+        
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f1f1f1; padding-bottom: 5px; font-size: 13px; }
+        .cart-item { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent); }
+        .cart-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .item-info b { display: block; font-size: 14px; }
+        .item-info small { color: #666; }
+        
+        .discount-row { display: flex; align-items: center; gap: 10px; background: #fff1f1; padding: 6px 10px; border-radius: 4px; margin-top: 5px; }
+        .discount-row label { font-size: 11px; font-weight: bold; color: var(--danger); white-space: nowrap; }
         
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #666; font-size: 13px; }
@@ -33,8 +40,10 @@
         .btn-save:hover { background: #d35400; }
         
         input[type="date"] { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ddd; font-weight: bold; box-sizing: border-box; }
-        .input-inline { width: 80px; text-align: right; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; }
-        .input-danger { border-color: var(--danger); color: var(--danger); background: #fff5f5; }
+        .input-qty { width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 4px; }
+        .input-disc { width: 60px; text-align: right; border: 1px solid var(--danger); border-radius: 4px; padding: 4px; font-weight: bold; color: var(--danger); }
+        
+        .remove-btn { color: var(--danger); cursor: pointer; font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -66,22 +75,12 @@
 
         <div class="summary-panel">
             <div class="summary-row">
-                <span>Subtotal</span>
+                <span>Total Item Gross</span>
                 <span id="txt-sub">Rp 0</span>
             </div>
             
             <div class="summary-row">
-                <span>Diskon Reguler (%)</span>
-                <input type="number" id="manualDiscPersen" value="0" min="0" max="100" oninput="calculateTotal()" class="input-inline">
-            </div>
-
-            <div class="summary-row">
-                <span style="color: var(--danger); font-weight: bold;">Diskon Khusus Admin (%)</span>
-                <input type="number" id="manualDiscKhusus" value="0" min="0" max="100" oninput="calculateTotal()" class="input-inline input-danger">
-            </div>
-
-            <div class="summary-row" style="border-top: 1px dashed #ddd; padding-top: 5px; margin-top: 5px;">
-                <span>Potongan Total</span>
+                <span>Total Potongan Item</span>
                 <span id="txt-total-disc" style="color: var(--danger);">Rp 0</span>
             </div>
 
@@ -134,38 +133,66 @@
 
     function addCart(id, nama, harga) {
         const idx = cart.findIndex(c => c.id === id);
-        if (idx > -1) { cart[idx].qty++; } 
-        else { cart.push({ id, nama_barang: nama, harga, qty: 1 }); }
-        calculateTotal();
+        if (idx > -1) { 
+            cart[idx].qty++; 
+        } else { 
+            cart.push({ id, nama_barang: nama, harga, qty: 1, disc_persen: 0 }); 
+        }
+        renderCart();
     }
 
-    function calculateTotal() {
-        state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
-        
-        // Ambil input persentase
-        const p1 = parseFloat(document.getElementById('manualDiscPersen').value || 0);
-        const p2 = parseFloat(document.getElementById('manualDiscKhusus').value || 0);
-        
-        // Akumulasi total persentase
-        const totalPersen = p1 + p2;
-        
-        // Hitung nominal diskon
-        state.totalDisc = (state.sub * totalPersen) / 100;
-        
-        // Hitung Grand Total
-        state.total = state.sub - state.totalDisc;
-        if (state.total < 0) state.total = 0;
+    function updateItem(index, field, value) {
+        cart[index][field] = parseFloat(value) || 0;
+        renderCart();
+    }
 
+    function renderCart() {
+        state.sub = 0;
+        state.totalDisc = 0;
+        
+        const cartHtml = cart.map((item, i) => {
+            const itemGross = item.qty * item.harga;
+            const itemDisc = (itemGross * item.disc_persen) / 100;
+            const itemNet = itemGross - itemDisc;
+            
+            state.sub += itemGross;
+            state.totalDisc += itemDisc;
+
+            return `
+                <div class="cart-item">
+                    <div class="cart-item-header">
+                        <div class="item-info">
+                            <b>${item.nama_barang}</b>
+                            <small>Rp ${item.harga.toLocaleString()}</small>
+                        </div>
+                        <span class="remove-btn" onclick="cart.splice(${i},1);renderCart();">&times;</span>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <label style="font-size:11px;">Qty:</label>
+                            <input type="number" class="input-qty" value="${item.qty}" onchange="updateItem(${i}, 'qty', this.value)">
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="font-size:13px; font-weight:bold;">Rp ${itemNet.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div class="discount-row">
+                        <label>DISKON KHUSUS (%):</label>
+                        <input type="number" class="input-disc" value="${item.disc_persen}" min="0" max="100" onchange="updateItem(${i}, 'disc_persen', this.value)">
+                        <small style="color:var(--danger); font-size:10px;">(- Rp ${itemDisc.toLocaleString()})</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        state.total = state.sub - state.totalDisc;
+
+        document.getElementById('displayCart').innerHTML = cartHtml;
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
         document.getElementById('txt-total-disc').innerText = "Rp " + state.totalDisc.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
-        
-        document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
-            <div class="cart-item">
-                <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
-                <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
-                <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px; font-weight:bold;">&times;</span></div>
-            </div>`).join('');
     }
 
     async function saveBackdate() {
@@ -194,29 +221,28 @@
 
             // 2. Simpan Detail
             for (const item of cart) {
+                const itemGross = item.qty * item.harga;
+                const itemDisc = (itemGross * item.disc_persen) / 100;
+                
                 await FinexDB.from('penjualan_detail').insert([{ 
                     penjualan_id: trx.id, 
                     produk_id: item.id, 
                     nama_barang: item.nama_barang, 
                     qty: item.qty, 
                     harga_satuan: item.harga, 
-                    subtotal_item: item.qty * item.harga 
+                    subtotal_item: itemGross - itemDisc // Simpan harga setelah diskon item
                 }]);
             }
 
-            // 3. Simpan Jurnal Umum (Backdate)
+            // 3. Simpan Jurnal Umum
             await FinexDB.from('jurnal_umum').insert([
                 { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Backdate BeautyBloom - ${method}`, debit: state.total, kredit: 0 },
                 { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Backdate BeautyBloom - ${method}`, debit: 0, kredit: state.total }
             ]);
 
             alert("Transaksi Backdate Berhasil Disimpan!");
-            
-            // Reset Form
             cart = [];
-            document.getElementById('manualDiscPersen').value = 0;
-            document.getElementById('manualDiscKhusus').value = 0;
-            calculateTotal();
+            renderCart();
 
         } catch (e) { alert("Terjadi Kesalahan: " + e.message); }
     }
