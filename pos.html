@@ -25,9 +25,9 @@
         .sidebar-pos { width: 450px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
         .cart-header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; font-size: 18px; }
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .cart-item { margin-bottom: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 10px; }
+        .cart-item { margin-bottom: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; }
         .cart-row { display: flex; justify-content: space-between; align-items: center; }
-        .discount-input-item { width: 80px; padding: 4px; font-size: 11px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px; }
+        .discount-input-item { width: 60px; padding: 4px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px; text-align: center; background: #fffbe6; }
         
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #666; font-size: 14px; }
@@ -73,24 +73,24 @@
         <div class="cart-header">Pesanan Baru</div>
         <div id="displayCart" class="cart-list"></div>
         <div class="summary-panel">
-            <div class="summary-row"><span>Subtotal (Gross)</span><span id="txt-sub">Rp 0</span></div>
+            <div class="summary-row"><span>Subtotal (Bruto)</span><span id="txt-sub">Rp 0</span></div>
+            <div class="summary-row" style="color: var(--warning);"><span>Total Diskon Item</span><span id="txt-item-disc">Rp 0</span></div>
             <div class="summary-row">
                 <span>Diskon Bill (Global)</span>
                 <select id="discSelect" onchange="calculateTotal()" style="padding:4px; border-radius:5px; width: auto;"></select>
             </div>
             <div class="summary-row" style="color: var(--danger);"><span>Potongan Global</span><span id="txt-disc">Rp 0</span></div>
-            <div class="summary-row" style="color: var(--warning);"><span>Diskon Item</span><span id="txt-item-disc">Rp 0</span></div>
             <div class="summary-row"><span>Pajak</span><span id="txt-tax">Rp 0</span></div>
             <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
             <button class="btn-pay" onclick="openPayment()">PROSES BAYAR</button>
         </div>
     </aside>
 
-    <!-- Modal Pembayaran Update: Split Payment -->
+    <!-- Modal Pembayaran: Split Payment -->
     <div id="payModal" class="modal">
         <div class="modal-content">
             <h2 id="label-total-modal" style="color: var(--primary); margin: 0;"></h2>
-            <p style="font-size: 12px; color: gray; margin-bottom: 20px;">Silakan masukkan nominal pembayaran</p>
+            <p style="font-size: 12px; color: gray; margin-bottom: 20px;">Input nominal pembayaran</p>
             
             <div style="text-align: left; background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 15px;">
                 <label style="font-size: 12px; font-weight: bold; color: var(--success);">1. TUNAI (CASH):</label>
@@ -115,7 +115,7 @@
         </div>
     </div>
 
-    <!-- Modal WA & Berhasil -->
+    <!-- Modal Berhasil -->
     <div id="waModal" class="modal">
         <div class="modal-content">
             <h2 style="color: var(--success);">Berhasil!</h2>
@@ -126,7 +126,6 @@
         </div>
     </div>
 
-    <!-- Modal Buka Shift -->
     <div id="openShiftModal" class="modal">
         <div class="modal-content">
             <h2 style="color: var(--primary);">Buka Kasir Baru</h2>
@@ -201,12 +200,15 @@
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) { 
             if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok habis!"); 
-        } else { cart.push({ id, nama_barang: nama, harga, qty: 1, discount: 0 }); }
+        } else { cart.push({ id, nama_barang: nama, harga, qty: 1, discountPct: 0 }); }
         calculateTotal();
     }
 
-    function updateItemDiscount(idx, val) {
-        cart[idx].discount = parseFloat(val || 0);
+    function updateItemDiscountPct(idx, val) {
+        let pct = parseFloat(val || 0);
+        if (pct > 100) pct = 100;
+        if (pct < 0) pct = 0;
+        cart[idx].discountPct = pct;
         calculateTotal();
     }
 
@@ -215,11 +217,14 @@
         const selectedOpt = ds.options[ds.selectedIndex];
         state.discName = selectedOpt ? selectedOpt.getAttribute('data-name') : "Tanpa Promo";
         
-        // 1. Subtotal Awal
+        // 1. Subtotal Bruto (Qty * Harga)
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
         
-        // 2. Hitung Diskon Per Item
-        state.itemDiscTotal = cart.reduce((acc, i) => acc + (i.discount || 0), 0);
+        // 2. Hitung Nominal Diskon Per Item (%)
+        state.itemDiscTotal = cart.reduce((acc, i) => {
+            const discPerUnit = (i.harga * (i.discountPct || 0)) / 100;
+            return acc + (discPerUnit * i.qty);
+        }, 0);
         
         // 3. Hitung Diskon Global (setelah diskon item)
         const afterItemDisc = state.sub - state.itemDiscTotal;
@@ -231,25 +236,34 @@
         state.total = dpp + state.tax;
 
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
-        document.getElementById('txt-item-disc').innerText = "- Rp " + state.itemDiscTotal.toLocaleString();
-        document.getElementById('txt-disc').innerText = "- Rp " + state.globalDisc.toLocaleString();
-        document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
+        document.getElementById('txt-item-disc').innerText = "- Rp " + Math.round(state.itemDiscTotal).toLocaleString();
+        document.getElementById('txt-disc').innerText = "- Rp " + Math.round(state.globalDisc).toLocaleString();
+        document.getElementById('txt-tax').innerText = "Rp " + Math.round(state.tax).toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + Math.round(state.total).toLocaleString();
         
-        document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
+        document.getElementById('displayCart').innerHTML = cart.map((item, i) => {
+            const itemGross = item.qty * item.harga;
+            const itemDiscNominal = (itemGross * item.discountPct) / 100;
+            return `
             <div class="cart-item">
                 <div class="cart-row">
                     <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
                     <div style="text-align:right;">
-                        <b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
+                        <b style="${item.discountPct > 0 ? 'text-decoration:line-through; color:gray; font-size:11px;' : ''}">
+                            Rp ${itemGross.toLocaleString()}
+                        </b>
+                        ${item.discountPct > 0 ? `<br><b style="color:var(--success);">Rp ${(itemGross - itemDiscNominal).toLocaleString()}</b>` : ''}
                         <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px;">&times;</span>
                     </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:10px; color:gray;">Diskon Item (Rp):</span>
-                    <input type="number" class="discount-input-item" value="${item.discount}" onchange="updateItemDiscount(${i}, this.value)" placeholder="Rp 0">
+                <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+                    <span style="font-size:10px; color:gray;">Diskon Item (%):</span>
+                    <input type="number" class="discount-input-item" value="${item.discountPct}" 
+                        oninput="updateItemDiscountPct(${i}, this.value)" min="0" max="100">
+                    <span style="font-size:10px; color:var(--danger);">(-Rp ${Math.round(itemDiscNominal).toLocaleString()})</span>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
 
     function openPayment() { 
@@ -269,8 +283,9 @@
         document.getElementById('txt-sisa').innerText = "Rp " + (sisa > 0 ? sisa.toLocaleString() : "0");
         document.getElementById('txt-kembali').innerText = "Rp " + (kembali > 0 ? kembali.toLocaleString() : "0");
         
-        document.getElementById('btnConfirmPay').disabled = (sisa > 0);
-        document.getElementById('btnConfirmPay').style.opacity = (sisa > 0) ? "0.5" : "1";
+        const btn = document.getElementById('btnConfirmPay');
+        btn.disabled = (sisa > 0);
+        btn.style.opacity = (sisa > 0) ? "0.5" : "1";
     }
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
@@ -288,13 +303,11 @@
         const inv = `INV-${Date.now().toString().slice(-6)}`;
         const tgl = new Date().toISOString();
 
-        // Tentukan Label Metode
         let finalMethod = "Tunai";
         if (cash > 0 && debit > 0) finalMethod = "Split (Tunai & Non-Tunai)";
         else if (debit > 0) finalMethod = document.getElementById('payMethodSelect').value;
 
         try {
-            // 1. Simpan Header Penjualan
             const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
                 no_invoice: inv, 
                 subtotal: Math.round(state.sub), 
@@ -313,15 +326,15 @@
             state.lastInv = inv;
             state.lastMethod = finalMethod;
 
-            // 2. Detail & Stok
             for (const item of cart) {
+                const discNominal = (item.harga * item.discountPct / 100) * item.qty;
                 await FinexDB.from('penjualan_detail').insert([{ 
                     penjualan_id: trx.id, 
                     produk_id: item.id, 
                     nama_barang: item.nama_barang, 
                     qty: item.qty, 
                     harga_satuan: item.harga, 
-                    subtotal_item: (item.qty * item.harga) - item.discount 
+                    subtotal_item: (item.qty * item.harga) - discNominal 
                 }]);
 
                 const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
@@ -329,9 +342,6 @@
                     await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
                 }
             }
-
-            // 3. Jurnal (Sederhana untuk Tunai/Aset)
-            // Anda bisa kembangkan logika jurnal sesuai kode akun masing-masing payment di sini
 
             renderReceipt(inv, totalPaid, finalMethod, cash, debit);
             document.getElementById('payModal').style.display = 'none';
@@ -349,13 +359,16 @@
     }
 
     function renderReceipt(inv, totalPaid, method, cash, debit) {
-        const items = cart.map(i => `
+        const items = cart.map(i => {
+            const discNom = (i.harga * i.discountPct / 100) * i.qty;
+            return `
             <div style="display:flex; justify-content:space-between; font-size:10px;">
                 <span>${i.nama_barang} x${i.qty}</span>
                 <span>${(i.qty * i.harga).toLocaleString()}</span>
             </div>
-            ${i.discount > 0 ? `<div style="font-size:9px; color:gray; text-align:right;">- Disc Item: ${i.discount.toLocaleString()}</div>` : ''}
-        `).join('');
+            ${i.discountPct > 0 ? `<div style="font-size:9px; color:gray; text-align:right;">- Disc ${i.discountPct}%: ${Math.round(discNom).toLocaleString()}</div>` : ''}
+            `;
+        }).join('');
         
         document.getElementById('print-area').innerHTML = `
             <div style="width:58mm; padding:5px; font-family:monospace; color:black;">
@@ -364,7 +377,7 @@
                 --------------------------<br>${items}--------------------------<br>
                 <div style="font-size:11px;">
                     <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span>Total Disc:</span><span>-${(state.globalDisc + state.itemDiscTotal).toLocaleString()}</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Total Disc:</span><span>-${Math.round(state.globalDisc + state.itemDiscTotal).toLocaleString()}</span></div>
                     <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${Math.round(state.tax).toLocaleString()}</span></div>
                     <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${Math.round(state.total).toLocaleString()}</span></div>
                 </div>
@@ -383,7 +396,7 @@
         const hp = document.getElementById('waNumber').value;
         if (!hp) return alert("Masukkan nomor WA!");
         const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
-        const msg = `*NOTA BEAUTYBLOOM*%0ANo: ${state.lastInv}%0ATotal: Rp ${Math.round(state.total).toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A_Terima kasih sudah berkunjung!_`;
+        const msg = `*NOTA BEAUTYBLOOM*%0ANo: ${state.lastInv}%0ATotal: Rp ${Math.round(state.total).toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A_Terima kasih!_`;
         window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
         location.reload();
     }
