@@ -1,71 +1,50 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
-    <title>Finex Pos | Laporan Penjualan BeautyBloom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Laporan Penjualan</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
         
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 100; }
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
         nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
         nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; margin-left: 260px; padding: 30px; width: calc(100% - 260px); }
-        .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        main { flex: 1; margin-left: 240px; padding: 30px; width: calc(100% - 240px); }
+        .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; }
         
         .input-group { display: flex; flex-direction: column; gap: 5px; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
         
-        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; display: flex; align-items: center; gap: 5px; }
+        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
-        .btn-print { background: #95a5a6; color: white; padding: 6px 10px; }
-        .btn-void { background: var(--danger); color: white; padding: 6px 10px; }
 
-        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
+        .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); }
-        td { padding: 12px; border-bottom: 1px solid #eee; }
-        .total-row { background: #f1f2f6; font-weight: bold; font-size: 16px; }
-
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
-
-        #print-area { display: none; }
-        @media print {
-            body * { display: none !important; }
-            #print-area { display: block !important; width: 58mm; font-family: monospace; font-size: 10px; color: black; padding: 5px; }
-            #print-area hr { border: none; border-top: 1px dashed black; }
-        }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #f1f1f1; }
+        
+        .status-void { color: #e74c3c; font-weight: bold; }
+        .status-success { color: #27ae60; font-weight: bold; }
+        
+        #loading { display: none; margin-bottom: 10px; color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <nav>
     <h2>Finex Pos</h2>
-    <div id="admin-menu">
-        <a href="dashboard.html">📊 Dashboard</a>
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-        <a href="produk.html">📦 Produk</a>
-        <a href="kategori.html">📁 Kategori</a>
-        <a href="gudang.html">🏠 Gudang</a>
-        <a href="metode-pembayaran.html">💳 Metode Bayar</a>
-        <hr style="border: 0.5px solid #555; margin: 10px 0;">
-        <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">OPERASIONAL</div>
-        <a href="penyesuaian.html">🔄 Stok In/Out</a>
-        <a href="manajemen-user.html">👥 Manajemen User</a>
-        <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
-        <a href="laporan-stok.html">📋 Laporan Stok</a>
-    </div>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="pos.html" style="background: #27ae60; color: white; text-align: center;">🛒 Masuk Kasir</a>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="produk.html">📦 Produk</a>
+    <a href="metode-pembayaran.html">💳 Metode Bayar</a>
+    <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
+    <a href="pos.html" style="background: #27ae60; color: white; text-align: center; margin-top: 20px;">🛒 Masuk Kasir</a>
 </nav>
 
 <main>
@@ -80,61 +59,36 @@
             <label>Sampai Tanggal</label>
             <input type="date" id="date-to">
         </div>
-        <div class="input-group">
-            <label>Metode</label>
-            <select id="filter-method">
-                <option value="all">Semua Metode</option>
-                <option value="Tunai">Tunai</option>
-                <option value="QRIS">QRIS</option>
-            </select>
-        </div>
-        <button class="btn-filter" onclick="fetchLaporan()">🔍 Tampilkan</button>
-        <button class="btn-export" onclick="exportKeExcel()">Excel 📥</button>
+        <button class="btn-filter" onclick="fetchLaporan()">Cari Data</button>
+        <button class="btn-export" onclick="exportExcel()">Export Excel</button>
     </div>
 
+    <div id="loading">Sedang memuat data...</div>
+
     <div class="table-container">
-        <table>
+        <table id="table-laporan">
             <thead>
                 <tr>
                     <th>Waktu</th>
-                    <th>Invoice</th>
+                    <th>No. Invoice</th>
                     <th>Metode</th>
                     <th>Subtotal</th>
                     <th>Diskon</th>
                     <th>Grand Total</th>
-                    <th style="text-align: center;">Aksi</th>
+                    <th>Status</th>
                 </tr>
             </thead>
-            <tbody id="report-body"></tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td colspan="5" style="text-align: right;">TOTAL PENDAPATAN (NET):</td>
-                    <td id="total-sum">Rp 0</td>
-                    <td></td>
-                </tr>
-            </tfoot>
+            <tbody id="report-body">
+                <!-- Data akan muncul di sini -->
+            </tbody>
         </table>
     </div>
 </main>
 
-<div id="modal-preview" class="modal">
-    <div class="modal-content">
-        <div id="preview-body"></div>
-        <div style="margin-top:20px; display:flex; gap:10px;">
-            <button id="confirm-print-btn" style="flex:1; padding:12px; background:#27ae60; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Cetak Nota</button>
-            <button onclick="closePreview()" style="flex:1; padding:12px; background:#95a5a6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Tutup</button>
-        </div>
-    </div>
-</div>
-
-<div id="print-area"></div>
-
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
-    window.currentLaporan = [];
+    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
@@ -144,197 +98,76 @@
     };
 
     async function fetchLaporan() {
-        const from = document.getElementById('date-from').value + "T00:00:00";
-        const to = document.getElementById('date-to').value + "T23:59:59";
-        const method = document.getElementById('filter-method').value;
+        const loader = document.getElementById('loading');
+        loader.style.display = 'block';
 
-        let query = supabaseClient.from('penjualan').select('*').gte('created_at', from).lte('created_at', to).order('created_at', { ascending: false });
-        if (method !== 'all') query = query.eq('metode_pembayaran', method);
+        const from = document.getElementById('date-from').value + " 00:00:00";
+        const to = document.getElementById('date-to').value + " 23:59:59";
 
-        const { data, error } = await query;
-        if (error) return alert("Gagal ambil data: " + error.message);
-        
-        window.currentLaporan = data;
-        renderTable(data);
-    }
-
-    function renderTable(data) {
-        const body = document.getElementById('report-body');
-        let totalAll = 0;
-        body.innerHTML = '';
-        data.forEach(item => {
-            totalAll += parseFloat(item.grand_total || 0);
-            body.innerHTML += `
-                <tr>
-                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                    <td><b>${item.no_invoice}</b></td>
-                    <td>${item.metode_pembayaran}</td>
-                    <td>${parseFloat(item.subtotal || 0).toLocaleString()}</td>
-                    <td style="color:var(--danger)">-${parseFloat(item.diskon || 0).toLocaleString()}</td>
-                    <td><b>${parseFloat(item.grand_total || 0).toLocaleString()}</b></td>
-                    <td style="text-align: center; display: flex; gap: 5px; justify-content: center;">
-                        <button class="btn-print" onclick="showPreview('${item.no_invoice}')">👁️</button>
-                        <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')">🗑️ Void</button>
-                    </td>
-                </tr>`;
-        });
-        document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString();
-    }
-
-    function showPreview(invoiceNo) {
-        const item = window.currentLaporan.find(i => i.no_invoice === invoiceNo);
-        if (!item) return;
-
-        // Fetch detail barang secara async untuk preview yang lebih akurat
-        renderDetailPreview(item);
-    }
-
-    async function renderDetailPreview(item) {
-        const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', item.id);
-        
-        let itemsHtml = (details || []).map(it => `
-            <div class="detail-row">
-                <span>${it.nama_barang} (x${it.qty})</span>
-                <span>Rp ${(it.qty * it.harga_satuan).toLocaleString()}</span>
-            </div>`).join('');
-
-        document.getElementById('preview-body').innerHTML = `
-            <div style="text-align: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color:var(--primary)">BEAUTYBLOOM POS</h3>
-                <small>Detail Nota Penjualan</small>
-            </div>
-            <div style="font-size: 12px; border-bottom: 1px dashed #ddd; padding-bottom: 10px; margin-bottom: 10px;">
-                <b>Invoice :</b> ${item.no_invoice}<br>
-                <b>Waktu   :</b> ${new Date(item.created_at).toLocaleString('id-ID')}
-            </div>
-            <div>${itemsHtml}</div>
-            <div style="border-top: 1px dashed #ddd; margin-top: 10px; padding-top: 10px;">
-                <div class="detail-row"><span>Subtotal</span><span>Rp ${parseFloat(item.subtotal).toLocaleString()}</span></div>
-                <div class="detail-row" style="color:red"><span>Diskon</span><span>-Rp ${parseFloat(item.diskon).toLocaleString()}</span></div>
-                <div class="detail-row" style="font-weight:bold; font-size:15px;"><span>TOTAL</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
-            </div>`;
-
-        document.getElementById('confirm-print-btn').onclick = () => { reprintBill(item.no_invoice, details); closePreview(); };
-        document.getElementById('modal-preview').style.display = 'flex';
-    }
-
-    function closePreview() { document.getElementById('modal-preview').style.display = 'none'; }
-
-    function reprintBill(invoiceNo, details) {
-        const item = window.currentLaporan.find(i => i.no_invoice === invoiceNo);
-        if (!item) return;
-        
-        let itemRows = (details || []).map(it => `
-            <div style="display:flex; justify-content:space-between;">
-                <span>${it.nama_barang.substring(0,18)} x${it.qty}</span>
-                <span>${(it.qty * it.harga_satuan).toLocaleString()}</span>
-            </div>`).join('');
-
-        document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center"><b>BEAUTYBLOOM POS</b><br><small>SALINAN NOTA</small><hr></div>
-            <div style="font-size:10px;">Inv: ${item.no_invoice}<br>Tgl: ${new Date(item.created_at).toLocaleString('id-ID')}</div><hr>
-            ${itemRows}<hr>
-            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>Rp ${parseFloat(item.grand_total).toLocaleString()}</span></div>
-            <div style="text-align:center; margin-top:10px;"><hr>Terima Kasih</div>`;
-        window.print();
-    }
-
-    async function voidBill(id, invoiceNo) {
-        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke BeautyBloom dan tercatat di Kartu Stok.`)) return;
-        
         try {
-            // 1. Ambil detail item
-            const { data: details, error: errDetail } = await supabaseClient
-                .from('penjualan_detail')
-                .select('produk_id, qty, nama_barang')
-                .eq('penjualan_id', id);
+            // Ambil data penjualan
+            const { data: sales, error } = await supabase
+                .from('penjualan')
+                .select('*')
+                .gte('created_at', from)
+                .lte('created_at', to)
+                .order('created_at', { ascending: false });
 
-            if (errDetail) throw new Error("Gagal mengambil rincian barang: " + errDetail.message);
+            if (error) throw error;
 
-            // 2. Kembalikan stok & Catat di riwayat_stok
-            if (details && details.length > 0) {
-                for (const item of details) {
-                    const { data: p } = await supabaseClient
-                        .from('produk')
-                        .select('stok_sekarang')
-                        .eq('id', item.produk_id)
-                        .single();
+            // Ambil jurnal untuk cek metode pembayaran
+            const { data: journals } = await supabase
+                .from('jurnal_umum')
+                .select('no_bukti, keterangan')
+                .gte('created_at', from)
+                .lte('created_at', to);
 
-                    if (p) {
-                        const stokBaru = (p.stok_sekarang || 0) + item.qty;
-                        
-                        // Update stok produk
-                        await supabaseClient
-                            .from('produk')
-                            .update({ stok_sekarang: stokBaru })
-                            .eq('id', item.produk_id);
-
-                        // CATAT RIWAYAT STOK (Agar terupdate otomatis di laporan-stok.html)
-                        await supabaseClient.from('riwayat_stok').insert([{
-                            id_produk: item.produk_id,
-                            tipe: 'MASUK',
-                            jumlah: item.qty,
-                            stok_akhir: stokBaru,
-                            admin_nama: 'Admin (Void)',
-                            keterangan: `VOID Penjualan ${invoiceNo} - ${item.nama_barang}`
-                        }]);
-                    }
-                }
-            }
-
-            // 3. Hapus Jurnal Umum
-            await supabaseClient.from('jurnal_umum').delete().eq('no_bukti', invoiceNo);
-
-            // 4. Hapus Detail & Header Penjualan
-            await supabaseClient.from('penjualan_detail').delete().eq('penjualan_id', id);
-            const { error: deleteError } = await supabaseClient.from('penjualan').delete().eq('id', id);
-
-            if (deleteError) throw deleteError;
-
-            alert(`✅ Nota ${invoiceNo} berhasil di-VOID. Stok telah dikembalikan.`);
-            fetchLaporan();
+            renderTable(sales, journals || []);
         } catch (err) {
             console.error(err);
-            alert("Gagal proses Void: " + err.message);
+            alert("Gagal mengambil data");
+        } finally {
+            loader.style.display = 'none';
         }
     }
 
-    async function exportKeExcel() {
-        if (!window.currentLaporan || window.currentLaporan.length === 0) {
-            return alert("Tidak ada data untuk diexport.");
+    function renderTable(sales, journals) {
+        const body = document.getElementById('report-body');
+        body.innerHTML = '';
+
+        if (sales.length === 0) {
+            body.innerHTML = '<tr><td colspan="7" style="text-align:center">Tidak ada data.</td></tr>';
+            return;
         }
 
-        let dataExcel = [];
-        for (const nota of window.currentLaporan) {
-            const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', nota.id);
-            
-            if (!details || details.length === 0) {
-                dataExcel.push({
-                    "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
-                    "No Invoice": nota.no_invoice,
-                    "Nama Barang": "-", "Qty": 0, "Harga": 0, "Metode": nota.metode_pembayaran, "Total Net": nota.grand_total
-                });
-            } else {
-                details.forEach((item, index) => {
-                    dataExcel.push({
-                        "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
-                        "No Invoice": nota.no_invoice,
-                        "Nama Barang": item.nama_barang,
-                        "Qty": item.qty,
-                        "Harga Satuan": item.harga_satuan,
-                        "Subtotal": item.qty * item.harga_satuan,
-                        "Metode": nota.metode_pembayaran,
-                        "Grand Total Nota": index === 0 ? nota.grand_total : ""
-                    });
-                });
-            }
-        }
+        sales.forEach(s => {
+            const j = journals.find(item => item.no_bukti === s.no_invoice);
+            let metode = j ? j.keterangan : 'Tunai';
+            // Bersihkan teks metode
+            metode = metode.replace('Terima ', '').split(' - ')[0];
 
-        const ws = XLSX.utils.json_to_sheet(dataExcel);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Laporan Penjualan");
-        XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
+            const row = `
+                <tr>
+                    <td>${new Date(s.created_at).toLocaleString('id-ID')}</td>
+                    <td>${s.no_invoice}</td>
+                    <td>${metode}</td>
+                    <td>${parseFloat(s.subtotal || 0).toLocaleString()}</td>
+                    <td style="color:red">-${parseFloat(s.diskon || 0).toLocaleString()}</td>
+                    <td style="font-weight:bold">${parseFloat(s.grand_total || 0).toLocaleString()}</td>
+                    <td class="${s.status === 'Void' ? 'status-void' : 'status-success'}">${s.status || 'Success'}</td>
+                </tr>
+            `;
+            body.innerHTML += row;
+        });
+    }
+
+    function exportExcel() {
+        const table = document.getElementById("table-laporan");
+        const fileName = "Laporan_Penjualan_BeautyBloom.xlsx";
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
+        XLSX.writeFile(wb, fileName);
     }
 </script>
+
 </body>
 </html>
