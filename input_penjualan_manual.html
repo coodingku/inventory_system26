@@ -16,7 +16,7 @@
         }
         
         body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
-        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 1600px; margin: auto; }
+        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 1400px; margin: auto; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-left: 5px solid var(--accent); padding-left: 20px; }
         .header h2 { margin: 0; font-size: 26px; color: var(--primary); }
@@ -31,26 +31,32 @@
         .btn-filter:hover { background: #4338ca; }
         .btn-export { background: var(--success); color: white; border: none; font-weight: 600; cursor: pointer; }
         
-        table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; margin-top: 10px; table-layout: auto; }
-        th { background: var(--header-dark); color: white; padding: 12px 6px; font-size: 10px; text-transform: uppercase; border: 1px solid #334155; }
+        table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; margin-top: 10px; }
+        th { background: var(--header-dark); color: white; padding: 12px 8px; font-size: 11px; text-transform: uppercase; border: 1px solid #334155; }
         .th-tax { background: #334155; }
         .th-accent { background: #312e81; } 
         .th-final { background: #c2410c; }
 
-        td { padding: 12px 6px; border: 1px solid #e2e8f0; font-size: 12px; text-align: right; }
+        td { padding: 12px 8px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right; }
         .text-left { text-align: left; }
         .font-bold { font-weight: 700; }
-        .col-tax { background: #f8fafc; color: #475569; }
-        .col-method { background: #f0f4ff; color: #1e40af; }
-        .col-total { background: #fff7ed; color: #9a3412; font-weight: 800; }
         
-        .footer-row { background: var(--primary) !important; color: white !important; font-weight: 700; }
-        .footer-row td { border-color: #334155; }
+        .footer-row { background: #f1f5f9 !important; font-weight: 800; color: var(--primary); }
+
+        /* Summary Section */
+        .summary-container { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; border-top: 2px dashed #e2e8f0; padding-top: 30px; }
+        .summary-title { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .summary-card { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        
+        .summary-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-row.total { font-size: 18px; font-weight: 800; color: #c2410c; margin-top: 10px; border-top: 2px solid #e2e8f0; padding-top: 15px; }
 
         @media print {
             .filter-box, .btn-export, button { display: none; }
-            body { padding: 0; }
+            body { padding: 0; background: white; }
             .container { box-shadow: none; border-radius: 0; max-width: 100%; }
+            .summary-container { grid-template-columns: 1fr 1fr; page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -64,7 +70,7 @@
         </div>
         <div style="display: flex; gap: 10px;">
             <button class="btn-export" onclick="exportToExcel()">Export Excel</button>
-            <button onclick="window.print()" style="background: white; cursor: pointer; border: 1px solid #ccc;">Cetak PDF</button>
+            <button onclick="window.print()" style="background: white; cursor: pointer; border: 1px solid #ccc;">Cetak Laporan</button>
         </div>
     </div>
 
@@ -80,6 +86,7 @@
         <button class="btn-filter" onclick="fetchData()">Tampilkan Laporan</button>
     </div>
 
+    <!-- Tabel Rincian Harian -->
     <div style="overflow-x: auto;">
         <table id="main-table">
             <thead>
@@ -103,10 +110,65 @@
                 </tr>
             </thead>
             <tbody id="table-body">
-                <tr><td colspan="12" style="text-align:center; padding: 40px; color: #94a3b8;">Pilih tanggal dan klik Tampilkan.</td></tr>
+                <tr><td colspan="12" style="text-align:center; padding: 40px; color: #94a3b8;">Silahkan pilih rentang tanggal.</td></tr>
             </tbody>
             <tfoot id="table-footer"></tfoot>
         </table>
+    </div>
+
+    <!-- Bagian Bawah: Ringkasan Khusus -->
+    <div class="summary-container" id="summary-area" style="display: none;">
+        <div class="summary-card">
+            <div class="summary-title">📊 Ringkasan Pendapatan</div>
+            <div class="summary-row">
+                <span>Total Gross Sales</span>
+                <span id="sum-gross">Rp 0</span>
+            </div>
+            <div class="summary-row" style="color: #dc2626;">
+                <span>Total Potongan (Diskon)</span>
+                <span id="sum-disc">- Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Net Sales</span>
+                <span id="sum-nett" class="font-bold">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total DPP</span>
+                <span id="sum-dpp">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Service (5%)</span>
+                <span id="sum-svc">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total PB1 (10%)</span>
+                <span id="sum-pb1">Rp 0</span>
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-title">💳 Rincian Metode Pembayaran</div>
+            <div class="summary-row">
+                <span>Total Tunai</span>
+                <span id="sum-tunai">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total QRIS</span>
+                <span id="sum-qris">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Bank BCA</span>
+                <span id="sum-bca">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Lainnya</span>
+                <span id="sum-lain">Rp 0</span>
+            </div>
+            <div class="summary-row total">
+                <span>GRAND TOTAL</span>
+                <span id="sum-grand">Rp 0</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -135,14 +197,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
 async function fetchData() {
     const client = getClient();
-    if (!client) return alert("Supabase tidak termuat!");
+    if (!client) return;
 
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
-    if(!start || !end) return alert("Pilih tanggal!");
+    if(!start || !end) return;
 
-    document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center">Sedang mengambil data...</td></tr>';
+    document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center">Memuat data...</td></tr>';
+    document.getElementById('summary-area').style.display = 'none';
 
     try {
         const { data, error } = await client
@@ -155,7 +218,8 @@ async function fetchData() {
         if (error) throw error;
         processData(data || []);
     } catch (err) {
-        alert("Error: " + err.message);
+        console.error(err);
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center; color:red">Gagal mengambil data.</td></tr>';
     }
 }
 
@@ -190,12 +254,11 @@ function processData(data) {
 function renderTable(report) {
     let bodyHtml = '';
     const totals = { gross:0, disc:0, nett:0, dpp:0, svc:0, pb1:0, tunai:0, qris:0, bca:0, lain:0, grand:0 };
-    const f = (v) => Math.round(v).toLocaleString('id-ID');
+    const f = (v) => "Rp " + Math.round(v).toLocaleString('id-ID');
 
     const sortedDates = Object.keys(report);
     if (sortedDates.length === 0) {
-        document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center">Data kosong.</td></tr>';
-        document.getElementById('table-footer').innerHTML = '';
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center">Tidak ada data transaksi di periode ini.</td></tr>';
         return;
     }
 
@@ -203,13 +266,11 @@ function renderTable(report) {
         const d = report[tgl];
         const netSales = d.gross - d.disc;
         
-        // Rumus: Net Sales = DPP + (DPP * 5%) + ((DPP + Service) * 10%)
-        // Net Sales = DPP * 1.155
+        // Perhitungan Pajak
         const dpp = netSales / 1.155;
         const svc = dpp * 0.05;
         const pb1 = (dpp + svc) * 0.10;
-        
-        const grandTotalRow = d.tunai + d.qris + d.bca + d.lainnya;
+        const rowGrand = d.tunai + d.qris + d.bca + d.lainnya;
 
         totals.gross += d.gross;
         totals.disc += d.disc;
@@ -221,7 +282,7 @@ function renderTable(report) {
         totals.qris += d.qris;
         totals.bca += d.bca;
         totals.lain += d.lainnya;
-        totals.grand += grandTotalRow;
+        totals.grand += rowGrand;
 
         bodyHtml += `
             <tr>
@@ -229,25 +290,41 @@ function renderTable(report) {
                 <td>${f(d.gross)}</td>
                 <td style="color:#dc2626">-${f(d.disc)}</td>
                 <td class="font-bold">${f(netSales)}</td>
-                <td class="col-tax">${f(dpp)}</td>
-                <td class="col-tax">${f(svc)}</td>
-                <td class="col-tax">${f(pb1)}</td>
-                <td class="col-method">${f(d.tunai)}</td>
-                <td class="col-method">${f(d.qris)}</td>
-                <td class="col-method">${f(d.bca)}</td>
-                <td class="col-method">${f(d.lainnya)}</td>
-                <td class="col-total">${f(grandTotalRow)}</td>
+                <td>${f(dpp)}</td>
+                <td>${f(svc)}</td>
+                <td>${f(pb1)}</td>
+                <td>${f(d.tunai)}</td>
+                <td>${f(d.qris)}</td>
+                <td>${f(d.bca)}</td>
+                <td>${f(d.lainnya)}</td>
+                <td class="font-bold" style="background:#fff7ed">${f(rowGrand)}</td>
             </tr>
         `;
     });
 
     document.getElementById('table-body').innerHTML = bodyHtml;
+    document.getElementById('summary-area').style.display = 'grid';
+
+    // Update Summary Section
+    document.getElementById('sum-gross').innerText = f(totals.gross);
+    document.getElementById('sum-disc').innerText = "- " + f(totals.disc);
+    document.getElementById('sum-nett').innerText = f(totals.nett);
+    document.getElementById('sum-dpp').innerText = f(totals.dpp);
+    document.getElementById('sum-svc').innerText = f(totals.svc);
+    document.getElementById('sum-pb1').innerText = f(totals.pb1);
     
+    document.getElementById('sum-tunai').innerText = f(totals.tunai);
+    document.getElementById('sum-qris').innerText = f(totals.qris);
+    document.getElementById('sum-bca').innerText = f(totals.bca);
+    document.getElementById('sum-lain').innerText = f(totals.lain);
+    document.getElementById('sum-grand').innerText = f(totals.grand);
+
+    // Update Table Footer
     document.getElementById('table-footer').innerHTML = `
         <tr class="footer-row">
-            <td class="text-left">TOTAL KESELURUHAN</td>
+            <td class="text-left">TOTAL</td>
             <td>${f(totals.gross)}</td>
-            <td>${f(totals.disc)}</td>
+            <td>-${f(totals.disc)}</td>
             <td>${f(totals.nett)}</td>
             <td>${f(totals.dpp)}</td>
             <td>${f(totals.svc)}</td>
@@ -256,15 +333,15 @@ function renderTable(report) {
             <td>${f(totals.qris)}</td>
             <td>${f(totals.bca)}</td>
             <td>${f(totals.lain)}</td>
-            <td style="background:#ea580c">${f(totals.grand)}</td>
+            <td style="background: #fbbf24; color: black;">${f(totals.grand)}</td>
         </tr>
     `;
 }
 
 function exportToExcel() {
     const table = document.getElementById("main-table");
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Harian" });
-    XLSX.writeFile(wb, `Laporan_FinexPos_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
+    XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 </script>
 </body>
