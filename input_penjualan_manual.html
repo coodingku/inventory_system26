@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Harian BeautyBloom | Finex Pos</title>
+    <!-- Pastikan Library Supabase Terpanggil -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
@@ -96,7 +97,7 @@
                 </tr>
             </thead>
             <tbody id="table-body">
-                <tr><td colspan="11" style="text-align:center; padding: 40px; color: #94a3b8;">Data akan muncul setelah Anda menekan tombol Tampilkan.</td></tr>
+                <tr><td colspan="11" style="text-align:center; padding: 40px; color: #94a3b8;">Silakan pilih tanggal dan klik Tampilkan.</td></tr>
             </tbody>
             <tfoot id="table-footer"></tfoot>
         </table>
@@ -104,13 +105,23 @@
 </div>
 
 <script>
-// Mencegah error "Identifier has already been declared"
-if (typeof supabase === 'undefined') {
-    const DB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    var supabaseClient = window.supabase.createClient(DB_URL, DB_KEY);
-} else {
-    var supabaseClient = supabase;
+// KONFIGURASI SUPABASE (Mencegah konflik variabel)
+const SUPA_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+
+let _sbClient = null;
+
+function getClient() {
+    if (_sbClient) return _sbClient;
+    
+    // Pastikan library supabase tersedia dari CDN
+    if (window.supabase && window.supabase.createClient) {
+        _sbClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+        return _sbClient;
+    } else {
+        console.error("Library Supabase tidak terdeteksi!");
+        return null;
+    }
 }
 
 // Inisialisasi Tanggal Default
@@ -123,31 +134,42 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 async function fetchData() {
+    const client = getClient();
+    if (!client) {
+        alert("Sistem gagal terhubung ke Database. Cek koneksi internet.");
+        return;
+    }
+
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
     if(!start || !end) return alert("Pilih rentang tanggal!");
 
-    const { data, error } = await supabaseClient
-        .from('penjualan')
-        .select('*')
-        .gte('created_at', start + 'T00:00:00')
-        .lte('created_at', end + 'T23:59:59')
-        .order('created_at', { ascending: true });
+    document.getElementById('table-body').innerHTML = '<tr><td colspan="11" style="text-align:center">Memuat data...</td></tr>';
 
-    if (error) {
-        console.error("Supabase Error:", error);
-        return;
+    try {
+        const { data, error } = await client
+            .from('penjualan')
+            .select('*')
+            .gte('created_at', start + 'T00:00:00')
+            .lte('created_at', end + 'T23:59:59')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        processData(data || []);
+    } catch (err) {
+        console.error("Fetch Error:", err);
+        alert("Gagal mengambil data: " + err.message);
     }
-
-    processData(data);
 }
 
 function processData(data) {
     const report = {};
 
     data.forEach(item => {
-        const tgl = new Date(item.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+        // Kelompokkan per hari (format ID: 01 Jan 2024)
+        const dateObj = new Date(item.created_at);
+        const tgl = dateObj.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
         
         if (!report[tgl]) {
             report[tgl] = { gross: 0, disc: 0, tunai: 0, qris: 0, bca: 0, lainnya: 0 };
@@ -175,22 +197,22 @@ function renderTable(report) {
     const totals = { gross:0, disc:0, nett:0, dpp:0, pb1:0, tunai:0, qris:0, bca:0, lain:0, grand:0 };
     const f = (v) => Math.round(v).toLocaleString('id-ID');
 
-    const keys = Object.keys(report);
-    if (keys.length === 0) {
+    const sortedDates = Object.keys(report);
+    if (sortedDates.length === 0) {
         document.getElementById('table-body').innerHTML = '<tr><td colspan="11" style="text-align:center">Tidak ada data untuk periode ini.</td></tr>';
         document.getElementById('table-footer').innerHTML = '';
         return;
     }
 
-    keys.forEach(tgl => {
+    sortedDates.forEach(tgl => {
         const d = report[tgl];
         const netSales = d.gross - d.disc;
         
+        // Perhitungan Pajak & Service
         const dpp = netSales / 1.155;
         const svc = dpp * 0.05;
         const pb1 = (dpp + svc) * 0.10;
         
-        // Grand Total dihitung dari akumulasi kolom metode pembayaran
         const grandTotalRow = d.tunai + d.qris + d.bca + d.lainnya;
 
         totals.gross += d.gross;
@@ -243,7 +265,7 @@ function renderTable(report) {
 function exportToExcel() {
     const table = document.getElementById("main-table");
     const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
-    XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toLocaleDateString()}.xlsx`);
+    XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 </script>
 </body>
