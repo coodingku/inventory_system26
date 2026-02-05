@@ -12,7 +12,6 @@
             --accent: #4f46e5; 
             --success: #059669;
             --bg: #f1f5f9;
-            --method-bg: #f8fafc;
             --header-dark: #1e293b;
         }
         
@@ -24,38 +23,29 @@
         
         .filter-box { display: flex; gap: 15px; margin-bottom: 25px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; gap: 6px; }
-        label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
         
-        input, button { padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; transition: all 0.2s; }
-        input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        input, button { padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
         
         .btn-filter { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; }
-        .btn-filter:hover { background: #4338ca; transform: translateY(-1px); }
+        .btn-filter:hover { background: #4338ca; }
         .btn-export { background: var(--success); color: white; border: none; font-weight: 600; cursor: pointer; }
         
-        table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
-        
-        th { background: var(--header-dark); color: white; padding: 14px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #334155; }
-        .th-accent { background: #312e81; } /* Darker Indigo for methods */
-        .th-final { background: #c2410c; } /* Burnt Orange for Grand Total */
+        table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; margin-top: 10px; }
+        th { background: var(--header-dark); color: white; padding: 12px 8px; font-size: 11px; text-transform: uppercase; border: 1px solid #334155; }
+        .th-accent { background: #312e81; } 
+        .th-final { background: #c2410c; }
 
-        td { padding: 14px 10px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right; }
+        td { padding: 12px 8px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right; }
         .text-left { text-align: left; }
         .font-bold { font-weight: 700; }
-
-        tbody tr:nth-child(even) { background: #f8fafc; }
-        tbody tr:hover { background: #eff6ff; }
-
-        .col-method { background: #f0f4ff; color: #1e40af; font-weight: 500; }
-        .col-total { background: #fff7ed; color: #9a3412; font-weight: 800; font-size: 14px; }
+        .col-method { background: #f0f4ff; color: #1e40af; }
+        .col-total { background: #fff7ed; color: #9a3412; font-weight: 800; }
         
         .footer-row { background: var(--primary) !important; color: white !important; font-weight: 700; }
-        .footer-row td { border-color: #334155; }
 
         @media print {
             .filter-box, .btn-export, button { display: none; }
-            .container { box-shadow: none; padding: 0; }
-            th { background: #1e293b !important; color: white !important; print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -65,17 +55,17 @@
     <div class="header">
         <div>
             <h2>Laporan Harian BeautyBloom</h2>
-            <div style="color: #64748b; font-size: 14px;">Powered by Finex Pos</div>
+            <div style="color: #64748b; font-size: 14px;">Finex Pos Management System</div>
         </div>
         <div style="display: flex; gap: 10px;">
             <button class="btn-export" onclick="exportToExcel()">Export Excel</button>
-            <button onclick="window.print()" style="background: white; cursor: pointer;">Cetak PDF</button>
+            <button onclick="window.print()" style="background: white; cursor: pointer; border: 1px solid #ccc;">Cetak Laporan</button>
         </div>
     </div>
 
     <div class="filter-box">
         <div class="filter-group">
-            <label>Mulai Tanggal</label>
+            <label>Dari Tanggal</label>
             <input type="date" id="date-start">
         </div>
         <div class="filter-group">
@@ -91,7 +81,7 @@
                 <tr>
                     <th rowspan="2">Tanggal</th>
                     <th rowspan="2">Gross Sales</th>
-                    <th rowspan="2">Potongan</th>
+                    <th rowspan="2">Diskon</th>
                     <th rowspan="2">Net Sales</th>
                     <th rowspan="2">DPP Service</th>
                     <th rowspan="2">PB1 (10%)</th>
@@ -106,7 +96,7 @@
                 </tr>
             </thead>
             <tbody id="table-body">
-                <tr><td colspan="11" style="text-align:center; padding: 50px; color: #94a3b8;">Silakan tentukan tanggal dan klik tampilkan.</td></tr>
+                <tr><td colspan="11" style="text-align:center; padding: 40px; color: #94a3b8;">Data akan muncul setelah Anda menekan tombol Tampilkan.</td></tr>
             </tbody>
             <tfoot id="table-footer"></tfoot>
         </table>
@@ -114,28 +104,46 @@
 </div>
 
 <script>
-const DB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-const supabase = window.supabase.createClient(DB_URL, DB_KEY);
+// Mencegah error "Identifier has already been declared"
+if (typeof supabase === 'undefined') {
+    const DB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    var supabaseClient = window.supabase.createClient(DB_URL, DB_KEY);
+} else {
+    var supabaseClient = supabase;
+}
 
-window.onload = () => {
-    const d = new Date();
-    document.getElementById('date-start').value = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-    document.getElementById('date-end').value = d.toISOString().split('T')[0];
-};
+// Inisialisasi Tanggal Default
+window.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = today.toISOString().split('T')[0];
+    document.getElementById('date-start').value = firstDay;
+    document.getElementById('date-end').value = lastDay;
+});
 
 async function fetchData() {
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
-    const { data, error } = await supabase.from('penjualan')
+    if(!start || !end) return alert("Pilih rentang tanggal!");
+
+    const { data, error } = await supabaseClient
+        .from('penjualan')
         .select('*')
         .gte('created_at', start + 'T00:00:00')
         .lte('created_at', end + 'T23:59:59')
         .order('created_at', { ascending: true });
 
-    if (error) return console.error(error);
+    if (error) {
+        console.error("Supabase Error:", error);
+        return;
+    }
 
+    processData(data);
+}
+
+function processData(data) {
     const report = {};
 
     data.forEach(item => {
@@ -167,16 +175,22 @@ function renderTable(report) {
     const totals = { gross:0, disc:0, nett:0, dpp:0, pb1:0, tunai:0, qris:0, bca:0, lain:0, grand:0 };
     const f = (v) => Math.round(v).toLocaleString('id-ID');
 
-    Object.keys(report).forEach(tgl => {
+    const keys = Object.keys(report);
+    if (keys.length === 0) {
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="11" style="text-align:center">Tidak ada data untuk periode ini.</td></tr>';
+        document.getElementById('table-footer').innerHTML = '';
+        return;
+    }
+
+    keys.forEach(tgl => {
         const d = report[tgl];
         const netSales = d.gross - d.disc;
         
-        // Pajak & DPP
         const dpp = netSales / 1.155;
         const svc = dpp * 0.05;
         const pb1 = (dpp + svc) * 0.10;
         
-        // Grand Total dihitung dari sum metode pembayaran sesuai instruksi
+        // Grand Total dihitung dari akumulasi kolom metode pembayaran
         const grandTotalRow = d.tunai + d.qris + d.bca + d.lainnya;
 
         totals.gross += d.gross;
@@ -207,7 +221,7 @@ function renderTable(report) {
         `;
     });
 
-    document.getElementById('table-body').innerHTML = bodyHtml || '<tr><td colspan="11">Data Kosong</td></tr>';
+    document.getElementById('table-body').innerHTML = bodyHtml;
     
     document.getElementById('table-footer').innerHTML = `
         <tr class="footer-row">
@@ -228,8 +242,8 @@ function renderTable(report) {
 
 function exportToExcel() {
     const table = document.getElementById("main-table");
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan BeautyBloom" });
-    XLSX.writeFile(wb, `Laporan_Harian_${new Date().getTime()}.xlsx`);
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
+    XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toLocaleDateString()}.xlsx`);
 }
 </script>
 </body>
