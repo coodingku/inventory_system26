@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Pajak Tahunan | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --danger: #c0392b; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        main { flex: 1; margin-left: 240px; padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        
+        .header-pajak { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 12px; color: #495057; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
+        
+        .total-row { background: #fff8f1; font-weight: bold; }
+        .tax-calc-box { background: #f0f7ff; padding: 20px; border-radius: 12px; margin-top: 30px; border-left: 5px solid #3498db; }
+        
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 5px; }
+        .badge-daerah { background: #e8f5e9; color: #2e7d32; }
+        .badge-pusat { background: #fff3e0; color: #e65100; }
+
+        @media print {
+            nav { display: none; }
+            main { margin-left: 0; padding: 0; }
+            .no-print { display: none; }
+            .card { box-shadow: none; border: 1px solid #eee; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="no-print">
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="laporan_perbandingan.html">📈 Perbandingan</a>
+    <a href="laporan_pajak_tahunan.html" style="background:var(--accent); color:white;">🧾 Pajak Tahunan</a>
+    <a href="laba_rugi.html">💰 Laba Rugi</a>
+</nav>
+
+<main>
+    <div class="card">
+        <div class="header-pajak">
+            <div>
+                <h1 style="margin:0; color:var(--primary); font-size: 24px;">Laporan Rekapitulasi Pajak</h1>
+                <p style="color:gray; margin: 5px 0;">Unit: <strong>BeautyBloom</strong> | Tahun Pajak: 2026</p>
+            </div>
+            <button onclick="window.print()" class="no-print" style="padding:10px 18px; cursor:pointer; background: white; border: 1px solid #ddd; border-radius: 8px; font-weight: 600;">🖨️ Cetak Laporan</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Bulan</th>
+                    <th>Omzet Bruto <br><small>(Inc. Pajak)</small></th>
+                    <th>DPP <br><small>(Dasar Pengenaan)</small></th>
+                    <th>Pajak PB1 (10%) <span class="badge badge-daerah">DAERAH</span></th>
+                    <th>PPh Final (0.5%) <span class="badge badge-pusat">PUSAT</span></th>
+                </tr>
+            </thead>
+            <tbody id="tax-body">
+                <tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Memuat data transaksi...</td></tr>
+            </tbody>
+            <tfoot>
+                <tr class="total-row" id="tax-total">
+                    <!-- Total via JS -->
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="tax-calc-box">
+            <h4 style="margin:0 0 10px 0; color:#2c3e50;">💡 Penjelasan Angka:</h4>
+            <div style="font-size: 13px; line-height: 1.6; color: #555;">
+                <p>Jika Omzet adalah <strong>Rp 6.827.250</strong>, maka:</p>
+                <p>• <strong>DPP:</strong> Rp 6.206.591 (Uang bersih Anda).</p>
+                <p>• <strong>PB1 (10%):</strong> Rp 620.659 (Pajak yang sudah ada di dalam harga).</p>
+                <p>• <strong>PPh (0.5%):</strong> Rp 31.033 (Pajak penghasilan Anda).</p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+
+    const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+    window.onload = loadTaxReport;
+
+    async function loadTaxReport() {
+        // Menggunakan Set untuk menghindari duplikasi id transaksi jika ada relasi join yang salah
+        const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
+            .select('id, tanggal, kode_akun, kredit')
+            .gte('tanggal', '2026-01-01T00:00:00')
+            .lte('tanggal', '2026-12-31T23:59:59');
+
+        if (error) {
+            document.getElementById('tax-body').innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Gagal memuat data.</td></tr>`;
+            return;
+        }
+
+        let monthlyData = Array(12).fill(0).map(() => ({ omzet: 0 }));
+
+        // Menggunakan Map untuk memastikan setiap ID jurnal hanya dihitung sekali
+        const uniqueJurnal = new Map();
+        jurnal.forEach(j => {
+            if (j.kode_akun && j.kode_akun.startsWith('4')) {
+                // Gunakan kombinasi ID dan nominal sebagai key unik untuk keamanan ekstra
+                const key = `${j.id}`;
+                if (!uniqueJurnal.has(key)) {
+                    uniqueJurnal.set(key, j);
+                    const bulanIndex = new Date(j.tanggal).getMonth();
+                    monthlyData[bulanIndex].omzet += parseFloat(j.kredit || 0);
+                }
+            }
+        });
+
+        let html = '';
+        let tOmzet = 0, tDPP = 0, tPB1 = 0, tPPh = 0;
+
+        monthlyData.forEach((m, i) => {
+            // Perhitungan Matematika:
+            // Jika omzet adalah 6.827.250
+            // DPP = 6.827.250 / 1.1 = 6.206.591
+            const dpp = Math.floor(m.omzet / 1.1);
+            const pb1 = m.omzet - dpp;
+            const pph = Math.floor(dpp * 0.005);
+
+            tOmzet += m.omzet;
+            tDPP += dpp;
+            tPB1 += pb1;
+            tPPh += pph;
+
+            html += `
+                <tr>
+                    <td>${bulanNames[i]}</td>
+                    <td>Rp ${m.omzet.toLocaleString('id-ID')}</td>
+                    <td style="color:#2980b9">Rp ${dpp.toLocaleString('id-ID')}</td>
+                    <td style="color:#27ae60">Rp ${pb1.toLocaleString('id-ID')}</td>
+                    <td style="color:#c0392b; font-weight:bold;">Rp ${pph.toLocaleString('id-ID')}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('tax-body').innerHTML = html;
+        document.getElementById('tax-total').innerHTML = `
+            <td>TOTAL TAHUNAN</td>
+            <td>Rp ${tOmzet.toLocaleString('id-ID')}</td>
+            <td>Rp ${tDPP.toLocaleString('id-ID')}</td>
+            <td>Rp ${tPB1.toLocaleString('id-ID')}</td>
+            <td>Rp ${tPPh.toLocaleString('id-ID')}</td>
+        `;
+    }
+</script>
+</body>
+</html>
