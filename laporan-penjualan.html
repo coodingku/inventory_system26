@@ -33,7 +33,6 @@
         td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: top; }
         .total-row { background: #f1f2f6; font-weight: bold; font-size: 16px; }
 
-        /* Style untuk detail split */
         .split-box { font-size: 11px; color: #7f8c8d; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ddd; line-height: 1.4; }
         .method-badge { background: #fce4ec; color: #c2185b; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
 
@@ -153,22 +152,22 @@
         const to = document.getElementById('date-to').value + "T23:59:59";
         const method = document.getElementById('filter-method').value;
 
-        // 1. Ambil Data Penjualan
         let query = supabaseClient.from('penjualan').select('*').gte('created_at', from).lte('created_at', to).order('created_at', { ascending: false });
         if (method !== 'all') query = query.eq('metode_pembayaran', method);
 
         const { data: sales, error } = await query;
         if (error) return alert("Gagal ambil data: " + error.message);
         
-        // 2. Ambil Data Jurnal (Sisi Debit/Penerimaan Uang) untuk rincian Split
         const invoices = sales.map(s => s.no_invoice);
         const { data: journals } = await supabaseClient
             .from('jurnal_umum')
             .select('no_bukti, keterangan, debit, kode_akun')
             .in('no_bukti', invoices)
-            .gt('debit', 0);
+            .gt('debit', 0)
+            .ilike('kode_akun', '11%');
 
         window.currentLaporan = sales;
+        window.currentJournals = journals; // Simpan untuk export
         renderTable(sales, journals);
     }
 
@@ -180,9 +179,8 @@
         data.forEach(item => {
             totalAll += parseFloat(item.grand_total || 0);
 
-            // Cari rincian jurnal untuk invoice ini (hanya jika metode adalah SPLIT atau butuh rincian)
             const splitDetails = (journals || [])
-                .filter(j => j.no_bukti === item.no_invoice && j.kode_akun.startsWith('11'))
+                .filter(j => j.no_bukti === item.no_invoice)
                 .map(j => `<div>• ${j.keterangan.replace('Terima ', '')}: <b>Rp ${j.debit.toLocaleString()}</b></div>`)
                 .join('');
 
@@ -210,14 +208,13 @@
         const item = window.currentLaporan.find(i => i.no_invoice === invoiceNo);
         if (!item) return;
 
-        // Ambil detail barang & rincian pembayaran split dari jurnal
         const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', item.id);
         const { data: journals } = await supabaseClient
             .from('jurnal_umum')
             .select('keterangan, debit')
             .eq('no_bukti', item.no_invoice)
             .gt('debit', 0)
-            .ilike('kode_akun', '11%'); // Akun kas/bank
+            .ilike('kode_akun', '11%');
         
         renderDetailPreview(item, details, journals);
     }
@@ -281,38 +278,28 @@
     }
 
     async function voidBill(id, invoiceNo) {
-        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke BeautyBloom dan tercatat di Kartu Stok.`)) return;
-        
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nStok akan dikembalikan ke BeautyBloom.`)) return;
         try {
             const { data: details } = await supabaseClient.from('penjualan_detail').select('produk_id, qty, nama_barang').eq('penjualan_id', id);
-
-            if (details && details.length > 0) {
+            if (details) {
                 for (const item of details) {
                     const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.produk_id).single();
                     if (p) {
                         const stokBaru = (p.stok_sekarang || 0) + item.qty;
                         await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.produk_id);
                         await supabaseClient.from('riwayat_stok').insert([{
-                            id_produk: item.produk_id,
-                            tipe: 'MASUK',
-                            jumlah: item.qty,
-                            stok_akhir: stokBaru,
-                            admin_nama: 'Admin (Void)',
-                            keterangan: `VOID Penjualan ${invoiceNo} - ${item.nama_barang}`
+                            id_produk: item.produk_id, tipe: 'MASUK', jumlah: item.qty, stok_akhir: stokBaru,
+                            admin_nama: 'Admin (Void)', keterangan: `VOID Penjualan ${invoiceNo} - ${item.nama_barang}`
                         }]);
                     }
                 }
             }
-
             await supabaseClient.from('jurnal_umum').delete().eq('no_bukti', invoiceNo);
             await supabaseClient.from('penjualan_detail').delete().eq('penjualan_id', id);
             await supabaseClient.from('penjualan').delete().eq('id', id);
-
-            alert(`✅ Nota ${invoiceNo} berhasil di-VOID. Stok telah dikembalikan.`);
+            alert(`✅ Nota ${invoiceNo} berhasil di-VOID.`);
             fetchLaporan();
-        } catch (err) {
-            alert("Gagal proses Void: " + err.message);
-        }
+        } catch (err) { alert("Gagal proses Void: " + err.message); }
     }
 
     async function exportKeExcel() {
@@ -322,11 +309,21 @@
         for (const nota of window.currentLaporan) {
             const { data: details } = await supabaseClient.from('penjualan_detail').select('*').eq('penjualan_id', nota.id);
             
+            // Format rincian pembayaran untuk kolom Metode
+            let metodeTeks = nota.metode_pembayaran;
+            if (nota.metode_pembayaran === 'SPLIT' && window.currentJournals) {
+                const rincian = window.currentJournals
+                    .filter(j => j.no_bukti === nota.no_invoice)
+                    .map(j => `${j.keterangan.replace('Terima ', '')}: ${j.debit.toLocaleString()}`)
+                    .join(', ');
+                metodeTeks = `SPLIT (${rincian})`;
+            }
+
             if (!details || details.length === 0) {
                 dataExcel.push({
                     "Waktu": new Date(nota.created_at).toLocaleString('id-ID'),
                     "No Invoice": nota.no_invoice,
-                    "Nama Barang": "-", "Qty": 0, "Harga": 0, "Metode": nota.metode_pembayaran, "Total Net": nota.grand_total
+                    "Nama Barang": "-", "Qty": 0, "Harga": 0, "Metode": metodeTeks, "Total Net": nota.grand_total
                 });
             } else {
                 details.forEach((item, index) => {
@@ -337,7 +334,7 @@
                         "Qty": item.qty,
                         "Harga Satuan": item.harga_satuan,
                         "Subtotal": item.qty * item.harga_satuan,
-                        "Metode": nota.metode_pembayaran,
+                        "Metode": metodeTeks,
                         "Grand Total Nota": index === 0 ? nota.grand_total : ""
                     });
                 });
