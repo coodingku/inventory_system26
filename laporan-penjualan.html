@@ -16,7 +16,7 @@
         nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; margin-left: 260px; padding: 30px; width: calc(100% - 260px); }
+        main { flex: 1; margin-left: 240px; padding: 30px; width: calc(100% - 240px); }
         .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
         
         .input-group { display: flex; flex-direction: column; gap: 5px; }
@@ -33,8 +33,8 @@
         td { padding: 10px; border-bottom: 1px solid #f1f1f1; vertical-align: top; }
         
         .row-main { background-color: #fff; }
-        .row-item-extra { background-color: #fafafa; border-bottom: 1px dashed #eee !important; }
-        .row-item-extra td { color: #555; padding-top: 4px; padding-bottom: 4px; }
+        .row-item-extra { background-color: #fafafa; }
+        .row-item-extra td { color: #666; padding-top: 2px; padding-bottom: 2px; border-top: none; }
 
         .status-void { color: #95a5a6 !important; font-style: italic; text-decoration: line-through; opacity: 0.6; }
         .method-badge { background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase; }
@@ -111,50 +111,57 @@
         const to = document.getElementById('date-to').value + "T23:59:59";
 
         try {
-            // Ambil data penjualan dan detailnya
+            // Mengambil data penjualan
             const { data: sales, error: sErr } = await supabaseClient
                 .from('penjualan')
-                .select('*, penjualan_detail(*)')
+                .select('*')
                 .gte('created_at', from)
                 .lte('created_at', to)
                 .order('created_at', { ascending: false });
 
             if (sErr) throw sErr;
 
-            // Ambil data jurnal untuk mendapatkan metode bayar asli
+            // Mengambil detail dengan kolom produk_id
+            const { data: details, error: dErr } = await supabaseClient
+                .from('penjualan_detail')
+                .select('no_invoice, nama_barang, qty, harga_satuan, subtotal, produk_id');
+            
+            if (dErr) throw dErr;
+
+            // Mengambil data jurnal untuk mendapatkan nama metode pembayaran
             const { data: journals, error: jErr } = await supabaseClient
                 .from('jurnal_umum')
-                .select('no_bukti, keterangan, debit')
+                .select('no_bukti, keterangan')
                 .gte('created_at', from)
-                .lte('created_at', to)
-                .gt('debit', 0);
+                .lte('created_at', to);
 
             if (jErr) throw jErr;
 
-            renderTable(sales, journals);
+            renderTable(sales, details, journals);
         } catch (err) {
             console.error(err);
-            alert("Gagal mengambil data");
+            alert("Gagal memuat data: " + err.message);
         } finally {
             loading.style.display = 'none';
         }
     }
 
-    function renderTable(sales, journals) {
+    function renderTable(sales, allDetails, journals) {
         const body = document.getElementById('report-body');
         body.innerHTML = '';
 
         sales.forEach(sale => {
             const isVoid = sale.status === 'Void';
-            const details = sale.penjualan_detail || [];
             
-            // Cari metode bayar dari jurnal dan hilangkan No Invoice
+            // Filter detail milik invoice ini
+            const details = allDetails.filter(d => d.no_invoice === sale.no_invoice);
+            
+            // Mencari metode pembayaran dari jurnal
             const journalMatch = journals.find(j => j.no_bukti === sale.no_invoice);
-            let metode = journalMatch ? journalMatch.keterangan.replace('Terima ', '') : '-';
-            // Regex untuk menghapus pattern " - INV-XXXXXX"
-            metode = metode.replace(/\s*-\s*INV-\d+/gi, '').trim();
+            let metode = journalMatch ? journalMatch.keterangan : '-';
+            // Membersihkan teks: "Terima Tunai - INV-01" menjadi "Tunai"
+            metode = metode.replace(/^Terima\s+/i, '').replace(/\s*-\s*INV-\d+/gi, '').trim();
 
-            // Baris Pertama (Header Transaksi + Item Pertama)
             const firstItem = details.length > 0 ? details[0] : null;
             const itemText = firstItem ? `${firstItem.nama_barang} (x${firstItem.qty})` : '-';
 
@@ -175,21 +182,15 @@
             `;
             body.innerHTML += mainRow;
 
-            // Baris Tambahan untuk Item ke-2, ke-3, dst
+            // Tampilkan item sisanya di baris baru di bawahnya
             if (details.length > 1) {
                 for (let i = 1; i < details.length; i++) {
-                    const extraItem = details[i];
+                    const extra = details[i];
                     body.innerHTML += `
                         <tr class="row-item-extra ${isVoid ? 'status-void' : ''}">
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td>${extraItem.nama_barang} (x${extraItem.qty})</td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td></td><td></td><td></td>
+                            <td>${extra.nama_barang} (x${extra.qty})</td>
+                            <td></td><td></td><td></td><td></td><td></td>
                         </tr>
                     `;
                 }
@@ -198,37 +199,47 @@
     }
 
     async function processVoid(inv) {
-        if(!confirm(`Yakin ingin membatalkan transaksi ${inv}? Stok akan dikembalikan.`)) return;
+        if(!confirm(`Apakah Anda yakin ingin membatalkan transaksi ${inv}? Stok akan dikembalikan.`)) return;
         
         const loading = document.getElementById('loading');
         loading.style.display = 'flex';
 
         try {
-            // 1. Ambil detail untuk balikkan stok
+            // Ambil detail menggunakan kolom produk_id
             const { data: details, error: dErr } = await supabaseClient
                 .from('penjualan_detail')
-                .select('id_produk, qty')
+                .select('produk_id, qty')
                 .eq('no_invoice', inv);
             
             if(dErr) throw dErr;
 
+            // Kembalikan Stok Produk
             for (const item of details) {
-                if (item.id_produk) {
-                    const { data: p } = await supabaseClient.from('produk').select('stok').eq('id', item.id_produk).single();
+                if (item.produk_id) {
+                    const { data: p } = await supabaseClient
+                        .from('produk')
+                        .select('stok')
+                        .eq('id', item.produk_id)
+                        .single();
+                    
                     if(p) {
-                        await supabaseClient.from('produk').update({ stok: parseFloat(p.stok) + parseFloat(item.qty) }).eq('id', item.id_produk);
+                        const stokBaru = parseFloat(p.stok) + parseFloat(item.qty);
+                        await supabaseClient
+                            .from('produk')
+                            .update({ stok: stokBaru })
+                            .eq('id', item.produk_id);
                     }
                 }
             }
 
-            // 2. Update status
+            // Update status transaksi dan jurnal
             await supabaseClient.from('penjualan').update({ status: 'Void' }).eq('no_invoice', inv);
             await supabaseClient.from('jurnal_umum').update({ keterangan: 'VOID - ' + inv }).eq('no_bukti', inv);
 
-            alert("Transaksi berhasil di-void.");
+            alert("Transaksi " + inv + " berhasil dibatalkan.");
             fetchLaporan();
         } catch (e) {
-            alert("Error: " + e.message);
+            alert("Gagal melakukan void: " + e.message);
         } finally {
             loading.style.display = 'none';
         }
@@ -237,7 +248,7 @@
     function exportKeExcel() {
         const table = document.querySelector("table");
         const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Detail" });
-        XLSX.writeFile(wb, "Laporan_Penjualan_BeautyBloom.xlsx");
+        XLSX.writeFile(wb, "Laporan_BeautyBloom_Detail.xlsx");
     }
 </script>
 </body>
