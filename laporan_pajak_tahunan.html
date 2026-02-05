@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Pajak Tahunan | Finex Pos</title>
+    <title>Laporan Pajak UMKM (UU HPP) | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --danger: #c0392b; }
+        :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
@@ -19,73 +19,75 @@
         
         .header-pajak { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 12px; color: #495057; text-transform: uppercase; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
-        
-        .total-row { background: #fff8f1; font-weight: bold; }
-        .tax-calc-box { background: #f0f7ff; padding: 20px; border-radius: 12px; margin-top: 30px; border-left: 5px solid #3498db; }
-        
-        .badge { padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 5px; }
-        .badge-daerah { background: #e8f5e9; color: #2e7d32; }
-        .badge-pusat { background: #fff3e0; color: #e65100; }
+        .status-box { display: flex; gap: 20px; margin-bottom: 25px; }
+        .status-item { flex: 1; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
+        .status-val { font-size: 20px; font-weight: bold; margin-top: 5px; }
 
-        @media print {
-            nav { display: none; }
-            main { margin-left: 0; padding: 0; }
-            .no-print { display: none; }
-            .card { box-shadow: none; border: 1px solid #eee; }
-        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 12px; color: #495057; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .total-row { background: #fdfaf5; font-weight: bold; }
+        .tax-alert { background: #fff4e5; color: #663c00; padding: 15px; border-radius: 8px; font-size: 13px; margin-top: 20px; border-left: 5px solid var(--accent); }
+        
+        .tag { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .tag-free { background: #e8f5e9; color: #2e7d32; }
+        .tag-pay { background: #ffebee; color: #c62828; }
+
+        @media print { nav { display: none; } main { margin-left: 0; padding: 0; } .no-print { display: none; } }
     </style>
 </head>
 <body>
 
 <nav class="no-print">
     <h2>Finex Pos</h2>
-    <a href="dashboard.html">📊 Dashboard</a>
-    <a href="laporan_perbandingan.html">📈 Perbandingan</a>
-    <a href="laporan_pajak_tahunan.html" style="background:var(--accent); color:white;">🧾 Pajak Tahunan</a>
-    <a href="laba_rugi.html">💰 Laba Rugi</a>
+    <a href="#">📊 Dashboard</a>
+    <a href="#" style="background:var(--accent); color:white;">🧾 Pajak Tahunan</a>
+    <a href="#">💰 Laba Rugi</a>
 </nav>
 
 <main>
     <div class="card">
         <div class="header-pajak">
             <div>
-                <h1 style="margin:0; color:var(--primary); font-size: 24px;">Laporan Rekapitulasi Pajak</h1>
-                <p style="color:gray; margin: 5px 0;">Unit: <strong>BeautyBloom</strong> | Tahun Pajak: 2026</p>
+                <h1 style="margin:0; color:var(--primary); font-size: 22px;">Rekapitulasi Pajak UMKM (UU HPP)</h1>
+                <p style="color:gray; margin: 5px 0;">Unit: <strong>BeautyBloom</strong> | Tahun: 2026</p>
             </div>
-            <button onclick="window.print()" class="no-print" style="padding:10px 18px; cursor:pointer; background: white; border: 1px solid #ddd; border-radius: 8px; font-weight: 600;">🖨️ Cetak Laporan</button>
+            <button onclick="window.print()" class="no-print" style="padding:8px 15px; cursor:pointer; background: white; border: 1px solid #ddd; border-radius: 6px;">Cetak Laporan</button>
+        </div>
+
+        <div class="status-box">
+            <div class="status-item">
+                <div style="font-size: 12px; color: gray;">Akumulasi Omzet Bruto</div>
+                <div id="stat-omzet" class="status-val">Rp 0</div>
+            </div>
+            <div class="status-item">
+                <div style="font-size: 12px; color: gray;">Batas Bebas Pajak</div>
+                <div class="status-val" style="color: var(--success)">Rp 500.000.000</div>
+            </div>
+            <div class="status-item">
+                <div style="font-size: 12px; color: gray;">Total Estimasi PPh Final</div>
+                <div id="stat-pph" class="status-val" style="color: var(--danger)">Rp 0</div>
+            </div>
         </div>
 
         <table>
             <thead>
                 <tr>
                     <th>Bulan</th>
-                    <th>Omzet Bruto <br><small>(Inc. Pajak)</small></th>
-                    <th>DPP <br><small>(Dasar Pengenaan)</small></th>
-                    <th>Pajak PB1 (10%) <span class="badge badge-daerah">DAERAH</span></th>
-                    <th>PPh Final (0.5%) <span class="badge badge-pusat">PUSAT</span></th>
+                    <th>Omzet Bulanan</th>
+                    <th>Akumulasi Omzet</th>
+                    <th>Status</th>
+                    <th>PPh Final (0.5%)</th>
                 </tr>
             </thead>
             <tbody id="tax-body">
-                <tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Memuat data transaksi...</td></tr>
+                <!-- Data via JS -->
             </tbody>
-            <tfoot>
-                <tr class="total-row" id="tax-total">
-                    <!-- Total via JS -->
-                </tr>
-            </tfoot>
         </table>
 
-        <div class="tax-calc-box">
-            <h4 style="margin:0 0 10px 0; color:#2c3e50;">💡 Penjelasan Angka:</h4>
-            <div style="font-size: 13px; line-height: 1.6; color: #555;">
-                <p>Jika Omzet adalah <strong>Rp 6.827.250</strong>, maka:</p>
-                <p>• <strong>DPP:</strong> Rp 6.206.591 (Uang bersih Anda).</p>
-                <p>• <strong>PB1 (10%):</strong> Rp 620.659 (Pajak yang sudah ada di dalam harga).</p>
-                <p>• <strong>PPh (0.5%):</strong> Rp 31.033 (Pajak penghasilan Anda).</p>
-            </div>
+        <div class="tax-alert">
+            <strong>Keterangan Aturan:</strong> Sesuai UU HPP, Wajib Pajak UMKM Orang Pribadi tidak dikenakan PPh atas bagian peredaran bruto sampai dengan Rp 500.000.000 dalam 1 tahun pajak. Pajak 0.5% hanya dihitung dari sisa omzet setelah melewati batas tersebut.
         </div>
     </div>
 </main>
@@ -96,31 +98,25 @@
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
     const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const LIMIT_PTKP = 500000000;
 
     window.onload = loadTaxReport;
 
     async function loadTaxReport() {
-        // Menggunakan Set untuk menghindari duplikasi id transaksi jika ada relasi join yang salah
         const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
             .select('id, tanggal, kode_akun, kredit')
             .gte('tanggal', '2026-01-01T00:00:00')
             .lte('tanggal', '2026-12-31T23:59:59');
 
-        if (error) {
-            document.getElementById('tax-body').innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Gagal memuat data.</td></tr>`;
-            return;
-        }
+        if (error) return;
 
         let monthlyData = Array(12).fill(0).map(() => ({ omzet: 0 }));
-
-        // Menggunakan Map untuk memastikan setiap ID jurnal hanya dihitung sekali
         const uniqueJurnal = new Map();
+
         jurnal.forEach(j => {
             if (j.kode_akun && j.kode_akun.startsWith('4')) {
-                // Gunakan kombinasi ID dan nominal sebagai key unik untuk keamanan ekstra
-                const key = `${j.id}`;
-                if (!uniqueJurnal.has(key)) {
-                    uniqueJurnal.set(key, j);
+                if (!uniqueJurnal.has(j.id)) {
+                    uniqueJurnal.set(j.id, true);
                     const bulanIndex = new Date(j.tanggal).getMonth();
                     monthlyData[bulanIndex].omzet += parseFloat(j.kredit || 0);
                 }
@@ -128,40 +124,49 @@
         });
 
         let html = '';
-        let tOmzet = 0, tDPP = 0, tPB1 = 0, tPPh = 0;
+        let akumulasiOmzet = 0;
+        let totalPPh = 0;
 
         monthlyData.forEach((m, i) => {
-            // Perhitungan Matematika:
-            // Jika omzet adalah 6.827.250
-            // DPP = 6.827.250 / 1.1 = 6.206.591
-            const dpp = Math.floor(m.omzet / 1.1);
-            const pb1 = m.omzet - dpp;
-            const pph = Math.floor(dpp * 0.005);
+            let omzetBulanIni = m.omzet;
+            let dppPajak = 0;
+            let status = '';
 
-            tOmzet += m.omzet;
-            tDPP += dpp;
-            tPB1 += pb1;
-            tPPh += pph;
+            // Cek Batasan 500 Juta
+            if (akumulasiOmzet + omzetBulanIni <= LIMIT_PTKP) {
+                // Masih di bawah limit
+                dppPajak = 0;
+                status = '<span class="tag tag-free">Bebas Pajak</span>';
+            } else if (akumulasiOmzet < LIMIT_PTKP && (akumulasiOmzet + omzetBulanIni) > LIMIT_PTKP) {
+                // Transisi melewati limit
+                dppPajak = (akumulasiOmzet + omzetBulanIni) - LIMIT_PTKP;
+                status = '<span class="tag tag-pay">Transisi</span>';
+            } else {
+                // Sudah full di atas limit
+                dppPajak = omzetBulanIni;
+                status = '<span class="tag tag-pay">Wajib Bayar</span>';
+            }
+
+            akumulasiOmzet += omzetBulanIni;
+            const pphBulanIni = Math.floor(dppPajak * 0.005);
+            totalPPh += pphBulanIni;
 
             html += `
                 <tr>
                     <td>${bulanNames[i]}</td>
-                    <td>Rp ${m.omzet.toLocaleString('id-ID')}</td>
-                    <td style="color:#2980b9">Rp ${dpp.toLocaleString('id-ID')}</td>
-                    <td style="color:#27ae60">Rp ${pb1.toLocaleString('id-ID')}</td>
-                    <td style="color:#c0392b; font-weight:bold;">Rp ${pph.toLocaleString('id-ID')}</td>
+                    <td>Rp ${omzetBulanIni.toLocaleString('id-ID')}</td>
+                    <td>Rp ${akumulasiOmzet.toLocaleString('id-ID')}</td>
+                    <td>${status}</td>
+                    <td style="font-weight:bold; color:${pphBulanIni > 0 ? '#e74c3c' : '#27ae60'}">
+                        Rp ${pphBulanIni.toLocaleString('id-ID')}
+                    </td>
                 </tr>
             `;
         });
 
         document.getElementById('tax-body').innerHTML = html;
-        document.getElementById('tax-total').innerHTML = `
-            <td>TOTAL TAHUNAN</td>
-            <td>Rp ${tOmzet.toLocaleString('id-ID')}</td>
-            <td>Rp ${tDPP.toLocaleString('id-ID')}</td>
-            <td>Rp ${tPB1.toLocaleString('id-ID')}</td>
-            <td>Rp ${tPPh.toLocaleString('id-ID')}</td>
-        `;
+        document.getElementById('stat-omzet').innerText = `Rp ${akumulasiOmzet.toLocaleString('id-ID')}`;
+        document.getElementById('stat-pph').innerText = `Rp ${totalPPh.toLocaleString('id-ID')}`;
     }
 </script>
 </body>
