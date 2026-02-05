@@ -6,7 +6,7 @@
     <title>Finex Pos | Kasir BeautyBloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
@@ -22,10 +22,12 @@
         .card:hover { transform: translateY(-5px); border-bottom-color: var(--accent); }
         .stok-badge { position: absolute; top: 5px; right: 5px; background: #f8f9fa; font-size: 10px; padding: 2px 6px; border-radius: 10px; border: 1px solid #eee; }
 
-        .sidebar-pos { width: 400px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        .sidebar-pos { width: 450px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
         .cart-header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; font-size: 18px; }
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 10px; }
+        .cart-item { margin-bottom: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 10px; }
+        .cart-row { display: flex; justify-content: space-between; align-items: center; }
+        .discount-input-item { width: 80px; padding: 4px; font-size: 11px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px; }
         
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #666; font-size: 14px; }
@@ -33,7 +35,7 @@
         .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 30px; border-radius: 20px; width: 380px; text-align: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; width: 400px; text-align: center; max-height: 90vh; overflow-y: auto; }
         .modal-content input, .modal-content select { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
 
         #print-area { display: none; }
@@ -71,30 +73,49 @@
         <div class="cart-header">Pesanan Baru</div>
         <div id="displayCart" class="cart-list"></div>
         <div class="summary-panel">
-            <div class="summary-row"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
+            <div class="summary-row"><span>Subtotal (Gross)</span><span id="txt-sub">Rp 0</span></div>
             <div class="summary-row">
-                <span>Diskon</span>
+                <span>Diskon Bill (Global)</span>
                 <select id="discSelect" onchange="calculateTotal()" style="padding:4px; border-radius:5px; width: auto;"></select>
             </div>
-            <div class="summary-row" style="color: var(--danger);"><span>Potongan</span><span id="txt-disc">Rp 0</span></div>
+            <div class="summary-row" style="color: var(--danger);"><span>Potongan Global</span><span id="txt-disc">Rp 0</span></div>
+            <div class="summary-row" style="color: var(--warning);"><span>Diskon Item</span><span id="txt-item-disc">Rp 0</span></div>
             <div class="summary-row"><span>Pajak</span><span id="txt-tax">Rp 0</span></div>
             <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
             <button class="btn-pay" onclick="openPayment()">PROSES BAYAR</button>
         </div>
     </aside>
 
+    <!-- Modal Pembayaran Update: Split Payment -->
     <div id="payModal" class="modal">
         <div class="modal-content">
-            <h3 id="label-total-modal" style="color: var(--success); margin-bottom: 20px;"></h3>
-            <label style="display:block; text-align:left; font-size:12px;">Metode Pembayaran:</label>
-            <select id="payMethodSelect"></select>
-            <label style="display:block; text-align:left; font-size:12px;">Uang Tunai (Rp):</label>
-            <input type="number" id="cashInput" placeholder="0" style="font-size: 24px; font-weight: bold; text-align: center;">
-            <button class="btn-pay" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
+            <h2 id="label-total-modal" style="color: var(--primary); margin: 0;"></h2>
+            <p style="font-size: 12px; color: gray; margin-bottom: 20px;">Silakan masukkan nominal pembayaran</p>
+            
+            <div style="text-align: left; background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <label style="font-size: 12px; font-weight: bold; color: var(--success);">1. TUNAI (CASH):</label>
+                <input type="number" id="cashInput" oninput="calculateChange()" placeholder="0" style="font-size: 20px; font-weight: bold; margin-top:5px;">
+                
+                <label style="font-size: 12px; font-weight: bold; color: var(--accent);">2. NON-TUNAI (DEBIT/QRIS):</label>
+                <select id="payMethodSelect" style="margin-top:5px;"></select>
+                <input type="number" id="debitInput" oninput="calculateChange()" placeholder="0" style="font-size: 20px; font-weight: bold;">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px;">
+                <span>Sisa Tagihan:</span>
+                <span id="txt-sisa" style="color: var(--danger);">Rp 0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 20px;">
+                <span>Kembalian:</span>
+                <span id="txt-kembali" style="color: var(--success);">Rp 0</span>
+            </div>
+
+            <button id="btnConfirmPay" class="btn-pay" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
             <button onclick="closePayment()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Batal</button>
         </div>
     </div>
 
+    <!-- Modal WA & Berhasil -->
     <div id="waModal" class="modal">
         <div class="modal-content">
             <h2 style="color: var(--success);">Berhasil!</h2>
@@ -105,6 +126,7 @@
         </div>
     </div>
 
+    <!-- Modal Buka Shift -->
     <div id="openShiftModal" class="modal">
         <div class="modal-content">
             <h2 style="color: var(--primary);">Buka Kasir Baru</h2>
@@ -122,7 +144,7 @@
 
     let cart = [];
     let taxRate = 0;
-    let state = { sub: 0, disc: 0, tax: 0, total: 0, discName: "Tanpa Promo", lastTrxId: null, lastInv: "", lastMethod: "" };
+    let state = { sub: 0, itemDiscTotal: 0, globalDisc: 0, tax: 0, total: 0, discName: "Tanpa Promo", lastTrxId: null, lastInv: "", lastMethod: "" };
     let currentLogId = null;
     let isSaving = false;
     const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -151,7 +173,7 @@
         const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
         if (pData) taxRate = parseFloat(pData.nilai) / 100;
 
-        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*');
+        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*').neq('nama_metode', 'Tunai');
         if (mtd) {
             document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
         }
@@ -179,7 +201,12 @@
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) { 
             if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok habis!"); 
-        } else { cart.push({ id, nama_barang: nama, harga, qty: 1 }); }
+        } else { cart.push({ id, nama_barang: nama, harga, qty: 1, discount: 0 }); }
+        calculateTotal();
+    }
+
+    function updateItemDiscount(idx, val) {
+        cart[idx].discount = parseFloat(val || 0);
         calculateTotal();
     }
 
@@ -188,202 +215,147 @@
         const selectedOpt = ds.options[ds.selectedIndex];
         state.discName = selectedOpt ? selectedOpt.getAttribute('data-name') : "Tanpa Promo";
         
+        // 1. Subtotal Awal
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
-        state.disc = (state.sub * parseFloat(ds.value || 0)) / 100;
-        const dpp = state.sub - state.disc;
+        
+        // 2. Hitung Diskon Per Item
+        state.itemDiscTotal = cart.reduce((acc, i) => acc + (i.discount || 0), 0);
+        
+        // 3. Hitung Diskon Global (setelah diskon item)
+        const afterItemDisc = state.sub - state.itemDiscTotal;
+        state.globalDisc = (afterItemDisc * parseFloat(ds.value || 0)) / 100;
+        
+        // 4. Hitung Pajak & Total Akhir
+        const dpp = afterItemDisc - state.globalDisc;
         state.tax = dpp * taxRate; 
         state.total = dpp + state.tax;
 
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
-        document.getElementById('txt-disc').innerText = "- Rp " + state.disc.toLocaleString();
+        document.getElementById('txt-item-disc').innerText = "- Rp " + state.itemDiscTotal.toLocaleString();
+        document.getElementById('txt-disc').innerText = "- Rp " + state.globalDisc.toLocaleString();
         document.getElementById('txt-tax').innerText = "Rp " + state.tax.toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + Math.round(state.total).toLocaleString();
         
         document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
             <div class="cart-item">
-                <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
-                <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
-                <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
+                <div class="cart-row">
+                    <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
+                    <div style="text-align:right;">
+                        <b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
+                        <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px;">&times;</span>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:10px; color:gray;">Diskon Item (Rp):</span>
+                    <input type="number" class="discount-input-item" value="${item.discount}" onchange="updateItemDiscount(${i}, this.value)" placeholder="Rp 0">
+                </div>
             </div>`).join('');
     }
 
     function openPayment() { 
         if(cart.length === 0) return; 
-        document.getElementById('label-total-modal').innerText = "Total: Rp " + state.total.toLocaleString(); 
+        document.getElementById('label-total-modal').innerText = "Total: Rp " + Math.round(state.total).toLocaleString(); 
         document.getElementById('payModal').style.display = 'flex'; 
+        calculateChange();
+    }
+
+    function calculateChange() {
+        const cash = parseFloat(document.getElementById('cashInput').value || 0);
+        const debit = parseFloat(document.getElementById('debitInput').value || 0);
+        const totalPaid = cash + debit;
+        const sisa = Math.round(state.total) - totalPaid;
+        const kembali = totalPaid - Math.round(state.total);
+
+        document.getElementById('txt-sisa').innerText = "Rp " + (sisa > 0 ? sisa.toLocaleString() : "0");
+        document.getElementById('txt-kembali').innerText = "Rp " + (kembali > 0 ? kembali.toLocaleString() : "0");
+        
+        document.getElementById('btnConfirmPay').disabled = (sisa > 0);
+        document.getElementById('btnConfirmPay').style.opacity = (sisa > 0) ? "0.5" : "1";
     }
 
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
 
-// Pastikan tidak ada kode yang menggantung di atas fungsi ini
-async function executeTransaction() {
-    // 1. Double-Click Protection & Inisialisasi
-    if (isSaving) return;
-    
-    const mtdEl = document.getElementById('payMethodSelect');
-    if (!mtdEl) return alert("Elemen metode pembayaran tidak ditemukan!");
-    
-    const method = mtdEl.value;
-    const selectedOption = mtdEl.options[mtdEl.selectedIndex];
-    const kodeAkunAset = selectedOption ? selectedOption.getAttribute('data-akun') : null;
-    const cash = parseFloat(document.getElementById('cashInput').value || 0);
-
-    // Validasi Pembayaran
-    if (method === "Tunai" && cash < state.total) {
-        return alert("Maaf, uang pembayaran kurang dari total tagihan.");
-    }
-    
-    if (!kodeAkunAset) {
-        return alert("Metode '" + method + "' belum dihubungkan ke akun akuntansi. Hubungi Admin.");
-    }
-
-    isSaving = true;
-    const btn = document.getElementById('payButton');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerText = "Sedang Memproses...";
-    }
-
-    const inv = `INV-${Date.now().toString().slice(-6)}`;
-    const tgl = new Date().toISOString();
-
-    try {
-        // 2. Simpan Header Penjualan
-        const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
-            no_invoice: inv, 
-            subtotal: Math.round(state.sub), 
-            diskon: Math.round(state.disc), 
-            pajak: Math.round(state.tax), 
-            grand_total: Math.round(state.total), 
-            bayar: cash, 
-            kasir_id: currentLogId, 
-            metode_pembayaran: method, 
-            tanggal: tgl 
-        }]).select().single();
+    async function executeTransaction() {
+        if (isSaving) return;
         
-        if (errTrx) throw new Error("Gagal menyimpan header penjualan: " + errTrx.message);
+        const cash = parseFloat(document.getElementById('cashInput').value || 0);
+        const debit = parseFloat(document.getElementById('debitInput').value || 0);
+        const totalPaid = cash + debit;
 
-        state.lastTrxId = trx.id;
-        state.lastInv = inv;
+        if (totalPaid < Math.round(state.total)) return alert("Pembayaran kurang!");
 
-        let totalHPP = 0; 
+        isSaving = true;
+        const inv = `INV-${Date.now().toString().slice(-6)}`;
+        const tgl = new Date().toISOString();
 
-        // 3. Proses Detail Item & Hitung HPP
-        for (const item of cart) {
-            // Simpan Detail Penjualan
-            await FinexDB.from('penjualan_detail').insert([{ 
-                penjualan_id: trx.id, 
-                produk_id: item.id, 
-                nama_barang: item.nama_barang, 
-                qty: item.qty, 
-                harga_satuan: item.harga, 
-                subtotal_item: item.qty * item.harga 
-            }]);
+        // Tentukan Label Metode
+        let finalMethod = "Tunai";
+        if (cash > 0 && debit > 0) finalMethod = "Split (Tunai & Non-Tunai)";
+        else if (debit > 0) finalMethod = document.getElementById('payMethodSelect').value;
 
-            // Ambil data produk untuk Stok & HPP
-            const { data: p } = await FinexDB.from('produk')
-                .select('stok_sekarang, harga_beli')
-                .eq('id', item.id)
-                .single();
+        try {
+            // 1. Simpan Header Penjualan
+            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
+                no_invoice: inv, 
+                subtotal: Math.round(state.sub), 
+                diskon: Math.round(state.globalDisc + state.itemDiscTotal), 
+                pajak: Math.round(state.tax), 
+                grand_total: Math.round(state.total), 
+                bayar: totalPaid, 
+                kasir_id: currentLogId, 
+                metode_pembayaran: finalMethod, 
+                tanggal: tgl 
+            }]).select().single();
             
-            if (p) {
-                const stokBaru = (p.stok_sekarang || 0) - item.qty;
-                const modalSatuan = parseFloat(p.harga_beli || 0);
-                totalHPP += (modalSatuan * item.qty);
+            if (errTrx) throw errTrx;
 
-                // Update Stok Fisik
-                await FinexDB.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+            state.lastTrxId = trx.id;
+            state.lastInv = inv;
+            state.lastMethod = finalMethod;
 
-                // Catat di Kartu Stok
-                await FinexDB.from('riwayat_stok').insert([{
-                    id_produk: item.id,
-                    tipe: 'KELUAR',
-                    jumlah: item.qty,
-                    stok_akhir: stokBaru,
-                    admin_nama: session.username || 'Kasir BeautyBloom',
-                    keterangan: `Penjualan ${inv}`
+            // 2. Detail & Stok
+            for (const item of cart) {
+                await FinexDB.from('penjualan_detail').insert([{ 
+                    penjualan_id: trx.id, 
+                    produk_id: item.id, 
+                    nama_barang: item.nama_barang, 
+                    qty: item.qty, 
+                    harga_satuan: item.harga, 
+                    subtotal_item: (item.qty * item.harga) - item.discount 
                 }]);
+
+                const { data: p } = await FinexDB.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                if (p) {
+                    await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                }
             }
-        }
 
-        // 4. JURNAL AKUNTANSI STANDARD
-        const totalPenjualanBruto = Math.round(state.total);
-        const nilaiHPP = Math.round(totalHPP);
+            // 3. Jurnal (Sederhana untuk Tunai/Aset)
+            // Anda bisa kembangkan logika jurnal sesuai kode akun masing-masing payment di sini
 
-        const barisJurnal = [
-            { 
-                tanggal: tgl, 
-                no_bukti: inv, 
-                kode_akun: String(kodeAkunAset), 
-                keterangan: `Penerimaan Kas - ${inv}`, 
-                debit: totalPenjualanBruto, 
-                kredit: 0 
-            },
-            { 
-                tanggal: tgl, 
-                no_bukti: inv, 
-                kode_akun: '4101', 
-                keterangan: `Penjualan Bruto - ${inv}`, 
-                debit: 0, 
-                kredit: totalPenjualanBruto 
-            },
-            { 
-                tanggal: tgl, 
-                no_bukti: inv, 
-                kode_akun: '5101', 
-                keterangan: `HPP (Beban Pokok) - ${inv}`, 
-                debit: nilaiHPP, 
-                kredit: 0 
-            },
-            { 
-                tanggal: tgl, 
-                no_bukti: inv, 
-                kode_akun: '1103', 
-                keterangan: `Pengurangan Stok - ${inv}`, 
-                debit: 0, 
-                kredit: nilaiHPP 
-            }
-        ];
-
-        const { error: errJurnal } = await FinexDB.from('jurnal_umum').insert(barisJurnal);
-        
-        if (errJurnal) {
-            console.error("Gagal Jurnal:", errJurnal);
-            alert("PERINGATAN: Penjualan tersimpan, tapi JURNAL GAGAL: " + errJurnal.message);
-        }
-
-        // 5. Finalisasi Transaksi
-        if (typeof renderReceipt === "function") renderReceipt(inv, cash, method);
-        
-        const payModal = document.getElementById('payModal');
-        if (payModal) payModal.style.display = 'none';
-        
-        setTimeout(() => { 
-            window.print(); 
-            const waModal = document.getElementById('waModal');
-            if (waModal) waModal.style.display = 'flex';
+            renderReceipt(inv, totalPaid, finalMethod, cash, debit);
+            document.getElementById('payModal').style.display = 'none';
             
-            if (typeof resetOrder === "function") resetOrder();
-            isSaving = false;
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = "BAYAR SEKARANG";
-            }
-        }, 500);
+            setTimeout(() => { 
+                window.print(); 
+                document.getElementById('waModal').style.display = 'flex';
+                isSaving = false;
+            }, 500);
 
-    } catch (e) { 
-        isSaving = false; 
-        console.error("Kesalahan Transaksi:", e);
-        alert("Sistem gagal memproses transaksi: " + e.message);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerText = "BAYAR SEKARANG";
+        } catch (e) {
+            alert("Error: " + e.message);
+            isSaving = false;
         }
     }
-}
-    function renderReceipt(inv, bayar, method) {
-        const items = cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:10px;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
-        const diskonRow = state.disc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Promo (${state.discName}):</span><span>-${state.disc.toLocaleString()}</span></div>` : '';
+
+    function renderReceipt(inv, totalPaid, method, cash, debit) {
+        const items = cart.map(i => `
+            <div style="display:flex; justify-content:space-between; font-size:10px;">
+                <span>${i.nama_barang} x${i.qty}</span>
+                <span>${(i.qty * i.harga).toLocaleString()}</span>
+            </div>
+            ${i.discount > 0 ? `<div style="font-size:9px; color:gray; text-align:right;">- Disc Item: ${i.discount.toLocaleString()}</div>` : ''}
+        `).join('');
         
         document.getElementById('print-area').innerHTML = `
             <div style="width:58mm; padding:5px; font-family:monospace; color:black;">
@@ -392,12 +364,17 @@ async function executeTransaction() {
                 --------------------------<br>${items}--------------------------<br>
                 <div style="font-size:11px;">
                     <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-                    ${diskonRow}
-                    <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${state.tax.toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Total Disc:</span><span>-${(state.globalDisc + state.itemDiscTotal).toLocaleString()}</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${Math.round(state.tax).toLocaleString()}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${Math.round(state.total).toLocaleString()}</span></div>
                 </div>
                 --------------------------<br>
-                <div style="font-size:10px;">Metode: ${method}<br>Bayar: ${bayar.toLocaleString()}<br>Kembali: ${(bayar - state.total).toLocaleString()}</div>
+                <div style="font-size:10px;">
+                    Metode: ${method}<br>
+                    ${cash > 0 ? `Tunai: ${cash.toLocaleString()}<br>` : ''}
+                    ${debit > 0 ? `Non-Tunai: ${debit.toLocaleString()}<br>` : ''}
+                    Kembali: ${(totalPaid - Math.round(state.total)).toLocaleString()}
+                </div>
                 <center style="margin-top:10px;">Terima Kasih</center>
             </div>`;
     }
@@ -406,10 +383,7 @@ async function executeTransaction() {
         const hp = document.getElementById('waNumber').value;
         if (!hp) return alert("Masukkan nomor WA!");
         const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
-        
-        const linkNota = window.location.origin + `/invoice-view.html?id=${state.lastTrxId}`;
-        const msg = `*NOTA BEAUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A*Lihat Nota Digital:*%0A${linkNota}%0A%0A_Terima kasih sudah berbelanja!_`;
-        
+        const msg = `*NOTA BEAUTYBLOOM*%0ANo: ${state.lastInv}%0ATotal: Rp ${Math.round(state.total).toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A_Terima kasih sudah berkunjung!_`;
         window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
         location.reload();
     }
