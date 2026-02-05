@@ -3,36 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Harian | Finex Pos</title>
+    <title>Laporan Harian Premium | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1300px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        :root { 
+            --primary: #1e293b; 
+            --accent: #6366f1; 
+            --success: #10b981;
+            --bg: #f8fafc;
+            --method-bg: #eff6ff;
+            --method-text: #1e40af;
+        }
         
-        .filter-box { display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
-        input, button { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
-        button { cursor: pointer; font-weight: bold; }
-        .btn-filter { background: var(--accent); color: white; border: none; }
-        .btn-export { background: #27ae60; color: white; border: none; }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #334155; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); max-width: 1400px; margin: auto; }
+        
+        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 25px; }
+        .header h2 { margin: 0; color: var(--primary); font-size: 24px; letter-spacing: -0.5px; }
+        
+        .filter-box { display: flex; gap: 15px; margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 8px; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; }
+        
+        input, button { padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; transition: 0.2s; }
+        input:focus { border-color: var(--accent); ring: 2px var(--accent); }
+        
+        .btn-filter { background: var(--accent); color: white; border: none; font-weight: 600; }
+        .btn-filter:hover { background: #4f46e5; }
+        .btn-export { background: var(--success); color: white; border: none; font-weight: 600; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; border-radius: 8px; overflow: hidden; }
+        
+        /* Header Styling */
+        th { background: var(--primary); color: white; padding: 12px 8px; border: 1px solid #334155; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+        .th-main { background: #334155; }
+        .th-method { background: #1e40af; } /* Darker blue for method header */
 
-        table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #f2f2f2; padding: 8px; border: 1px solid #ccc; text-align: center; }
-        td { padding: 8px; border: 1px solid #ddd; text-align: right; }
+        td { padding: 12px 10px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right; }
         .text-left { text-align: left; }
         .text-center { text-align: center; }
 
-        .bg-method { background: #fdfefe; }
-        .font-bold { font-weight: bold; }
-        .grandtotal-row { background: #2c3e50 !important; color: white !important; font-size: 12px; }
+        /* Color Coding for Rows */
+        tbody tr:nth-child(even) { background: #fcfcfc; }
+        tbody tr:hover { background: #f1f5f9; }
+
+        /* Method Columns Styling */
+        .col-method { background: var(--method-bg); color: var(--method-text); font-weight: 500; border-color: #dbeafe; }
+        
+        /* Summary Styling */
+        .grandtotal-row { background: var(--primary) !important; color: white !important; font-weight: bold; }
+        .grandtotal-row td { border-color: #334155; }
+        .total-highlight { background: #fefce8; font-weight: 700; color: #854d0e; }
 
         @media print {
-            .filter-box, .btn-export, .header button { display: none; }
+            .filter-box, .btn-export, button { display: none; }
             body { padding: 0; background: white; }
-            .container { box-shadow: none; width: 100%; max-width: 100%; }
-            table { font-size: 10px; }
+            .container { box-shadow: none; width: 100%; padding: 0; }
+            th { background: #333 !important; color: white !important; -webkit-print-color-adjust: exact; }
+            .col-method { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -41,50 +70,49 @@
 <div class="container">
     <div class="header">
         <div>
-            <h2 style="margin:0; font-size: 18px;">Laporan Ringkasan Harian BeautyBloom</h2>
-            <small>Finex POS System - Berdasarkan Metode Pembayaran</small>
+            <h2>Laporan Harian BeautyBloom</h2>
+            <div style="color: #64748b; font-size: 14px; margin-top: 5px;">Ringkasan Penjualan & Breakdown Metode Pembayaran</div>
         </div>
-        <div>
-            <button class="btn-export" onclick="exportToExcel()">📥 Export Excel</button>
-            <button onclick="window.print()">🖨️ Print</button>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-export" onclick="exportToExcel()">Excel</button>
+            <button onclick="window.print()" style="background: white;">Print</button>
         </div>
     </div>
 
     <div class="filter-box">
-        <div>
-            <label style="display:block; font-size:10px;">Dari:</label>
+        <div class="filter-group">
+            <label>Periode Mulai</label>
             <input type="date" id="date-start">
         </div>
-        <div>
-            <label style="display:block; font-size:10px;">Sampai:</label>
+        <div class="filter-group">
+            <label>Periode Selesai</label>
             <input type="date" id="date-end">
         </div>
-        <button class="btn-filter" onclick="loadHarian()">Tampilkan</button>
+        <button class="btn-filter" onclick="loadHarian()">Tampilkan Data</button>
     </div>
 
     <div style="overflow-x: auto;">
         <table id="table-laporan">
             <thead>
                 <tr>
-                    <th rowspan="2">Tanggal</th>
-                    <th rowspan="2">Gross Sales</th>
-                    <th rowspan="2">Diskon</th>
-                    <th colspan="4">Metode Pembayaran (Net)</th>
-                    <th rowspan="2">Net Sales</th>
-                    <th rowspan="2">DPP</th>
-                    <th rowspan="2">Svc (5%)</th>
-                    <th rowspan="2">PB1 (10%)</th>
-                    <th rowspan="2">Grand Total</th>
+                    <th rowspan="2" class="th-main">Tanggal</th>
+                    <th rowspan="2" class="th-main">Gross Sales</th>
+                    <th rowspan="2" class="th-main">Potongan</th>
+                    <th rowspan="2" class="th-main">DPP (Dasar)</th>
+                    <th rowspan="2" class="th-main">Svc (5%)</th>
+                    <th rowspan="2" class="th-main">PB1 (10%)</th>
+                    <th rowspan="2" class="th-main">Grand Total</th>
+                    <th colspan="4" class="th-method">Breakdown Metode Pembayaran</th>
                 </tr>
                 <tr>
-                    <th class="bg-method">Tunai</th>
-                    <th class="bg-method">QRIS</th>
-                    <th class="bg-method">BCA</th>
-                    <th class="bg-method">Lainnya</th>
+                    <th class="th-method">Tunai</th>
+                    <th class="th-method">QRIS</th>
+                    <th class="th-method">BCA</th>
+                    <th class="th-method">Lainnya</th>
                 </tr>
             </thead>
             <tbody id="report-body">
-                <tr><td colspan="12" class="text-center">Silahkan tentukan tanggal.</td></tr>
+                <tr><td colspan="11" class="text-center" style="padding: 40px; color: #94a3b8;">Klik "Tampilkan Data" untuk memuat laporan.</td></tr>
             </tbody>
             <tfoot id="report-footer"></tfoot>
         </table>
@@ -92,6 +120,7 @@
 </div>
 
 <script>
+// Konfigurasi Finex Pos Database
 const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
 const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
 const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
@@ -106,90 +135,91 @@ async function loadHarian() {
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
+    // Query Utama
     const { data: trx, error } = await FinexDB.from('penjualan')
         .select('*')
         .gte('created_at', start + 'T00:00:00')
         .lte('created_at', end + 'T23:59:59')
         .order('created_at', { ascending: true });
 
-    if (error) return alert("Error: " + error.message);
+    if (error) return alert("Koneksi gagal: " + error.message);
 
-    // Grouping by Date
     const dailyData = {};
 
     trx.forEach(row => {
-        const tglStr = new Date(row.created_at).toLocaleDateString('id-ID');
+        const dateObj = new Date(row.created_at);
+        const tglStr = dateObj.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+        
         if (!dailyData[tglStr]) {
-            dailyData[tglStr] = {
-                gross: 0, disc: 0, tunai: 0, qris: 0, bca: 0, lainnya: 0, net: 0
-            };
+            dailyData[tglStr] = { gross: 0, disc: 0, tunai: 0, qris: 0, bca: 0, lainnya: 0, net: 0 };
         }
 
-        const gross = parseFloat(row.subtotal || 0);
+        const subtotal = parseFloat(row.subtotal || 0);
         const disc = parseFloat(row.diskon || 0);
-        const net = gross - disc;
-        const mtd = (row.metode_pembayaran || 'Tunai').toLowerCase();
+        const netValue = subtotal - disc;
+        const method = (row.metode_pembayaran || 'Tunai').toLowerCase();
 
-        dailyData[tglStr].gross += gross;
+        dailyData[tglStr].gross += subtotal;
         dailyData[tglStr].disc += disc;
-        dailyData[tglStr].net += net;
+        dailyData[tglStr].net += netValue;
 
-        // Sort by Method
-        if (mtd.includes('tunai')) dailyData[tglStr].tunai += net;
-        else if (mtd.includes('qris')) dailyData[tglStr].qris += net;
-        else if (mtd.includes('bca')) dailyData[tglStr].bca += net;
-        else dailyData[tglStr].lainnya += net;
+        // Breakdown Metode
+        if (method.includes('tunai')) dailyData[tglStr].tunai += netValue;
+        else if (method.includes('qris')) dailyData[tglStr].qris += netValue;
+        else if (method.includes('bca')) dailyData[tglStr].bca += netValue;
+        else dailyData[tglStr].lainnya += netValue;
     });
 
     let html = '';
     let grand = { gross:0, disc:0, tunai:0, qris:0, bca:0, lainnya:0, net:0, dpp:0, svc:0, pb1:0, total:0 };
 
-    function formatNum(n) { return Math.round(n).toLocaleString('id-ID'); }
+    function f(n) { return Math.round(n).toLocaleString('id-ID'); }
 
     Object.keys(dailyData).forEach(tgl => {
         const d = dailyData[tgl];
+        // Rumus Pajak Terbalik (Pemisahan dari Grand Total)
         const dpp = d.net / 1.155;
         const svc = dpp * 0.05;
         const pb1 = (dpp + svc) * 0.10;
-        const total = d.net;
+        const grandTotal = d.net;
 
+        // Akumulasi Total Bawah
         grand.gross += d.gross; grand.disc += d.disc; grand.net += d.net;
         grand.tunai += d.tunai; grand.qris += d.qris; grand.bca += d.bca; grand.lainnya += d.lainnya;
-        grand.dpp += dpp; grand.svc += svc; grand.pb1 += pb1; grand.total += total;
+        grand.dpp += dpp; grand.svc += svc; grand.pb1 += pb1; grand.total += grandTotal;
 
         html += `
             <tr>
-                <td class="text-left">${tgl}</td>
-                <td>${formatNum(d.gross)}</td>
-                <td>${formatNum(d.disc)}</td>
-                <td class="bg-method">${formatNum(d.tunai)}</td>
-                <td class="bg-method">${formatNum(d.qris)}</td>
-                <td class="bg-method">${formatNum(d.bca)}</td>
-                <td class="bg-method">${formatNum(d.lainnya)}</td>
-                <td class="font-bold">${formatNum(d.net)}</td>
-                <td>${formatNum(dpp)}</td>
-                <td>${formatNum(svc)}</td>
-                <td>${formatNum(pb1)}</td>
-                <td class="font-bold">${formatNum(total)}</td>
+                <td class="text-left font-bold" style="color:var(--primary)">${tgl}</td>
+                <td>${f(d.gross)}</td>
+                <td style="color: #e11d48;">${f(d.disc)}</td>
+                <td>${f(dpp)}</td>
+                <td>${f(svc)}</td>
+                <td>${f(pb1)}</td>
+                <td class="total-highlight">${f(grandTotal)}</td>
+                <td class="col-method">${f(d.tunai)}</td>
+                <td class="col-method">${f(d.qris)}</td>
+                <td class="col-method">${f(d.bca)}</td>
+                <td class="col-method">${f(d.lainnya)}</td>
             </tr>
         `;
     });
 
-    document.getElementById('report-body').innerHTML = html;
+    document.getElementById('report-body').innerHTML = html || '<tr><td colspan="11" class="text-center">Tidak ada data pada periode ini.</td></tr>';
+    
     document.getElementById('report-footer').innerHTML = `
         <tr class="grandtotal-row">
-            <td>TOTAL</td>
-            <td>${formatNum(grand.gross)}</td>
-            <td>${formatNum(grand.disc)}</td>
-            <td>${formatNum(grand.tunai)}</td>
-            <td>${formatNum(grand.qris)}</td>
-            <td>${formatNum(grand.bca)}</td>
-            <td>${formatNum(grand.lainnya)}</td>
-            <td>${formatNum(grand.net)}</td>
-            <td>${formatNum(grand.dpp)}</td>
-            <td>${formatNum(grand.svc)}</td>
-            <td>${formatNum(grand.pb1)}</td>
-            <td>${formatNum(grand.total)}</td>
+            <td class="text-center">RINGKASAN TOTAL</td>
+            <td>${f(grand.gross)}</td>
+            <td>${f(grand.disc)}</td>
+            <td>${f(grand.dpp)}</td>
+            <td>${f(grand.svc)}</td>
+            <td>${f(grand.pb1)}</td>
+            <td style="background:#eab308; color:#000">${f(grand.total)}</td>
+            <td>${f(grand.tunai)}</td>
+            <td>${f(grand.qris)}</td>
+            <td>${f(grand.bca)}</td>
+            <td>${f(grand.lainnya)}</td>
         </tr>
     `;
 }
@@ -197,7 +227,7 @@ async function loadHarian() {
 function exportToExcel() {
     const table = document.getElementById("table-laporan");
     const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Harian" });
-    XLSX.writeFile(wb, "Laporan_Harian_Finex.xlsx");
+    XLSX.writeFile(wb, `Laporan_Harian_BeautyBloom_${new Date().getTime()}.xlsx`);
 }
 </script>
 </body>
