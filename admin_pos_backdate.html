@@ -17,7 +17,7 @@
         main { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; }
         .search-bar { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 20px; font-size: 16px; box-sizing: border-box; }
         .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-        .card { background: white; padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; }
+        .card { background: white; padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; border: 1px solid transparent; }
         .card:hover { border: 1px solid var(--accent); background: #fffcf9; }
 
         .sidebar-pos { width: 400px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
@@ -26,11 +26,15 @@
         .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f1f1f1; padding-bottom: 5px; font-size: 13px; }
         
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #666; font-size: 13px; }
+        .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #666; font-size: 13px; }
         .total-row { font-size: 22px; font-weight: bold; color: var(--primary); border-top: 2px solid #eee; padding-top: 10px; }
         
-        .btn-save { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        input[type="date"] { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ddd; font-weight: bold; }
+        .btn-save { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-save:hover { background: #d35400; }
+        
+        input[type="date"] { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ddd; font-weight: bold; box-sizing: border-box; }
+        .input-inline { width: 80px; text-align: right; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; }
+        .input-danger { border-color: var(--danger); color: var(--danger); background: #fff5f5; }
     </style>
 </head>
 <body>
@@ -45,8 +49,8 @@
         
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <h1 style="margin:0;">Input Data Januari</h1>
-            <div style="color:var(--danger); font-weight:bold;">MODE ADMIN: BYPASS STOK</div>
+            <h1 style="margin:0;">Input Data BeautyBloom (Januari)</h1>
+            <div style="color:var(--danger); font-weight:bold; background: #fee2e2; padding: 5px 12px; border-radius: 6px; border: 1px solid #fca5a5;">MODE ADMIN: BYPASS STOK</div>
         </div>
         <input type="text" id="search" class="search-bar" placeholder="Cari menu untuk diinput..." onkeyup="loadMenu()">
         <div id="displayMenu" class="grid-menu"></div>
@@ -54,24 +58,41 @@
 
     <aside class="sidebar-pos">
         <div class="admin-header">
-            <label style="font-size: 11px; font-weight: bold; color: #e67e22;">PILIH TANGGAL TRANSAKSI:</label>
+            <label style="font-size: 11px; font-weight: bold; color: #e67e22;">TANGGAL TRANSAKSI (BACKDATE):</label>
             <input type="date" id="inputDate">
         </div>
         
         <div id="displayCart" class="cart-list"></div>
 
         <div class="summary-panel">
-            <div class="summary-row"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
             <div class="summary-row">
-                <span>Diskon (%)</span>
-                <input type="number" id="manualDisc" value="0" oninput="calculateTotal()" style="width: 60px; text-align: right;">
+                <span>Subtotal</span>
+                <span id="txt-sub">Rp 0</span>
             </div>
-            <div class="summary-row"><span>Pajak (PB1+Svc)</span><span id="txt-tax">Otomatis (1.155)</span></div>
-            <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
+            
+            <div class="summary-row">
+                <span>Diskon Reguler (%)</span>
+                <input type="number" id="manualDiscPersen" value="0" min="0" max="100" oninput="calculateTotal()" class="input-inline">
+            </div>
+
+            <div class="summary-row">
+                <span style="color: var(--danger); font-weight: bold;">Diskon Khusus Admin (%)</span>
+                <input type="number" id="manualDiscKhusus" value="0" min="0" max="100" oninput="calculateTotal()" class="input-inline input-danger">
+            </div>
+
+            <div class="summary-row" style="border-top: 1px dashed #ddd; padding-top: 5px; margin-top: 5px;">
+                <span>Potongan Total</span>
+                <span id="txt-total-disc" style="color: var(--danger);">Rp 0</span>
+            </div>
+
+            <div class="summary-row total-row">
+                <span>TOTAL</span>
+                <span id="txt-total">Rp 0</span>
+            </div>
             
             <div style="margin: 15px 0;">
-                <label style="font-size: 11px;">Metode Pembayaran:</label>
-                <select id="payMethodSelect" style="width: 100%; padding: 8px;"></select>
+                <label style="font-size: 11px; font-weight: bold;">Metode Pembayaran:</label>
+                <select id="payMethodSelect" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd;"></select>
             </div>
 
             <button class="btn-save" onclick="saveBackdate()">SIMPAN TRANSAKSI LAMA</button>
@@ -84,10 +105,10 @@
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
     let cart = [];
-    let state = { sub: 0, disc: 0, total: 0 };
+    let state = { sub: 0, totalDisc: 0, total: 0 };
 
     window.onload = async () => {
-        document.getElementById('inputDate').value = '2026-01-01'; // Default Januari
+        document.getElementById('inputDate').value = '2026-01-01'; 
         await loadSettings();
         await loadMenu();
     };
@@ -120,36 +141,53 @@
 
     function calculateTotal() {
         state.sub = cart.reduce((acc, i) => acc + (i.qty * i.harga), 0);
-        const discPersen = parseFloat(document.getElementById('manualDisc').value || 0);
-        state.disc = (state.sub * discPersen) / 100;
-        state.total = state.sub - state.disc;
+        
+        // Ambil input persentase
+        const p1 = parseFloat(document.getElementById('manualDiscPersen').value || 0);
+        const p2 = parseFloat(document.getElementById('manualDiscKhusus').value || 0);
+        
+        // Akumulasi total persentase
+        const totalPersen = p1 + p2;
+        
+        // Hitung nominal diskon
+        state.totalDisc = (state.sub * totalPersen) / 100;
+        
+        // Hitung Grand Total
+        state.total = state.sub - state.totalDisc;
+        if (state.total < 0) state.total = 0;
 
         document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
+        document.getElementById('txt-total-disc').innerText = "Rp " + state.totalDisc.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
         
         document.getElementById('displayCart').innerHTML = cart.map((item, i) => `
             <div class="cart-item">
                 <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
                 <div><b>Rp ${(item.qty * item.harga).toLocaleString()}</b> 
-                <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px;">&times;</span></div>
+                <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px; font-weight:bold;">&times;</span></div>
             </div>`).join('');
     }
 
     async function saveBackdate() {
-        if (cart.length === 0) return alert("Pilih menu dulu!");
+        if (cart.length === 0) return alert("Keranjang masih kosong!");
+        
         const tgl = document.getElementById('inputDate').value;
         const mtdEl = document.getElementById('payMethodSelect');
         const method = mtdEl.value;
         const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
         
         const inv = `BKD-${Date.now().toString().slice(-6)}`;
-        const tglISO = tgl + "T12:00:00Z"; // Set ke jam 12 siang agar aman
+        const tglISO = tgl + "T12:00:00Z"; 
 
         try {
             // 1. Simpan Penjualan (Header)
             const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
-                no_invoice: inv, subtotal: state.sub, diskon: state.disc, 
-                grand_total: state.total, metode_pembayaran: method, created_at: tglISO 
+                no_invoice: inv, 
+                subtotal: state.sub, 
+                diskon: state.totalDisc, 
+                grand_total: state.total, 
+                metode_pembayaran: method, 
+                created_at: tglISO 
             }]).select().single();
 
             if (errTrx) throw errTrx;
@@ -157,22 +195,30 @@
             // 2. Simpan Detail
             for (const item of cart) {
                 await FinexDB.from('penjualan_detail').insert([{ 
-                    penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
-                    qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
+                    penjualan_id: trx.id, 
+                    produk_id: item.id, 
+                    nama_barang: item.nama_barang, 
+                    qty: item.qty, 
+                    harga_satuan: item.harga, 
+                    subtotal_item: item.qty * item.harga 
                 }]);
             }
 
             // 3. Simpan Jurnal Umum (Backdate)
             await FinexDB.from('jurnal_umum').insert([
-                { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Admin Backdate - ${method}`, debit: state.total, kredit: 0 },
-                { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Admin Backdate - ${method}`, debit: 0, kredit: state.total }
+                { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Backdate BeautyBloom - ${method}`, debit: state.total, kredit: 0 },
+                { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Backdate BeautyBloom - ${method}`, debit: 0, kredit: state.total }
             ]);
 
-            alert("Data Januari Berhasil Disimpan!");
+            alert("Transaksi Backdate Berhasil Disimpan!");
+            
+            // Reset Form
             cart = [];
+            document.getElementById('manualDiscPersen').value = 0;
+            document.getElementById('manualDiscKhusus').value = 0;
             calculateTotal();
 
-        } catch (e) { alert("Error: " + e.message); }
+        } catch (e) { alert("Terjadi Kesalahan: " + e.message); }
     }
 </script>
 </body>
