@@ -12,29 +12,45 @@
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
-        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        nav a.active { background: var(--accent); color: white; }
 
         main { flex: 1; margin-left: 240px; padding: 40px; }
         .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         
         .header-pajak { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
         
+        .filter-bar { display: flex; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 25px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
+        .filter-group input, .filter-group select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        
+        .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; height: 38px; }
+        .btn-filter:hover { opacity: 0.9; }
+
         .status-box { display: flex; gap: 20px; margin-bottom: 25px; }
-        .status-item { flex: 1; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
+        .status-item { flex: 1; padding: 15px; border-radius: 10px; border: 1px solid #eee; background: #fff; }
         .status-val { font-size: 20px; font-weight: bold; margin-top: 5px; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 12px; color: #495057; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 11px; color: #495057; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; color: #333; }
         
-        .total-row { background: #fdfaf5; font-weight: bold; }
-        .tax-alert { background: #fff4e5; color: #663c00; padding: 15px; border-radius: 8px; font-size: 13px; margin-top: 20px; border-left: 5px solid var(--accent); }
+        .total-row { background: #fdfaf5; font-weight: bold; border-top: 2px solid #eee; }
+        .tax-alert { background: #fff4e5; color: #663c00; padding: 15px; border-radius: 8px; font-size: 13px; margin-top: 20px; border-left: 5px solid var(--accent); line-height: 1.5; }
         
-        .tag { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .tag { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .tag-free { background: #e8f5e9; color: #2e7d32; }
         .tag-pay { background: #ffebee; color: #c62828; }
+        .tag-transition { background: #e3f2fd; color: #1565c0; }
 
-        @media print { nav { display: none; } main { margin-left: 0; padding: 0; } .no-print { display: none; } }
+        .loading-overlay { display: none; text-align: center; padding: 40px; color: #7f8c8d; }
+
+        @media print { 
+            nav, .no-print, .filter-bar { display: none; } 
+            main { margin-left: 0; padding: 0; } 
+            .card { box-shadow: none; border: none; } 
+            body { background: white; }
+        }
     </style>
 </head>
 <body>
@@ -42,7 +58,7 @@
 <nav class="no-print">
     <h2>Finex Pos</h2>
     <a href="#">📊 Dashboard</a>
-    <a href="#" style="background:var(--accent); color:white;">🧾 Pajak Tahunan</a>
+    <a href="#" class="active">🧾 Pajak Tahunan</a>
     <a href="#">💰 Laba Rugi</a>
 </nav>
 
@@ -50,44 +66,68 @@
     <div class="card">
         <div class="header-pajak">
             <div>
-                <h1 style="margin:0; color:var(--primary); font-size: 22px;">Rekapitulasi Pajak UMKM (UU HPP)</h1>
-                <p style="color:gray; margin: 5px 0;">Unit: <strong>BeautyBloom</strong> | Tahun: 2026</p>
+                <h1 style="margin:0; color:var(--primary); font-size: 22px;">Laporan Pajak UMKM (UU HPP)</h1>
+                <p style="color:gray; margin: 5px 0;">Unit: <strong>BeautyBloom</strong></p>
             </div>
-            <button onclick="window.print()" class="no-print" style="padding:8px 15px; cursor:pointer; background: white; border: 1px solid #ddd; border-radius: 6px;">Cetak Laporan</button>
+            <button onclick="window.print()" class="no-print" style="padding:8px 15px; cursor:pointer; background: white; border: 1px solid #ddd; border-radius: 6px; font-weight: 600;">🖨️ Cetak PDF</button>
+        </div>
+
+        <!-- Filter Tanggal Modern -->
+        <div class="filter-bar no-print">
+            <div class="filter-group">
+                <label>Dari Tanggal</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="filter-group">
+                <label>Sampai Tanggal</label>
+                <input type="date" id="endDate">
+            </div>
+            <button class="btn-filter" onclick="loadTaxReport()">Tampilkan Laporan</button>
         </div>
 
         <div class="status-box">
             <div class="status-item">
-                <div style="font-size: 12px; color: gray;">Akumulasi Omzet Bruto</div>
+                <div style="font-size: 12px; color: gray;">Omzet Periode Ini</div>
                 <div id="stat-omzet" class="status-val">Rp 0</div>
             </div>
             <div class="status-item">
-                <div style="font-size: 12px; color: gray;">Batas Bebas Pajak</div>
+                <div style="font-size: 12px; color: gray;">Batas Bebas Pajak (Tahunan)</div>
                 <div class="status-val" style="color: var(--success)">Rp 500.000.000</div>
             </div>
             <div class="status-item">
-                <div style="font-size: 12px; color: gray;">Total Estimasi PPh Final</div>
+                <div style="font-size: 12px; color: gray;">Total PPh Final 0.5%</div>
                 <div id="stat-pph" class="status-val" style="color: var(--danger)">Rp 0</div>
             </div>
         </div>
 
-        <table>
+        <div id="loading" class="loading-overlay">Memproses data jurnal...</div>
+
+        <table id="main-table">
             <thead>
                 <tr>
-                    <th>Bulan</th>
-                    <th>Omzet Bulanan</th>
-                    <th>Akumulasi Omzet</th>
+                    <th>Bulan / Periode</th>
+                    <th>Omzet Bruto</th>
+                    <th>Akumulasi (YTD)</th>
                     <th>Status</th>
-                    <th>PPh Final (0.5%)</th>
+                    <th style="text-align: right;">PPh Final Terutang</th>
                 </tr>
             </thead>
             <tbody id="tax-body">
                 <!-- Data via JS -->
             </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td>TOTAL TERFILTER</td>
+                    <td id="foot-omzet">Rp 0</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td id="foot-pph" style="text-align: right; color: var(--danger);">Rp 0</td>
+                </tr>
+            </tfoot>
         </table>
 
         <div class="tax-alert">
-            <strong>Keterangan Aturan:</strong> Sesuai UU HPP, Wajib Pajak UMKM Orang Pribadi tidak dikenakan PPh atas bagian peredaran bruto sampai dengan Rp 500.000.000 dalam 1 tahun pajak. Pajak 0.5% hanya dihitung dari sisa omzet setelah melewati batas tersebut.
+            <strong>Keterangan Aturan:</strong> Sesuai UU HPP (Harmonisasi Peraturan Perpajakan), Wajib Pajak Orang Pribadi UMKM tidak dikenai PPh atas bagian peredaran bruto sampai dengan <strong>Rp 500.000.000</strong> dalam 1 tahun pajak. Perhitungan akumulasi dimulai kembali setiap awal tahun (Januari).
         </div>
     </div>
 </main>
@@ -100,73 +140,113 @@
     const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     const LIMIT_PTKP = 500000000;
 
+    // Set Default Tanggal (Awal tahun ini s/d hari ini)
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    document.getElementById('startDate').value = `${currentYear}-01-01`;
+    document.getElementById('endDate').value = today.toISOString().split('T')[0];
+
     window.onload = loadTaxReport;
 
     async function loadTaxReport() {
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        const loader = document.getElementById('loading');
+        const taxBody = document.getElementById('tax-body');
+
+        loader.style.display = 'block';
+        taxBody.innerHTML = '';
+
+        // Ambil data berdasarkan filter tanggal
         const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
             .select('id, tanggal, kode_akun, kredit')
-            .gte('tanggal', '2026-01-01T00:00:00')
-            .lte('tanggal', '2026-12-31T23:59:59');
+            .gte('tanggal', `${start}T00:00:00`)
+            .lte('tanggal', `${end}T23:59:59`)
+            .order('tanggal', { ascending: true });
 
-        if (error) return;
+        loader.style.display = 'none';
 
-        let monthlyData = Array(12).fill(0).map(() => ({ omzet: 0 }));
-        const uniqueJurnal = new Map();
+        if (error) {
+            taxBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red">Gagal mengambil data: ${error.message}</td></tr>`;
+            return;
+        }
+
+        // Pengelompokan omzet per bulan dalam periode terpilih
+        let groupedData = {};
+        const uniqueIds = new Set();
 
         jurnal.forEach(j => {
+            // Filter hanya akun pendapatan (kode_akun 4xxx)
             if (j.kode_akun && j.kode_akun.startsWith('4')) {
-                if (!uniqueJurnal.has(j.id)) {
-                    uniqueJurnal.set(j.id, true);
-                    const bulanIndex = new Date(j.tanggal).getMonth();
-                    monthlyData[bulanIndex].omzet += parseFloat(j.kredit || 0);
+                if (!uniqueIds.has(j.id)) {
+                    uniqueIds.add(j.id);
+                    const d = new Date(j.tanggal);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!groupedData[key]) groupedData[key] = { label: `${bulanNames[d.getMonth()]} ${d.getFullYear()}`, omzet: 0 };
+                    groupedData[key].omzet += parseFloat(j.kredit || 0);
                 }
             }
         });
 
         let html = '';
-        let akumulasiOmzet = 0;
+        let runningAccumulation = 0; 
         let totalPPh = 0;
+        let totalOmzetFiltered = 0;
 
-        monthlyData.forEach((m, i) => {
-            let omzetBulanIni = m.omzet;
+        // Iterasi data yang sudah dikelompokkan
+        Object.keys(groupedData).sort().forEach(monthKey => {
+            const item = groupedData[monthKey];
+            const omzetBulanIni = item.omzet;
+            const prevAccumulation = runningAccumulation;
+            runningAccumulation += omzetBulanIni;
+            totalOmzetFiltered += omzetBulanIni;
+
             let dppPajak = 0;
-            let status = '';
+            let statusTag = '';
 
-            // Cek Batasan 500 Juta
-            if (akumulasiOmzet + omzetBulanIni <= LIMIT_PTKP) {
-                // Masih di bawah limit
+            // Cek ambang batas Rp 500 Juta (UU HPP)
+            if (runningAccumulation <= LIMIT_PTKP) {
                 dppPajak = 0;
-                status = '<span class="tag tag-free">Bebas Pajak</span>';
-            } else if (akumulasiOmzet < LIMIT_PTKP && (akumulasiOmzet + omzetBulanIni) > LIMIT_PTKP) {
-                // Transisi melewati limit
-                dppPajak = (akumulasiOmzet + omzetBulanIni) - LIMIT_PTKP;
-                status = '<span class="tag tag-pay">Transisi</span>';
+                statusTag = '<span class="tag tag-free">Bebas Pajak</span>';
+            } else if (prevAccumulation < LIMIT_PTKP && runningAccumulation > LIMIT_PTKP) {
+                // Bulan Transisi: hanya nilai di atas 500jt yang dipajaki
+                dppPajak = runningAccumulation - LIMIT_PTKP;
+                statusTag = '<span class="tag tag-transition">Transisi</span>';
             } else {
-                // Sudah full di atas limit
                 dppPajak = omzetBulanIni;
-                status = '<span class="tag tag-pay">Wajib Bayar</span>';
+                statusTag = '<span class="tag tag-pay">Wajib Bayar</span>';
             }
 
-            akumulasiOmzet += omzetBulanIni;
-            const pphBulanIni = Math.floor(dppPajak * 0.005);
-            totalPPh += pphBulanIni;
+            const pph = Math.floor(dppPajak * 0.005);
+            totalPPh += pph;
 
             html += `
                 <tr>
-                    <td>${bulanNames[i]}</td>
+                    <td>${item.label}</td>
                     <td>Rp ${omzetBulanIni.toLocaleString('id-ID')}</td>
-                    <td>Rp ${akumulasiOmzet.toLocaleString('id-ID')}</td>
-                    <td>${status}</td>
-                    <td style="font-weight:bold; color:${pphBulanIni > 0 ? '#e74c3c' : '#27ae60'}">
-                        Rp ${pphBulanIni.toLocaleString('id-ID')}
+                    <td>Rp ${runningAccumulation.toLocaleString('id-ID')}</td>
+                    <td>${statusTag}</td>
+                    <td style="text-align: right; font-weight:bold; color:${pph > 0 ? 'var(--danger)' : 'var(--success)'}">
+                        Rp ${pph.toLocaleString('id-ID')}
                     </td>
                 </tr>
             `;
         });
 
-        document.getElementById('tax-body').innerHTML = html;
-        document.getElementById('stat-omzet').innerText = `Rp ${akumulasiOmzet.toLocaleString('id-ID')}`;
+        if (Object.keys(groupedData).length === 0) {
+            html = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#999;">Tidak ada data pendapatan pada periode ini.</td></tr>`;
+        }
+
+        taxBody.innerHTML = html;
+        
+        // Update Ringkasan Statis
+        document.getElementById('stat-omzet').innerText = `Rp ${totalOmzetFiltered.toLocaleString('id-ID')}`;
         document.getElementById('stat-pph').innerText = `Rp ${totalPPh.toLocaleString('id-ID')}`;
+        
+        // Update Footer Tabel
+        document.getElementById('foot-omzet').innerText = `Rp ${totalOmzetFiltered.toLocaleString('id-ID')}`;
+        document.getElementById('foot-pph').innerText = `Rp ${totalPPh.toLocaleString('id-ID')}`;
     }
 </script>
 </body>
