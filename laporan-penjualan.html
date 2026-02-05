@@ -79,9 +79,9 @@
                     <th>No Bill</th>
                     <th>Metode Bayar</th>
                     <th>Detail Item</th>
-                    <th>Total Kotor (Gross)</th>
-                    <th>Total Diskon</th>
-                    <th>Total Net (Grand Total)</th>
+                    <th>Total Kotor</th>
+                    <th>Diskon</th>
+                    <th>Grand Total</th>
                     <th>Status</th>
                     <th>Aksi</th>
                 </tr>
@@ -95,6 +95,8 @@
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let activeRelationalCol = 'penjualan_id'; // Default berdasarkan info terbaru
 
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
@@ -111,7 +113,7 @@
         const to = document.getElementById('date-to').value + "T23:59:59";
 
         try {
-            // Mengambil data penjualan
+            // 1. Ambil data penjualan (Induk)
             const { data: sales, error: sErr } = await supabaseClient
                 .from('penjualan')
                 .select('*')
@@ -121,26 +123,39 @@
 
             if (sErr) throw sErr;
 
-            // Mengambil detail dengan kolom produk_id
+            // 2. Deteksi Struktur Kolom di penjualan_detail secara dinamis
+            const { data: sample, error: probeErr } = await supabaseClient
+                .from('penjualan_detail')
+                .select('*')
+                .limit(1);
+            
+            if (!probeErr && sample && sample.length > 0) {
+                const keys = Object.keys(sample[0]);
+                // Prioritas deteksi kolom relasi
+                if (keys.includes('penjualan_id')) activeRelationalCol = 'penjualan_id';
+                else if (keys.includes('no_invoice')) activeRelationalCol = 'no_invoice';
+                else if (keys.includes('no_bukti')) activeRelationalCol = 'no_bukti';
+                console.log("Relasi tabel menggunakan kolom:", activeRelationalCol);
+            }
+
+            // 3. Ambil semua detail penjualan
             const { data: details, error: dErr } = await supabaseClient
                 .from('penjualan_detail')
-                .select('no_invoice, nama_barang, qty, harga_satuan, subtotal, produk_id');
+                .select(`id, ${activeRelationalCol}, nama_barang, qty, harga_satuan, subtotal, produk_id`);
             
             if (dErr) throw dErr;
 
-            // Mengambil data jurnal untuk mendapatkan nama metode pembayaran
+            // 4. Ambil data jurnal untuk keterangan metode pembayaran
             const { data: journals, error: jErr } = await supabaseClient
                 .from('jurnal_umum')
                 .select('no_bukti, keterangan')
                 .gte('created_at', from)
                 .lte('created_at', to);
 
-            if (jErr) throw jErr;
-
-            renderTable(sales, details, journals);
+            renderTable(sales, details, journals || []);
         } catch (err) {
             console.error(err);
-            alert("Gagal memuat data: " + err.message);
+            alert("Terjadi kesalahan: " + err.message);
         } finally {
             loading.style.display = 'none';
         }
@@ -150,27 +165,32 @@
         const body = document.getElementById('report-body');
         body.innerHTML = '';
 
+        if (sales.length === 0) {
+            body.innerHTML = '<tr><td colspan="9" style="text-align:center">Data tidak ditemukan untuk periode ini.</td></tr>';
+            return;
+        }
+
         sales.forEach(sale => {
             const isVoid = sale.status === 'Void';
             
-            // Filter detail milik invoice ini
-            const details = allDetails.filter(d => d.no_invoice === sale.no_invoice);
+            // Cocokkan no_invoice (Penjualan) dengan penjualan_id/no_invoice (Detail)
+            const details = allDetails.filter(d => 
+                String(d[activeRelationalCol]) === String(sale.no_invoice) || 
+                String(d[activeRelationalCol]) === String(sale.id)
+            );
             
-            // Mencari metode pembayaran dari jurnal
             const journalMatch = journals.find(j => j.no_bukti === sale.no_invoice);
-            let metode = journalMatch ? journalMatch.keterangan : '-';
-            // Membersihkan teks: "Terima Tunai - INV-01" menjadi "Tunai"
+            let metode = journalMatch ? journalMatch.keterangan : 'Tunai';
             metode = metode.replace(/^Terima\s+/i, '').replace(/\s*-\s*INV-\d+/gi, '').trim();
 
-            const firstItem = details.length > 0 ? details[0] : null;
-            const itemText = firstItem ? `${firstItem.nama_barang} (x${firstItem.qty})` : '-';
+            const firstItem = details.length > 0 ? details[0] : { nama_barang: 'Item tidak ditemukan', qty: 0 };
 
             let mainRow = `
                 <tr class="row-main ${isVoid ? 'status-void' : ''}">
                     <td>${new Date(sale.created_at).toLocaleString('id-ID')}</td>
-                    <td>${sale.no_invoice}</td>
+                    <td><b>${sale.no_invoice}</b></td>
                     <td><span class="method-badge">${metode}</span></td>
-                    <td>${itemText}</td>
+                    <td>${firstItem.nama_barang} (x${firstItem.qty})</td>
                     <td>Rp ${parseFloat(sale.subtotal || 0).toLocaleString()}</td>
                     <td style="color:red">Rp ${parseFloat(sale.diskon || 0).toLocaleString()}</td>
                     <td style="font-weight:bold">Rp ${parseFloat(sale.grand_total || 0).toLocaleString()}</td>
@@ -182,7 +202,7 @@
             `;
             body.innerHTML += mainRow;
 
-            // Tampilkan item sisanya di baris baru di bawahnya
+            // Tampilkan baris tambahan jika item lebih dari 1
             if (details.length > 1) {
                 for (let i = 1; i < details.length; i++) {
                     const extra = details[i];
@@ -199,47 +219,37 @@
     }
 
     async function processVoid(inv) {
-        if(!confirm(`Apakah Anda yakin ingin membatalkan transaksi ${inv}? Stok akan dikembalikan.`)) return;
+        if(!confirm(`Yakin ingin membatalkan (Void) transaksi ${inv}?`)) return;
         
         const loading = document.getElementById('loading');
         loading.style.display = 'flex';
 
         try {
-            // Ambil detail menggunakan kolom produk_id
-            const { data: details, error: dErr } = await supabaseClient
+            // Ambil detail item untuk koreksi stok
+            const { data: details } = await supabaseClient
                 .from('penjualan_detail')
                 .select('produk_id, qty')
-                .eq('no_invoice', inv);
+                .eq(activeRelationalCol, inv);
             
-            if(dErr) throw dErr;
-
-            // Kembalikan Stok Produk
-            for (const item of details) {
-                if (item.produk_id) {
-                    const { data: p } = await supabaseClient
-                        .from('produk')
-                        .select('stok')
-                        .eq('id', item.produk_id)
-                        .single();
-                    
-                    if(p) {
-                        const stokBaru = parseFloat(p.stok) + parseFloat(item.qty);
-                        await supabaseClient
-                            .from('produk')
-                            .update({ stok: stokBaru })
-                            .eq('id', item.produk_id);
+            if(details) {
+                for (const item of details) {
+                    if (item.produk_id) {
+                        const { data: p } = await supabaseClient.from('produk').select('stok').eq('id', item.produk_id).single();
+                        if(p) {
+                            await supabaseClient.from('produk').update({ stok: parseFloat(p.stok) + parseFloat(item.qty) }).eq('id', item.produk_id);
+                        }
                     }
                 }
             }
 
-            // Update status transaksi dan jurnal
+            // Update status transaksi
             await supabaseClient.from('penjualan').update({ status: 'Void' }).eq('no_invoice', inv);
             await supabaseClient.from('jurnal_umum').update({ keterangan: 'VOID - ' + inv }).eq('no_bukti', inv);
 
-            alert("Transaksi " + inv + " berhasil dibatalkan.");
+            alert("Transaksi berhasil dibatalkan.");
             fetchLaporan();
         } catch (e) {
-            alert("Gagal melakukan void: " + e.message);
+            alert("Error Void: " + e.message);
         } finally {
             loading.style.display = 'none';
         }
@@ -247,8 +257,8 @@
 
     function exportKeExcel() {
         const table = document.querySelector("table");
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Detail" });
-        XLSX.writeFile(wb, "Laporan_BeautyBloom_Detail.xlsx");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Detail Penjualan" });
+        XLSX.writeFile(wb, "Laporan_Detail_BeautyBloom.xlsx");
     }
 </script>
 </body>
