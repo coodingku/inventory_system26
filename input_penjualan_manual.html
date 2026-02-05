@@ -96,7 +96,7 @@
                     <th rowspan="2">Diskon</th>
                     <th rowspan="2">Net Sales</th>
                     <th colspan="3" class="th-tax">Perincian Pajak & Service</th>
-                    <th colspan="4" class="th-accent">Metode Pembayaran</th>
+                    <th colspan="5" class="th-accent">Metode Pembayaran (Net)</th>
                     <th rowspan="2" class="th-final">Grand Total</th>
                 </tr>
                 <tr>
@@ -105,12 +105,13 @@
                     <th class="th-tax">PB1 (10%)</th>
                     <th class="th-accent">Tunai</th>
                     <th class="th-accent">QRIS</th>
-                    <th class="th-accent">BCA</th>
+                    <th class="th-accent">Bank/Tf</th>
+                    <th class="th-accent">E-Wallet</th>
                     <th class="th-accent">Lainnya</th>
                 </tr>
             </thead>
             <tbody id="table-body">
-                <tr><td colspan="12" style="text-align:center; padding: 40px; color: #94a3b8;">Silahkan pilih rentang tanggal.</td></tr>
+                <tr><td colspan="13" style="text-align:center; padding: 40px; color: #94a3b8;">Silahkan pilih rentang tanggal.</td></tr>
             </tbody>
             <tfoot id="table-footer"></tfoot>
         </table>
@@ -157,11 +158,15 @@
                 <span id="sum-qris">Rp 0</span>
             </div>
             <div class="summary-row">
-                <span>Total Bank BCA</span>
-                <span id="sum-bca">Rp 0</span>
+                <span>Total Bank (BCA/Transfer)</span>
+                <span id="sum-bank">Rp 0</span>
             </div>
             <div class="summary-row">
-                <span>Total Lainnya</span>
+                <span>Total E-Wallet (Shopee/Gopay)</span>
+                <span id="sum-ewallet">Rp 0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Lain-lain</span>
                 <span id="sum-lain">Rp 0</span>
             </div>
             <div class="summary-row total">
@@ -204,7 +209,7 @@ async function fetchData() {
     
     if(!start || !end) return;
 
-    document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center">Memuat data...</td></tr>';
+    document.getElementById('table-body').innerHTML = '<tr><td colspan="13" style="text-align:center">Memuat data...</td></tr>';
     document.getElementById('summary-area').style.display = 'none';
 
     try {
@@ -219,7 +224,7 @@ async function fetchData() {
         processData(data || []);
     } catch (err) {
         console.error(err);
-        document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center; color:red">Gagal mengambil data.</td></tr>';
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="13" style="text-align:center; color:red">Gagal mengambil data.</td></tr>';
     }
 }
 
@@ -231,7 +236,7 @@ function processData(data) {
         const tgl = dateObj.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
         
         if (!report[tgl]) {
-            report[tgl] = { gross: 0, disc: 0, tunai: 0, qris: 0, bca: 0, lainnya: 0 };
+            report[tgl] = { gross: 0, disc: 0, tunai: 0, qris: 0, bank: 0, ewallet: 0, lainnya: 0 };
         }
 
         const sub = parseFloat(item.subtotal || 0);
@@ -242,10 +247,18 @@ function processData(data) {
         report[tgl].gross += sub;
         report[tgl].disc += disc;
 
-        if (pay.includes('tunai')) report[tgl].tunai += nett;
-        else if (pay.includes('qris')) report[tgl].qris += nett;
-        else if (pay.includes('bca')) report[tgl].bca += nett;
-        else report[tgl].lainnya += nett;
+        // Logika Deteksi Pembayaran Lebih Akurat
+        if (pay.includes('tunai') || pay === 'cash') {
+            report[tgl].tunai += nett;
+        } else if (pay.includes('qris')) {
+            report[tgl].qris += nett;
+        } else if (pay.includes('bca') || pay.includes('bank') || pay.includes('transfer') || pay.includes('mandiri') || pay.includes('bri') || pay.includes('bni')) {
+            report[tgl].bank += nett;
+        } else if (pay.includes('shoppe') || pay.includes('shopee') || pay.includes('gopay') || pay.includes('ovo') || pay.includes('dana') || pay.includes('linkaja')) {
+            report[tgl].ewallet += nett;
+        } else {
+            report[tgl].lainnya += nett;
+        }
     });
 
     renderTable(report);
@@ -253,12 +266,12 @@ function processData(data) {
 
 function renderTable(report) {
     let bodyHtml = '';
-    const totals = { gross:0, disc:0, nett:0, dpp:0, svc:0, pb1:0, tunai:0, qris:0, bca:0, lain:0, grand:0 };
+    const totals = { gross:0, disc:0, nett:0, dpp:0, svc:0, pb1:0, tunai:0, qris:0, bank:0, ewallet:0, lain:0, grand:0 };
     const f = (v) => "Rp " + Math.round(v).toLocaleString('id-ID');
 
     const sortedDates = Object.keys(report);
     if (sortedDates.length === 0) {
-        document.getElementById('table-body').innerHTML = '<tr><td colspan="12" style="text-align:center">Tidak ada data transaksi di periode ini.</td></tr>';
+        document.getElementById('table-body').innerHTML = '<tr><td colspan="13" style="text-align:center">Tidak ada data transaksi di periode ini.</td></tr>';
         return;
     }
 
@@ -266,11 +279,11 @@ function renderTable(report) {
         const d = report[tgl];
         const netSales = d.gross - d.disc;
         
-        // Perhitungan Pajak
+        // Perhitungan Pajak (Back-calculation from Net)
         const dpp = netSales / 1.155;
         const svc = dpp * 0.05;
         const pb1 = (dpp + svc) * 0.10;
-        const rowGrand = d.tunai + d.qris + d.bca + d.lainnya;
+        const rowGrand = d.tunai + d.qris + d.bank + d.ewallet + d.lainnya;
 
         totals.gross += d.gross;
         totals.disc += d.disc;
@@ -280,7 +293,8 @@ function renderTable(report) {
         totals.pb1 += pb1;
         totals.tunai += d.tunai;
         totals.qris += d.qris;
-        totals.bca += d.bca;
+        totals.bank += d.bank;
+        totals.ewallet += d.ewallet;
         totals.lain += d.lainnya;
         totals.grand += rowGrand;
 
@@ -295,7 +309,8 @@ function renderTable(report) {
                 <td>${f(pb1)}</td>
                 <td>${f(d.tunai)}</td>
                 <td>${f(d.qris)}</td>
-                <td>${f(d.bca)}</td>
+                <td>${f(d.bank)}</td>
+                <td>${f(d.ewallet)}</td>
                 <td>${f(d.lainnya)}</td>
                 <td class="font-bold" style="background:#fff7ed">${f(rowGrand)}</td>
             </tr>
@@ -315,7 +330,8 @@ function renderTable(report) {
     
     document.getElementById('sum-tunai').innerText = f(totals.tunai);
     document.getElementById('sum-qris').innerText = f(totals.qris);
-    document.getElementById('sum-bca').innerText = f(totals.bca);
+    document.getElementById('sum-bank').innerText = f(totals.bank);
+    document.getElementById('sum-ewallet').innerText = f(totals.ewallet);
     document.getElementById('sum-lain').innerText = f(totals.lain);
     document.getElementById('sum-grand').innerText = f(totals.grand);
 
@@ -331,7 +347,8 @@ function renderTable(report) {
             <td>${f(totals.pb1)}</td>
             <td>${f(totals.tunai)}</td>
             <td>${f(totals.qris)}</td>
-            <td>${f(totals.bca)}</td>
+            <td>${f(totals.bank)}</td>
+            <td>${f(totals.ewallet)}</td>
             <td>${f(totals.lain)}</td>
             <td style="background: #fbbf24; color: black;">${f(totals.grand)}</td>
         </tr>
