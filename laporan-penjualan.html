@@ -25,26 +25,26 @@
         button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; display: flex; align-items: center; gap: 5px; }
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
-        .btn-void { background: var(--danger); color: white; padding: 6px 10px; }
-        .btn-detail { background: #3498db; color: white; padding: 6px 10px; }
+        .btn-void { background: var(--danger); color: white; padding: 4px 8px; font-size: 11px; }
 
         .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); }
-        td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #f8f9fa; padding: 10px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); white-space: nowrap; }
+        td { padding: 10px; border-bottom: 1px solid #f1f1f1; vertical-align: top; }
         
-        .status-void { color: #95a5a6 !important; font-style: italic; text-decoration: line-through; }
-        .method-badge { background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        .row-main { background-color: #fff; }
+        .row-item-extra { background-color: #fafafa; border-bottom: 1px dashed #eee !important; }
+        .row-item-extra td { color: #555; padding-top: 4px; padding-bottom: 4px; }
 
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        
+        .status-void { color: #95a5a6 !important; font-style: italic; text-decoration: line-through; opacity: 0.6; }
+        .method-badge { background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 2000; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); }
     </style>
 </head>
 <body>
 
-<div id="loading" class="loading-overlay">Memproses... Mohon Tunggu...</div>
+<div id="loading" class="loading-overlay">Memproses Data...</div>
 
 <nav>
     <h2>Finex Pos</h2>
@@ -56,7 +56,7 @@
 </nav>
 
 <main>
-    <h1>📑 Laporan Penjualan Detail</h1>
+    <h1>📑 Laporan Penjualan Detail - BeautyBloom</h1>
     
     <div class="filter-card">
         <div class="input-group">
@@ -67,15 +67,6 @@
             <label>Sampai Tanggal</label>
             <input type="date" id="date-to">
         </div>
-        <div class="input-group">
-            <label>Metode</label>
-            <select id="filter-method">
-                <option value="all">Semua Metode</option>
-                <option value="Tunai">Tunai</option>
-                <option value="QRIS">QRIS</option>
-                <option value="Transfer">Transfer</option>
-            </select>
-        </div>
         <button class="btn-filter" onclick="fetchLaporan()">🔍 Tampilkan</button>
         <button class="btn-export" onclick="exportKeExcel()">Export Excel 📥</button>
     </div>
@@ -84,14 +75,15 @@
         <table>
             <thead>
                 <tr>
-                    <th>Waktu</th>
-                    <th>No. Bill</th>
-                    <th>Metode</th>
-                    <th>Subtotal</th>
-                    <th>Diskon</th>
-                    <th>Net Rec.</th>
+                    <th>Tanggal/Waktu</th>
+                    <th>No Bill</th>
+                    <th>Metode Bayar</th>
+                    <th>Detail Item</th>
+                    <th>Total Kotor (Gross)</th>
+                    <th>Total Diskon</th>
+                    <th>Total Net (Grand Total)</th>
                     <th>Status</th>
-                    <th style="text-align: center;">Aksi</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody id="report-body"></tbody>
@@ -99,30 +91,10 @@
     </div>
 </main>
 
-<!-- Modal Void Confirmation -->
-<div id="modal-void" class="modal">
-    <div class="modal-content">
-        <h3>Konfirmasi Void</h3>
-        <p>Apakah Anda yakin ingin membatalkan (void) transaksi <b id="void-inv-no"></b>?</p>
-        <p style="font-size: 13px; color: #e74c3c; background: #fdf2f2; padding: 10px; border-radius: 5px; border-left: 4px solid #e74c3c;">
-            <b>PENTING:</b><br>
-            - Stok barang akan otomatis dikembalikan ke gudang.<br>
-            - Status transaksi akan diubah menjadi Void.
-        </p>
-        <div style="display:flex; gap:10px; margin-top:20px;">
-            <button onclick="processVoid()" style="flex:1; background:var(--danger); color:white; padding:12px; border-radius:8px;">Ya, Void Transaksi</button>
-            <button onclick="closeModal('modal-void')" style="flex:1; background:#eee; color:#333; padding:12px; border-radius:8px;">Batal</button>
-        </div>
-    </div>
-</div>
-
 <script>
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
-    let currentReportData = [];
-    let selectedVoidInv = null;
 
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
@@ -132,169 +104,140 @@
     };
 
     async function fetchLaporan() {
-        showLoading(true);
+        const loading = document.getElementById('loading');
+        loading.style.display = 'flex';
+
         const from = document.getElementById('date-from').value + "T00:00:00";
         const to = document.getElementById('date-to').value + "T23:59:59";
-        const filterMethod = document.getElementById('filter-method').value;
 
-        // 1. Ambil Jurnal Penerimaan Kas (Split Bill source)
-        const { data: journals, error: jErr } = await supabaseClient
-            .from('jurnal_umum')
-            .select('*')
-            .gte('created_at', from)
-            .lte('created_at', to)
-            .gt('debit', 0)
-            .ilike('kode_akun', '11%');
+        try {
+            // Ambil data penjualan dan detailnya
+            const { data: sales, error: sErr } = await supabaseClient
+                .from('penjualan')
+                .select('*, penjualan_detail(*)')
+                .gte('created_at', from)
+                .lte('created_at', to)
+                .order('created_at', { ascending: false });
 
-        if (jErr) { console.error(jErr); showLoading(false); return; }
+            if (sErr) throw sErr;
 
-        // 2. Ambil Data Penjualan & Detail
-        const { data: sales, error: sErr } = await supabaseClient
-            .from('penjualan')
-            .select('*, penjualan_detail(*)')
-            .gte('created_at', from)
-            .lte('created_at', to)
-            .order('created_at', { ascending: false });
+            // Ambil data jurnal untuk mendapatkan metode bayar asli
+            const { data: journals, error: jErr } = await supabaseClient
+                .from('jurnal_umum')
+                .select('no_bukti, keterangan, debit')
+                .gte('created_at', from)
+                .lte('created_at', to)
+                .gt('debit', 0);
 
-        if (sErr) { console.error(sErr); showLoading(false); return; }
+            if (jErr) throw jErr;
 
-        // 3. Mapping Data
-        let mapped = journals.map(j => {
-            const sale = sales.find(s => s.no_invoice === j.no_bukti);
-            if (!sale) return null;
-
-            const methodClean = j.keterangan.replace('Terima ', '');
-            
-            return {
-                id_penjualan: sale.id,
-                waktu: j.created_at,
-                no_invoice: j.no_bukti,
-                metode: methodClean,
-                nominal_bayar: j.debit,
-                subtotal_bill: sale.subtotal,
-                diskon_bill: sale.diskon,
-                net_bill: sale.grand_total,
-                status: sale.status || 'Success',
-                raw_items: sale.penjualan_detail,
-                items_text: sale.penjualan_detail.map(d => `${d.nama_barang} (x${d.qty})`).join(', ')
-            };
-        }).filter(x => x !== null);
-
-        if (filterMethod !== 'all') {
-            mapped = mapped.filter(m => m.metode.toLowerCase().includes(filterMethod.toLowerCase()));
+            renderTable(sales, journals);
+        } catch (err) {
+            console.error(err);
+            alert("Gagal mengambil data");
+        } finally {
+            loading.style.display = 'none';
         }
-
-        currentReportData = mapped;
-        renderTable(mapped);
-        showLoading(false);
     }
 
-    function renderTable(data) {
+    function renderTable(sales, journals) {
         const body = document.getElementById('report-body');
         body.innerHTML = '';
-        
-        data.forEach(item => {
-            const isVoid = item.status.toLowerCase() === 'void';
-            body.innerHTML += `
-                <tr class="${isVoid ? 'status-void' : ''}">
-                    <td>${new Date(item.waktu).toLocaleString('id-ID')}</td>
-                    <td>${item.no_invoice}</td>
-                    <td><span class="method-badge">${item.metode}</span></td>
-                    <td>Rp ${parseFloat(item.subtotal_bill).toLocaleString()}</td>
-                    <td style="color:red">-Rp ${parseFloat(item.diskon_bill).toLocaleString()}</td>
-                    <td style="font-weight:bold">Rp ${parseFloat(item.nominal_bayar).toLocaleString()}</td>
-                    <td>${item.status}</td>
-                    <td style="text-align: center; display:flex; gap:5px; justify-content:center;">
-                        <button class="btn-detail" title="Lihat Item" onclick="alert('Items: ${item.items_text}')">👁️</button>
-                        ${!isVoid ? `<button class="btn-void" onclick="confirmVoid('${item.no_invoice}')">Void</button>` : ''}
+
+        sales.forEach(sale => {
+            const isVoid = sale.status === 'Void';
+            const details = sale.penjualan_detail || [];
+            
+            // Cari metode bayar dari jurnal dan hilangkan No Invoice
+            const journalMatch = journals.find(j => j.no_bukti === sale.no_invoice);
+            let metode = journalMatch ? journalMatch.keterangan.replace('Terima ', '') : '-';
+            // Regex untuk menghapus pattern " - INV-XXXXXX"
+            metode = metode.replace(/\s*-\s*INV-\d+/gi, '').trim();
+
+            // Baris Pertama (Header Transaksi + Item Pertama)
+            const firstItem = details.length > 0 ? details[0] : null;
+            const itemText = firstItem ? `${firstItem.nama_barang} (x${firstItem.qty})` : '-';
+
+            let mainRow = `
+                <tr class="row-main ${isVoid ? 'status-void' : ''}">
+                    <td>${new Date(sale.created_at).toLocaleString('id-ID')}</td>
+                    <td>${sale.no_invoice}</td>
+                    <td><span class="method-badge">${metode}</span></td>
+                    <td>${itemText}</td>
+                    <td>Rp ${parseFloat(sale.subtotal || 0).toLocaleString()}</td>
+                    <td style="color:red">Rp ${parseFloat(sale.diskon || 0).toLocaleString()}</td>
+                    <td style="font-weight:bold">Rp ${parseFloat(sale.grand_total || 0).toLocaleString()}</td>
+                    <td>${sale.status || 'Success'}</td>
+                    <td>
+                        ${!isVoid ? `<button class="btn-void" onclick="processVoid('${sale.no_invoice}')">Void</button>` : '-'}
                     </td>
-                </tr>`;
+                </tr>
+            `;
+            body.innerHTML += mainRow;
+
+            // Baris Tambahan untuk Item ke-2, ke-3, dst
+            if (details.length > 1) {
+                for (let i = 1; i < details.length; i++) {
+                    const extraItem = details[i];
+                    body.innerHTML += `
+                        <tr class="row-item-extra ${isVoid ? 'status-void' : ''}">
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td>${extraItem.nama_barang} (x${extraItem.qty})</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    `;
+                }
+            }
         });
     }
 
-    function confirmVoid(inv) {
-        selectedVoidInv = inv;
-        document.getElementById('void-inv-no').innerText = inv;
-        document.getElementById('modal-void').style.display = 'flex';
-    }
+    async function processVoid(inv) {
+        if(!confirm(`Yakin ingin membatalkan transaksi ${inv}? Stok akan dikembalikan.`)) return;
+        
+        const loading = document.getElementById('loading');
+        loading.style.display = 'flex';
 
-    function closeModal() { document.getElementById('modal-void').style.display = 'none'; }
-    function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
-
-    async function processVoid() {
-        showLoading(true);
         try {
-            // 1. Ambil detail transaksi untuk update stok
-            const { data: detailTrans, error: errGet } = await supabaseClient
+            // 1. Ambil detail untuk balikkan stok
+            const { data: details, error: dErr } = await supabaseClient
                 .from('penjualan_detail')
-                .select('barcode, qty')
-                .eq('no_invoice', selectedVoidInv);
+                .select('id_produk, qty')
+                .eq('no_invoice', inv);
+            
+            if(dErr) throw dErr;
 
-            if (errGet) throw errGet;
-
-            // 2. Loop balikkan stok satu per satu
-            for (const item of detailTrans) {
-                // Ambil stok sekarang
-                const { data: prod, error: pErr } = await supabaseClient
-                    .from('produk')
-                    .select('stok')
-                    .eq('barcode', item.barcode)
-                    .single();
-                
-                if (prod) {
-                    const newStok = parseFloat(prod.stok) + parseFloat(item.qty);
-                    await supabaseClient
-                        .from('produk')
-                        .update({ stok: newStok })
-                        .eq('barcode', item.barcode);
+            for (const item of details) {
+                if (item.id_produk) {
+                    const { data: p } = await supabaseClient.from('produk').select('stok').eq('id', item.id_produk).single();
+                    if(p) {
+                        await supabaseClient.from('produk').update({ stok: parseFloat(p.stok) + parseFloat(item.qty) }).eq('id', item.id_produk);
+                    }
                 }
             }
 
-            // 3. Update status penjualan
-            const { error: errUpdate } = await supabaseClient
-                .from('penjualan')
-                .update({ status: 'Void' })
-                .eq('no_invoice', selectedVoidInv);
+            // 2. Update status
+            await supabaseClient.from('penjualan').update({ status: 'Void' }).eq('no_invoice', inv);
+            await supabaseClient.from('jurnal_umum').update({ keterangan: 'VOID - ' + inv }).eq('no_bukti', inv);
 
-            if (errUpdate) throw errUpdate;
-
-            alert("Transaksi Void Berhasil. Stok telah dikembalikan.");
-            closeModal();
+            alert("Transaksi berhasil di-void.");
             fetchLaporan();
         } catch (e) {
-            console.error(e);
-            alert("Terjadi kesalahan saat proses void: " + e.message);
+            alert("Error: " + e.message);
         } finally {
-            showLoading(false);
+            loading.style.display = 'none';
         }
     }
 
     function exportKeExcel() {
-        if (currentReportData.length === 0) return alert("Tidak ada data untuk diexport.");
-
-        const dataExcel = currentReportData.map(item => ({
-            "Tanggal/Waktu": new Date(item.waktu).toLocaleString('id-ID'),
-            "No Bill": item.no_invoice,
-            "Metode Bayar": item.metode,
-            "Detail Item": item.items_text,
-            "Total Kotor (Gross)": item.subtotal_bill,
-            "Total Diskon": item.diskon_bill,
-            "Total Net (Grand Total)": item.net_bill,
-            "Penerimaan Nominal": item.nominal_bayar,
-            "Status": item.status
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(dataExcel);
-        
-        // Atur lebar kolom agar rapi
-        ws['!cols'] = [
-            { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 50 }, 
-            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }
-        ];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Detail Penjualan");
-        XLSX.writeFile(wb, `Laporan_BeautyBloom_${selectedVoidInv || 'Export'}_${new Date().getTime()}.xlsx`);
+        const table = document.querySelector("table");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Detail" });
+        XLSX.writeFile(wb, "Laporan_Penjualan_BeautyBloom.xlsx");
     }
 </script>
 </body>
