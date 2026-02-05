@@ -419,14 +419,17 @@
             </div>`;
     }
 
-    function sendWhatsApp() {
+   function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        if (!hp) return alert("Nomor WA kosong!");
+        if (!hp) return alert("Masukkan nomor WA!");
         const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
-        window.open(`https://wa.me/${cleanHp}?text=*NOTA BEAUTYBLOOM*%0ANo: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}`, '_blank');
+        
+        const linkNota = window.location.origin + `/invoice-view.html?id=${state.lastTrxId}`;
+        const msg = `*NOTA BEAUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A*Lihat Nota Digital:*%0A${linkNota}%0A%0A_Terima kasih sudah berbelanja!_`;
+        
+        window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
         location.reload();
     }
-
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
