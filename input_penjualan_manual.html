@@ -8,30 +8,33 @@
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); max-width: 1100px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
         
-        .filter-box { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end; }
-        input, button { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        button { cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .filter-box { display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
+        input, button { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+        button { cursor: pointer; font-weight: bold; }
         .btn-filter { background: var(--accent); color: white; border: none; }
-        .btn-filter:hover { background: #2980b9; }
         .btn-export { background: #27ae60; color: white; border: none; }
 
-        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 30px; }
-        th { background: #f8f9fa; padding: 12px 8px; border: 1px solid #ddd; text-align: center; color: #333; }
-        td { padding: 10px 8px; border: 1px solid #ddd; text-align: right; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #f2f2f2; padding: 8px; border: 1px solid #ccc; text-align: center; sticky: top; }
+        td { padding: 6px 8px; border: 1px solid #ddd; text-align: right; }
+        .text-left { text-align: left; }
+        .text-center { text-align: center; }
+
+        /* Baris Pemisah Tanggal/Subtotal */
+        .subtotal-date-row { background: #f9f9f9; font-weight: bold; color: #2c3e50; }
+        .grandtotal-row { background: #2c3e50 !important; color: white !important; font-weight: bold; font-size: 12px; }
         
-        .date-header { background: #2c3e50; color: white; text-align: left; font-weight: bold; padding: 10px; font-size: 14px; }
-        .method-name { text-align: left; font-weight: bold; color: var(--accent); }
-        .subtotal-row { background: #fdfdfd; font-weight: bold; }
-        .grand-total-section { background: #e67e22; color: white; font-size: 14px; font-weight: bold; }
-        
+        .metode-pill { background: #ebf5fb; padding: 2px 5px; border-radius: 3px; border: 1px solid #aed6f1; color: #2e86c1; font-weight: bold; font-size: 9px; }
+
         @media print {
-            .filter-box, .btn-export, button { display: none; }
+            .filter-box, .btn-export, .header button { display: none; }
             body { padding: 0; background: white; }
-            .container { box-shadow: none; border: none; width: 100%; }
+            .container { box-shadow: none; width: 100%; max-width: 100%; }
+            table { font-size: 10px; }
         }
     </style>
 </head>
@@ -40,8 +43,8 @@
 <div class="container">
     <div class="header">
         <div>
-            <h2 style="margin:0;">Laporan Detail Penjualan BeautyBloom</h2>
-            <p style="margin:5px 0 0; color: #666; font-size: 12px;">Dikelompokkan per Tanggal & Metode Pembayaran</p>
+            <h2 style="margin:0; font-size: 18px;">Laporan Penjualan Detail BeautyBloom</h2>
+            <small>Finex POS System</small>
         </div>
         <div>
             <button class="btn-export" onclick="exportToExcel()">📥 Export Excel</button>
@@ -51,18 +54,37 @@
 
     <div class="filter-box">
         <div>
-            <label style="display:block; font-size:11px;">Mulai Tanggal:</label>
+            <label style="display:block; font-size:10px;">Dari:</label>
             <input type="date" id="date-start">
         </div>
         <div>
-            <label style="display:block; font-size:11px;">Sampai Tanggal:</label>
+            <label style="display:block; font-size:10px;">Sampai:</label>
             <input type="date" id="date-end">
         </div>
-        <button class="btn-filter" onclick="loadDetailLaporan()">Tampilkan Laporan</button>
+        <button class="btn-filter" onclick="loadDetailLaporan()">Tampilkan</button>
     </div>
 
-    <div id="report-content">
-        <p style="text-align:center; color:#999; margin-top:50px;">Silakan pilih tanggal dan klik tampilkan.</p>
+    <div style="overflow-x: auto;">
+        <table id="table-laporan">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>No. Invoice</th>
+                    <th>Metode</th>
+                    <th>Gross</th>
+                    <th>Disc</th>
+                    <th>Net Sales</th>
+                    <th>DPP (Net/1.155)</th>
+                    <th>Svc (5%)</th>
+                    <th>PB1 (10%)</th>
+                    <th>Grand Total</th>
+                </tr>
+            </thead>
+            <tbody id="report-body">
+                <tr><td colspan="10" class="text-center">Tentukan tanggal lalu klik Tampilkan.</td></tr>
+            </tbody>
+            <tfoot id="report-footer"></tfoot>
+        </table>
     </div>
 </div>
 
@@ -80,153 +102,108 @@ window.onload = () => {
 async function loadDetailLaporan() {
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
-    const container = document.getElementById('report-content');
     
-    container.innerHTML = '<p style="text-align:center;">Mengambil data...</p>';
-
     const { data: trx, error } = await FinexDB.from('penjualan')
         .select('*')
         .gte('created_at', start + 'T00:00:00')
         .lte('created_at', end + 'T23:59:59')
         .order('created_at', { ascending: true });
 
-    if (error) return alert("Gagal ambil data: " + error.message);
-    if (!trx || trx.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:red;">Tidak ada data pada periode ini.</p>';
-        return;
-    }
+    if (error) return alert("Error: " + error.message);
 
-    // --- PROSES GROUPING ---
-    const groupedData = {};
-    let overallTotal = 0;
+    let html = '';
+    let grandTotals = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
+    let currentDate = null;
+    let daySubtotal = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
 
-    trx.forEach(row => {
-        const tgl = new Date(row.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-        const mtd = row.metode_pembayaran || 'Tunai';
+    function formatNum(n) { return Math.round(n).toLocaleString('id-ID'); }
 
-        if (!groupedData[tgl]) groupedData[tgl] = {};
-        if (!groupedData[tgl][mtd]) {
-            groupedData[tgl][mtd] = { gross: 0, disc: 0, net: 0, count: 0 };
+    trx.forEach((row, index) => {
+        const tglStr = new Date(row.created_at).toLocaleDateString('id-ID');
+        
+        // Cek jika ganti tanggal (untuk menyisipkan Subtotal)
+        if (currentDate !== null && currentDate !== tglStr) {
+            html += renderSubtotalRow(currentDate, daySubtotal);
+            // Reset daily subtotal
+            daySubtotal = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
         }
+        currentDate = tglStr;
 
         const gross = parseFloat(row.subtotal || 0);
         const disc = parseFloat(row.diskon || 0);
         const net = gross - disc;
+        const mtd = row.metode_pembayaran || 'Tunai';
 
-        groupedData[tgl][mtd].gross += gross;
-        groupedData[tgl][mtd].disc += disc;
-        groupedData[tgl][mtd].net += net;
-        groupedData[tgl][mtd].count += 1;
-        overallTotal += net;
+        const ddp = net / 1.155;
+        const svc = ddp * 0.05;
+        const pb1 = (ddp + svc) * 0.10;
+        const grand = net;
+
+        // Akumulasi
+        daySubtotal.gross += gross; daySubtotal.disc += disc; daySubtotal.net += net;
+        daySubtotal.ddp += ddp; daySubtotal.svc += svc; daySubtotal.pb1 += pb1; daySubtotal.grand += grand;
+
+        grandTotals.gross += gross; grandTotals.disc += disc; grandTotals.net += net;
+        grandTotals.ddp += ddp; grandTotals.svc += svc; grandTotals.pb1 += pb1; grandTotals.grand += grand;
+
+        html += `
+            <tr>
+                <td class="text-left">${tglStr}</td>
+                <td class="text-left">${row.no_invoice || row.id.substring(0,8)}</td>
+                <td class="text-center"><span class="metode-pill">${mtd}</span></td>
+                <td>${formatNum(gross)}</td>
+                <td>${formatNum(disc)}</td>
+                <td>${formatNum(net)}</td>
+                <td>${formatNum(ddp)}</td>
+                <td>${formatNum(svc)}</td>
+                <td>${formatNum(pb1)}</td>
+                <td style="font-weight:bold;">${formatNum(grand)}</td>
+            </tr>
+        `;
+
+        // Jika data terakhir, cetak subtotal terakhir
+        if (index === trx.length - 1) {
+            html += renderSubtotalRow(currentDate, daySubtotal);
+        }
     });
 
-    // --- RENDER HTML ---
-    let html = '';
+    document.getElementById('report-body').innerHTML = html;
 
-    for (const [tanggal, metodes] of Object.entries(groupedData)) {
-        html += `
-            <table class="table-data">
-                <thead>
-                    <tr><th colspan="7" class="date-header">📅 TANGGAL: ${tanggal}</th></tr>
-                    <tr>
-                        <th style="width: 20%;">Metode Pembayaran</th>
-                        <th>Gross (Kotor)</th>
-                        <th>Potongan/Disc</th>
-                        <th style="background:#e8f4fd;">DPP (Net/1.15)</th>
-                        <th>Svc (5%)</th>
-                        <th>PB1 (10%)</th>
-                        <th style="background:#fef5e7;">Total Terbayar</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        let dailyTotal = 0;
-
-        for (const [namaMtd, val] of Object.entries(metodes)) {
-            // Kalkulasi inklusif 1.15
-            const dpp = val.net / 1.15;
-            const svc = dpp * 0.05;
-            const pb1 = dpp * 0.10;
-            dailyTotal += val.net;
-
-            html += `
-                <tr>
-                    <td class="method-name">${namaMtd.toUpperCase()} <span style="font-weight:normal; font-size:10px;">(${val.count} Trx)</span></td>
-                    <td>${val.gross.toLocaleString()}</td>
-                    <td style="color:red;">-${val.disc.toLocaleString()}</td>
-                    <td style="font-family:monospace;">${Math.round(dpp).toLocaleString()}</td>
-                    <td style="font-family:monospace;">${Math.round(svc).toLocaleString()}</td>
-                    <td style="font-family:monospace;">${Math.round(pb1).toLocaleString()}</td>
-                    <td style="font-weight:bold; background:#fffcf9;">${val.net.toLocaleString()}</td>
-                </tr>
-            `;
-        }
-
-        html += `
-                </tbody>
-                <tfoot>
-                    <tr class="subtotal-row">
-                        <td colspan="6" style="text-align:right;">TOTAL HARIAN (${tanggal}) :</td>
-                        <td style="border-top: 2px solid #333;">Rp ${dailyTotal.toLocaleString()}</td>
-                    </tr>
-                </tfoot>
-            </table>
-        `;
-    }
-
-    html += `
-        <div style="margin-top:20px; padding:15px; background:#2c3e50; color:white; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:16px;">GRAND TOTAL KESELURUHAN</span>
-            <span style="font-size:20px; font-weight:bold;">Rp ${overallTotal.toLocaleString()}</span>
-        </div>
+    // Footer Grand Total
+    document.getElementById('report-footer').innerHTML = `
+        <tr class="grandtotal-row">
+            <td colspan="3">GRAND TOTAL KESELURUHAN</td>
+            <td>${formatNum(grandTotals.gross)}</td>
+            <td>${formatNum(grandTotals.disc)}</td>
+            <td>${formatNum(grandTotals.net)}</td>
+            <td>${formatNum(grandTotals.ddp)}</td>
+            <td>${formatNum(grandTotals.svc)}</td>
+            <td>${formatNum(grandTotals.pb1)}</td>
+            <td>${formatNum(grandTotals.grand)}</td>
+        </tr>
     `;
+}
 
-    container.innerHTML = html;
+function renderSubtotalRow(date, data) {
+    function f(n) { return Math.round(n).toLocaleString('id-ID'); }
+    return `
+        <tr class="subtotal-date-row">
+            <td colspan="3" class="text-left">SUBTOTAL ${date}</td>
+            <td>${f(data.gross)}</td>
+            <td>${f(data.disc)}</td>
+            <td>${f(data.net)}</td>
+            <td>${f(data.ddp)}</td>
+            <td>${f(data.svc)}</td>
+            <td>${f(data.pb1)}</td>
+            <td>${f(data.grand)}</td>
+        </tr>
+    `;
 }
 
 function exportToExcel() {
-    const tableWrap = document.getElementById("report-content");
-    const wb = XLSX.utils.book_new();
-    
-    // Kita ambil semua table di dalam report-content
-    const tables = tableWrap.querySelectorAll("table");
-    
-    // Gabungkan data untuk excel sederhana
-    let dataForExcel = [
-        ["LAPORAN DETAIL PENJUALAN BEAUTYBLOOM"],
-        ["Periode:", document.getElementById('date-start').value, "s/d", document.getElementById('date-end').value],
-        [],
-        ["Tanggal", "Metode", "Gross", "Diskon", "DPP", "Service", "PB1", "Total Net"]
-    ];
-
-    // Iterasi manual untuk struktur Excel yang rapi
-    const start = document.getElementById('date-start').value;
-    const end = document.getElementById('date-end').value;
-
-    // Logic export ini mengambil data dari tabel yang ter-render
-    tables.forEach(table => {
-        const tgl = table.querySelector(".date-header").innerText.replace("📅 TANGGAL: ", "");
-        const rows = table.querySelectorAll("tbody tr");
-        
-        rows.forEach(row => {
-            const cells = row.querySelectorAll("td");
-            dataForExcel.push([
-                tgl,
-                cells[0].innerText,
-                cells[1].innerText.replace(/,/g, ''),
-                cells[2].innerText.replace(/,/g, '').replace('-', ''),
-                cells[3].innerText.replace(/,/g, ''),
-                cells[4].innerText.replace(/,/g, ''),
-                cells[5].innerText.replace(/,/g, ''),
-                cells[6].innerText.replace(/,/g, '')
-            ]);
-        });
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(dataForExcel);
-    XLSX.utils.book_append_sheet(wb, ws, "Laporan Detail");
-    XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().getTime()}.xlsx`);
+    const table = document.getElementById("table-laporan");
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Detail Penjualan" });
+    XLSX.writeFile(wb, "Laporan_Finex_BeautyBloom.xlsx");
 }
 </script>
 </body>
