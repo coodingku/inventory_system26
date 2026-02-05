@@ -413,9 +413,12 @@
 
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        if (!hp) return alert("Masukkan nomor WhatsApp tujuan!");
+        if (!hp) return alert("Masukkan nomor WA!");
         const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
-        const msg = `*NOTA BEAUTYBLOOM*%0ANo Invoice: ${state.lastInv}%0ATotal Bayar: Rp ${Math.round(state.total).toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A_Terima kasih telah berbelanja di BeautyBloom!_`;
+        
+        const linkNota = window.location.origin + `/invoice-view.html?id=${state.lastTrxId}`;
+        const msg = `*NOTA BEAUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A*Lihat Nota Digital:*%0A${linkNota}%0A%0A_Terima kasih sudah berbelanja!_`;
+        
         window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
         location.reload();
     }
