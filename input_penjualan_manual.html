@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Harian BeautyBloom | Finex Pos</title>
+    <title>Laporan Dinamis BeautyBloom | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
@@ -12,51 +12,39 @@
             --accent: #4f46e5; 
             --success: #059669;
             --bg: #f1f5f9;
-            --header-dark: #1e293b;
         }
         
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
-        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 1400px; margin: auto; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 100%; margin: auto; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-left: 5px solid var(--accent); padding-left: 20px; }
-        .header h2 { margin: 0; font-size: 26px; color: var(--primary); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }
+        .header h2 { margin: 0; color: var(--primary); }
         
-        .filter-box { display: flex; gap: 15px; margin-bottom: 25px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; align-items: flex-end; }
+        .filter-box { display: flex; gap: 15px; margin-bottom: 25px; background: #f8fafc; padding: 20px; border-radius: 12px; align-items: flex-end; border: 1px solid #e2e8f0; }
         .filter-group { display: flex; flex-direction: column; gap: 6px; }
         label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
         
-        input, button { padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
-        
+        input, button { padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
         .btn-filter { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; }
-        .btn-filter:hover { background: #4338ca; }
         .btn-export { background: var(--success); color: white; border: none; font-weight: 600; cursor: pointer; }
         
-        table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; margin-top: 10px; }
-        th { background: var(--header-dark); color: white; padding: 12px 8px; font-size: 11px; text-transform: uppercase; border: 1px solid #334155; }
-        .th-tax { background: #334155; }
-        .th-accent { background: #312e81; } 
-        .th-final { background: #c2410c; }
-
-        td { padding: 12px 8px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right; }
+        .table-wrapper { overflow-x: auto; margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { background: #1e293b; color: white; padding: 12px 10px; font-size: 11px; text-transform: uppercase; border: 1px solid #334155; }
+        td { padding: 10px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right; }
+        
         .text-left { text-align: left; }
         .font-bold { font-weight: 700; }
+        .bg-payment { background: #fdf2f8; color: #9d174d; }
+        .bg-total { background: #fff7ed; font-weight: 800; }
         
-        .footer-row { background: #f1f5f9 !important; font-weight: 800; color: var(--primary); }
-
-        /* Summary Section */
-        .summary-container { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; border-top: 2px dashed #e2e8f0; padding-top: 30px; }
-        .summary-title { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
-        .summary-card { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
-        
-        .summary-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-        .summary-row:last-child { border-bottom: none; }
-        .summary-row.total { font-size: 18px; font-weight: 800; color: #c2410c; margin-top: 10px; border-top: 2px solid #e2e8f0; padding-top: 15px; }
+        .footer-row { background: #f1f5f9; font-weight: 800; }
+        .loading { text-align: center; padding: 50px; color: #64748b; }
 
         @media print {
             .filter-box, .btn-export, button { display: none; }
             body { padding: 0; background: white; }
-            .container { box-shadow: none; border-radius: 0; max-width: 100%; }
-            .summary-container { grid-template-columns: 1fr 1fr; page-break-inside: avoid; }
+            .container { box-shadow: none; border: none; }
         }
     </style>
 </head>
@@ -65,115 +53,29 @@
 <div class="container">
     <div class="header">
         <div>
-            <h2>Laporan Harian BeautyBloom</h2>
-            <div style="color: #64748b; font-size: 14px;">Finex Pos Management System</div>
+            <h2>Laporan Penjualan BeautyBloom</h2>
+            <div style="color: #64748b; font-size: 14px;">Sistem Finex Pos - Berdasarkan Metode Pembayaran Aktif</div>
         </div>
         <div style="display: flex; gap: 10px;">
             <button class="btn-export" onclick="exportToExcel()">Export Excel</button>
-            <button onclick="window.print()" style="background: white; cursor: pointer; border: 1px solid #ccc;">Cetak Laporan</button>
+            <button onclick="window.print()">Cetak</button>
         </div>
     </div>
 
     <div class="filter-box">
         <div class="filter-group">
-            <label>Dari Tanggal</label>
+            <label>Mulai Tanggal</label>
             <input type="date" id="date-start">
         </div>
         <div class="filter-group">
             <label>Sampai Tanggal</label>
             <input type="date" id="date-end">
         </div>
-        <button class="btn-filter" onclick="fetchData()">Tampilkan Laporan</button>
+        <button class="btn-filter" onclick="fetchData()">Proses Data</button>
     </div>
 
-    <!-- Tabel Rincian Harian -->
-    <div style="overflow-x: auto;">
-        <table id="main-table">
-            <thead>
-                <tr>
-                    <th rowspan="2">Tanggal</th>
-                    <th rowspan="2">Gross Sales</th>
-                    <th rowspan="2">Diskon</th>
-                    <th rowspan="2">Net Sales</th>
-                    <th colspan="3" class="th-tax">Perincian Pajak & Service</th>
-                    <th colspan="5" class="th-accent">Metode Pembayaran (Net)</th>
-                    <th rowspan="2" class="th-final">Grand Total</th>
-                </tr>
-                <tr>
-                    <th class="th-tax">DPP</th>
-                    <th class="th-tax">Service (5%)</th>
-                    <th class="th-tax">PB1 (10%)</th>
-                    <th class="th-accent">Tunai</th>
-                    <th class="th-accent">QRIS</th>
-                    <th class="th-accent">Bank/Tf</th>
-                    <th class="th-accent">E-Wallet</th>
-                    <th class="th-accent">Lainnya</th>
-                </tr>
-            </thead>
-            <tbody id="table-body">
-                <tr><td colspan="13" style="text-align:center; padding: 40px; color: #94a3b8;">Silahkan pilih rentang tanggal.</td></tr>
-            </tbody>
-            <tfoot id="table-footer"></tfoot>
-        </table>
-    </div>
-
-    <!-- Bagian Bawah: Ringkasan Khusus -->
-    <div class="summary-container" id="summary-area" style="display: none;">
-        <div class="summary-card">
-            <div class="summary-title">📊 Ringkasan Pendapatan</div>
-            <div class="summary-row">
-                <span>Total Gross Sales</span>
-                <span id="sum-gross">Rp 0</span>
-            </div>
-            <div class="summary-row" style="color: #dc2626;">
-                <span>Total Potongan (Diskon)</span>
-                <span id="sum-disc">- Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total Net Sales</span>
-                <span id="sum-nett" class="font-bold">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total DPP</span>
-                <span id="sum-dpp">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total Service (5%)</span>
-                <span id="sum-svc">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total PB1 (10%)</span>
-                <span id="sum-pb1">Rp 0</span>
-            </div>
-        </div>
-
-        <div class="summary-card">
-            <div class="summary-title">💳 Rincian Metode Pembayaran</div>
-            <div class="summary-row">
-                <span>Total Tunai</span>
-                <span id="sum-tunai">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total QRIS</span>
-                <span id="sum-qris">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total Bank (BCA/Transfer)</span>
-                <span id="sum-bank">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total E-Wallet (Shopee/Gopay)</span>
-                <span id="sum-ewallet">Rp 0</span>
-            </div>
-            <div class="summary-row">
-                <span>Total Lain-lain</span>
-                <span id="sum-lain">Rp 0</span>
-            </div>
-            <div class="summary-row total">
-                <span>GRAND TOTAL</span>
-                <span id="sum-grand">Rp 0</span>
-            </div>
-        </div>
+    <div id="content-area">
+        <div class="loading">Silahkan pilih rentang tanggal untuk memproses laporan.</div>
     </div>
 </div>
 
@@ -181,36 +83,19 @@
 const SUPA_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
 
-let _sbClient = null;
+const client = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-function getClient() {
-    if (_sbClient) return _sbClient;
-    if (window.supabase && window.supabase.createClient) {
-        _sbClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-        return _sbClient;
-    }
-    return null;
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    const lastDay = today.toISOString().split('T')[0];
-    document.getElementById('date-start').value = firstDay;
-    document.getElementById('date-end').value = lastDay;
-});
+window.onload = () => {
+    const now = new Date();
+    document.getElementById('date-start').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('date-end').value = now.toISOString().split('T')[0];
+};
 
 async function fetchData() {
-    const client = getClient();
-    if (!client) return;
-
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
-    if(!start || !end) return;
-
-    document.getElementById('table-body').innerHTML = '<tr><td colspan="13" style="text-align:center">Memuat data...</td></tr>';
-    document.getElementById('summary-area').style.display = 'none';
+    document.getElementById('content-area').innerHTML = '<div class="loading">Menganalisis data transaksi...</div>';
 
     try {
         const { data, error } = await client
@@ -221,145 +106,149 @@ async function fetchData() {
             .order('created_at', { ascending: true });
 
         if (error) throw error;
-        processData(data || []);
+        if (!data || data.length === 0) {
+            document.getElementById('content-area').innerHTML = '<div class="loading">Tidak ada transaksi ditemukan pada periode ini.</div>';
+            return;
+        }
+
+        processAndRender(data);
     } catch (err) {
-        console.error(err);
-        document.getElementById('table-body').innerHTML = '<tr><td colspan="13" style="text-align:center; color:red">Gagal mengambil data.</td></tr>';
+        document.getElementById('content-area').innerHTML = `<div class="loading" style="color:red">Error: ${err.message}</div>`;
     }
 }
 
-function processData(data) {
-    const report = {};
+function processAndRender(data) {
+    const dailyData = {};
+    const paymentMethods = new Set();
 
+    // 1. Identifikasi semua metode pembayaran unik yang ada di data
     data.forEach(item => {
-        const dateObj = new Date(item.created_at);
-        const tgl = dateObj.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+        let method = item.metode_pembayaran || 'Tanpa Keterangan';
+        // Standarisasi nama agar tidak double karena perbedaan huruf besar/kecil
+        method = method.trim().toUpperCase();
+        paymentMethods.add(method);
+
+        const dateKey = new Date(item.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
         
-        if (!report[tgl]) {
-            report[tgl] = { gross: 0, disc: 0, tunai: 0, qris: 0, bank: 0, ewallet: 0, lainnya: 0 };
+        if (!dailyData[dateKey]) {
+            dailyData[dateKey] = { 
+                gross: 0, 
+                disc: 0, 
+                payments: {} 
+            };
         }
 
         const sub = parseFloat(item.subtotal || 0);
         const disc = parseFloat(item.diskon || 0);
         const nett = sub - disc;
-        const pay = (item.metode_pembayaran || '').toLowerCase();
 
-        report[tgl].gross += sub;
-        report[tgl].disc += disc;
-
-        // Logika Deteksi Pembayaran Lebih Akurat
-        if (pay.includes('tunai') || pay === 'cash') {
-            report[tgl].tunai += nett;
-        } else if (pay.includes('qris')) {
-            report[tgl].qris += nett;
-        } else if (pay.includes('bca') || pay.includes('bank') || pay.includes('transfer') || pay.includes('mandiri') || pay.includes('bri') || pay.includes('bni')) {
-            report[tgl].bank += nett;
-        } else if (pay.includes('shoppe') || pay.includes('shopee') || pay.includes('gopay') || pay.includes('ovo') || pay.includes('dana') || pay.includes('linkaja')) {
-            report[tgl].ewallet += nett;
-        } else {
-            report[tgl].lainnya += nett;
-        }
+        dailyData[dateKey].gross += sub;
+        dailyData[dateKey].disc += disc;
+        dailyData[dateKey].payments[method] = (dailyData[dateKey].payments[method] || 0) + nett;
     });
 
-    renderTable(report);
+    const sortedMethods = Array.from(paymentMethods).sort();
+    renderTable(dailyData, sortedMethods);
 }
 
-function renderTable(report) {
-    let bodyHtml = '';
-    const totals = { gross:0, disc:0, nett:0, dpp:0, svc:0, pb1:0, tunai:0, qris:0, bank:0, ewallet:0, lain:0, grand:0 };
+function renderTable(dailyData, methods) {
     const f = (v) => "Rp " + Math.round(v).toLocaleString('id-ID');
+    
+    let html = `
+        <div class="table-wrapper">
+            <table id="report-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Tanggal</th>
+                        <th rowspan="2">Gross Sales</th>
+                        <th rowspan="2">Diskon</th>
+                        <th rowspan="2">Net Sales</th>
+                        <th colspan="3">Pajak & Service (Est)</th>
+                        <th colspan="${methods.length}" style="background:#831843">Metode Pembayaran (Detail POS)</th>
+                        <th rowspan="2" style="background:#c2410c">Grand Total</th>
+                    </tr>
+                    <tr>
+                        <th>DPP</th>
+                        <th>Svc (5%)</th>
+                        <th>PB1 (10%)</th>
+                        ${methods.map(m => `<th class="bg-payment">${m}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+    `;
 
-    const sortedDates = Object.keys(report);
-    if (sortedDates.length === 0) {
-        document.getElementById('table-body').innerHTML = '<tr><td colspan="13" style="text-align:center">Tidak ada data transaksi di periode ini.</td></tr>';
-        return;
-    }
+    const grandTotals = { gross:0, disc:0, nett:0, dpp:0, svc:0, pb1:0, methods: {}, final: 0 };
+    methods.forEach(m => grandTotals.methods[m] = 0);
 
-    sortedDates.forEach(tgl => {
-        const d = report[tgl];
-        const netSales = d.gross - d.disc;
-        
-        // Perhitungan Pajak (Back-calculation from Net)
-        const dpp = netSales / 1.155;
+    Object.keys(dailyData).forEach(tgl => {
+        const d = dailyData[tgl];
+        const nett = d.gross - d.disc;
+        const dpp = nett / 1.155;
         const svc = dpp * 0.05;
         const pb1 = (dpp + svc) * 0.10;
-        const rowGrand = d.tunai + d.qris + d.bank + d.ewallet + d.lainnya;
+        
+        let rowPaymentTotal = 0;
 
-        totals.gross += d.gross;
-        totals.disc += d.disc;
-        totals.nett += netSales;
-        totals.dpp += dpp;
-        totals.svc += svc;
-        totals.pb1 += pb1;
-        totals.tunai += d.tunai;
-        totals.qris += d.qris;
-        totals.bank += d.bank;
-        totals.ewallet += d.ewallet;
-        totals.lain += d.lainnya;
-        totals.grand += rowGrand;
+        grandTotals.gross += d.gross;
+        grandTotals.disc += d.disc;
+        grandTotals.nett += nett;
+        grandTotals.dpp += dpp;
+        grandTotals.svc += svc;
+        grandTotals.pb1 += pb1;
 
-        bodyHtml += `
+        html += `
             <tr>
-                <td class="text-left font-bold" style="color:var(--accent)">${tgl}</td>
+                <td class="text-left font-bold">${tgl}</td>
                 <td>${f(d.gross)}</td>
-                <td style="color:#dc2626">-${f(d.disc)}</td>
-                <td class="font-bold">${f(netSales)}</td>
+                <td style="color:red">-${f(d.disc)}</td>
+                <td class="font-bold">${f(nett)}</td>
                 <td>${f(dpp)}</td>
                 <td>${f(svc)}</td>
                 <td>${f(pb1)}</td>
-                <td>${f(d.tunai)}</td>
-                <td>${f(d.qris)}</td>
-                <td>${f(d.bank)}</td>
-                <td>${f(d.ewallet)}</td>
-                <td>${f(d.lainnya)}</td>
-                <td class="font-bold" style="background:#fff7ed">${f(rowGrand)}</td>
-            </tr>
         `;
+
+        // Render kolom dinamis metode pembayaran
+        methods.forEach(m => {
+            const val = d.payments[m] || 0;
+            rowPaymentTotal += val;
+            grandTotals.methods[m] += val;
+            html += `<td class="bg-payment">${val > 0 ? f(val) : '-'}</td>`;
+        });
+
+        grandTotals.final += rowPaymentTotal;
+        html += `<td class="bg-total">${f(rowPaymentTotal)}</td></tr>`;
     });
 
-    document.getElementById('table-body').innerHTML = bodyHtml;
-    document.getElementById('summary-area').style.display = 'grid';
-
-    // Update Summary Section
-    document.getElementById('sum-gross').innerText = f(totals.gross);
-    document.getElementById('sum-disc').innerText = "- " + f(totals.disc);
-    document.getElementById('sum-nett').innerText = f(totals.nett);
-    document.getElementById('sum-dpp').innerText = f(totals.dpp);
-    document.getElementById('sum-svc').innerText = f(totals.svc);
-    document.getElementById('sum-pb1').innerText = f(totals.pb1);
-    
-    document.getElementById('sum-tunai').innerText = f(totals.tunai);
-    document.getElementById('sum-qris').innerText = f(totals.qris);
-    document.getElementById('sum-bank').innerText = f(totals.bank);
-    document.getElementById('sum-ewallet').innerText = f(totals.ewallet);
-    document.getElementById('sum-lain').innerText = f(totals.lain);
-    document.getElementById('sum-grand').innerText = f(totals.grand);
-
-    // Update Table Footer
-    document.getElementById('table-footer').innerHTML = `
-        <tr class="footer-row">
-            <td class="text-left">TOTAL</td>
-            <td>${f(totals.gross)}</td>
-            <td>-${f(totals.disc)}</td>
-            <td>${f(totals.nett)}</td>
-            <td>${f(totals.dpp)}</td>
-            <td>${f(totals.svc)}</td>
-            <td>${f(totals.pb1)}</td>
-            <td>${f(totals.tunai)}</td>
-            <td>${f(totals.qris)}</td>
-            <td>${f(totals.bank)}</td>
-            <td>${f(totals.ewallet)}</td>
-            <td>${f(totals.lain)}</td>
-            <td style="background: #fbbf24; color: black;">${f(totals.grand)}</td>
-        </tr>
+    // Footer Total
+    html += `
+                </tbody>
+                <tfoot>
+                    <tr class="footer-row">
+                        <td class="text-left">TOTAL</td>
+                        <td>${f(grandTotals.gross)}</td>
+                        <td>-${f(grandTotals.disc)}</td>
+                        <td>${f(grandTotals.nett)}</td>
+                        <td>${f(grandTotals.dpp)}</td>
+                        <td>${f(grandTotals.svc)}</td>
+                        <td>${f(grandTotals.pb1)}</td>
+                        ${methods.map(m => `<td>${f(grandTotals.methods[m])}</td>`).join('')}
+                        <td style="background:#fbbf24">${f(grandTotals.final)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
     `;
+
+    document.getElementById('content-area').innerHTML = html;
 }
 
 function exportToExcel() {
-    const table = document.getElementById("main-table");
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
-    XLSX.writeFile(wb, `Laporan_BeautyBloom_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const table = document.getElementById("report-table");
+    if(!table) return;
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan POS" });
+    XLSX.writeFile(wb, `Laporan_FinexPOS_BeautyBloom_${new Date().getTime()}.xlsx`);
 }
 </script>
+
 </body>
 </html>
