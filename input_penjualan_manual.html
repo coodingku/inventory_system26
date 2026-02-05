@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detail Penjualan | Finex Pos</title>
+    <title>Laporan Harian | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1300px; margin: auto; }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
         
         .filter-box { display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
@@ -19,16 +19,14 @@
         .btn-export { background: #27ae60; color: white; border: none; }
 
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #f2f2f2; padding: 8px; border: 1px solid #ccc; text-align: center; sticky: top; }
-        td { padding: 6px 8px; border: 1px solid #ddd; text-align: right; }
+        th { background: #f2f2f2; padding: 8px; border: 1px solid #ccc; text-align: center; }
+        td { padding: 8px; border: 1px solid #ddd; text-align: right; }
         .text-left { text-align: left; }
         .text-center { text-align: center; }
 
-        /* Baris Pemisah Tanggal/Subtotal */
-        .subtotal-date-row { background: #f9f9f9; font-weight: bold; color: #2c3e50; }
-        .grandtotal-row { background: #2c3e50 !important; color: white !important; font-weight: bold; font-size: 12px; }
-        
-        .metode-pill { background: #ebf5fb; padding: 2px 5px; border-radius: 3px; border: 1px solid #aed6f1; color: #2e86c1; font-weight: bold; font-size: 9px; }
+        .bg-method { background: #fdfefe; }
+        .font-bold { font-weight: bold; }
+        .grandtotal-row { background: #2c3e50 !important; color: white !important; font-size: 12px; }
 
         @media print {
             .filter-box, .btn-export, .header button { display: none; }
@@ -43,8 +41,8 @@
 <div class="container">
     <div class="header">
         <div>
-            <h2 style="margin:0; font-size: 18px;">Laporan Penjualan Detail BeautyBloom</h2>
-            <small>Finex POS System</small>
+            <h2 style="margin:0; font-size: 18px;">Laporan Ringkasan Harian BeautyBloom</h2>
+            <small>Finex POS System - Berdasarkan Metode Pembayaran</small>
         </div>
         <div>
             <button class="btn-export" onclick="exportToExcel()">📥 Export Excel</button>
@@ -61,27 +59,32 @@
             <label style="display:block; font-size:10px;">Sampai:</label>
             <input type="date" id="date-end">
         </div>
-        <button class="btn-filter" onclick="loadDetailLaporan()">Tampilkan</button>
+        <button class="btn-filter" onclick="loadHarian()">Tampilkan</button>
     </div>
 
     <div style="overflow-x: auto;">
         <table id="table-laporan">
             <thead>
                 <tr>
-                    <th>Tanggal</th>
-                    <th>No. Invoice</th>
-                    <th>Metode</th>
-                    <th>Gross</th>
-                    <th>Disc</th>
-                    <th>Net Sales</th>
-                    <th>DPP (Net/1.155)</th>
-                    <th>Svc (5%)</th>
-                    <th>PB1 (10%)</th>
-                    <th>Grand Total</th>
+                    <th rowspan="2">Tanggal</th>
+                    <th rowspan="2">Gross Sales</th>
+                    <th rowspan="2">Diskon</th>
+                    <th colspan="4">Metode Pembayaran (Net)</th>
+                    <th rowspan="2">Net Sales</th>
+                    <th rowspan="2">DPP</th>
+                    <th rowspan="2">Svc (5%)</th>
+                    <th rowspan="2">PB1 (10%)</th>
+                    <th rowspan="2">Grand Total</th>
+                </tr>
+                <tr>
+                    <th class="bg-method">Tunai</th>
+                    <th class="bg-method">QRIS</th>
+                    <th class="bg-method">BCA</th>
+                    <th class="bg-method">Lainnya</th>
                 </tr>
             </thead>
             <tbody id="report-body">
-                <tr><td colspan="10" class="text-center">Tentukan tanggal lalu klik Tampilkan.</td></tr>
+                <tr><td colspan="12" class="text-center">Silahkan tentukan tanggal.</td></tr>
             </tbody>
             <tfoot id="report-footer"></tfoot>
         </table>
@@ -99,7 +102,7 @@ window.onload = () => {
     document.getElementById('date-end').value = now.toISOString().split('T')[0];
 };
 
-async function loadDetailLaporan() {
+async function loadHarian() {
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
@@ -111,99 +114,90 @@ async function loadDetailLaporan() {
 
     if (error) return alert("Error: " + error.message);
 
-    let html = '';
-    let grandTotals = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
-    let currentDate = null;
-    let daySubtotal = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
+    // Grouping by Date
+    const dailyData = {};
 
-    function formatNum(n) { return Math.round(n).toLocaleString('id-ID'); }
-
-    trx.forEach((row, index) => {
+    trx.forEach(row => {
         const tglStr = new Date(row.created_at).toLocaleDateString('id-ID');
-        
-        // Cek jika ganti tanggal (untuk menyisipkan Subtotal)
-        if (currentDate !== null && currentDate !== tglStr) {
-            html += renderSubtotalRow(currentDate, daySubtotal);
-            // Reset daily subtotal
-            daySubtotal = { gross:0, disc:0, net:0, ddp:0, svc:0, pb1:0, grand:0 };
+        if (!dailyData[tglStr]) {
+            dailyData[tglStr] = {
+                gross: 0, disc: 0, tunai: 0, qris: 0, bca: 0, lainnya: 0, net: 0
+            };
         }
-        currentDate = tglStr;
 
         const gross = parseFloat(row.subtotal || 0);
         const disc = parseFloat(row.diskon || 0);
         const net = gross - disc;
-        const mtd = row.metode_pembayaran || 'Tunai';
+        const mtd = (row.metode_pembayaran || 'Tunai').toLowerCase();
 
-        const ddp = net / 1.155;
-        const svc = ddp * 0.05;
-        const pb1 = (ddp + svc) * 0.10;
-        const grand = net;
+        dailyData[tglStr].gross += gross;
+        dailyData[tglStr].disc += disc;
+        dailyData[tglStr].net += net;
 
-        // Akumulasi
-        daySubtotal.gross += gross; daySubtotal.disc += disc; daySubtotal.net += net;
-        daySubtotal.ddp += ddp; daySubtotal.svc += svc; daySubtotal.pb1 += pb1; daySubtotal.grand += grand;
+        // Sort by Method
+        if (mtd.includes('tunai')) dailyData[tglStr].tunai += net;
+        else if (mtd.includes('qris')) dailyData[tglStr].qris += net;
+        else if (mtd.includes('bca')) dailyData[tglStr].bca += net;
+        else dailyData[tglStr].lainnya += net;
+    });
 
-        grandTotals.gross += gross; grandTotals.disc += disc; grandTotals.net += net;
-        grandTotals.ddp += ddp; grandTotals.svc += svc; grandTotals.pb1 += pb1; grandTotals.grand += grand;
+    let html = '';
+    let grand = { gross:0, disc:0, tunai:0, qris:0, bca:0, lainnya:0, net:0, dpp:0, svc:0, pb1:0, total:0 };
+
+    function formatNum(n) { return Math.round(n).toLocaleString('id-ID'); }
+
+    Object.keys(dailyData).forEach(tgl => {
+        const d = dailyData[tgl];
+        const dpp = d.net / 1.155;
+        const svc = dpp * 0.05;
+        const pb1 = (dpp + svc) * 0.10;
+        const total = d.net;
+
+        grand.gross += d.gross; grand.disc += d.disc; grand.net += d.net;
+        grand.tunai += d.tunai; grand.qris += d.qris; grand.bca += d.bca; grand.lainnya += d.lainnya;
+        grand.dpp += dpp; grand.svc += svc; grand.pb1 += pb1; grand.total += total;
 
         html += `
             <tr>
-                <td class="text-left">${tglStr}</td>
-                <td class="text-left">${row.no_invoice || row.id.substring(0,8)}</td>
-                <td class="text-center"><span class="metode-pill">${mtd}</span></td>
-                <td>${formatNum(gross)}</td>
-                <td>${formatNum(disc)}</td>
-                <td>${formatNum(net)}</td>
-                <td>${formatNum(ddp)}</td>
+                <td class="text-left">${tgl}</td>
+                <td>${formatNum(d.gross)}</td>
+                <td>${formatNum(d.disc)}</td>
+                <td class="bg-method">${formatNum(d.tunai)}</td>
+                <td class="bg-method">${formatNum(d.qris)}</td>
+                <td class="bg-method">${formatNum(d.bca)}</td>
+                <td class="bg-method">${formatNum(d.lainnya)}</td>
+                <td class="font-bold">${formatNum(d.net)}</td>
+                <td>${formatNum(dpp)}</td>
                 <td>${formatNum(svc)}</td>
                 <td>${formatNum(pb1)}</td>
-                <td style="font-weight:bold;">${formatNum(grand)}</td>
+                <td class="font-bold">${formatNum(total)}</td>
             </tr>
         `;
-
-        // Jika data terakhir, cetak subtotal terakhir
-        if (index === trx.length - 1) {
-            html += renderSubtotalRow(currentDate, daySubtotal);
-        }
     });
 
     document.getElementById('report-body').innerHTML = html;
-
-    // Footer Grand Total
     document.getElementById('report-footer').innerHTML = `
         <tr class="grandtotal-row">
-            <td colspan="3">GRAND TOTAL KESELURUHAN</td>
-            <td>${formatNum(grandTotals.gross)}</td>
-            <td>${formatNum(grandTotals.disc)}</td>
-            <td>${formatNum(grandTotals.net)}</td>
-            <td>${formatNum(grandTotals.ddp)}</td>
-            <td>${formatNum(grandTotals.svc)}</td>
-            <td>${formatNum(grandTotals.pb1)}</td>
-            <td>${formatNum(grandTotals.grand)}</td>
-        </tr>
-    `;
-}
-
-function renderSubtotalRow(date, data) {
-    function f(n) { return Math.round(n).toLocaleString('id-ID'); }
-    return `
-        <tr class="subtotal-date-row">
-            <td colspan="3" class="text-left">SUBTOTAL ${date}</td>
-            <td>${f(data.gross)}</td>
-            <td>${f(data.disc)}</td>
-            <td>${f(data.net)}</td>
-            <td>${f(data.ddp)}</td>
-            <td>${f(data.svc)}</td>
-            <td>${f(data.pb1)}</td>
-            <td>${f(data.grand)}</td>
+            <td>TOTAL</td>
+            <td>${formatNum(grand.gross)}</td>
+            <td>${formatNum(grand.disc)}</td>
+            <td>${formatNum(grand.tunai)}</td>
+            <td>${formatNum(grand.qris)}</td>
+            <td>${formatNum(grand.bca)}</td>
+            <td>${formatNum(grand.lainnya)}</td>
+            <td>${formatNum(grand.net)}</td>
+            <td>${formatNum(grand.dpp)}</td>
+            <td>${formatNum(grand.svc)}</td>
+            <td>${formatNum(grand.pb1)}</td>
+            <td>${formatNum(grand.total)}</td>
         </tr>
     `;
 }
 
 function exportToExcel() {
     const table = document.getElementById("table-laporan");
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Detail Penjualan" });
-    XLSX.writeFile(wb, "Laporan_Finex_BeautyBloom.xlsx");
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Harian" });
+    XLSX.writeFile(wb, "Laporan_Harian_Finex.xlsx");
 }
 </script>
 </body>
