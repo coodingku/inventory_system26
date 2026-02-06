@@ -14,7 +14,7 @@
         nav a.active { background: var(--accent); color: white; }
         main { flex: 1; margin-left: 240px; padding: 40px; }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .form-group { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr auto; gap: 15px; margin-bottom: 25px; align-items: end; }
+        .form-group { display: grid; grid-template-columns: 1fr 1.5fr 1.2fr 1.2fr auto; gap: 15px; margin-bottom: 25px; align-items: end; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; }
         button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-add { background: var(--success); color: white; }
@@ -24,6 +24,7 @@
         th { background: #f8f9fa; color: #7f8c8d; text-align: left; padding: 15px; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #f0f2f5; color: #555; }
+        .nominal { font-family: 'Courier New', monospace; font-weight: bold; color: var(--primary); text-align: right; }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; }
     </style>
@@ -49,12 +50,12 @@
             <h3>Tambah Akun Baru</h3>
             <div class="form-group">
                 <div>
-                    <label style="display:block; font-size:12px; margin-bottom:5px;">Kode Akun</label>
-                    <input type="text" id="kode_akun" placeholder="Contoh: 1101">
+                    <label style="display:block; font-size:12px; margin-bottom:5px;">Kode</label>
+                    <input type="text" id="kode_akun" placeholder="1101">
                 </div>
                 <div>
                     <label style="display:block; font-size:12px; margin-bottom:5px;">Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Contoh: Kas Toko">
+                    <input type="text" id="nama_akun" placeholder="Kas Toko">
                 </div>
                 <div>
                     <label style="display:block; font-size:12px; margin-bottom:5px;">Kategori</label>
@@ -66,7 +67,11 @@
                         <option value="Beban">Beban</option>
                     </select>
                 </div>
-                <button class="btn-add" onclick="saveAccount()">Simpan Akun</button>
+                <div>
+                    <label style="display:block; font-size:12px; margin-bottom:5px;">Saldo Awal (Rp)</label>
+                    <input type="number" id="saldo_akun" placeholder="0" value="0">
+                </div>
+                <button class="btn-add" onclick="saveAccount()">Simpan</button>
             </div>
 
             <hr style="border:0; border-top:1px solid #eee; margin: 30px 0;">
@@ -78,31 +83,39 @@
                         <th>Kode</th>
                         <th>Nama Akun</th>
                         <th>Kategori</th>
+                        <th style="text-align: right;">Nominal Saldo</th>
                         <th style="text-align: right;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="4">Memuat data...</td></tr>
+                    <tr><td colspan="5">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
+    <!-- Modal Edit -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0;">Edit Data Akun</h3>
             <label style="font-size:12px;">Kode Akun</label>
             <input type="text" id="edit_kode" readonly style="background:#f0f0f0; margin-bottom:15px;">
+            
             <label style="font-size:12px;">Nama Akun</label>
             <input type="text" id="edit_nama" style="margin-bottom:15px;">
+            
             <label style="font-size:12px;">Kategori</label>
-            <select id="edit_kategori" style="margin-bottom:20px;">
+            <select id="edit_kategori" style="margin-bottom:15px;">
                 <option value="Aset">Aset</option>
                 <option value="Kewajiban">Kewajiban</option>
                 <option value="Modal">Modal</option>
                 <option value="Pendapatan">Pendapatan</option>
                 <option value="Beban">Beban</option>
             </select>
+
+            <label style="font-size:12px;">Nominal Saldo</label>
+            <input type="number" id="edit_saldo" style="margin-bottom:20px;">
+
             <div style="display:flex; gap:10px;">
                 <button class="btn-add" style="flex:1;" onclick="updateAccount()">Update</button>
                 <button style="flex:1; background:#ddd;" onclick="closeModal()">Batal</button>
@@ -120,33 +133,37 @@
     async function loadAccounts() {
         const { data, error } = await FinexDB.from('akun').select('*').order('kode_akun', { ascending: true });
         if (error) {
-            console.error("Fetch error:", error);
-            document.getElementById('table-body').innerHTML = `<tr><td colspan="4" style="color:red">Gagal memuat data. Periksa koneksi atau tabel 'akun'.</td></tr>`;
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="5" style="color:red">Gagal memuat. Pastikan kolom 'saldo' ada di tabel 'akun'.</td></tr>`;
             return;
         }
         
         const tbody = document.getElementById('table-body');
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center">Belum ada akun terdaftar.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center">Belum ada akun terdaftar.</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = data.map(acc => `
+        tbody.innerHTML = data.map(acc => {
+            const saldo = acc.saldo || 0;
+            return `
             <tr>
                 <td><strong>${acc.kode_akun}</strong></td>
                 <td>${acc.nama_akun}</td>
                 <td><span class="badge">${acc.kategori || '-'}</span></td>
+                <td class="nominal">Rp ${saldo.toLocaleString('id-ID')}</td>
                 <td style="text-align: right;">
-                    <button class="btn-edit" onclick="openEdit('${acc.kode_akun}', '${acc.nama_akun}', '${acc.kategori}')">Edit</button>
+                    <button class="btn-edit" onclick="openEdit('${acc.kode_akun}', '${acc.nama_akun}', '${acc.kategori}', ${saldo})">Edit</button>
                     <button class="btn-del" onclick="deleteAccount('${acc.kode_akun}')">Hapus</button>
                 </td>
-            </tr>`).join('');
+            </tr>`;
+        }).join('');
     }
 
     async function saveAccount() {
         const kode = document.getElementById('kode_akun').value.trim();
         const nama = document.getElementById('nama_akun').value.trim();
         const kat = document.getElementById('kategori_akun').value;
+        const saldo = parseFloat(document.getElementById('saldo_akun').value) || 0;
 
         if (!kode || !nama) {
             alert("Harap isi Kode dan Nama Akun!");
@@ -156,23 +173,26 @@
         const { error } = await FinexDB.from('akun').insert([{ 
             kode_akun: kode, 
             nama_akun: nama, 
-            kategori: kat 
+            kategori: kat,
+            saldo: saldo 
         }]);
 
         if (error) {
-            alert("Gagal Simpan: " + error.message);
+            alert("Gagal Simpan: " + error.message + ". (Pastikan kolom 'saldo' sudah ditambahkan di Database)");
         } else {
             document.getElementById('kode_akun').value = '';
             document.getElementById('nama_akun').value = '';
+            document.getElementById('saldo_akun').value = '0';
             loadAccounts();
             showStatus("Akun berhasil ditambahkan!", "var(--success)");
         }
     }
 
-    function openEdit(kode, nama, kategori) {
+    function openEdit(kode, nama, kategori, saldo) {
         document.getElementById('edit_kode').value = kode;
         document.getElementById('edit_nama').value = nama;
         document.getElementById('edit_kategori').value = kategori;
+        document.getElementById('edit_saldo').value = saldo;
         document.getElementById('editModal').style.display = 'flex';
     }
 
@@ -182,7 +202,8 @@
         const kode = document.getElementById('edit_kode').value;
         const payload = {
             nama_akun: document.getElementById('edit_nama').value,
-            kategori: document.getElementById('edit_kategori').value
+            kategori: document.getElementById('edit_kategori').value,
+            saldo: parseFloat(document.getElementById('edit_saldo').value) || 0
         };
         
         const { error } = await FinexDB.from('akun').update(payload).eq('kode_akun', kode);
