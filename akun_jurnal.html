@@ -25,29 +25,23 @@
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 30px; }
         .card h3 { margin-top: 0; border-left: 4px solid var(--beauty); padding-left: 15px; }
 
-        .form-group { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr auto; gap: 15px; align-items: end; }
-        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #7f8c8d; }
-        input, select { padding: 12px; border: 1px solid #dfe6e9; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        .form-group { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+        label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #7f8c8d; }
+        input, select { padding: 10px; border: 1px solid #dfe6e9; border-radius: 6px; width: 100%; font-size: 13px; }
         
-        button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; }
         .btn-add { background: var(--beauty); color: white; }
-        .btn-edit { background: #e3f2fd; color: var(--accent); margin-right: 5px; }
+        .btn-edit { background: #e3f2fd; color: var(--accent); }
         .btn-del { background: #fff5f5; color: var(--danger); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 13px; }
-        td { padding: 15px; border-bottom: 1px solid #f1f2f6; font-size: 14px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 12px; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #f1f2f6; font-size: 14px; }
         
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .badge-aset { background: #e3f2fd; color: #1976d2; }
-        .badge-kewajiban { background: #efebe9; color: #4e342e; }
-        .badge-modal { background: #f3e5f5; color: #7b1fa2; }
-        .badge-pendapatan { background: #e8f5e9; color: #2e7d32; }
-        .badge-beban { background: #fff3e0; color: #e65100; }
+        .badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
 
-        /* Modal Overlay */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px); z-index: 1000; }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -61,30 +55,37 @@
     </nav>
 
     <main>
-        <div class="header" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin:0">Akun <span style="color:var(--beauty)">BeautyBloom</span></h1>
-            <div id="status-msg" style="font-weight: bold; padding: 10px; border-radius: 8px;"></div>
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="margin:0">Manajemen Akun <span style="color:var(--beauty)">BeautyBloom</span></h1>
+            <div id="status-msg"></div>
         </div>
 
         <div class="card">
             <h3>Tambah Akun</h3>
             <div class="form-group">
                 <div>
-                    <label>Kode Akun</label>
-                    <input type="number" id="kode_akun" placeholder="1001" oninput="autoSuggest(this.value)">
+                    <label>Kode Akun (Text)</label>
+                    <input type="text" id="kode_akun" placeholder="3101" oninput="autoSuggest(this.value)">
                 </div>
                 <div>
                     <label>Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Nama Akun">
+                    <input type="text" id="nama_akun" placeholder="Modal Pemilik">
                 </div>
                 <div>
                     <label>Kategori</label>
-                    <select id="kategori_akun">
+                    <select id="kategori_akun" onchange="updateNormalPos()">
                         <option value="aset">aset</option>
                         <option value="kewajiban">kewajiban</option>
                         <option value="modal">modal</option>
                         <option value="pendapatan">pendapatan</option>
                         <option value="beban">beban</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Posisi Normal</label>
+                    <select id="posisi_normal">
+                        <option value="debit">debit</option>
+                        <option value="kredit">kredit</option>
                     </select>
                 </div>
                 <button class="btn-add" onclick="saveAccount()">Simpan</button>
@@ -96,30 +97,28 @@
                 <thead>
                     <tr>
                         <th>Kode</th>
-                        <th>Nama</th>
+                        <th>Nama Akun</th>
                         <th>Kategori</th>
+                        <th>Normal</th>
                         <th style="text-align:right">Aksi</th>
                     </tr>
                 </thead>
-                <tbody id="table-body">
-                    <tr><td colspan="4" style="text-align:center">Memuat data...</td></tr>
-                </tbody>
+                <tbody id="table-body"></tbody>
             </table>
         </div>
     </main>
 
-    <!-- MODAL EDIT -->
     <div id="editModal" class="modal">
         <div class="modal-content">
-            <h3 style="margin-top:0">Edit Akun <span id="display_kode" style="color:var(--beauty)"></span></h3>
+            <h3>Edit Akun <span id="display_kode" style="color:var(--beauty)"></span></h3>
             <input type="hidden" id="edit_id">
-            <div style="margin-bottom:15px">
+            <div style="margin-bottom:12px">
                 <label>Nama Akun</label>
                 <input type="text" id="edit_nama">
             </div>
-            <div style="margin-bottom:20px">
+            <div style="margin-bottom:12px">
                 <label>Kategori</label>
-                <select id="edit_kategori">
+                <select id="edit_kategori" onchange="updateNormalPosEdit()">
                     <option value="aset">aset</option>
                     <option value="kewajiban">kewajiban</option>
                     <option value="modal">modal</option>
@@ -127,9 +126,16 @@
                     <option value="beban">beban</option>
                 </select>
             </div>
+            <div style="margin-bottom:20px">
+                <label>Posisi Normal</label>
+                <select id="edit_posisi">
+                    <option value="debit">debit</option>
+                    <option value="kredit">kredit</option>
+                </select>
+            </div>
             <div style="display:flex; gap:10px">
-                <button class="btn-add" style="flex:1" onclick="updateAccount()">Simpan Perubahan</button>
-                <button style="flex:1; background:#eee; color:#333" onclick="closeModal()">Batal</button>
+                <button class="btn-add" style="flex:1" onclick="updateAccount()">Update</button>
+                <button style="flex:1; background:#eee" onclick="closeModal()">Batal</button>
             </div>
         </div>
     </div>
@@ -142,103 +148,102 @@
     window.onload = loadData;
 
     function autoSuggest(val) {
-        if (!val) return;
         const cat = document.getElementById('kategori_akun');
         if (val.startsWith('1')) cat.value = 'aset';
         else if (val.startsWith('2')) cat.value = 'kewajiban';
         else if (val.startsWith('3')) cat.value = 'modal';
         else if (val.startsWith('4')) cat.value = 'pendapatan';
         else if (val.startsWith('5')) cat.value = 'beban';
+        updateNormalPos();
+    }
+
+    function updateNormalPos() {
+        const kat = document.getElementById('kategori_akun').value;
+        const pos = document.getElementById('posisi_normal');
+        pos.value = (kat === 'aset' || kat === 'beban') ? 'debit' : 'kredit';
+    }
+
+    function updateNormalPosEdit() {
+        const kat = document.getElementById('edit_kategori').value;
+        const pos = document.getElementById('edit_posisi');
+        pos.value = (kat === 'aset' || kat === 'beban') ? 'debit' : 'kredit';
     }
 
     async function loadData() {
-        try {
-            const { data: accounts, error } = await FinexDB.from('akun').select('*').order('kode_akun');
-            if (error) throw error;
+        const { data: accounts, error } = await FinexDB.from('akun').select('*').order('kode_akun');
+        if (error) return console.error(error);
 
-            const tbody = document.getElementById('table-body');
-            tbody.innerHTML = accounts.map(acc => `
-                <tr>
-                    <td><b>${acc.kode_akun}</b></td>
-                    <td>${acc.nama_akun}</td>
-                    <td><span class="badge badge-${acc.kategori}">${acc.kategori}</span></td>
-                    <td style="text-align:right">
-                        <button class="btn-edit" onclick="openEdit(${acc.kode_akun},'${acc.nama_akun}','${acc.kategori}')">Edit</button>
-                        <button class="btn-del" onclick="deleteAcc(${acc.kode_akun})">Hapus</button>
-                    </td>
-                </tr>`).join('');
-        } catch (err) {
-            showStatus("Gagal memuat: " + err.message, "var(--danger)");
-        }
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = accounts.map(acc => `
+            <tr>
+                <td><b>${acc.kode_akun}</b></td>
+                <td>${acc.nama_akun}</td>
+                <td><span class="badge" style="background:#eee">${acc.kategori}</span></td>
+                <td><small>${acc.posisi_normal}</small></td>
+                <td style="text-align:right">
+                    <button class="btn-edit" onclick="openEdit('${acc.kode_akun}','${acc.nama_akun}','${acc.kategori}','${acc.posisi_normal}')">Edit</button>
+                    <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
+                </td>
+            </tr>`).join('');
     }
 
     async function saveAccount() {
-        const kode = parseInt(document.getElementById('kode_akun').value);
-        const nama = document.getElementById('nama_akun').value;
-        const kat = document.getElementById('kategori_akun').value;
+        const payload = {
+            kode_akun: document.getElementById('kode_akun').value, // Dikirim sebagai string sesuai skema
+            nama_akun: document.getElementById('nama_akun').value,
+            kategori: document.getElementById('kategori_akun').value,
+            posisi_normal: document.getElementById('posisi_normal').value,
+            saldo: 0
+        };
 
-        if (!kode || !nama) return showStatus("Lengkapi data!", "orange");
-
-        const { error } = await FinexDB.from('akun').insert([{ 
-            kode_akun: kode, 
-            nama_akun: nama, 
-            kategori: kat 
-        }]);
-
-        if (error) {
-            showStatus("Error: " + error.message, "var(--danger)");
-        } else {
-            showStatus("Berhasil ditambah", "var(--success)");
-            location.reload();
-        }
+        const { error } = await FinexDB.from('akun').insert([payload]);
+        if (error) showStatus("Error: " + error.message, "var(--danger)");
+        else { showStatus("Berhasil!", "var(--success)"); loadData(); }
     }
 
-    function openEdit(id, nama, kat) {
+    function openEdit(id, nama, kat, pos) {
         document.getElementById('edit_id').value = id;
         document.getElementById('display_kode').innerText = id;
         document.getElementById('edit_nama').value = nama;
         document.getElementById('edit_kategori').value = kat;
+        document.getElementById('edit_posisi').value = pos;
         document.getElementById('editModal').style.display = 'flex';
     }
 
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
     async function updateAccount() {
-        // Konversi ID ke Number untuk filter eq()
-        const id = Number(document.getElementById('edit_id').value);
-        const nama = document.getElementById('edit_nama').value;
-        const kat = document.getElementById('edit_kategori').value;
+        const id = document.getElementById('edit_id').value;
+        const payload = {
+            nama_akun: document.getElementById('edit_nama').value,
+            kategori: document.getElementById('edit_kategori').value,
+            posisi_normal: document.getElementById('edit_posisi').value
+        };
 
-        try {
-            // Melakukan update
-            const { error } = await FinexDB.from('akun')
-                .update({ nama_akun: nama, kategori: kat })
-                .eq('kode_akun', id);
-            
-            if (error) throw error;
-
-            showStatus("✅ Akun " + id + " berhasil diperbarui", "var(--success)");
+        // Perbaikan Utama: Mengirim ID sebagai STRING agar cocok dengan kolom "text"
+        const { error } = await FinexDB.from('akun')
+            .update(payload)
+            .eq('kode_akun', String(id)); 
+        
+        if (error) {
+            showStatus("Gagal: " + error.message, "var(--danger)");
+        } else {
+            showStatus("✅ Berhasil diperbarui", "var(--success)");
             closeModal();
             loadData();
-        } catch (err) {
-            // Jika Error 400 terjadi, tampilkan pesan lebih jelas
-            console.error("Update Error:", err);
-            showStatus("❌ Gagal: " + err.message, "var(--danger)");
         }
     }
 
     async function deleteAcc(id) {
-        if(!confirm("Hapus akun?")) return;
-        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', Number(id));
-        if (error) showStatus(error.message, "var(--danger)");
-        else loadData();
+        if(!confirm("Hapus?")) return;
+        await FinexDB.from('akun').delete().eq('kode_akun', String(id));
+        loadData();
     }
 
     function showStatus(msg, color) {
         const s = document.getElementById('status-msg');
         s.innerText = msg; s.style.color = color;
-        s.style.background = "#fff";
-        setTimeout(() => { s.innerText = ''; }, 4000);
+        setTimeout(() => s.innerText = '', 3000);
     }
 </script>
 </body>
