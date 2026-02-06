@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BeautyBloom | Jurnal Umum</title>
+    <title>BeautyBloom | Jurnal Umum Anti-Duplikasi</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
@@ -21,33 +21,44 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .container-report { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
-        .toolbar { display: flex; gap: 10px; margin-bottom: 25px; align-items: end; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+        .toolbar { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        input[type="date"], select, .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; }
+        input[type="date"], select, .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; min-width: 150px; }
         
+        /* Switch Style */
+        .switch-container { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 15px; border-radius: 30px; border: 1px solid #ddd; cursor: pointer; user-select: none; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
         .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
-        .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: #27ae60; color: white; }
 
-        .badge-closing { background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; border: 1px solid #ffe0b2; }
-        .badge-invoice { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; border: 1px solid #c8e6c9; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .badge-closing { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        .badge-invoice { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         th { background: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; border-bottom: 2px solid #eee; text-transform: uppercase; font-size: 11px; }
         td { padding: 12px; border-bottom: 1px solid #eee; color: var(--primary); vertical-align: top; }
         
+        .row-closing { background-color: #fafafa; font-style: italic; color: #999; }
         .debit-val { text-align: right; color: var(--success); font-weight: bold; }
         .kredit-val { text-align: right; color: var(--danger); font-weight: bold; }
         
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
-        .stat-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
-        .stat-card label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
-        .stat-card span { font-size: 18px; font-weight: bold; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; position: relative; overflow: hidden; }
+        .stat-card label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+        .stat-card span { font-size: 22px; font-weight: 800; display: block; }
+        .stat-card.active-filter { border: 2px solid var(--accent); }
 
-        .warning-box { background: #fff9db; border: 1px solid #fab005; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; }
+        .warning-banner { background: #fff4e6; border-left: 5px solid #fd7e14; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: flex; align-items: center; justify-content: space-between; }
 
         @media print {
-            nav, .toolbar, .no-print { display: none !important; }
+            nav, .toolbar, .no-print, .warning-banner { display: none !important; }
             main { margin-left: 0; padding: 0; }
             .container-report { box-shadow: none; padding: 0; }
         }
@@ -67,43 +78,45 @@
 <main>
     <div class="header">
         <div>
-            <h2 style="margin:0;">Buku Jurnal Umum</h2>
-            <p style="color: #666; font-size: 13px;">Audit Transaksi Keuangan BeautyBloom</p>
+            <h2 style="margin:0;">Jurnal Umum (Final Audit)</h2>
+            <p style="color: #666; font-size: 13px;">Kelola transparansi data antara Invoice dan Closing Shift</p>
         </div>
-        <div style="display: flex; gap: 10px;" class="no-print">
-            <button class="btn btn-export" onclick="exportToExcel()">📥 Excel</button>
+        <div class="no-print" style="display:flex; gap:10px;">
+            <button class="btn btn-export" onclick="exportToExcel()">📥 Export Excel</button>
             <button class="btn" style="background:#eee" onclick="window.print()">🖨️ Cetak</button>
         </div>
     </div>
 
-    <div class="warning-box no-print">
-        <span>⚠️</span>
-        <div><b>Info Duplikasi:</b> Jika total terlihat ganda, gunakan filter <b>"Sembunyikan Closing"</b> untuk hanya melihat riwayat invoice pelanggan, atau sebaliknya.</div>
+    <div class="warning-banner no-print" id="status-banner">
+        <div>
+            <strong>🔍 Status Perhitungan:</strong> 
+            <span id="calculation-mode">Menampilkan SEMUA data (Potensi Double Counting)</span>
+        </div>
+        <label class="switch-container">
+            <span style="font-size: 12px; font-weight: bold; color: var(--accent)">Mode Bersih (No Closing)</span>
+            <div class="switch">
+                <input type="checkbox" id="mode-pajak" onchange="fetchJurnal()">
+                <span class="slider"></span>
+            </div>
+        </label>
     </div>
 
     <div class="container-report">
         <div class="toolbar no-print">
             <div class="filter-group">
-                <label>DARI TANGGAL</label>
+                <label>PERIODE AWAL</label>
                 <input type="date" id="date-from">
             </div>
             <div class="filter-group">
-                <label>SAMPAI TANGGAL</label>
+                <label>PERIODE AKHIR</label>
                 <input type="date" id="date-to">
             </div>
             <div class="filter-group">
-                <label>TIPE DATA</label>
-                <select id="filter-type" onchange="fetchJurnal()">
-                    <option value="all">Semua Transaksi</option>
-                    <option value="no-closing">Hanya Invoice (Tanpa Closing)</option>
-                    <option value="only-closing">Hanya Closing Shift</option>
-                </select>
+                <label>CARI TRANSAKSI</label>
+                <input type="text" id="search-box" class="search-input" placeholder="No. Bukti / Ket..." onkeyup="filterTable()">
             </div>
-            <div class="filter-group">
-                <label>CARI</label>
-                <input type="text" id="search-box" class="search-input" placeholder="No. Bukti..." onkeyup="filterTable()">
-            </div>
-            <button class="btn btn-filter" onclick="fetchJurnal()">Refresh 🔄</button>
+            <div style="flex:1"></div>
+            <button class="btn" style="background:var(--primary); color:white" onclick="fetchJurnal()">Tampilkan Data ⚡</button>
         </div>
 
         <table id="table-jurnal">
@@ -111,28 +124,28 @@
                 <tr>
                     <th>Waktu</th>
                     <th>No. Bukti</th>
-                    <th>Keterangan</th>
+                    <th>Keterangan Transaksi</th>
                     <th>Ref</th>
                     <th style="text-align: right;">Debit</th>
                     <th style="text-align: right;">Kredit</th>
                 </tr>
             </thead>
             <tbody id="body-jurnal">
-                <tr><td colspan="6" style="text-align:center; padding:20px;">Memuat data...</td></tr>
+                <tr><td colspan="6" style="text-align:center; padding:40px; color:#999;">Klik "Tampilkan Data" untuk memuat...</td></tr>
             </tbody>
         </table>
 
         <div class="summary-grid">
             <div class="stat-card">
-                <label>Total Debit</label>
+                <label>Total Debit Terhitung</label>
                 <span id="total-debit" style="color:var(--success)">Rp 0</span>
             </div>
             <div class="stat-card">
-                <label>Total Kredit</label>
+                <label>Total Kredit Terhitung</label>
                 <span id="total-kredit" style="color:var(--danger)">Rp 0</span>
             </div>
-            <div class="stat-card" style="border-left: 4px solid var(--accent)">
-                <label>Saldo (D - K)</label>
+            <div class="stat-card" style="background: var(--primary); color: white;">
+                <label style="color: rgba(255,255,255,0.6)">Saldo Akhir Periode</label>
                 <span id="total-netto">Rp 0</span>
             </div>
         </div>
@@ -154,15 +167,26 @@
     async function fetchJurnal() {
         const from = document.getElementById('date-from').value;
         const to = document.getElementById('date-to').value;
-        const filterType = document.getElementById('filter-type').value;
+        const isModeBersih = document.getElementById('mode-pajak').checked;
         
+        // Update UI Status
+        const banner = document.getElementById('status-banner');
+        const modeText = document.getElementById('calculation-mode');
+        if(isModeBersih) {
+            banner.style.borderLeftColor = "var(--success)";
+            banner.style.background = "#f0fdf4";
+            modeText.innerHTML = "<b style='color:var(--success)'>MODE BERSIH AKTIF</b>: Data Closing Shift otomatis diabaikan dari tabel & saldo.";
+        } else {
+            banner.style.borderLeftColor = "#fd7e14";
+            banner.style.background = "#fff4e6";
+            modeText.innerHTML = "Menampilkan SEMUA data (Hati-hati: Angka Closing & Invoice akan terjumlah dua kali)";
+        }
+
         try {
-            // Ambil Nama Akun
             const { data: akunData } = await supabaseClient.from('akun').select('kode_akun, nama_akun');
             const akunMap = {};
             akunData?.forEach(a => akunMap[String(a.kode_akun)] = a.nama_akun);
 
-            // Ambil Jurnal
             let query = supabaseClient.from('jurnal_umum').select('*')
                 .gte('tanggal', from + 'T00:00:00')
                 .lte('tanggal', to + 'T23:59:59')
@@ -171,20 +195,16 @@
             const { data, error } = await query;
             if (error) throw error;
 
-            let filteredData = data;
-            
-            // Logika Filtering untuk menghindari double counting
-            if (filterType === 'no-closing') {
-                filteredData = data.filter(item => !item.keterangan.toLowerCase().includes('closing'));
-            } else if (filterType === 'only-closing') {
-                filteredData = data.filter(item => item.keterangan.toLowerCase().includes('closing'));
+            // CORE LOGIC: Jika Mode Bersih, buang semua data yang punya kata "Closing"
+            let finalData = data;
+            if (isModeBersih) {
+                finalData = data.filter(item => !item.keterangan.toLowerCase().includes('closing'));
             }
 
-            renderTable(filteredData, akunMap);
+            renderTable(finalData, akunMap);
 
         } catch (err) {
             console.error(err);
-            document.getElementById('body-jurnal').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat data.</td></tr>`;
         }
     }
 
@@ -192,36 +212,37 @@
         let html = '';
         let sDeb = 0, sKre = 0;
 
-        if (data.length === 0) {
-            html = '<tr><td colspan="6" style="text-align:center; padding:30px;">Data kosong.</td></tr>';
-        } else {
-            data.forEach(j => {
-                const d = parseFloat(j.debit || 0);
-                const k = parseFloat(j.kredit || 0);
-                sDeb += d; sKre += k;
+        data.forEach(j => {
+            const d = parseFloat(j.debit || 0);
+            const k = parseFloat(j.kredit || 0);
+            
+            // Hitung hanya data yang masuk ke list
+            sDeb += d; sKre += k;
 
-                const isClosing = j.keterangan.toLowerCase().includes('closing');
-                const badge = isClosing ? '<span class="badge-closing">CLOSING</span>' : '<span class="badge-invoice">INVOICE</span>';
+            const isClosing = j.keterangan.toLowerCase().includes('closing');
+            const badge = isClosing ? 
+                '<span class="badge badge-closing">Closing Shift</span>' : 
+                '<span class="badge badge-invoice">Invoice POS</span>';
+            const rowClass = isClosing ? 'row-closing' : '';
 
-                html += `
-                    <tr>
-                        <td style="font-size:11px;">${new Date(j.tanggal).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}<br>${new Date(j.tanggal).toLocaleDateString('id-ID')}</td>
-                        <td><code style="font-size:11px;">${j.no_bukti || '-'}</code></td>
-                        <td>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <b>${j.keterangan}</b> ${badge}
-                            </div>
-                            <small style="color:#888">${akunMap[j.kode_akun] || 'N/A'}</small>
-                        </td>
-                        <td><b style="color:var(--accent)">${j.kode_akun}</b></td>
-                        <td class="debit-val">${d > 0 ? d.toLocaleString() : '-'}</td>
-                        <td class="kredit-val">${k > 0 ? k.toLocaleString() : '-'}</td>
-                    </tr>
-                `;
-            });
-        }
+            html += `
+                <tr class="${rowClass}">
+                    <td><small>${new Date(j.tanggal).toLocaleDateString('id-ID')}<br>${new Date(j.tanggal).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</small></td>
+                    <td><code>${j.no_bukti || '-'}</code></td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <strong>${j.keterangan}</strong> ${badge}
+                        </div>
+                        <span style="font-size:12px; color:#666">${akunMap[j.kode_akun] || 'Akun: ' + j.kode_akun}</span>
+                    </td>
+                    <td><b style="color:var(--accent)">${j.kode_akun}</b></td>
+                    <td class="debit-val">${d > 0 ? d.toLocaleString() : '-'}</td>
+                    <td class="kredit-val">${k > 0 ? k.toLocaleString() : '-'}</td>
+                </tr>
+            `;
+        });
 
-        document.getElementById('body-jurnal').innerHTML = html;
+        document.getElementById('body-jurnal').innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding:30px;">Tidak ada data pada periode ini.</td></tr>';
         document.getElementById('total-debit').innerText = "Rp " + sDeb.toLocaleString();
         document.getElementById('total-kredit').innerText = "Rp " + sKre.toLocaleString();
         document.getElementById('total-netto').innerText = "Rp " + (sDeb - sKre).toLocaleString();
@@ -235,7 +256,7 @@
 
     function exportToExcel() {
         const wb = XLSX.utils.table_to_book(document.getElementById("table-jurnal"));
-        XLSX.writeFile(wb, `Jurnal_BeautyBloom.xlsx`);
+        XLSX.writeFile(wb, `Jurnal_Audit_BeautyBloom.xlsx`);
     }
 </script>
 </body>
