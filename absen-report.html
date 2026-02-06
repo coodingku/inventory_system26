@@ -30,9 +30,11 @@
         label { font-size: 11px; font-weight: bold; color: #888; text-transform: uppercase; }
         input, button { padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none; }
         
+        .btn-group { display: flex; gap: 10px; }
         .btn-search { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-search:hover { background: #1a252f; }
         .btn-excel { background: var(--success); color: white; border: none; cursor: pointer; font-weight: bold; padding: 10px 20px; }
+        .btn-print { background: #555; color: white; border: none; cursor: pointer; font-weight: bold; padding: 10px 20px; }
 
         .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
@@ -46,6 +48,17 @@
         .badge-success { background: #e8f5e9; color: #2e7d32; }
         .badge-danger { background: #ffebee; color: #c62828; }
         
+        /* CSS KHUSUS CETAK */
+        @media print {
+            nav, .filter-card, .btn-group, .no-print { display: none !important; }
+            main { margin-left: 0; padding: 0; }
+            body { background: white; }
+            .table-container { box-shadow: none; border: 1px solid #eee; }
+            .staff-img { border: none; }
+            .header p { display: block; }
+            h1 { font-size: 20px; }
+        }
+
         @media (max-width: 1024px) {
             nav { width: 70px; padding: 10px; }
             nav h2, nav span { display: none; }
@@ -56,7 +69,7 @@
 </head>
 <body>
 
-    <nav>
+    <nav class="no-print">
         <h2>Finex Pos</h2>
         <a href="dashboard.html"><span>📊 Dashboard</span></a>
         <a href="pos.html"><span>🛒 Kasir BeautyBloom</span></a>
@@ -72,11 +85,15 @@
             <div>
                 <h1 style="margin:0; font-size: 24px;">Laporan Absensi Staff</h1>
                 <p style="color: #888; font-size: 14px; margin: 5px 0 0 0;">Riwayat kehadiran di BeautyBloom.</p>
+                <p id="print-range" style="display:none; font-size: 12px; color: #333; margin-top: 5px;"></p>
             </div>
-            <button class="btn-excel" onclick="exportToExcel()">📊 Export Excel</button>
+            <div class="btn-group no-print">
+                <button class="btn-print" onclick="preparePrint()">🖨️ Cetak PDF</button>
+                <button class="btn-excel" onclick="exportToExcel()">📊 Export Excel</button>
+            </div>
         </div>
 
-        <div class="filter-card">
+        <div class="filter-card no-print">
             <div class="filter-group">
                 <label>Dari Tanggal</label>
                 <input type="date" id="date-start">
@@ -185,6 +202,21 @@
                     </tr>
                 `;
             }).join('');
+        }
+
+        function preparePrint() {
+            const start = document.getElementById('date-start').value;
+            const end = document.getElementById('date-end').value;
+            const label = document.getElementById('print-range');
+            
+            // Tampilkan range tanggal di hasil cetak
+            label.innerText = `Periode: ${start} s/d ${end}`;
+            label.style.display = "block";
+            
+            window.print();
+            
+            // Sembunyikan kembali setelah dialog print ditutup
+            setTimeout(() => { label.style.display = "none"; }, 1000);
         }
 
         function exportToExcel() {
