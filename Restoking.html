@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Master Produk BeautyBloom</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #fdf2f8; --white: #ffffff; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
+        
+        /* Sidebar */
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 10; }
+        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: #ff85a2; text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        /* Notification/Request Area */
+        .notification-area { background: #fff; border-left: 5px solid var(--warning); padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .request-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .request-item:last-child { border-bottom: none; }
+
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .search-box { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; min-width: 250px; }
+        
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: 0.2s; font-size: 13px; }
+        .btn:active { transform: scale(0.98); }
+        .btn-add { background: var(--accent); color: white; }
+        .btn-req { background: var(--warning); color: white; font-size: 11px; padding: 5px 10px; }
+        .btn-approve { background: var(--success); color: white; padding: 5px 10px; }
+
+        /* Table Card */
+        .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; background: #fff1f2; border-bottom: 2px solid #eee; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; }
+        .stock-low { background: #fee2e2; color: #991b1b; }
+        .stock-ok { background: #e0f2fe; color: #0369a1; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 450px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
+    <a href="produk.html" class="active">📦 Produk BeautyBloom</a>
+    <a href="kategori.html">📁 Kategori</a>
+    <a href="gudang.html">🏠 Gudang</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="pos.html" style="background: var(--success); color: white; text-align:center; margin-top: 10px;">🛒 Kasir</a>
+</nav>
+
+<main>
+    <div class="header-section">
+        <h1>📦 Management Produk</h1>
+        <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
+    </div>
+
+    <!-- Area Notifikasi Request Restock untuk Admin -->
+    <div id="admin-notifications" class="notification-area" style="display:none;">
+        <h4 style="margin:0 0 10px 0; color:var(--warning);">🔔 Permintaan Restock dari Staff</h4>
+        <div id="request-list"></div>
+    </div>
+
+    <div class="action-bar">
+        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk..." onkeyup="filterProduk()">
+    </div>
+
+    <div class="card-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Barcode</th>
+                    <th>Nama Produk</th>
+                    <th>Harga Jual</th>
+                    <th>Stok Toko</th>
+                    <th>Stok Gudang</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="product-list"></tbody>
+        </table>
+    </div>
+</main>
+
+<!-- Modal Input Manual Restock -->
+<div id="restockModal" class="modal">
+    <div class="modal-content">
+        <h3>Manual Restocking</h3>
+        <p id="restock-item-name" style="font-weight:bold; color:var(--accent);"></p>
+        <div class="form-group">
+            <label>Jumlah yang akan dipindah ke Toko</label>
+            <input type="number" id="restock-qty" placeholder="Masukkan jumlah">
+            <small id="max-gudang" style="color:#666;"></small>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" style="background:#eee; flex:1" onclick="closeRestockModal()">Batal</button>
+            <button class="btn btn-approve" style="flex:2; justify-content:center;" onclick="processRestock()">Proses Restock</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Produk -->
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle">Tambah Produk</h3>
+        <form id="productForm">
+            <input type="hidden" id="prod-id">
+            <div class="form-group"><label>Nama Produk</label><input type="text" id="prod-nama" required></div>
+            <div class="form-group"><label>Harga Jual</label><input type="number" id="prod-harga" required></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group"><label>Stok Toko</label><input type="number" id="prod-stok-toko" value="0"></div>
+                <div class="form-group"><label>Stok Gudang</label><input type="number" id="prod-stok-gudang" value="0"></div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn" style="background:#eee; flex:1" onclick="closeModal()">Batal</button>
+                <button type="submit" class="btn btn-add" style="flex:2; justify-content:center;">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let masterData = [];
+    let activeRestockId = null;
+
+    window.onload = () => fetchProduk();
+
+    async function fetchProduk() {
+        const { data } = await FinexDB.from('produk').select('*').order('nama_barang');
+        masterData = data || [];
+        renderTable(masterData);
+        updateNotificationArea();
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('product-list');
+        tbody.innerHTML = data.map(p => {
+            const lowStock = p.stok_sekarang <= 5;
+            return `
+            <tr>
+                <td><small>${p.kode_barang || '-'}</small></td>
+                <td><b>${p.nama_barang}</b></td>
+                <td>Rp ${p.harga_jual.toLocaleString()}</td>
+                <td><span class="badge-stock ${lowStock ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang}</span></td>
+                <td><span class="badge-stock" style="background:#f3f4f6">${p.stok_gudang || 0}</span></td>
+                <td>
+                    ${lowStock ? `<button class="btn btn-req" onclick="requestRestock('${p.id}')">📢 Request Restock</button>` : ''}
+                    <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold; margin-left:10px;">Edit</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    // FUNGSI STAFF: Mengirim permintaan ke admin (lokal dalam array untuk simulasi, idealnya masuk tabel 'requests' di DB)
+    let restockRequests = [];
+    function requestRestock(id) {
+        const p = masterData.find(x => x.id === id);
+        if (!restockRequests.find(r => r.id === id)) {
+            restockRequests.push(p);
+            alert(`Permintaan restock untuk ${p.nama_barang} telah dikirim ke Admin.`);
+            updateNotificationArea();
+        } else {
+            alert("Permintaan sudah dikirim sebelumnya.");
+        }
+    }
+
+    // FUNGSI ADMIN: Melihat notifikasi dan melakukan tindakan manual
+    function updateNotificationArea() {
+        const area = document.getElementById('admin-notifications');
+        const list = document.getElementById('request-list');
+        
+        if (restockRequests.length > 0) {
+            area.style.display = 'block';
+            list.innerHTML = restockRequests.map(r => `
+                <div class="request-item">
+                    <span><strong>${r.nama_barang}</strong> (Stok Toko: ${r.stok_sekarang} | Gudang: ${r.stok_gudang})</span>
+                    <button class="btn btn-approve" onclick="openRestockModal('${r.id}')">✅ Restock Manual</button>
+                </div>
+            `).join('');
+        } else {
+            area.style.display = 'none';
+        }
+    }
+
+    function openRestockModal(id) {
+        const p = masterData.find(x => x.id === id);
+        activeRestockId = id;
+        document.getElementById('restock-item-name').innerText = p.nama_barang;
+        document.getElementById('max-gudang').innerText = `Maksimal stok tersedia di gudang: ${p.stok_gudang}`;
+        document.getElementById('restock-qty').value = '';
+        document.getElementById('restockModal').style.display = 'flex';
+    }
+
+    function closeRestockModal() { document.getElementById('restockModal').style.display = 'none'; }
+
+    async function processRestock() {
+        const qty = parseInt(document.getElementById('restock-qty').value);
+        if (!qty || qty <= 0) return alert("Masukkan jumlah yang valid");
+
+        const p = masterData.find(x => x.id === activeRestockId);
+        if (qty > p.stok_gudang) return alert("Stok gudang tidak cukup!");
+
+        // Update database secara manual
+        const { error } = await FinexDB.from('produk').update({
+            stok_sekarang: p.stok_sekarang + qty,
+            stok_gudang: p.stok_gudang - qty
+        }).eq('id', p.id);
+
+        if (!error) {
+            // Hapus dari list request
+            restockRequests = restockRequests.filter(r => r.id !== activeRestockId);
+            closeRestockModal();
+            fetchProduk();
+            alert("Restocking Berhasil!");
+        } else {
+            alert(error.message);
+        }
+    }
+
+    // Logika Modal Produk Standar
+    function openModal() {
+        document.getElementById('productForm').reset();
+        document.getElementById('prod-id').value = '';
+        document.getElementById('productModal').style.display = 'flex';
+    }
+    function closeModal() { document.getElementById('productModal').style.display = 'none'; }
+
+    document.getElementById('productForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prod-id').value;
+        const payload = {
+            nama_barang: document.getElementById('prod-nama').value,
+            harga_jual: parseInt(document.getElementById('prod-harga').value),
+            stok_sekarang: parseInt(document.getElementById('prod-stok-toko').value),
+            stok_gudang: parseInt(document.getElementById('prod-stok-gudang').value),
+            gudang: 'BeautyBloom'
+        };
+        if (id) await FinexDB.from('produk').update(payload).eq('id', id);
+        else await FinexDB.from('produk').insert([payload]);
+        closeModal(); fetchProduk();
+    };
+
+    function editProduk(id) {
+        const p = masterData.find(x => x.id === id);
+        document.getElementById('prod-id').value = p.id;
+        document.getElementById('prod-nama').value = p.nama_barang;
+        document.getElementById('prod-harga').value = p.harga_jual;
+        document.getElementById('prod-stok-toko').value = p.stok_sekarang;
+        document.getElementById('prod-stok-gudang').value = p.stok_gudang || 0;
+        document.getElementById('productModal').style.display = 'flex';
+    }
+
+    function filterProduk() {
+        const q = document.getElementById('searchBar').value.toLowerCase();
+        renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q)));
+    }
+</script>
+</body>
+</html>
