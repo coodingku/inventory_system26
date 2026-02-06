@@ -34,19 +34,18 @@
         label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #7f8c8d; }
         input, select { padding: 10px; border: 1px solid #dfe6e9; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 13px; outline: none; transition: 0.2s; }
         input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1); }
-        input[readonly] { background: #f9f9f9; cursor: not-allowed; }
+        input[readonly] { background: #f1f2f6; cursor: not-allowed; color: #7f8c8d; }
         
         .select-group { display: flex; gap: 5px; }
         .btn-plus { background: var(--accent); color: white; border: none; padding: 0 12px; border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1; transition: 0.2s; }
-        .btn-plus:hover { background: #2980b9; transform: scale(1.05); }
 
         button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; }
         .btn-add { background: var(--beauty); color: white; }
         .btn-update { background: var(--warning); color: white; }
         .btn-cancel { background: #eee; color: #666; }
         
-        .btn-edit { background: #e3f2fd; color: var(--accent); border: 1px solid #bbdefb; }
-        .btn-del { background: #fff5f5; color: var(--danger); border: 1px solid #ffcdd2; }
+        .btn-edit { background: #e3f2fd; color: var(--accent); border: 1px solid #bbdefb; padding: 6px 12px; }
+        .btn-del { background: #fff5f5; color: var(--danger); border: 1px solid #ffcdd2; padding: 6px 12px; }
 
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 11px; text-transform: uppercase; }
@@ -163,51 +162,42 @@
         await loadData();
     };
 
-    // 1. Ambil data kategori dari tabel kategori_akun
+    // Memastikan kategori terupdate di dropdown
     async function loadKategori() {
         try {
             const { data, error } = await FinexDB.from('kategori_akun').select('*').order('nama_kategori');
             if (error) throw error;
 
             const select = document.getElementById('kategori_id');
-            if (data.length === 0) {
-                select.innerHTML = '<option value="">Kosong, tambah kategori baru</option>';
-            } else {
+            if (data && data.length > 0) {
                 select.innerHTML = data.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`).join('');
+            } else {
+                select.innerHTML = '<option value="">Kosong, Klik +</option>';
             }
         } catch (err) {
             console.error("Gagal load kategori:", err);
         }
     }
 
-    // 2. Tambah kategori baru ke tabel kategori_akun
     async function addNewCategory() {
         const input = document.getElementById('new-cat-name');
         const name = input.value.trim();
         if (!name) return;
 
-        const btn = document.getElementById('btn-save-cat');
-        btn.disabled = true;
-        btn.innerText = "Proses...";
-
         try {
             const { error } = await FinexDB.from('kategori_akun').insert([{ nama_kategori: name }]);
             if (error) throw error;
 
-            showStatus("Kategori '" + name + "' berhasil disimpan", "var(--success)");
+            showStatus("Kategori ditambahkan", "var(--success)");
             input.value = '';
             closeCatModal();
             await loadKategori();
             document.getElementById('kategori_id').value = name;
         } catch (err) {
-            showStatus("Gagal: " + err.message, "var(--danger)");
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Simpan";
+            showStatus("Kategori mungkin sudah ada", "var(--danger)");
         }
     }
 
-    // 3. Simpan Akun (Link ke kategori melalui nama_kategori)
     async function saveAccount() {
         const kode = document.getElementById('kode_akun').value;
         const nama = document.getElementById('nama_akun').value;
@@ -215,49 +205,66 @@
         const posisi = document.getElementById('posisi_normal').value;
         const saldo = parseFloat(document.getElementById('saldo_awal').value) || 0;
 
-        if (!kode || !nama || !kategori) return showStatus("Lengkapi semua field!", "var(--danger)");
+        if (!kode || !nama || !kategori) {
+            showStatus("Lengkapi Nama dan Kategori!", "var(--danger)");
+            return;
+        }
 
         const payload = { 
-            kode_akun: kode, 
             nama_akun: nama, 
             kategori: kategori, 
             posisi_normal: posisi, 
             saldo: saldo 
         };
 
-        let res;
-        if (isEditMode) {
-            res = await FinexDB.from('akun').update(payload).eq('kode_akun', editId);
-        } else {
-            res = await FinexDB.from('akun').insert([payload]);
-        }
+        const btn = document.getElementById('btn-save');
+        btn.disabled = true;
 
-        if (res.error) {
-            showStatus("Gagal: " + res.error.message, "var(--danger)");
-        } else {
-            showStatus("Data akun berhasil disimpan", "var(--success)");
+        try {
+            let error;
+            if (isEditMode) {
+                // Update menggunakan kode_akun sebagai identitas unik
+                const result = await FinexDB.from('akun').update(payload).eq('kode_akun', editId);
+                error = result.error;
+            } else {
+                // Insert baru termasuk kode_akun
+                const result = await FinexDB.from('akun').insert([{...payload, kode_akun: kode}]);
+                error = result.error;
+            }
+
+            if (error) throw error;
+
+            showStatus("Berhasil disimpan", "var(--success)");
             resetForm();
-            loadData();
+            await loadData();
+        } catch (err) {
+            console.error("Save Error:", err);
+            showStatus("Error: " + err.message, "var(--danger)");
+        } finally {
+            btn.disabled = false;
         }
     }
 
     async function loadData() {
         try {
-            // Kita join data akun dengan kategori jika diperlukan, 
-            // namun di sini kita asumsikan 'kategori' di tabel 'akun' menyimpan nama dari 'kategori_akun'
             const { data, error } = await FinexDB.from('akun').select('*').order('kode_akun');
             if (error) throw error;
 
             const tbody = document.getElementById('table-body');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Belum ada akun</td></tr>';
+                return;
+            }
+
             tbody.innerHTML = data.map(acc => `
                 <tr>
                     <td><strong>${acc.kode_akun}</strong></td>
                     <td>${acc.nama_akun}</td>
-                    <td><span class="badge">${acc.kategori}</span></td>
+                    <td><span class="badge">${acc.kategori || 'Tanpa Kategori'}</span></td>
                     <td>${acc.posisi_normal}</td>
                     <td class="text-right">${new Intl.NumberFormat('id-ID').format(acc.saldo)}</td>
                     <td style="text-align:right">
-                        <button class="btn-edit" onclick='setEditMode(${JSON.stringify(acc)})'>Edit</button>
+                        <button class="btn-edit" onclick='prepareEdit(${JSON.stringify(acc)})'>Edit</button>
                         <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
                     </td>
                 </tr>
@@ -267,12 +274,14 @@
         }
     }
 
-    function setEditMode(acc) {
+    function prepareEdit(acc) {
         isEditMode = true;
         editId = acc.kode_akun;
+        
         document.getElementById('form-title').innerText = "Edit Akun: " + acc.nama_akun;
         document.getElementById('kode_akun').value = acc.kode_akun;
-        document.getElementById('kode_akun').readOnly = true;
+        document.getElementById('kode_akun').readOnly = true; // Kode akun tidak boleh diubah saat edit
+        
         document.getElementById('nama_akun').value = acc.nama_akun;
         document.getElementById('kategori_id').value = acc.kategori;
         document.getElementById('posisi_normal').value = acc.posisi_normal;
@@ -281,12 +290,20 @@
         document.getElementById('btn-save').innerText = "Update Akun";
         document.getElementById('btn-save').className = "btn-update";
         document.getElementById('btn-cancel').style.display = "inline-block";
+        
+        // Scroll ke atas agar user tahu form sedang diedit
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function deleteAcc(id) {
-        if(!confirm("Hapus akun " + id + "?")) return;
+        if(!confirm("Hapus akun " + id + "? Tindakan ini permanen.")) return;
         const { error } = await FinexDB.from('akun').delete().eq('kode_akun', id);
-        if(!error) loadData();
+        if(!error) {
+            showStatus("Akun terhapus", "var(--success)");
+            loadData();
+        } else {
+            showStatus("Gagal hapus data", "var(--danger)");
+        }
     }
 
     function autoSuggest(val) {
