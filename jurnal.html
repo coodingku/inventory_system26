@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
@@ -21,37 +21,42 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .container-report { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
-        .toolbar { display: flex; gap: 10px; margin-bottom: 25px; align-items: end; flex-wrap: wrap; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 25px; align-items: end; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        input[type="date"] { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+        input[type="date"], select, .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; }
         
-        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
         .btn-filter { background: var(--accent); color: white; }
-        .btn-print { background: #95a5a6; color: white; }
         .btn-export { background: #27ae60; color: white; }
 
+        .badge-closing { background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; border: 1px solid #ffe0b2; }
+        .badge-invoice { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; border: 1px solid #c8e6c9; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th { background: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; border-bottom: 2px solid #eee; }
-        td { padding: 12px; border-bottom: 1px solid #eee; color: var(--primary); }
+        th { background: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; border-bottom: 2px solid #eee; text-transform: uppercase; font-size: 11px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; color: var(--primary); vertical-align: top; }
         
         .debit-val { text-align: right; color: var(--success); font-weight: bold; }
         .kredit-val { text-align: right; color: var(--danger); font-weight: bold; }
-        .summary-box { display: flex; justify-content: flex-end; gap: 40px; margin-top: 20px; padding: 20px; background: #fff5f8; border-radius: 8px; font-weight: bold; border: 1px solid #fce4ec; }
+        
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .stat-card label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
+        .stat-card span { font-size: 18px; font-weight: bold; }
 
-        .error-hint { background: #fff3f3; color: #d32f2f; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #d32f2f; display: none; }
+        .warning-box { background: #fff9db; border: 1px solid #fab005; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; }
 
         @media print {
-            nav, .toolbar, .header .btn { display: none !important; }
+            nav, .toolbar, .no-print { display: none !important; }
             main { margin-left: 0; padding: 0; }
-            body { background: white; }
             .container-report { box-shadow: none; padding: 0; }
         }
     </style>
 </head>
 <body>
 
-<nav>
-    <h2>BeautyBloom <span>Finex POS System</span></h2>
+<nav class="no-print">
+    <h2>BeautyBloom <span>Finex POS</span></h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="pos.html">🛒 Masuk Kasir</a>
     <a href="akun_jurnal.html">🏦 Daftar Akun</a>
@@ -60,48 +65,76 @@
 </nav>
 
 <main>
-    <div id="error-display" class="error-hint"></div>
-
     <div class="header">
-        <h2 style="margin:0;">Buku Jurnal Umum BeautyBloom</h2>
-        <div style="display: flex; gap: 10px;">
-            <button class="btn btn-print" onclick="window.print()">🖨️ Cetak Jurnal</button>
-            <button class="btn btn-export" onclick="exportToExcel()">📥 Simpan Excel</button>
+        <div>
+            <h2 style="margin:0;">Buku Jurnal Umum</h2>
+            <p style="color: #666; font-size: 13px;">Audit Transaksi Keuangan BeautyBloom</p>
+        </div>
+        <div style="display: flex; gap: 10px;" class="no-print">
+            <button class="btn btn-export" onclick="exportToExcel()">📥 Excel</button>
+            <button class="btn" style="background:#eee" onclick="window.print()">🖨️ Cetak</button>
         </div>
     </div>
 
+    <div class="warning-box no-print">
+        <span>⚠️</span>
+        <div><b>Info Duplikasi:</b> Jika total terlihat ganda, gunakan filter <b>"Sembunyikan Closing"</b> untuk hanya melihat riwayat invoice pelanggan, atau sebaliknya.</div>
+    </div>
+
     <div class="container-report">
-        <div class="toolbar">
+        <div class="toolbar no-print">
             <div class="filter-group">
-                <label style="font-size: 11px; font-weight: bold; color: var(--accent);">MULAI TANGGAL</label>
+                <label>DARI TANGGAL</label>
                 <input type="date" id="date-from">
             </div>
             <div class="filter-group">
-                <label style="font-size: 11px; font-weight: bold; color: var(--accent);">SAMPAI TANGGAL</label>
+                <label>SAMPAI TANGGAL</label>
                 <input type="date" id="date-to">
             </div>
-            <button class="btn btn-filter" onclick="fetchJurnal()">Tampilkan Data 🔍</button>
+            <div class="filter-group">
+                <label>TIPE DATA</label>
+                <select id="filter-type" onchange="fetchJurnal()">
+                    <option value="all">Semua Transaksi</option>
+                    <option value="no-closing">Hanya Invoice (Tanpa Closing)</option>
+                    <option value="only-closing">Hanya Closing Shift</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>CARI</label>
+                <input type="text" id="search-box" class="search-input" placeholder="No. Bukti..." onkeyup="filterTable()">
+            </div>
+            <button class="btn btn-filter" onclick="fetchJurnal()">Refresh 🔄</button>
         </div>
 
         <table id="table-jurnal">
             <thead>
                 <tr>
-                    <th>Waktu / Tanggal</th>
+                    <th>Waktu</th>
                     <th>No. Bukti</th>
-                    <th>Keterangan Transaksi</th>
-                    <th>Kode Akun</th>
-                    <th style="text-align: right;">Debit (Masuk)</th>
-                    <th style="text-align: right;">Kredit (Keluar)</th>
+                    <th>Keterangan</th>
+                    <th>Ref</th>
+                    <th style="text-align: right;">Debit</th>
+                    <th style="text-align: right;">Kredit</th>
                 </tr>
             </thead>
             <tbody id="body-jurnal">
-                <tr><td colspan="6" style="text-align:center">Menghubungkan ke database BeautyBloom...</td></tr>
+                <tr><td colspan="6" style="text-align:center; padding:20px;">Memuat data...</td></tr>
             </tbody>
         </table>
 
-        <div class="summary-box">
-            <div>TOTAL DEBIT: <span id="total-debit" style="color: var(--success);">Rp 0</span></div>
-            <div>TOTAL KREDIT: <span id="total-kredit" style="color: var(--danger);">Rp 0</span></div>
+        <div class="summary-grid">
+            <div class="stat-card">
+                <label>Total Debit</label>
+                <span id="total-debit" style="color:var(--success)">Rp 0</span>
+            </div>
+            <div class="stat-card">
+                <label>Total Kredit</label>
+                <span id="total-kredit" style="color:var(--danger)">Rp 0</span>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid var(--accent)">
+                <label>Saldo (D - K)</label>
+                <span id="total-netto">Rp 0</span>
+            </div>
         </div>
     </div>
 </main>
@@ -118,90 +151,91 @@
         fetchJurnal();
     };
 
-    function showError(msg) {
-        const errDiv = document.getElementById('error-display');
-        errDiv.style.display = 'block';
-        errDiv.innerHTML = `<b>Peringatan:</b> ${msg}<br><small>Saran: Pastikan tabel 'akun' sudah ada dan RLS sudah diizinkan (Enable Policy SELECT).</small>`;
-    }
-
     async function fetchJurnal() {
         const from = document.getElementById('date-from').value;
         const to = document.getElementById('date-to').value;
-        document.getElementById('error-display').style.display = 'none';
-
+        const filterType = document.getElementById('filter-type').value;
+        
         try {
-            // STEP 1: Ambil data dari tabel 'akun' (disesuaikan dari akun_jurnal)
-            const { data: akunData, error: akunError } = await supabaseClient
-                .from('akun')
-                .select('kode_akun, nama_akun');
-            
+            // Ambil Nama Akun
+            const { data: akunData } = await supabaseClient.from('akun').select('kode_akun, nama_akun');
             const akunMap = {};
-            if (akunError) {
-                console.warn("Tabel 'akun' bermasalah:", akunError.message);
-                showError("Gagal memuat daftar nama akun dari tabel 'akun'.");
-            } else {
-                akunData.forEach(a => {
-                    akunMap[String(a.kode_akun)] = a.nama_akun;
-                });
-            }
+            akunData?.forEach(a => akunMap[String(a.kode_akun)] = a.nama_akun);
 
-            // STEP 2: Ambil data jurnal
-            const { data, error } = await supabaseClient
-                .from('jurnal_umum')
-                .select('*') 
+            // Ambil Jurnal
+            let query = supabaseClient.from('jurnal_umum').select('*')
                 .gte('tanggal', from + 'T00:00:00')
                 .lte('tanggal', to + 'T23:59:59')
                 .order('tanggal', { ascending: true });
 
+            const { data, error } = await query;
             if (error) throw error;
 
-            let html = '';
-            let sumDebit = 0;
-            let sumKredit = 0;
-
-            if (data.length === 0) {
-                html = '<tr><td colspan="6" style="text-align:center; padding:30px;">Tidak ada transaksi keuangan pada periode ini.</td></tr>';
-            } else {
-                data.forEach(j => {
-                    const deb = parseFloat(j.debit || 0);
-                    const kre = parseFloat(j.kredit || 0);
-                    sumDebit += deb;
-                    sumKredit += kre;
-
-                    // Menggunakan data dari map tabel 'akun'
-                    const namaAkunRef = akunMap[String(j.kode_akun)] || 'Nama Akun Belum Terdaftar';
-
-                    html += `
-                        <tr>
-                            <td style="font-size:12px;">${new Date(j.tanggal).toLocaleString('id-ID')}</td>
-                            <td><code style="background:#eee; padding:2px 5px; border-radius:4px;">${j.no_bukti || '-'}</code></td>
-                            <td>
-                                <b>${j.keterangan}</b><br>
-                                <small style="color:#666">${namaAkunRef}</small>
-                            </td>
-                            <td><span style="color:var(--accent); font-weight:bold;">${j.kode_akun}</span></td>
-                            <td class="debit-val">${deb > 0 ? 'Rp ' + deb.toLocaleString() : '-'}</td>
-                            <td class="kredit-val">${kre > 0 ? 'Rp ' + kre.toLocaleString() : '-'}</td>
-                        </tr>
-                    `;
-                });
+            let filteredData = data;
+            
+            // Logika Filtering untuk menghindari double counting
+            if (filterType === 'no-closing') {
+                filteredData = data.filter(item => !item.keterangan.toLowerCase().includes('closing'));
+            } else if (filterType === 'only-closing') {
+                filteredData = data.filter(item => item.keterangan.toLowerCase().includes('closing'));
             }
 
-            document.getElementById('body-jurnal').innerHTML = html;
-            document.getElementById('total-debit').innerText = "Rp " + sumDebit.toLocaleString();
-            document.getElementById('total-kredit').innerText = "Rp " + sumKredit.toLocaleString();
+            renderTable(filteredData, akunMap);
 
         } catch (err) {
             console.error(err);
-            showError(err.message);
-            document.getElementById('body-jurnal').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">${err.message}</td></tr>`;
+            document.getElementById('body-jurnal').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat data.</td></tr>`;
         }
     }
 
+    function renderTable(data, akunMap) {
+        let html = '';
+        let sDeb = 0, sKre = 0;
+
+        if (data.length === 0) {
+            html = '<tr><td colspan="6" style="text-align:center; padding:30px;">Data kosong.</td></tr>';
+        } else {
+            data.forEach(j => {
+                const d = parseFloat(j.debit || 0);
+                const k = parseFloat(j.kredit || 0);
+                sDeb += d; sKre += k;
+
+                const isClosing = j.keterangan.toLowerCase().includes('closing');
+                const badge = isClosing ? '<span class="badge-closing">CLOSING</span>' : '<span class="badge-invoice">INVOICE</span>';
+
+                html += `
+                    <tr>
+                        <td style="font-size:11px;">${new Date(j.tanggal).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}<br>${new Date(j.tanggal).toLocaleDateString('id-ID')}</td>
+                        <td><code style="font-size:11px;">${j.no_bukti || '-'}</code></td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <b>${j.keterangan}</b> ${badge}
+                            </div>
+                            <small style="color:#888">${akunMap[j.kode_akun] || 'N/A'}</small>
+                        </td>
+                        <td><b style="color:var(--accent)">${j.kode_akun}</b></td>
+                        <td class="debit-val">${d > 0 ? d.toLocaleString() : '-'}</td>
+                        <td class="kredit-val">${k > 0 ? k.toLocaleString() : '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('body-jurnal').innerHTML = html;
+        document.getElementById('total-debit').innerText = "Rp " + sDeb.toLocaleString();
+        document.getElementById('total-kredit').innerText = "Rp " + sKre.toLocaleString();
+        document.getElementById('total-netto').innerText = "Rp " + (sDeb - sKre).toLocaleString();
+    }
+
+    function filterTable() {
+        const q = document.getElementById('search-box').value.toLowerCase();
+        const rows = document.querySelectorAll('#body-jurnal tr');
+        rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none');
+    }
+
     function exportToExcel() {
-        const table = document.getElementById("table-jurnal");
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Jurnal BeautyBloom" });
-        XLSX.writeFile(wb, `Jurnal_BeautyBloom_${document.getElementById('date-from').value}.xlsx`);
+        const wb = XLSX.utils.table_to_book(document.getElementById("table-jurnal"));
+        XLSX.writeFile(wb, `Jurnal_BeautyBloom.xlsx`);
     }
 </script>
 </body>
