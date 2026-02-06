@@ -45,8 +45,8 @@
         .badge-pendapatan { background: #e8f5e9; color: #2e7d32; }
         .badge-beban { background: #fff3e0; color: #e65100; }
 
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px); z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -60,9 +60,9 @@
     </nav>
 
     <main>
-        <div class="header" style="display:flex; justify-content: space-between;">
-            <h1>Akun <span style="color:var(--beauty)">BeautyBloom</span></h1>
-            <div id="status-msg" style="font-weight: bold;"></div>
+        <div class="header" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="margin:0">Akun <span style="color:var(--beauty)">BeautyBloom</span></h1>
+            <div id="status-msg" style="font-weight: bold; padding: 10px; border-radius: 8px;"></div>
         </div>
 
         <div class="card">
@@ -77,7 +77,7 @@
                     <input type="text" id="nama_akun" placeholder="Kas Toko">
                 </div>
                 <div>
-                    <label>Kategori (PENTING)</label>
+                    <label>Kategori</label>
                     <select id="kategori_akun">
                         <option value="aset">Aset</option>
                         <option value="kewajiban">Kewajiban</option>
@@ -97,11 +97,13 @@
                         <th>Kode</th>
                         <th>Nama</th>
                         <th>Kategori</th>
-                        <th>Saldo</th>
+                        <th>Saldo Estimasi</th>
                         <th style="text-align:right">Aksi</th>
                     </tr>
                 </thead>
-                <tbody id="table-body"></tbody>
+                <tbody id="table-body">
+                    <tr><td colspan="5" style="text-align:center">Memuat data...</td></tr>
+                </tbody>
             </table>
         </div>
     </main>
@@ -110,19 +112,23 @@
         <div class="modal-content">
             <h3>Edit Akun</h3>
             <input type="hidden" id="edit_id">
-            <label>Nama Akun</label>
-            <input type="text" id="edit_nama" style="margin-bottom:15px">
-            <label>Kategori</label>
-            <select id="edit_kategori" style="margin-bottom:20px">
-                <option value="aset">Aset</option>
-                <option value="kewajiban">Kewajiban</option>
-                <option value="modal">Modal</option>
-                <option value="pendapatan">Pendapatan</option>
-                <option value="beban">Beban</option>
-            </select>
+            <div style="margin-bottom:15px">
+                <label>Nama Akun</label>
+                <input type="text" id="edit_nama">
+            </div>
+            <div style="margin-bottom:20px">
+                <label>Kategori</label>
+                <select id="edit_kategori">
+                    <option value="aset">Aset</option>
+                    <option value="kewajiban">Kewajiban</option>
+                    <option value="modal">Modal</option>
+                    <option value="pendapatan">Pendapatan</option>
+                    <option value="beban">Beban</option>
+                </select>
+            </div>
             <div style="display:flex; gap:10px">
                 <button class="btn-add" style="flex:1" onclick="updateAccount()">Update</button>
-                <button style="flex:1" onclick="closeModal()">Batal</button>
+                <button style="flex:1; background:#eee" onclick="closeModal()">Batal</button>
             </div>
         </div>
     </div>
@@ -135,6 +141,7 @@
     window.onload = loadData;
 
     function autoSuggest(val) {
+        if (!val) return;
         const cat = document.getElementById('kategori_akun');
         if (val.startsWith('1')) cat.value = 'aset';
         else if (val.startsWith('2')) cat.value = 'kewajiban';
@@ -144,47 +151,68 @@
     }
 
     async function loadData() {
-        const { data: accounts } = await FinexDB.from('akun').select('*').order('kode_akun');
-        const { data: journals } = await FinexDB.from('jurnal_umum').select('*');
-        
-        const tbody = document.getElementById('table-body');
-        tbody.innerHTML = accounts.map(acc => {
-            // Hitung saldo sederhana
-            const relevant = journals?.filter(j => j.kode_akun == acc.kode_akun) || [];
-            const d = relevant.reduce((sum, j) => sum + Number(j.debit || 0), 0);
-            const k = relevant.reduce((sum, j) => sum + Number(j.kredit || 0), 0);
-            const balance = (acc.kategori === 'aset' || acc.kategori === 'beban') ? (d - k) : (k - d);
+        try {
+            const { data: accounts, error: accError } = await FinexDB.from('akun').select('*').order('kode_akun');
+            if (accError) throw accError;
 
-            return `
-            <tr>
-                <td><b>${acc.kode_akun}</b></td>
-                <td>${acc.nama_akun}</td>
-                <td><span class="badge badge-${acc.kategori}">${acc.kategori}</span></td>
-                <td>Rp ${balance.toLocaleString()}</td>
-                <td style="text-align:right">
-                    <button class="btn-edit" onclick="openEdit('${acc.kode_akun}','${acc.nama_akun}','${acc.kategori}')">Edit</button>
-                    <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
-                </td>
-            </tr>`;
-        }).join('');
+            const { data: journals } = await FinexDB.from('jurnal_umum').select('kode_akun, debit, kredit');
+            
+            const tbody = document.getElementById('table-body');
+            if (!accounts || accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Belum ada akun.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = accounts.map(acc => {
+                const relevant = journals?.filter(j => Number(j.kode_akun) === Number(acc.kode_akun)) || [];
+                const d = relevant.reduce((sum, j) => sum + Number(j.debit || 0), 0);
+                const k = relevant.reduce((sum, j) => sum + Number(j.kredit || 0), 0);
+                
+                // Rumus Saldo Normal
+                const isDebitNormal = (acc.kategori === 'aset' || acc.kategori === 'beban');
+                const balance = isDebitNormal ? (d - k) : (k - d);
+
+                return `
+                <tr>
+                    <td><b>${acc.kode_akun}</b></td>
+                    <td>${acc.nama_akun}</td>
+                    <td><span class="badge badge-${acc.kategori}">${acc.kategori}</span></td>
+                    <td>Rp ${balance.toLocaleString('id-ID')}</td>
+                    <td style="text-align:right">
+                        <button class="btn-edit" onclick="openEdit(${acc.kode_akun},'${acc.nama_akun}','${acc.kategori}')">Edit</button>
+                        <button class="btn-del" onclick="deleteAcc(${acc.kode_akun})">Hapus</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        } catch (err) {
+            console.error("Load Error:", err);
+            showStatus("Gagal memuat data: " + err.message, "var(--danger)");
+        }
     }
 
     async function saveAccount() {
-        const kode = document.getElementById('kode_akun').value;
+        const kodeRaw = document.getElementById('kode_akun').value;
         const nama = document.getElementById('nama_akun').value;
         const kat = document.getElementById('kategori_akun').value;
 
+        if (!kodeRaw || !nama) {
+            showStatus("Kode dan Nama harus diisi!", "orange");
+            return;
+        }
+
+        // Pastikan kode_akun dikirim sebagai Number untuk menghindari Error 400
         const { error } = await FinexDB.from('akun').insert([{ 
-            kode_akun: kode, 
+            kode_akun: parseInt(kodeRaw), 
             nama_akun: nama, 
             kategori: kat 
         }]);
 
         if (error) {
-            console.error(error);
-            showStatus("❌ Gagal: " + error.message, "var(--danger)");
+            showStatus("❌ Error: " + error.message, "var(--danger)");
         } else {
-            showStatus("✅ Berhasil disimpan", "var(--success)");
+            showStatus("✅ Akun berhasil disimpan", "var(--success)");
+            document.getElementById('kode_akun').value = '';
+            document.getElementById('nama_akun').value = '';
             loadData();
         }
     }
@@ -199,25 +227,40 @@
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
     async function updateAccount() {
-        const id = document.getElementById('edit_id').value;
+        const id = parseInt(document.getElementById('edit_id').value);
         const { error } = await FinexDB.from('akun').update({
             nama_akun: document.getElementById('edit_nama').value,
             kategori: document.getElementById('edit_kategori').value
         }).eq('kode_akun', id);
         
-        if (!error) { closeModal(); loadData(); showStatus("✅ Diperbarui", "var(--accent)"); }
+        if (error) {
+            showStatus("Gagal update: " + error.message, "var(--danger)");
+        } else {
+            closeModal(); 
+            loadData(); 
+            showStatus("✅ Akun diperbarui", "var(--accent)"); 
+        }
     }
 
     async function deleteAcc(id) {
-        if(!confirm("Hapus akun ini?")) return;
-        await FinexDB.from('akun').delete().eq('kode_akun', id);
-        loadData();
+        if(!confirm(`Hapus akun ${id}? Tindakan ini tidak dapat dibatalkan.`)) return;
+        
+        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', parseInt(id));
+        
+        if (error) {
+            showStatus("Gagal hapus: " + error.message, "var(--danger)");
+        } else {
+            loadData();
+            showStatus("🗑️ Akun dihapus", "gray");
+        }
     }
 
     function showStatus(msg, color) {
         const s = document.getElementById('status-msg');
-        s.innerText = msg; s.style.color = color;
-        setTimeout(() => s.innerText = '', 3000);
+        s.innerText = msg; 
+        s.style.background = color === 'var(--success)' ? '#e8f5e9' : (color === 'var(--danger)' ? '#ffebee' : '#e3f2fd');
+        s.style.color = color;
+        setTimeout(() => { s.innerText = ''; s.style.background = 'transparent'; }, 4000);
     }
 </script>
 </body>
