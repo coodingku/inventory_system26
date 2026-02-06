@@ -17,14 +17,12 @@
         }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; display: flex; color: #333; }
         
-        /* Navigation */
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
         nav h2 { color: var(--beauty); text-align: center; font-size: 22px; margin-bottom: 30px; letter-spacing: 1px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; transition: 0.3s; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3); }
 
-        /* Main Content */
         main { flex: 1; margin-left: 240px; padding: 40px; min-height: 100vh; }
         .header { margin-bottom: 30px; }
         .header h1 { margin: 0; font-size: 28px; color: var(--primary); }
@@ -32,7 +30,6 @@
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 30px; }
         .card h3 { margin-top: 0; margin-bottom: 20px; font-size: 18px; border-left: 4px solid var(--beauty); padding-left: 15px; }
 
-        /* Form Styles */
         .form-group { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr auto; gap: 15px; align-items: end; }
         .input-box label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #7f8c8d; }
         input, select { padding: 12px; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; transition: 0.2s; }
@@ -43,11 +40,9 @@
         .btn-add:hover { background: #ff2e44; transform: translateY(-2px); }
         .btn-edit { background: #e3f2fd; color: var(--accent); }
         .btn-del { background: #fff5f5; color: var(--danger); }
-        .btn-edit:hover, .btn-del:hover { opacity: 0.8; }
 
-        /* Table Styles */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #fdfdfd; color: #95a5a6; text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        th { background: #fdfdfd; color: #95a5a6; text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; font-size: 13px; text-transform: uppercase; }
         td { padding: 16px 15px; border-bottom: 1px solid #f1f2f6; font-size: 14px; }
         
         .badge { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
@@ -61,13 +56,10 @@
         .pos-balance { color: var(--success); }
         .neg-balance { color: var(--danger); }
 
-        /* Modal */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 420px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
         
-        #status-msg { font-weight: 600; transition: 0.5s; text-align: right; }
-
-        /* Helper for Account Info */
+        #status-msg { font-weight: 600; transition: 0.5s; text-align: right; min-height: 20px; }
         .info-tip { font-size: 11px; color: #7f8c8d; margin-top: 4px; display: block; }
     </style>
 </head>
@@ -129,19 +121,18 @@
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="5" style="text-align:center; padding: 40px;">Memuat data dan menghitung saldo...</td></tr>
+                    <tr><td colspan="5" style="text-align:center; padding: 40px;">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
-    <!-- Modal Edit -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0; color: var(--primary);">Edit Data Akun</h3>
             <div style="margin-bottom: 15px;">
-                <label style="display:block; font-size:12px; margin-bottom:5px; font-weight:bold;">Kode Akun (Kunci)</label>
-                <input type="text" id="edit_kode" readonly style="background:#f8f9fa; color:#95a5a6; cursor:not-allowed;">
+                <label style="display:block; font-size:12px; margin-bottom:5px; font-weight:bold;">Kode Akun</label>
+                <input type="text" id="edit_kode" readonly style="background:#f8f9fa; color:#95a5a6;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display:block; font-size:12px; margin-bottom:5px; font-weight:bold;">Nama Akun</label>
@@ -158,7 +149,7 @@
                 </select>
             </div>
             <div style="display:flex; gap:10px;">
-                <button class="btn-add" style="flex:2;" onclick="updateAccount()">Simpan Perubahan</button>
+                <button class="btn-add" style="flex:2;" onclick="updateAccount()">Update</button>
                 <button style="flex:1; background:#f1f2f6; color:#7f8c8d;" onclick="closeModal()">Batal</button>
             </div>
         </div>
@@ -171,7 +162,6 @@
 
     window.onload = loadAccounts;
 
-    // Fungsi bantu otomatis pilih kategori berdasarkan angka depan kode
     function autoSuggestCategory(val) {
         const catSelect = document.getElementById('kategori_akun');
         if (val.startsWith('1')) catSelect.value = 'Aset';
@@ -186,18 +176,16 @@
         const { data: journals, error: jurError } = await FinexDB.from('jurnal_umum').select('kode_akun, debit, kredit');
 
         if (accError) {
-            console.error("Fetch error:", accError);
-            document.getElementById('table-body').innerHTML = `<tr><td colspan="5" style="color:red; text-align:center;">Gagal memuat tabel 'akun'.</td></tr>`;
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="5" style="color:red; text-align:center;">Gagal memuat data.</td></tr>`;
             return;
         }
         
         const tbody = document.getElementById('table-body');
         if (accounts.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 30px; color: #95a5a6;">Belum ada akun terdaftar di database.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 30px; color: #95a5a6;">Database kosong.</td></tr>`;
             return;
         }
 
-        // Hitung akumulasi saldo dari jurnal_umum
         const balances = {};
         if (journals) {
             journals.forEach(row => {
@@ -209,15 +197,7 @@
 
         tbody.innerHTML = accounts.map(acc => {
             const b = balances[acc.kode_akun] || { d: 0, k: 0 };
-            let totalSaldo = 0;
-
-            // Logika Saldo Normal Akuntansi (PENTING)
-            if (acc.kategori === 'Aset' || acc.kategori === 'Beban') {
-                totalSaldo = b.d - b.k; // Normal di Debit
-            } else {
-                totalSaldo = b.k - b.d; // Normal di Kredit (Modal, Utang, Pendapatan)
-            }
-
+            let totalSaldo = (acc.kategori === 'Aset' || acc.kategori === 'Beban') ? (b.d - b.k) : (b.k - b.d);
             const badgeClass = `badge-${acc.kategori.toLowerCase()}`;
             const saldoClass = totalSaldo >= 0 ? 'pos-balance' : 'neg-balance';
 
@@ -241,28 +221,18 @@
         const kat = document.getElementById('kategori_akun').value;
 
         if (!kode || !nama) {
-            showStatus("⚠️ Kode dan Nama harus diisi!", var(--danger));
+            showStatus("⚠️ Isi Kode dan Nama!", "var(--danger)");
             return;
         }
 
-        // Validasi Dasar Standar Akuntansi
-        if (kode.startsWith('3') && kat === 'Beban') {
-            if(!confirm("Peringatan: Kode 3 biasanya Modal, tapi Anda memilih Beban. Lanjutkan?")) return;
-        }
+        const { error } = await FinexDB.from('akun').insert([{ kode_akun: kode, nama_akun: nama, kategori: kat }]);
 
-        const { error } = await FinexDB.from('akun').insert([{ 
-            kode_akun: kode, 
-            nama_akun: nama, 
-            kategori: kat 
-        }]);
-
-        if (error) {
-            alert("Gagal: " + error.message);
-        } else {
+        if (error) alert("Error: " + error.message);
+        else {
             document.getElementById('kode_akun').value = '';
             document.getElementById('nama_akun').value = '';
             loadAccounts();
-            showStatus("✅ Akun Berhasil Disimpan", "var(--success)");
+            showStatus("✅ Akun Tersimpan", "var(--success)");
         }
     }
 
@@ -281,28 +251,16 @@
             nama_akun: document.getElementById('edit_nama').value,
             kategori: document.getElementById('edit_kategori').value
         };
-        
         const { error } = await FinexDB.from('akun').update(payload).eq('kode_akun', kode);
-
-        if (error) {
-            alert("Update Gagal: " + error.message);
-        } else {
-            closeModal();
-            loadAccounts();
-            showStatus("✨ Data Akun Diperbarui", "var(--accent)");
-        }
+        if (error) alert(error.message);
+        else { closeModal(); loadAccounts(); showStatus("✨ Data Diperbarui", "var(--accent)"); }
     }
 
     async function deleteAccount(kode) {
-        if (!confirm(`Hapus akun ${kode}? Data transaksi di Jurnal tidak akan terhapus, namun akun tidak akan muncul di laporan.`)) return;
-        
+        if (!confirm(`Hapus akun ${kode}?`)) return;
         const { error } = await FinexDB.from('akun').delete().eq('kode_akun', kode);
-        if (error) {
-            alert("Gagal hapus. Pastikan akun tidak terikat data lain.");
-        } else {
-            loadAccounts();
-            showStatus("🗑️ Akun Dihapus", "var(--danger)");
-        }
+        if (error) alert(error.message);
+        else { loadAccounts(); showStatus("🗑️ Akun Dihapus", "var(--danger)"); }
     }
 
     function showStatus(msg, color) {
