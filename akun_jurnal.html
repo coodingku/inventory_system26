@@ -45,6 +45,7 @@
         .badge-pendapatan { background: #e8f5e9; color: #2e7d32; }
         .badge-beban { background: #fff3e0; color: #e65100; }
 
+        /* Modal Overlay */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px); z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
@@ -74,16 +75,16 @@
                 </div>
                 <div>
                     <label>Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Kas Toko">
+                    <input type="text" id="nama_akun" placeholder="Nama Akun">
                 </div>
                 <div>
                     <label>Kategori</label>
                     <select id="kategori_akun">
-                        <option value="aset">Aset</option>
-                        <option value="kewajiban">Kewajiban</option>
-                        <option value="modal">Modal</option>
-                        <option value="pendapatan">Pendapatan</option>
-                        <option value="beban">Beban</option>
+                        <option value="aset">aset</option>
+                        <option value="kewajiban">kewajiban</option>
+                        <option value="modal">modal</option>
+                        <option value="pendapatan">pendapatan</option>
+                        <option value="beban">beban</option>
                     </select>
                 </div>
                 <button class="btn-add" onclick="saveAccount()">Simpan</button>
@@ -97,20 +98,20 @@
                         <th>Kode</th>
                         <th>Nama</th>
                         <th>Kategori</th>
-                        <th>Saldo Estimasi</th>
                         <th style="text-align:right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="5" style="text-align:center">Memuat data...</td></tr>
+                    <tr><td colspan="4" style="text-align:center">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
+    <!-- MODAL EDIT -->
     <div id="editModal" class="modal">
         <div class="modal-content">
-            <h3>Edit Akun</h3>
+            <h3 style="margin-top:0">Edit Akun <span id="display_kode" style="color:var(--beauty)"></span></h3>
             <input type="hidden" id="edit_id">
             <div style="margin-bottom:15px">
                 <label>Nama Akun</label>
@@ -119,16 +120,16 @@
             <div style="margin-bottom:20px">
                 <label>Kategori</label>
                 <select id="edit_kategori">
-                    <option value="aset">Aset</option>
-                    <option value="kewajiban">Kewajiban</option>
-                    <option value="modal">Modal</option>
-                    <option value="pendapatan">Pendapatan</option>
-                    <option value="beban">Beban</option>
+                    <option value="aset">aset</option>
+                    <option value="kewajiban">kewajiban</option>
+                    <option value="modal">modal</option>
+                    <option value="pendapatan">pendapatan</option>
+                    <option value="beban">beban</option>
                 </select>
             </div>
             <div style="display:flex; gap:10px">
-                <button class="btn-add" style="flex:1" onclick="updateAccount()">Update</button>
-                <button style="flex:1; background:#eee" onclick="closeModal()">Batal</button>
+                <button class="btn-add" style="flex:1" onclick="updateAccount()">Simpan Perubahan</button>
+                <button style="flex:1; background:#eee; color:#333" onclick="closeModal()">Batal</button>
             </div>
         </div>
     </div>
@@ -152,73 +153,49 @@
 
     async function loadData() {
         try {
-            const { data: accounts, error: accError } = await FinexDB.from('akun').select('*').order('kode_akun');
-            if (accError) throw accError;
+            const { data: accounts, error } = await FinexDB.from('akun').select('*').order('kode_akun');
+            if (error) throw error;
 
-            const { data: journals } = await FinexDB.from('jurnal_umum').select('kode_akun, debit, kredit');
-            
             const tbody = document.getElementById('table-body');
-            if (!accounts || accounts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Belum ada akun.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = accounts.map(acc => {
-                const relevant = journals?.filter(j => Number(j.kode_akun) === Number(acc.kode_akun)) || [];
-                const d = relevant.reduce((sum, j) => sum + Number(j.debit || 0), 0);
-                const k = relevant.reduce((sum, j) => sum + Number(j.kredit || 0), 0);
-                
-                // Rumus Saldo Normal
-                const isDebitNormal = (acc.kategori === 'aset' || acc.kategori === 'beban');
-                const balance = isDebitNormal ? (d - k) : (k - d);
-
-                return `
+            tbody.innerHTML = accounts.map(acc => `
                 <tr>
                     <td><b>${acc.kode_akun}</b></td>
                     <td>${acc.nama_akun}</td>
                     <td><span class="badge badge-${acc.kategori}">${acc.kategori}</span></td>
-                    <td>Rp ${balance.toLocaleString('id-ID')}</td>
                     <td style="text-align:right">
                         <button class="btn-edit" onclick="openEdit(${acc.kode_akun},'${acc.nama_akun}','${acc.kategori}')">Edit</button>
                         <button class="btn-del" onclick="deleteAcc(${acc.kode_akun})">Hapus</button>
                     </td>
-                </tr>`;
-            }).join('');
+                </tr>`).join('');
         } catch (err) {
-            console.error("Load Error:", err);
-            showStatus("Gagal memuat data: " + err.message, "var(--danger)");
+            showStatus("Gagal memuat: " + err.message, "var(--danger)");
         }
     }
 
     async function saveAccount() {
-        const kodeRaw = document.getElementById('kode_akun').value;
+        const kode = parseInt(document.getElementById('kode_akun').value);
         const nama = document.getElementById('nama_akun').value;
         const kat = document.getElementById('kategori_akun').value;
 
-        if (!kodeRaw || !nama) {
-            showStatus("Kode dan Nama harus diisi!", "orange");
-            return;
-        }
+        if (!kode || !nama) return showStatus("Lengkapi data!", "orange");
 
-        // Pastikan kode_akun dikirim sebagai Number untuk menghindari Error 400
         const { error } = await FinexDB.from('akun').insert([{ 
-            kode_akun: parseInt(kodeRaw), 
+            kode_akun: kode, 
             nama_akun: nama, 
             kategori: kat 
         }]);
 
         if (error) {
-            showStatus("❌ Error: " + error.message, "var(--danger)");
+            showStatus("Error: " + error.message, "var(--danger)");
         } else {
-            showStatus("✅ Akun berhasil disimpan", "var(--success)");
-            document.getElementById('kode_akun').value = '';
-            document.getElementById('nama_akun').value = '';
-            loadData();
+            showStatus("Berhasil ditambah", "var(--success)");
+            location.reload();
         }
     }
 
     function openEdit(id, nama, kat) {
         document.getElementById('edit_id').value = id;
+        document.getElementById('display_kode').innerText = id;
         document.getElementById('edit_nama').value = nama;
         document.getElementById('edit_kategori').value = kat;
         document.getElementById('editModal').style.display = 'flex';
@@ -227,40 +204,41 @@
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
     async function updateAccount() {
-        const id = parseInt(document.getElementById('edit_id').value);
-        const { error } = await FinexDB.from('akun').update({
-            nama_akun: document.getElementById('edit_nama').value,
-            kategori: document.getElementById('edit_kategori').value
-        }).eq('kode_akun', id);
-        
-        if (error) {
-            showStatus("Gagal update: " + error.message, "var(--danger)");
-        } else {
-            closeModal(); 
-            loadData(); 
-            showStatus("✅ Akun diperbarui", "var(--accent)"); 
+        // Konversi ID ke Number untuk filter eq()
+        const id = Number(document.getElementById('edit_id').value);
+        const nama = document.getElementById('edit_nama').value;
+        const kat = document.getElementById('edit_kategori').value;
+
+        try {
+            // Melakukan update
+            const { error } = await FinexDB.from('akun')
+                .update({ nama_akun: nama, kategori: kat })
+                .eq('kode_akun', id);
+            
+            if (error) throw error;
+
+            showStatus("✅ Akun " + id + " berhasil diperbarui", "var(--success)");
+            closeModal();
+            loadData();
+        } catch (err) {
+            // Jika Error 400 terjadi, tampilkan pesan lebih jelas
+            console.error("Update Error:", err);
+            showStatus("❌ Gagal: " + err.message, "var(--danger)");
         }
     }
 
     async function deleteAcc(id) {
-        if(!confirm(`Hapus akun ${id}? Tindakan ini tidak dapat dibatalkan.`)) return;
-        
-        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', parseInt(id));
-        
-        if (error) {
-            showStatus("Gagal hapus: " + error.message, "var(--danger)");
-        } else {
-            loadData();
-            showStatus("🗑️ Akun dihapus", "gray");
-        }
+        if(!confirm("Hapus akun?")) return;
+        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', Number(id));
+        if (error) showStatus(error.message, "var(--danger)");
+        else loadData();
     }
 
     function showStatus(msg, color) {
         const s = document.getElementById('status-msg');
-        s.innerText = msg; 
-        s.style.background = color === 'var(--success)' ? '#e8f5e9' : (color === 'var(--danger)' ? '#ffebee' : '#e3f2fd');
-        s.style.color = color;
-        setTimeout(() => { s.innerText = ''; s.style.background = 'transparent'; }, 4000);
+        s.innerText = msg; s.style.color = color;
+        s.style.background = "#fff";
+        setTimeout(() => { s.innerText = ''; }, 4000);
     }
 </script>
 </body>
