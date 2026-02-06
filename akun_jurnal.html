@@ -41,6 +41,7 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #e8f4fd; color: #2980b9; }
         .text-right { text-align: right; }
         .font-mono { font-family: monospace; font-weight: bold; }
+        .text-muted { color: #95a5a6; font-size: 11px; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(4px); z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
@@ -95,10 +96,11 @@
                 </div>
                 <div>
                     <label>Saldo Awal (IDR)</label>
-                    <input type="number" id="saldo_akun" value="0">
+                    <input type="number" id="saldo_awal" value="0">
                 </div>
                 <button class="btn-add" onclick="saveAccount()">Simpan</button>
             </div>
+            <p class="text-muted" style="margin-top:10px">* Saldo akhir di tabel bawah akan otomatis dijumlahkan dengan transaksi di Jurnal Umum.</p>
         </div>
 
         <!-- TABEL DATA AKUN -->
@@ -110,12 +112,12 @@
                         <th>Nama Akun</th>
                         <th>Kategori</th>
                         <th>Normal</th>
-                        <th class="text-right">Saldo (IDR)</th>
+                        <th class="text-right">Saldo Berjalan (IDR)</th>
                         <th style="text-align:right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="6" style="text-align:center">Memuat data...</td></tr>
+                    <tr><td colspan="6" style="text-align:center">Memuat data dan menghitung saldo...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -152,8 +154,9 @@
             </div>
 
             <div style="margin-bottom:25px">
-                <label>Update Saldo (IDR)</label>
-                <input type="number" id="edit_saldo">
+                <label>Update Saldo Awal (IDR)</label>
+                <input type="number" id="edit_saldo_awal">
+                <small class="text-muted">Ini saldo pembukaan, bukan saldo akhir.</small>
             </div>
 
             <div style="display:flex; gap:10px">
@@ -191,22 +194,49 @@
     }
 
     async function loadData() {
-        const { data: accounts, error } = await FinexDB.from('akun').select('*').order('kode_akun');
-        if (error) return console.error(error);
+        // 1. Ambil data Akun (termasuk saldo awal)
+        const { data: accounts, error: accErr } = await FinexDB.from('akun').select('*').order('kode_akun');
+        if (accErr) return console.error(accErr);
+
+        // 2. Ambil semua transaksi Jurnal Umum untuk menghitung saldo berjalan
+        const { data: journals, error: jrnlErr } = await FinexDB.from('jurnal_umum').select('kode_akun, debit, kredit');
+        if (jrnlErr) return console.error(jrnlErr);
+
+        // 3. Proses Agregasi Jurnal (Hitung total Debit & Kredit per Kode Akun)
+        const journalMap = {};
+        journals.forEach(j => {
+            if (!journalMap[j.kode_akun]) journalMap[j.kode_akun] = { debit: 0, kredit: 0 };
+            journalMap[j.kode_akun].debit += parseFloat(j.debit || 0);
+            journalMap[j.kode_akun].kredit += parseFloat(j.kredit || 0);
+        });
 
         const tbody = document.getElementById('table-body');
-        tbody.innerHTML = accounts.map(acc => `
-            <tr>
-                <td><code style="font-weight:bold">${acc.kode_akun}</code></td>
-                <td>${acc.nama_akun}</td>
-                <td><span class="badge">${acc.kategori}</span></td>
-                <td><small style="text-transform:uppercase; color:#999">${acc.posisi_normal}</small></td>
-                <td class="text-right font-mono">${formatIDR(acc.saldo || 0)}</td>
-                <td style="text-align:right">
-                    <button class="btn-edit" onclick="openEdit('${acc.kode_akun}','${acc.nama_akun}','${acc.kategori}','${acc.posisi_normal}', ${acc.saldo || 0})">Edit</button>
-                    <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
-                </td>
-            </tr>`).join('');
+        tbody.innerHTML = accounts.map(acc => {
+            const trx = journalMap[acc.kode_akun] || { debit: 0, kredit: 0 };
+            let saldoBerjalan = parseFloat(acc.saldo || 0); // Mulai dari Saldo Awal
+
+            // Rumus Akuntansi
+            if (acc.posisi_normal === 'Debit') {
+                saldoBerjalan = saldoBerjalan + trx.debit - trx.kredit;
+            } else {
+                saldoBerjalan = saldoBerjalan + trx.kredit - trx.debit;
+            }
+
+            return `
+                <tr>
+                    <td><code style="font-weight:bold">${acc.kode_akun}</code></td>
+                    <td>${acc.nama_akun}</td>
+                    <td><span class="badge">${acc.kategori}</span></td>
+                    <td><small style="text-transform:uppercase; color:#999">${acc.posisi_normal}</small></td>
+                    <td class="text-right font-mono" style="color:${saldoBerjalan < 0 ? 'red' : 'inherit'}">
+                        ${formatIDR(saldoBerjalan)}
+                    </td>
+                    <td style="text-align:right">
+                        <button class="btn-edit" onclick="openEdit('${acc.kode_akun}','${acc.nama_akun}','${acc.kategori}','${acc.posisi_normal}', ${acc.saldo || 0})">Edit</button>
+                        <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
+                    </td>
+                </tr>`;
+        }).join('');
     }
 
     async function saveAccount() {
@@ -215,28 +245,27 @@
             nama_akun: document.getElementById('nama_akun').value,
             kategori: document.getElementById('kategori_akun').value,
             posisi_normal: document.getElementById('posisi_normal').value,
-            saldo: parseFloat(document.getElementById('saldo_akun').value) || 0
+            saldo: parseFloat(document.getElementById('saldo_awal').value) || 0 // saldo di db dianggap saldo awal
         };
 
         if(!payload.kode_akun || !payload.nama_akun) return showStatus("Isi Kode & Nama!", "var(--danger)");
 
         const { error } = await FinexDB.from('akun').insert([payload]);
         if (error) {
-            console.error(error);
             showStatus("Gagal: " + error.message, "var(--danger)");
         } else {
-            showStatus("✅ Berhasil menyimpan akun!", "var(--success)");
+            showStatus("✅ Akun berhasil didaftarkan!", "var(--success)");
             setTimeout(() => location.reload(), 1000);
         }
     }
 
-    function openEdit(id, nama, kat, pos, saldo) {
+    function openEdit(id, nama, kat, pos, saldoAwal) {
         document.getElementById('edit_id').value = id;
         document.getElementById('label_kode').innerText = id;
         document.getElementById('edit_nama').value = nama;
         document.getElementById('edit_kategori').value = kat;
         document.getElementById('edit_posisi').value = pos;
-        document.getElementById('edit_saldo').value = saldo;
+        document.getElementById('edit_saldo_awal').value = saldoAwal;
         document.getElementById('editModal').style.display = 'flex';
     }
 
@@ -248,7 +277,7 @@
             nama_akun: document.getElementById('edit_nama').value,
             kategori: document.getElementById('edit_kategori').value,
             posisi_normal: document.getElementById('edit_posisi').value,
-            saldo: parseFloat(document.getElementById('edit_saldo').value) || 0
+            saldo: parseFloat(document.getElementById('edit_saldo_awal').value) || 0
         };
 
         const { error } = await FinexDB.from('akun')
@@ -258,15 +287,14 @@
         if (error) {
             showStatus("Error: " + error.message, "var(--danger)");
         } else {
-            showStatus("✅ Akun diperbarui", "var(--success)");
+            showStatus("✅ Perubahan disimpan", "var(--success)");
             closeModal();
             loadData();
         }
     }
 
     async function deleteAcc(id) {
-        const modalConfirm = confirm("Apakah Anda yakin ingin menghapus akun " + id + "?");
-        if(!modalConfirm) return;
+        if(!confirm("Hapus akun " + id + "? Data jurnal dengan akun ini mungkin akan bermasalah.")) return;
         
         const { error } = await FinexDB.from('akun').delete().eq('kode_akun', String(id));
         if (error) showStatus("Gagal hapus: " + error.message, "var(--danger)");
@@ -277,9 +305,9 @@
         const s = document.getElementById('status-msg');
         s.style.display = 'block';
         s.innerText = msg;
-        s.style.color = 'white';
         s.style.backgroundColor = color;
-        setTimeout(() => { s.style.display = 'none'; }, 5000);
+        s.style.color = 'white';
+        setTimeout(() => { s.style.display = 'none'; }, 3000);
     }
 </script>
 </body>
