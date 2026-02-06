@@ -28,7 +28,7 @@
         .btn-filter:hover { background: #1a252f; transform: translateY(-1px); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 11px; color: #495057; text-transform: uppercase; line-height: 1.4; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 11px; color: #495057; text-transform: uppercase; line-height: 1.4; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
         
         .total-row { background: #fff8f1; font-weight: bold; }
@@ -38,7 +38,7 @@
         .badge-daerah { background: #e8f5e9; color: #2e7d32; }
         .badge-pusat { background: #fff3e0; color: #e65100; }
 
-        .input-tax-percent { width: 60px; text-align: center; font-weight: bold; color: var(--danger); }
+        .input-tax-percent { width: 70px; text-align: center; font-weight: bold; color: var(--danger); border: 2px solid #ddd !important; }
 
         @media print {
             nav { display: none; }
@@ -86,8 +86,12 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>Tarif Pajak (%)</label>
+                <label>Tarif PB1 (%)</label>
                 <input type="number" id="taxPercent" class="input-tax-percent" value="10" min="0" max="100" step="0.1">
+            </div>
+            <div class="filter-group">
+                <label>Tarif PPh (%)</label>
+                <input type="number" id="pphPercent" class="input-tax-percent" value="0.5" min="0" max="100" step="0.01">
             </div>
             <button class="btn-filter" onclick="loadTaxReport()">Tampilkan Data</button>
         </div>
@@ -98,8 +102,8 @@
                     <th style="width: 20%;">Bulan / Periode</th>
                     <th style="width: 20%;">Omzet Bruto <br><small id="th-omzet">(Inc. Pajak)</small></th>
                     <th style="width: 20%;">DPP <br><small>(Dasar Pengenaan)</small></th>
-                    <th style="width: 20%;">Pajak <span id="label-tax-name">PB1</span> (<span class="current-tax-display">10</span>%) <span class="badge badge-daerah">DAERAH</span></th>
-                    <th style="width: 20%;">PPh Final (0.5%) <span class="badge badge-pusat">PUSAT</span></th>
+                    <th style="width: 20%;">Pajak PB1 (<span class="pb1-display">10</span>%) <span class="badge badge-daerah">DAERAH</span></th>
+                    <th style="width: 20%;">PPh Final (<span class="pph-display">0.5</span>%) <span class="badge badge-pusat">PUSAT</span></th>
                 </tr>
             </thead>
             <tbody id="tax-body">
@@ -113,9 +117,9 @@
         </table>
 
         <div class="tax-calc-box">
-            <h4 style="margin:0 0 10px 0; color:#2c3e50;">💡 Penjelasan Angka:</h4>
+            <h4 style="margin:0 0 10px 0; color:#2c3e50;">💡 Penjelasan Perhitungan:</h4>
             <div id="tax-explanation" style="font-size: 13px; line-height: 1.6; color: #555;">
-                <!-- Penjelasan dinamis via JS -->
+                <!-- Penjelasan dinamis -->
             </div>
         </div>
     </div>
@@ -138,35 +142,27 @@
         const start = document.getElementById('dateStart').value;
         const end = document.getElementById('dateEnd').value;
         const method = document.getElementById('taxMethod').value;
-        const taxRate = parseFloat(document.getElementById('taxPercent').value) || 0;
+        const pb1Rate = parseFloat(document.getElementById('taxPercent').value) || 0;
+        const pphRate = parseFloat(document.getElementById('pphPercent').value) || 0;
 
         if(!start || !end) return alert("Silakan pilih rentang tanggal!");
 
-        // Update Label UI
+        // Update UI Text
         document.getElementById('label-periode').innerText = `Periode: ${new Date(start).toLocaleDateString('id-ID')} - ${new Date(end).toLocaleDateString('id-ID')}`;
-        document.getElementById('th-omzet').innerText = method === 'include' ? `(Inc. Pajak ${taxRate}%)` : `(Exc. Pajak ${taxRate}%)`;
+        document.getElementById('th-omzet').innerText = method === 'include' ? `(Inc. Pajak ${pb1Rate}%)` : `(Exc. Pajak ${pb1Rate}%)`;
         
-        const taxDisplays = document.querySelectorAll('.current-tax-display');
-        taxDisplays.forEach(el => el.innerText = taxRate);
+        document.querySelectorAll('.pb1-display').forEach(el => el.innerText = pb1Rate);
+        document.querySelectorAll('.pph-display').forEach(el => el.innerText = pphRate);
         
         const explanationBox = document.getElementById('tax-explanation');
-        const divider = 1 + (taxRate / 100);
+        const divider = 1 + (pb1Rate / 100);
         
-        if(method === 'include') {
-            explanationBox.innerHTML = `
-                <p>Metode perhitungan yang digunakan (Inklusif Pajak ${taxRate}%):</p>
-                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Omzet Bruto dibagi ${divider.toFixed(2)}</p>
-                <p>• <strong>Pajak (${taxRate}%):</strong> Selisih antara Omzet Bruto dan DPP (Omzet - DPP).</p>
-                <p>• <strong>PPh Final (0.5%):</strong> Pajak Penghasilan UMKM dari DPP x 0.5%.</p>
-            `;
-        } else {
-            explanationBox.innerHTML = `
-                <p>Metode perhitungan yang digunakan (Eksklusif Pajak ${taxRate}%):</p>
-                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Sama dengan Omzet Bruto (Harga Dasar).</p>
-                <p>• <strong>Pajak (${taxRate}%):</strong> Nilai pajak ditambahkan di atas harga dasar (DPP x ${taxRate}%).</p>
-                <p>• <strong>PPh Final (0.5%):</strong> Pajak Penghasilan UMKM dari DPP x 0.5%.</p>
-            `;
-        }
+        explanationBox.innerHTML = `
+            <p>Metode: <strong>${method === 'include' ? 'Inklusif' : 'Eksklusif'} Pajak</strong></p>
+            <p>• <strong>DPP:</strong> ${method === 'include' ? 'Omzet / ' + divider.toFixed(2) : 'Sama dengan Omzet'}</p>
+            <p>• <strong>Pajak Daerah (PB1):</strong> DPP x ${pb1Rate}% (Pajak yang disetor ke Pemda).</p>
+            <p>• <strong>Pajak Pusat (PPh Final):</strong> DPP x ${pphRate}% (Pajak penghasilan yang disetor ke Kas Negara).</p>
+        `;
         
         const tableBody = document.getElementById('tax-body');
         tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Memproses data unit BeautyBloom...</td></tr>`;
@@ -202,7 +198,7 @@
             const sortedMonths = Object.keys(monthlyData).sort().map(k => monthlyData[k]);
 
             if (sortedMonths.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Tidak ada data transaksi ditemukan untuk BeautyBloom pada periode ini.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Tidak ada transaksi ditemukan.</td></tr>`;
                 document.getElementById('tax-total').innerHTML = '';
                 return;
             }
@@ -218,10 +214,10 @@
                     pb1 = m.omzet - dpp;
                 } else {
                     dpp = m.omzet;
-                    pb1 = Math.floor(m.omzet * (taxRate / 100));
+                    pb1 = Math.floor(m.omzet * (pb1Rate / 100));
                 }
                 
-                const pph = Math.floor(dpp * 0.005);
+                const pph = Math.floor(dpp * (pphRate / 100));
 
                 tOmzet += m.omzet;
                 tDPP += dpp;
@@ -241,7 +237,7 @@
 
             tableBody.innerHTML = html;
             document.getElementById('tax-total').innerHTML = `
-                <td>TOTAL PERIODE</td>
+                <td>TOTAL</td>
                 <td>Rp ${tOmzet.toLocaleString('id-ID')}</td>
                 <td>Rp ${tDPP.toLocaleString('id-ID')}</td>
                 <td>Rp ${tPB1.toLocaleString('id-ID')}</td>
@@ -250,7 +246,7 @@
 
         } catch (e) {
             console.error(e);
-            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Gagal memuat data: ${e.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 </script>
