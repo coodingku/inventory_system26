@@ -21,13 +21,14 @@
         
         .filter-section { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; flex-wrap: wrap; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
-        .filter-group input, .filter-group select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; outline: none; background: white; }
-        .btn-filter { padding: 9px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-filter:hover { background: #1a252f; }
+        .filter-group label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
+        .filter-group input, .filter-group select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; outline: none; background: white; font-size: 13px; }
+        
+        .btn-filter { padding: 9px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .btn-filter:hover { background: #1a252f; transform: translateY(-1px); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 12px; color: #495057; text-transform: uppercase; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 11px; color: #495057; text-transform: uppercase; line-height: 1.4; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
         
         .total-row { background: #fff8f1; font-weight: bold; }
@@ -36,6 +37,8 @@
         .badge { padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 5px; }
         .badge-daerah { background: #e8f5e9; color: #2e7d32; }
         .badge-pusat { background: #fff3e0; color: #e65100; }
+
+        .input-tax-percent { width: 60px; text-align: center; font-weight: bold; color: var(--danger); }
 
         @media print {
             nav { display: none; }
@@ -68,19 +71,23 @@
         <!-- Filter Area -->
         <div class="filter-section no-print">
             <div class="filter-group">
-                <label>Mulai Tanggal:</label>
+                <label>Mulai Tanggal</label>
                 <input type="date" id="dateStart">
             </div>
             <div class="filter-group">
-                <label>Sampai Tanggal:</label>
+                <label>Sampai Tanggal</label>
                 <input type="date" id="dateEnd">
             </div>
             <div class="filter-group">
-                <label>Metode Pajak:</label>
+                <label>Metode Harga</label>
                 <select id="taxMethod">
-                    <option value="include">Harga Sudah Termasuk Pajak (Include)</option>
-                    <option value="exclude">Harga Belum Termasuk Pajak (Exclude)</option>
+                    <option value="include">Termasuk Pajak (Include)</option>
+                    <option value="exclude">Belum Pajak (Exclude)</option>
                 </select>
+            </div>
+            <div class="filter-group">
+                <label>Tarif Pajak (%)</label>
+                <input type="number" id="taxPercent" class="input-tax-percent" value="10" min="0" max="100" step="0.1">
             </div>
             <button class="btn-filter" onclick="loadTaxReport()">Tampilkan Data</button>
         </div>
@@ -88,15 +95,15 @@
         <table>
             <thead>
                 <tr>
-                    <th>Bulan / Periode</th>
-                    <th>Omzet Bruto <br><small id="th-omzet">(Inc. Pajak)</small></th>
-                    <th>DPP <br><small>(Dasar Pengenaan)</small></th>
-                    <th>Pajak PB1 (10%) <span class="badge badge-daerah">DAERAH</span></th>
-                    <th>PPh Final (0.5%) <span class="badge badge-pusat">PUSAT</span></th>
+                    <th style="width: 20%;">Bulan / Periode</th>
+                    <th style="width: 20%;">Omzet Bruto <br><small id="th-omzet">(Inc. Pajak)</small></th>
+                    <th style="width: 20%;">DPP <br><small>(Dasar Pengenaan)</small></th>
+                    <th style="width: 20%;">Pajak <span id="label-tax-name">PB1</span> (<span class="current-tax-display">10</span>%) <span class="badge badge-daerah">DAERAH</span></th>
+                    <th style="width: 20%;">PPh Final (0.5%) <span class="badge badge-pusat">PUSAT</span></th>
                 </tr>
             </thead>
             <tbody id="tax-body">
-                <tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Pilih rentang tanggal dan klik tampilkan data.</td></tr>
+                <tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Klik tampilkan data untuk memproses laporan.</td></tr>
             </tbody>
             <tfoot>
                 <tr class="total-row" id="tax-total">
@@ -131,32 +138,38 @@
         const start = document.getElementById('dateStart').value;
         const end = document.getElementById('dateEnd').value;
         const method = document.getElementById('taxMethod').value;
+        const taxRate = parseFloat(document.getElementById('taxPercent').value) || 0;
 
         if(!start || !end) return alert("Silakan pilih rentang tanggal!");
 
-        // Update UI berdasarkan metode
+        // Update Label UI
         document.getElementById('label-periode').innerText = `Periode: ${new Date(start).toLocaleDateString('id-ID')} - ${new Date(end).toLocaleDateString('id-ID')}`;
-        document.getElementById('th-omzet').innerText = method === 'include' ? '(Inc. Pajak)' : '(Exc. Pajak)';
+        document.getElementById('th-omzet').innerText = method === 'include' ? `(Inc. Pajak ${taxRate}%)` : `(Exc. Pajak ${taxRate}%)`;
+        
+        const taxDisplays = document.querySelectorAll('.current-tax-display');
+        taxDisplays.forEach(el => el.innerText = taxRate);
         
         const explanationBox = document.getElementById('tax-explanation');
+        const divider = 1 + (taxRate / 100);
+        
         if(method === 'include') {
             explanationBox.innerHTML = `
-                <p>Metode perhitungan yang digunakan (Inklusif Pajak):</p>
-                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Omzet Bruto dibagi 1.1</p>
-                <p>• <strong>PB1 (10%):</strong> Pajak daerah yang sudah terkandung dalam harga jual (Omzet - DPP).</p>
-                <p>• <strong>PPh Final (0.5%):</strong> Pajak UMKM berdasarkan PP 55/2022 (DPP x 0.5%).</p>
+                <p>Metode perhitungan yang digunakan (Inklusif Pajak ${taxRate}%):</p>
+                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Omzet Bruto dibagi ${divider.toFixed(2)}</p>
+                <p>• <strong>Pajak (${taxRate}%):</strong> Selisih antara Omzet Bruto dan DPP (Omzet - DPP).</p>
+                <p>• <strong>PPh Final (0.5%):</strong> Pajak Penghasilan UMKM dari DPP x 0.5%.</p>
             `;
         } else {
             explanationBox.innerHTML = `
-                <p>Metode perhitungan yang digunakan (Eksklusif Pajak):</p>
-                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Sama dengan Omzet Bruto (karena harga dasar).</p>
-                <p>• <strong>PB1 (10%):</strong> Pajak daerah ditambahkan ke harga jual (DPP x 10%).</p>
-                <p>• <strong>PPh Final (0.5%):</strong> Pajak UMKM berdasarkan PP 55/2022 (DPP x 0.5%).</p>
+                <p>Metode perhitungan yang digunakan (Eksklusif Pajak ${taxRate}%):</p>
+                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Sama dengan Omzet Bruto (Harga Dasar).</p>
+                <p>• <strong>Pajak (${taxRate}%):</strong> Nilai pajak ditambahkan di atas harga dasar (DPP x ${taxRate}%).</p>
+                <p>• <strong>PPh Final (0.5%):</strong> Pajak Penghasilan UMKM dari DPP x 0.5%.</p>
             `;
         }
         
         const tableBody = document.getElementById('tax-body');
-        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Memproses data...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Memproses data unit BeautyBloom...</td></tr>`;
 
         try {
             const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
@@ -189,7 +202,7 @@
             const sortedMonths = Object.keys(monthlyData).sort().map(k => monthlyData[k]);
 
             if (sortedMonths.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Tidak ada data transaksi pada periode ini.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Tidak ada data transaksi ditemukan untuk BeautyBloom pada periode ini.</td></tr>`;
                 document.getElementById('tax-total').innerHTML = '';
                 return;
             }
@@ -201,13 +214,11 @@
                 let dpp, pb1;
                 
                 if (method === 'include') {
-                    // Logika Sekarang: Harga sudah ada pajaknya
-                    dpp = Math.floor(m.omzet / 1.1);
+                    dpp = Math.floor(m.omzet / divider);
                     pb1 = m.omzet - dpp;
                 } else {
-                    // Logika Nanti: Harga adalah harga dasar
                     dpp = m.omzet;
-                    pb1 = Math.floor(m.omzet * 0.1);
+                    pb1 = Math.floor(m.omzet * (taxRate / 100));
                 }
                 
                 const pph = Math.floor(dpp * 0.005);
