@@ -29,7 +29,7 @@
         <h2 style="text-align:center; margin-top:0; color: var(--primary);">Closing Finex Pos</h2>
         <p style="text-align: center; font-size: 12px; margin-top: -10px; color: #888;">BeautyBloom System</p>
         
-        <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menyusun Laporan Transaksi...</div>
+        <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menghimpun Data Transaksi & Detail Barang...</div>
 
         <div id="main-content" style="display:none;">
             <div class="method-header">RINGKASAN ITEM TERJUAL</div>
@@ -99,17 +99,39 @@
 
         async function loadDataClosing() {
             try {
-                // Ambil data penjualan berdasarkan kasir_id (shiftId)
+                // 1. Ambil data penjualan utama
                 const { data: sales, error: salesErr } = await supabaseClient
                     .from('penjualan')
-                    .select('*')
+                    .select('id, subtotal, diskon, grand_total, metode_pembayaran')
                     .eq('kasir_id', shiftId);
                 
                 if (salesErr) throw salesErr;
 
+                // 2. Ambil semua detail barang untuk transaksi-transaksi tersebut
+                const salesIds = sales.map(s => s.id);
                 let itemMap = {};
-                let methodMap = {};
+                
+                if (salesIds.length > 0) {
+                    const { data: details, error: detailErr } = await supabaseClient
+                        .from('penjualan_detail')
+                        .select('nama_barang, qty, harga, subtotal')
+                        .in('id_penjualan', salesIds);
+                    
+                    if (detailErr) throw detailErr;
 
+                    details.forEach(it => {
+                        const nama = it.nama_barang || 'Produk Tanpa Nama';
+                        const qty = parseInt(it.qty || 0);
+                        const sub = parseFloat(it.subtotal || (it.qty * it.harga) || 0);
+                        
+                        if (!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
+                        itemMap[nama].qty += qty;
+                        itemMap[nama].sub += sub;
+                    });
+                }
+
+                // 3. Kalkulasi Ringkasan Penjualan
+                let methodMap = {};
                 sales.forEach(trx => {
                     dataCetak.kotor += parseFloat(trx.subtotal || 0);
                     dataCetak.diskon += parseFloat(trx.diskon || 0);
@@ -118,35 +140,14 @@
                     const mtd = trx.metode_pembayaran || 'Tunai';
                     methodMap[mtd] = (methodMap[mtd] || 0) + parseFloat(trx.grand_total || 0);
                     if (mtd === 'Tunai') dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
-
-                    // LOGIKA PERBAIKAN: Deteksi format items
-                    let itemsArray = [];
-                    if (trx.items) {
-                        try {
-                            itemsArray = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-                        } catch (e) { 
-                            console.error("Gagal parse JSON items pada transaksi ID:", trx.id);
-                            itemsArray = []; 
-                        }
-                    }
-
-                    itemsArray.forEach(it => {
-                        // Cek berbagai kemungkinan nama field (nama_barang, nama, atau product_name)
-                        const nama = it.nama_barang || it.nama || it.product_name || 'Produk Tidak Terdeteksi';
-                        const qty = parseInt(it.qty || 0);
-                        const harga = parseFloat(it.harga || it.price || 0);
-                        
-                        if (!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
-                        itemMap[nama].qty += qty;
-                        itemMap[nama].sub += (qty * harga);
-                    });
                 });
 
                 dataCetak.methods = methodMap;
                 totalSistem = dataCetak.awal + dataCetak.tunai_masuk;
 
+                // 4. Render ke UI
                 let htmlItems = "";
-                dataCetak.items = []; // Reset array sebelum push
+                dataCetak.items = [];
                 for (let name in itemMap) {
                     dataCetak.items.push({ name, qty: itemMap[name].qty, sub: itemMap[name].sub });
                     htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString()}</span></div>`;
@@ -171,6 +172,7 @@
                 document.getElementById('main-content').style.display = 'block';
 
             } catch (e) { 
+                console.error(e);
                 alert("Gagal memuat data: " + e.message); 
             }
         }
@@ -193,7 +195,7 @@
             const fisik = parseFloat(fisikValue);
             const selisih = fisik - totalSistem;
 
-            if (!confirm("Apakah Anda yakin ingin menutup shift? Data akan dicatat ke Jurnal Akuntansi.")) return;
+            if (!confirm("Apakah Anda yakin ingin menutup shift?")) return;
 
             try {
                 // 1. UPDATE STATUS KASIR
@@ -210,13 +212,13 @@
 
                 if (errLog) throw errLog;
 
-                // 2. CATAT KE JURNAL AKUNTANSI
+                // 2. CATAT KE JURNAL AKUNTANSI (BeautyBloom)
                 const tgl = new Date().toISOString();
                 const dataJurnal = [
                     {
                         tanggal: tgl,
                         no_bukti: `SHIFT-${shiftId}`,
-                        kode_akun: '1-1001', // Contoh Kode Akun Kas
+                        kode_akun: '1-1001',
                         keterangan: `Penerimaan Kas Shift #${shiftId} (${dataCetak.kasir})`,
                         debit: dataCetak.net,
                         kredit: 0
@@ -224,7 +226,7 @@
                     {
                         tanggal: tgl,
                         no_bukti: `SHIFT-${shiftId}`,
-                        kode_akun: '4-1001', // Contoh Kode Akun Pendapatan
+                        kode_akun: '4-1001',
                         keterangan: `Pendapatan Penjualan BeautyBloom Shift #${shiftId}`,
                         debit: 0,
                         kredit: dataCetak.net
@@ -234,11 +236,10 @@
                 const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
                 if (errJurnal) throw errJurnal;
 
-                // 3. CETAK & REDIRECT
                 renderStruk(fisik, selisih);
                 setTimeout(() => {
                     window.print();
-                    alert("Shift Berhasil Ditutup!");
+                    alert("Shift Berhasil Ditutup & Jurnal Tercatat!");
                     window.location.href = "dashboard.html";
                 }, 500);
 
@@ -267,7 +268,7 @@
                     <span style="font-size:8px;">${new Date().toLocaleString()}</span>
                 </div>
                 ----------------------------<br>
-                <b>ITEM TERJUAL:</b><br>${itemRows || 'Tidak ada item'}
+                <b>LAPORAN ITEM TERJUAL:</b><br>${itemRows || 'Tidak ada item'}
                 ----------------------------<br>
                 <b>RINGKASAN PENJUALAN:</b><br>
                 Kotor  : ${dataCetak.kotor.toLocaleString()}<br>
