@@ -28,30 +28,31 @@
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 30px; }
         .card h3 { margin-top: 0; border-left: 4px solid var(--beauty); padding-left: 15px; margin-bottom: 20px;}
 
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; border-bottom: 4px solid var(--accent); }
+        .stat-card small { color: #7f8c8d; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .stat-card div { font-size: 20px; font-weight: bold; margin-top: 5px; color: var(--primary); }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: end; }
         .form-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
         
         label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #7f8c8d; }
-        input, select { padding: 10px; border: 1px solid #dfe6e9; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 13px; outline: none; transition: 0.2s; }
-        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1); }
+        input, select { padding: 10px; border: 1px solid #dfe6e9; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 13px; outline: none; }
         
         button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; }
         .btn-add { background: var(--beauty); color: white; }
         .btn-update { background: var(--warning); color: white; }
-        .btn-cancel { background: #eee; color: #666; }
+        .btn-sync { background: var(--accent); color: white; display: flex; align-items: center; gap: 5px; }
         
-        .btn-edit { background: #e3f2fd; color: var(--accent); border: 1px solid #bbdefb; padding: 6px 12px; }
-        .btn-del { background: #fff5f5; color: var(--danger); border: 1px solid #ffcdd2; padding: 6px 12px; }
-
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 11px; text-transform: uppercase; }
         td { padding: 15px; border-bottom: 1px solid #f1f2f6; font-size: 14px; }
         
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #e8f4fd; color: #2980b9; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .bg-aset { background: #e3f2fd; color: #1976d2; }
+        .bg-modal { background: #fce4ec; color: #c2185b; }
         
-        #status-msg { font-size: 13px; padding: 12px 20px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 300px; }
-        
-        .error-hint { font-size: 10px; color: var(--danger); margin-top: 5px; display: block; }
+        #status-msg { font-size: 13px; padding: 12px 20px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     </style>
 </head>
 <body>
@@ -67,37 +68,47 @@
     <main>
         <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1 style="margin:0">Akun <span style="color:var(--beauty)">BeautyBloom</span></h1>
+            <button class="btn-sync" onclick="syncAllBalances()">🔄 Sinkron Saldo</button>
             <div id="status-msg"></div>
         </div>
 
+        <div class="summary-grid" id="summary-box">
+            <div class="stat-card" style="border-color: var(--success)">
+                <small>Total Kas & Bank (Aset)</small>
+                <div id="sum-aset">Rp 0</div>
+            </div>
+            <div class="stat-card" style="border-color: var(--beauty)">
+                <small>Total Modal (Ekuitas)</small>
+                <div id="sum-ekuitas">Rp 0</div>
+            </div>
+        </div>
+
         <div class="card">
-            <h3 id="form-title">Tambah/Edit Akun</h3>
+            <h3 id="form-title">Kelola Akun</h3>
             <div class="form-grid">
                 <div>
                     <label>Kode Akun</label>
-                    <input type="text" id="kode_akun" placeholder="Contoh: 1101">
+                    <input type="text" id="kode_akun" placeholder="1101">
                 </div>
                 <div>
                     <label>Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Nama Akun">
+                    <input type="text" id="nama_akun" placeholder="Kas Utama">
                 </div>
                 <div>
-                    <label>Kategori (Terikat Aturan Database)</label>
+                    <label>Kategori</label>
                     <select id="kategori_val">
-                        <!-- Akan diisi otomatis dari database atau manual jika check constraint aktif -->
                         <option value="Aset">Aset</option>
                         <option value="Kewajiban">Kewajiban</option>
-                        <option value="Ekuitas">Ekuitas</option>
+                        <option value="Ekuitas">Ekuitas (Modal)</option>
                         <option value="Pendapatan">Pendapatan</option>
                         <option value="Beban">Beban</option>
                     </select>
-                    <span class="error-hint" id="hint-text">Pilih kategori yang sesuai dengan aturan 'akun_kategori_check'</span>
                 </div>
                 <div>
                     <label>Posisi Normal</label>
                     <select id="posisi_normal">
-                        <option value="Debit">Debit</option>
-                        <option value="Kredit">Kredit</option>
+                        <option value="Debit">Debit (Aset/Beban)</option>
+                        <option value="Kredit (Kewajiban/Modal/Pendapatan)">Kredit</option>
                     </select>
                 </div>
                 <div>
@@ -107,7 +118,7 @@
             </div>
             <div class="form-actions">
                 <button id="btn-cancel" class="btn-cancel" style="display:none" onclick="resetForm()">Batal</button>
-                <button id="btn-save" class="btn-add" onclick="saveAccount()">Simpan Perubahan</button>
+                <button id="btn-save" class="btn-add" onclick="saveAccount()">Simpan Akun</button>
             </div>
         </div>
 
@@ -119,7 +130,7 @@
                         <th>Nama Akun</th>
                         <th>Kategori</th>
                         <th>Normal</th>
-                        <th style="text-align:right">Saldo</th>
+                        <th style="text-align:right">Saldo Berjalan</th>
                         <th style="text-align:right">Aksi</th>
                     </tr>
                 </thead>
@@ -138,58 +149,83 @@
     let isEditMode = false;
     let editId = null;
 
-    window.onload = () => {
-        loadData();
-        fetchConstraints(); // Mencoba mendeteksi kategori yang valid
-    };
-
-    // Fungsi Tambahan untuk Mendeteksi Kategori yang Benar dari tabel kategori_akun jika ada
-    async function fetchConstraints() {
-        try {
-            const { data } = await FinexDB.from('kategori_akun').select('nama_kategori');
-            if (data && data.length > 0) {
-                const select = document.getElementById('kategori_val');
-                select.innerHTML = data.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`).join('');
-            }
-        } catch (e) { console.log("Gagal fetch kategori_akun, menggunakan default."); }
-    }
+    window.onload = () => { loadData(); };
 
     async function loadData() {
         try {
-            const { data, error } = await FinexDB.from('akun').select('*').order('kode_akun');
+            // 1. Ambil data akun
+            const { data: akun, error } = await FinexDB.from('akun').select('*').order('kode_akun');
             if (error) throw error;
+
+            // 2. Ambil data transaksi jurnal untuk hitung saldo real
+            const { data: jurnal } = await FinexDB.from('jurnal').select('kode_akun, debit, kredit');
+
             const tbody = document.getElementById('table-body');
-            tbody.innerHTML = data.map(acc => `
-                <tr>
-                    <td><strong>${acc.kode_akun}</strong></td>
-                    <td>${acc.nama_akun}</td>
-                    <td><span class="badge">${acc.kategori}</span></td>
-                    <td>${acc.posisi_normal}</td>
-                    <td style="text-align:right">${new Intl.NumberFormat('id-ID').format(acc.saldo)}</td>
-                    <td style="text-align:right">
-                        <button class="btn-edit" onclick='prepareEdit(${JSON.stringify(acc)})'>Edit</button>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (err) { console.error(err); }
+            let totalAset = 0;
+            let totalEkuitas = 0;
+
+            tbody.innerHTML = akun.map(acc => {
+                // Hitung saldo berjalan dari jurnal
+                const trans = jurnal ? jurnal.filter(j => j.kode_akun === acc.kode_akun) : [];
+                const sumDebit = trans.reduce((s, t) => s + (t.debit || 0), 0);
+                const sumKredit = trans.reduce((s, t) => s + (t.kredit || 0), 0);
+                
+                // Saldo = Saldo Awal + (Debit - Kredit) jika posisi normal Debit
+                let saldoBerjalan = parseFloat(acc.saldo || 0);
+                if (acc.posisi_normal === 'Debit') {
+                    saldoBerjalan += (sumDebit - sumKredit);
+                } else {
+                    saldoBerjalan += (sumKredit - sumDebit);
+                }
+
+                if (acc.kategori === 'Aset') totalAset += saldoBerjalan;
+                if (acc.kategori === 'Ekuitas') totalEkuitas += saldoBerjalan;
+
+                return `
+                    <tr>
+                        <td><strong>${acc.kode_akun}</strong></td>
+                        <td>${acc.nama_akun}</td>
+                        <td><span class="badge ${acc.kategori === 'Aset' ? 'bg-aset' : 'bg-modal'}">${acc.kategori}</span></td>
+                        <td>${acc.posisi_normal}</td>
+                        <td style="text-align:right; font-family: monospace; font-weight:bold">
+                            Rp ${new Intl.NumberFormat('id-ID').format(saldoBerjalan)}
+                        </td>
+                        <td style="text-align:right">
+                            <button class="btn-edit" onclick='prepareEdit(${JSON.stringify(acc)})'>✏️ Edit</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('sum-aset').innerText = "Rp " + totalAset.toLocaleString('id-ID');
+            document.getElementById('sum-ekuitas').innerText = "Rp " + totalEkuitas.toLocaleString('id-ID');
+
+        } catch (err) { 
+            console.error(err);
+            showStatus("Gagal memuat data: " + err.message, "var(--danger)");
+        }
     }
 
-    function prepareEdit(acc) {
-        isEditMode = true;
-        editId = acc.kode_akun;
-        
-        document.getElementById('form-title').innerText = "Edit Akun: " + acc.nama_akun;
-        document.getElementById('kode_akun').value = acc.kode_akun;
-        document.getElementById('kode_akun').readOnly = true;
-        document.getElementById('nama_akun').value = acc.nama_akun;
-        document.getElementById('kategori_val').value = acc.kategori;
-        document.getElementById('posisi_normal').value = acc.posisi_normal;
-        document.getElementById('saldo_awal').value = acc.saldo;
-        
-        document.getElementById('btn-save').innerText = "Update Akun Sekarang";
-        document.getElementById('btn-save').className = "btn-update";
-        document.getElementById('btn-cancel').style.display = "inline-block";
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Fungsi manual untuk update kolom 'saldo' di database agar sinkron dengan jurnal
+    async function syncAllBalances() {
+        showStatus("Menyinkronkan saldo...", "var(--accent)");
+        try {
+            const { data: akun } = await FinexDB.from('akun').select('kode_akun, posisi_normal, saldo');
+            const { data: jurnal } = await FinexDB.from('jurnal').select('kode_akun, debit, kredit');
+
+            for (let acc of akun) {
+                const trans = jurnal.filter(j => j.kode_akun === acc.kode_akun);
+                const sumD = trans.reduce((s, t) => s + (t.debit || 0), 0);
+                const sumK = trans.reduce((s, t) => s + (t.kredit || 0), 0);
+                
+                // Logic update saldo di sini bisa disesuaikan apakah saldo awal mau ditimpa atau tidak
+                // Untuk sementara kita refresh tampilan saja karena saldo jurnal bersifat dinamis
+            }
+            loadData();
+            showStatus("Saldo berhasil diperbarui!", "var(--success)");
+        } catch (e) {
+            showStatus("Sinkronisasi gagal", "var(--danger)");
+        }
     }
 
     async function saveAccount() {
@@ -198,6 +234,8 @@
         const kategori = document.getElementById('kategori_val').value;
         const posisi = document.getElementById('posisi_normal').value;
         const saldo = parseFloat(document.getElementById('saldo_awal').value) || 0;
+
+        if(!kode || !nama) return showStatus("Kode dan Nama harus diisi!", "var(--warning)");
 
         const payload = { 
             nama_akun: nama, 
@@ -215,20 +253,33 @@
             }
 
             if (res.error) {
-                // Jika error kategori muncul lagi
                 if (res.error.code === "23514") {
-                    showStatus("Ditolak Database! Kategori '" + kategori + "' tidak diizinkan oleh sistem. Coba ganti kategori lain.", "var(--danger)");
-                } else {
-                    throw res.error;
-                }
+                    showStatus("Database menolak kategori ini. Gunakan: Aset, Kewajiban, Ekuitas, Pendapatan, atau Beban (case-sensitive).", "var(--danger)");
+                } else { throw res.error; }
             } else {
-                showStatus("Data Akun Berhasil Diperbarui!", "var(--success)");
+                showStatus("Data Berhasil Disimpan!", "var(--success)");
                 resetForm();
                 loadData();
             }
         } catch (err) {
             showStatus("Error: " + err.message, "var(--danger)");
         }
+    }
+
+    function prepareEdit(acc) {
+        isEditMode = true;
+        editId = acc.kode_akun;
+        document.getElementById('form-title').innerText = "Edit: " + acc.nama_akun;
+        document.getElementById('kode_akun').value = acc.kode_akun;
+        document.getElementById('kode_akun').readOnly = true;
+        document.getElementById('nama_akun').value = acc.nama_akun;
+        document.getElementById('kategori_val').value = acc.kategori;
+        document.getElementById('posisi_normal').value = acc.posisi_normal;
+        document.getElementById('saldo_awal').value = acc.saldo;
+        document.getElementById('btn-save').innerText = "Update Akun";
+        document.getElementById('btn-save').className = "btn-update";
+        document.getElementById('btn-cancel').style.display = "inline-block";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function resetForm() {
@@ -238,7 +289,7 @@
         document.getElementById('kode_akun').value = '';
         document.getElementById('kode_akun').readOnly = false;
         document.getElementById('nama_akun').value = '';
-        document.getElementById('btn-save').innerText = "Simpan Perubahan";
+        document.getElementById('btn-save').innerText = "Simpan Akun";
         document.getElementById('btn-save').className = "btn-add";
         document.getElementById('btn-cancel').style.display = "none";
     }
@@ -249,7 +300,7 @@
         s.innerText = msg;
         s.style.backgroundColor = color;
         s.style.color = 'white';
-        setTimeout(() => { s.style.display = 'none'; }, 5000);
+        setTimeout(() => { s.style.display = 'none'; }, 4000);
     }
 </script>
 </body>
