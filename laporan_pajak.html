@@ -19,11 +19,10 @@
         
         .header-pajak { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
         
-        /* Filter Styles */
-        .filter-section { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; }
+        .filter-section { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; flex-wrap: wrap; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
-        .filter-group input { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; outline: none; }
+        .filter-group input, .filter-group select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; outline: none; background: white; }
         .btn-filter { padding: 9px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
         .btn-filter:hover { background: #1a252f; }
 
@@ -76,6 +75,13 @@
                 <label>Sampai Tanggal:</label>
                 <input type="date" id="dateEnd">
             </div>
+            <div class="filter-group">
+                <label>Metode Pajak:</label>
+                <select id="taxMethod">
+                    <option value="include">Harga Sudah Termasuk Pajak (Include)</option>
+                    <option value="exclude">Harga Belum Termasuk Pajak (Exclude)</option>
+                </select>
+            </div>
             <button class="btn-filter" onclick="loadTaxReport()">Tampilkan Data</button>
         </div>
 
@@ -83,7 +89,7 @@
             <thead>
                 <tr>
                     <th>Bulan / Periode</th>
-                    <th>Omzet Bruto <br><small>(Inc. Pajak)</small></th>
+                    <th>Omzet Bruto <br><small id="th-omzet">(Inc. Pajak)</small></th>
                     <th>DPP <br><small>(Dasar Pengenaan)</small></th>
                     <th>Pajak PB1 (10%) <span class="badge badge-daerah">DAERAH</span></th>
                     <th>PPh Final (0.5%) <span class="badge badge-pusat">PUSAT</span></th>
@@ -101,11 +107,8 @@
 
         <div class="tax-calc-box">
             <h4 style="margin:0 0 10px 0; color:#2c3e50;">💡 Penjelasan Angka:</h4>
-            <div style="font-size: 13px; line-height: 1.6; color: #555;">
-                <p>Metode perhitungan yang digunakan (Inklusif Pajak):</p>
-                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Omzet Bruto dibagi 1.1</p>
-                <p>• <strong>PB1 (10%):</strong> Pajak daerah yang sudah terkandung dalam harga jual (Omzet - DPP).</p>
-                <p>• <strong>PPh Final (0.5%):</strong> Pajak Penghasilan UMKM berdasarkan PP 55/2022 (DPP x 0.5%).</p>
+            <div id="tax-explanation" style="font-size: 13px; line-height: 1.6; color: #555;">
+                <!-- Penjelasan dinamis via JS -->
             </div>
         </div>
     </div>
@@ -119,7 +122,6 @@
     const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
     window.onload = () => {
-        // Default set filter ke tahun ini (2026)
         document.getElementById('dateStart').value = '2026-01-01';
         document.getElementById('dateEnd').value = '2026-12-31';
         loadTaxReport();
@@ -128,11 +130,30 @@
     async function loadTaxReport() {
         const start = document.getElementById('dateStart').value;
         const end = document.getElementById('dateEnd').value;
+        const method = document.getElementById('taxMethod').value;
 
         if(!start || !end) return alert("Silakan pilih rentang tanggal!");
 
-        // Update Label Periode
+        // Update UI berdasarkan metode
         document.getElementById('label-periode').innerText = `Periode: ${new Date(start).toLocaleDateString('id-ID')} - ${new Date(end).toLocaleDateString('id-ID')}`;
+        document.getElementById('th-omzet').innerText = method === 'include' ? '(Inc. Pajak)' : '(Exc. Pajak)';
+        
+        const explanationBox = document.getElementById('tax-explanation');
+        if(method === 'include') {
+            explanationBox.innerHTML = `
+                <p>Metode perhitungan yang digunakan (Inklusif Pajak):</p>
+                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Omzet Bruto dibagi 1.1</p>
+                <p>• <strong>PB1 (10%):</strong> Pajak daerah yang sudah terkandung dalam harga jual (Omzet - DPP).</p>
+                <p>• <strong>PPh Final (0.5%):</strong> Pajak UMKM berdasarkan PP 55/2022 (DPP x 0.5%).</p>
+            `;
+        } else {
+            explanationBox.innerHTML = `
+                <p>Metode perhitungan yang digunakan (Eksklusif Pajak):</p>
+                <p>• <strong>DPP (Dasar Pengenaan Pajak):</strong> Sama dengan Omzet Bruto (karena harga dasar).</p>
+                <p>• <strong>PB1 (10%):</strong> Pajak daerah ditambahkan ke harga jual (DPP x 10%).</p>
+                <p>• <strong>PPh Final (0.5%):</strong> Pajak UMKM berdasarkan PP 55/2022 (DPP x 0.5%).</p>
+            `;
+        }
         
         const tableBody = document.getElementById('tax-body');
         tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #999;">Memproses data...</td></tr>`;
@@ -145,25 +166,19 @@
 
             if (error) throw error;
 
-            // Inisialisasi data bulanan (hanya untuk bulan-bulan yang termasuk dalam filter)
             let monthlyData = {};
-            
-            // Loop data dari database
             const uniqueJurnalIds = new Set();
+            
             jurnal.forEach(j => {
                 if (j.kode_akun && j.kode_akun.startsWith('4')) {
                     if (!uniqueJurnalIds.has(j.id)) {
                         uniqueJurnalIds.add(j.id);
-                        
                         const dateObj = new Date(j.tanggal);
                         const key = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-                        
                         if (!monthlyData[key]) {
                             monthlyData[key] = { 
                                 name: `${bulanNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`, 
-                                omzet: 0,
-                                monthIndex: dateObj.getMonth(),
-                                year: dateObj.getFullYear()
+                                omzet: 0
                             };
                         }
                         monthlyData[key].omzet += parseFloat(j.kredit || 0);
@@ -171,7 +186,6 @@
                 }
             });
 
-            // Ubah object ke array dan urutkan berdasarkan waktu
             const sortedMonths = Object.keys(monthlyData).sort().map(k => monthlyData[k]);
 
             if (sortedMonths.length === 0) {
@@ -184,8 +198,18 @@
             let tOmzet = 0, tDPP = 0, tPB1 = 0, tPPh = 0;
 
             sortedMonths.forEach(m => {
-                const dpp = Math.floor(m.omzet / 1.1);
-                const pb1 = m.omzet - dpp;
+                let dpp, pb1;
+                
+                if (method === 'include') {
+                    // Logika Sekarang: Harga sudah ada pajaknya
+                    dpp = Math.floor(m.omzet / 1.1);
+                    pb1 = m.omzet - dpp;
+                } else {
+                    // Logika Nanti: Harga adalah harga dasar
+                    dpp = m.omzet;
+                    pb1 = Math.floor(m.omzet * 0.1);
+                }
+                
                 const pph = Math.floor(dpp * 0.005);
 
                 tOmzet += m.omzet;
