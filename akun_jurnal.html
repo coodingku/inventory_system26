@@ -45,6 +45,9 @@
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
         .bg-Aset { background: #e3f2fd; color: #1976d2; }
         .bg-Ekuitas { background: #fce4ec; color: #c2185b; }
+        .bg-Kewajiban { background: #fff3e0; color: #e65100; }
+        .bg-Pendapatan { background: #e8f5e9; color: #2e7d32; }
+        .bg-Beban { background: #efebe9; color: #4e342e; }
         
         #status-msg { font-size: 13px; padding: 10px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; color: white; }
     </style>
@@ -126,16 +129,19 @@
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="6" style="text-align:center">Sedang mensinkronkan data...</td></tr>
+                    <tr><td colspan="6" style="text-align:center">Memuat data akun...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(URL_DB, KEY_DB);
+    // Konfigurasi Supabase
+    const SUPABASE_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    
+    // Inisialisasi client hanya sekali
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let isEditMode = false;
     let editId = null;
@@ -144,10 +150,10 @@
 
     async function loadData() {
         try {
-            // Ambil data akun dan data dari tabel jurnal_umum secara bersamaan
+            // Ambil data akun dan transaksi jurnal_umum secara paralel
             const [resAkun, resJurnal] = await Promise.all([
-                supabase.from('akun').select('*').order('kode_akun'),
-                supabase.from('jurnal_umum').select('kode_akun, debit, kredit')
+                supabaseClient.from('akun').select('*').order('kode_akun'),
+                supabaseClient.from('jurnal_umum').select('kode_akun, debit, kredit')
             ]);
 
             if (resAkun.error) throw resAkun.error;
@@ -160,26 +166,23 @@
             let totalEkuitas = 0;
 
             tbody.innerHTML = akunList.map(acc => {
-                // FILTER: Ambil semua transaksi di jurnal_umum untuk kode_akun ini
+                // Filter transaksi untuk akun ini (pastikan tipe data sama dengan String)
                 const trx = jurnalList.filter(j => String(j.kode_akun) === String(acc.kode_akun));
                 
-                // TOTALKAN: Jumlah Debit dan Jumlah Kredit
-                const totalDebit = trx.reduce((sum, item) => sum + (Number(item.debit) || 0), 0);
-                const totalKredit = trx.reduce((sum, item) => sum + (Number(item.kredit) || 0), 0);
+                const sumDebit = trx.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
+                const sumKredit = trx.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
                 
-                // HITUNG SALDO BERJALAN: 
-                // Jika Normal Debit: (Saldo Awal + Total Debit) - Total Kredit
-                // Jika Normal Kredit: (Saldo Awal + Total Kredit) - Total Debit
+                // Rumus Saldo Berjalan
                 let saldoBerjalan = 0;
                 const saldoAwal = Number(acc.saldo) || 0;
 
                 if (acc.posisi_normal === 'Debit') {
-                    saldoBerjalan = (saldoAwal + totalDebit) - totalKredit;
+                    saldoBerjalan = (saldoAwal + sumDebit) - sumKredit;
                 } else {
-                    saldoBerjalan = (saldoAwal + totalKredit) - totalDebit;
+                    saldoBerjalan = (saldoAwal + sumKredit) - sumDebit;
                 }
 
-                // Update Total Ringkasan (Aset & Ekuitas)
+                // Hitung total untuk dashboard
                 if (acc.kategori === 'Aset') totalAset += saldoBerjalan;
                 if (acc.kategori === 'Ekuitas') totalEkuitas += saldoBerjalan;
 
@@ -203,7 +206,8 @@
             document.getElementById('sum-ekuitas').innerText = "Rp " + totalEkuitas.toLocaleString('id-ID');
 
         } catch (err) { 
-            showStatus("Gagal sinkron: " + err.message, "var(--danger)");
+            console.error(err);
+            showStatus("Sinkronisasi gagal: " + err.message, "var(--danger)");
         }
     }
 
@@ -221,18 +225,18 @@
         try {
             let res;
             if (isEditMode) {
-                res = await supabase.from('akun').update(payload).eq('kode_akun', editId);
+                res = await supabaseClient.from('akun').update(payload).eq('kode_akun', editId);
             } else {
-                res = await supabase.from('akun').insert([{...payload, kode_akun: kode}]);
+                res = await supabaseClient.from('akun').insert([{...payload, kode_akun: kode}]);
             }
 
             if (res.error) throw res.error;
             
-            showStatus("Berhasil disimpan!", "var(--success)");
+            showStatus("Data berhasil diperbarui!", "var(--success)");
             resetForm();
             loadData();
         } catch (err) {
-            showStatus("Error: " + err.message, "var(--danger)");
+            showStatus("Gagal menyimpan: " + err.message, "var(--danger)");
         }
     }
 
