@@ -6,7 +6,7 @@
     <title>Finex Pos | Closing Shift Lengkap</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .card { background: white; padding: 25px; border-radius: 15px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
@@ -20,13 +20,14 @@
         @media print {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; color: black; line-height: 1.2; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; color: black; line-height: 1.2; padding: 5px; }
         }
     </style>
 </head>
 <body>
     <div class="card">
         <h2 style="text-align:center; margin-top:0; color: var(--primary);">Closing Finex Pos</h2>
+        <p style="text-align: center; font-size: 12px; margin-top: -10px; color: #888;">BeautyBloom System</p>
         
         <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menyusun Laporan Transaksi...</div>
 
@@ -98,8 +99,14 @@
 
         async function loadDataClosing() {
             try {
-                const { data: sales } = await supabaseClient.from('penjualan').select('*').eq('kasir_id', shiftId);
+                // Ambil data penjualan berdasarkan kasir_id (shiftId)
+                const { data: sales, error: salesErr } = await supabaseClient
+                    .from('penjualan')
+                    .select('*')
+                    .eq('kasir_id', shiftId);
                 
+                if (salesErr) throw salesErr;
+
                 let itemMap = {};
                 let methodMap = {};
 
@@ -112,16 +119,26 @@
                     methodMap[mtd] = (methodMap[mtd] || 0) + parseFloat(trx.grand_total || 0);
                     if (mtd === 'Tunai') dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
 
+                    // LOGIKA PERBAIKAN: Deteksi format items
                     let itemsArray = [];
-                    try {
-                        itemsArray = typeof trx.items === 'string' ? JSON.parse(trx.items) : (trx.items || []);
-                    } catch (e) { itemsArray = []; }
+                    if (trx.items) {
+                        try {
+                            itemsArray = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+                        } catch (e) { 
+                            console.error("Gagal parse JSON items pada transaksi ID:", trx.id);
+                            itemsArray = []; 
+                        }
+                    }
 
                     itemsArray.forEach(it => {
-                        const nama = it.nama_barang || it.nama;
+                        // Cek berbagai kemungkinan nama field (nama_barang, nama, atau product_name)
+                        const nama = it.nama_barang || it.nama || it.product_name || 'Produk Tidak Terdeteksi';
+                        const qty = parseInt(it.qty || 0);
+                        const harga = parseFloat(it.harga || it.price || 0);
+                        
                         if (!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
-                        itemMap[nama].qty += parseInt(it.qty || 0);
-                        itemMap[nama].sub += (parseInt(it.qty) * parseFloat(it.harga));
+                        itemMap[nama].qty += qty;
+                        itemMap[nama].sub += (qty * harga);
                     });
                 });
 
@@ -129,11 +146,13 @@
                 totalSistem = dataCetak.awal + dataCetak.tunai_masuk;
 
                 let htmlItems = "";
+                dataCetak.items = []; // Reset array sebelum push
                 for (let name in itemMap) {
                     dataCetak.items.push({ name, qty: itemMap[name].qty, sub: itemMap[name].sub });
                     htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString()}</span></div>`;
                 }
-                document.getElementById('list-barang').innerHTML = htmlItems || 'Tidak ada item terjual';
+                
+                document.getElementById('list-barang').innerHTML = htmlItems || '<div style="text-align:center; color:gray; font-size:12px;">Tidak ada item terjual</div>';
 
                 document.getElementById('txt-kotor').innerText = "Rp " + dataCetak.kotor.toLocaleString();
                 document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString();
@@ -146,12 +165,14 @@
                 for (let m in methodMap) {
                     htmlMethods += `<div class="row"><span>${m}</span><b>Rp ${methodMap[m].toLocaleString()}</b></div>`;
                 }
-                document.getElementById('list-metode').innerHTML = htmlMethods;
+                document.getElementById('list-metode').innerHTML = htmlMethods || '<div class="row"><span>-</span><b>Rp 0</b></div>';
 
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
 
-            } catch (e) { alert("Error: " + e.message); }
+            } catch (e) { 
+                alert("Gagal memuat data: " + e.message); 
+            }
         }
 
         function hitungSelisih() {
@@ -163,71 +184,90 @@
         }
 
         async function prosesClosing() {
-    const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
-    const selisih = fisik - totalSistem;
-
-    if (!confirm("Apakah Anda yakin ingin menutup shift dan menyimpan ke jurnal akuntansi?")) return;
-
-    try {
-        // A. UPDATE STATUS KASIR
-        const { error: errLog } = await supabaseClient
-            .from('kasir_log')
-            .update({
-                waktu_tutup: new Date().toISOString(),
-                total_tunai_sistem: totalSistem,
-                total_tunai_fisik: fisik,
-                selisih: selisih,
-                status: 'Closed'
-            })
-            .eq('id', shiftId);
-
-        if (errLog) throw errLog;
-
-        // B. CATAT KE JURNAL AKUNTANSI (Double Entry)
-        const tgl = new Date().toISOString();
-        const dataJurnal = [
-            {
-                tanggal: tgl,
-                no_bukti: `SHIFT-${shiftId}`,
-                kode_akun: '7101', // Masuk ke Kas
-                keterangan: `Penerimaan Penjualan Shift #${shiftId}`,
-                debit: dataCetak.net, // Angka pendapatan bersih
-                kredit: 0
-            },
-            {
-                tanggal: tgl,
-                no_bukti: `SHIFT-${shiftId}`,
-                kode_akun: '7102', // Dicatat sebagai Pendapatan
-                keterangan: `Pendapatan BeautyBloom Shift #${shiftId}`,
-                debit: 0,
-                kredit: dataCetak.net
+            const fisikValue = document.getElementById('input-fisik').value;
+            if (fisikValue === "") {
+                alert("Harap input uang fisik di laci terlebih dahulu!");
+                return;
             }
-        ];
 
-        const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
-        if (errJurnal) throw errJurnal;
+            const fisik = parseFloat(fisikValue);
+            const selisih = fisik - totalSistem;
 
-        // C. FINISH
-        renderStruk(fisik, selisih);
-        window.print();
-        alert("Berhasil! Data Kasir ditutup & Jurnal Akuntansi tercatat.");
-        window.location.href = "dashboard.html";
+            if (!confirm("Apakah Anda yakin ingin menutup shift? Data akan dicatat ke Jurnal Akuntansi.")) return;
 
-    } catch (err) {
-        alert("Terjadi kesalahan: " + err.message);
-    }
-}
+            try {
+                // 1. UPDATE STATUS KASIR
+                const { error: errLog } = await supabaseClient
+                    .from('kasir_log')
+                    .update({
+                        waktu_tutup: new Date().toISOString(),
+                        total_tunai_sistem: totalSistem,
+                        total_tunai_fisik: fisik,
+                        selisih: selisih,
+                        status: 'Closed'
+                    })
+                    .eq('id', shiftId);
+
+                if (errLog) throw errLog;
+
+                // 2. CATAT KE JURNAL AKUNTANSI
+                const tgl = new Date().toISOString();
+                const dataJurnal = [
+                    {
+                        tanggal: tgl,
+                        no_bukti: `SHIFT-${shiftId}`,
+                        kode_akun: '1-1001', // Contoh Kode Akun Kas
+                        keterangan: `Penerimaan Kas Shift #${shiftId} (${dataCetak.kasir})`,
+                        debit: dataCetak.net,
+                        kredit: 0
+                    },
+                    {
+                        tanggal: tgl,
+                        no_bukti: `SHIFT-${shiftId}`,
+                        kode_akun: '4-1001', // Contoh Kode Akun Pendapatan
+                        keterangan: `Pendapatan Penjualan BeautyBloom Shift #${shiftId}`,
+                        debit: 0,
+                        kredit: dataCetak.net
+                    }
+                ];
+
+                const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
+                if (errJurnal) throw errJurnal;
+
+                // 3. CETAK & REDIRECT
+                renderStruk(fisik, selisih);
+                setTimeout(() => {
+                    window.print();
+                    alert("Shift Berhasil Ditutup!");
+                    window.location.href = "dashboard.html";
+                }, 500);
+
+            } catch (err) {
+                alert("Error saat closing: " + err.message);
+            }
+        }
+
         function renderStruk(fisik, selisih) {
-            let itemRows = dataCetak.items.map(i => `<div style="display:flex; justify-content:space-between;"><span>${i.name.substring(0,18)} x${i.qty}</span><span>${i.sub.toLocaleString()}</span></div>`).join('');
+            let itemRows = dataCetak.items.map(i => `
+                <div style="display:flex; justify-content:space-between;">
+                    <span>${i.name.substring(0,18)} x${i.qty}</span>
+                    <span>${i.sub.toLocaleString()}</span>
+                </div>
+            `).join('');
+            
             let methodRows = "";
             for (let m in dataCetak.methods) {
                 methodRows += `<div style="display:flex; justify-content:space-between;"><span>${m}</span><span>${dataCetak.methods[m].toLocaleString()}</span></div>`;
             }
 
             document.getElementById('print-area').innerHTML = `
-                <div style="text-align:center"><b>CLOSING FINEX POS</b><br>Kantin Digital System<br>${new Date().toLocaleString()}</div>
+                <div style="text-align:center; font-weight:bold;">
+                    <span style="font-size:14px;">FINEX POS</span><br>
+                    BEAUTYBLOOM SYSTEM<br>
+                    <span style="font-size:8px;">${new Date().toLocaleString()}</span>
+                </div>
                 ----------------------------<br>
-                <b>ITEM TERJUAL:</b><br>${itemRows}
+                <b>ITEM TERJUAL:</b><br>${itemRows || 'Tidak ada item'}
                 ----------------------------<br>
                 <b>RINGKASAN PENJUALAN:</b><br>
                 Kotor  : ${dataCetak.kotor.toLocaleString()}<br>
@@ -242,7 +282,10 @@
                 <b>FISIK LACI : ${fisik.toLocaleString()}</b><br>
                 <b>SELISIH    : ${selisih.toLocaleString()}</b><br>
                 ----------------------------<br>
-                <div style="text-align:center">SHIFT CLOSED</div>
+                <div style="text-align:center; margin-top:10px;">
+                    Kasir: ${dataCetak.kasir}<br>
+                    *** SHIFT CLOSED ***
+                </div>
             `;
         }
     </script>
