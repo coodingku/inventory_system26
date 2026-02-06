@@ -28,7 +28,7 @@
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 30px; }
         .card h3 { margin-top: 0; border-left: 4px solid var(--beauty); padding-left: 15px; margin-bottom: 20px;}
 
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; align-items: end; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: end; }
         .form-actions { display: flex; gap: 10px; margin-top: 15px; justify-content: flex-end; }
         
         label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #7f8c8d; }
@@ -36,38 +36,30 @@
         input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1); }
         input[readonly] { background: #f9f9f9; cursor: not-allowed; }
         
-        /* Category select group */
         .select-group { display: flex; gap: 5px; }
-        .btn-plus { background: var(--accent); color: white; border: none; padding: 0 12px; border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1; }
-        .btn-plus:hover { background: #2980b9; }
+        .btn-plus { background: var(--accent); color: white; border: none; padding: 0 12px; border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1; transition: 0.2s; }
+        .btn-plus:hover { background: #2980b9; transform: scale(1.05); }
 
         button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; }
         .btn-add { background: var(--beauty); color: white; }
-        .btn-add:hover { opacity: 0.9; }
         .btn-update { background: var(--warning); color: white; }
         .btn-cancel { background: #eee; color: #666; }
         
-        .btn-edit { background: #e3f2fd; color: var(--accent); border: 1px solid #bbdefb; margin-right: 5px; }
-        .btn-edit:hover { background: var(--accent); color: white; }
+        .btn-edit { background: #e3f2fd; color: var(--accent); border: 1px solid #bbdefb; }
         .btn-del { background: #fff5f5; color: var(--danger); border: 1px solid #ffcdd2; }
-        .btn-del:hover { background: var(--danger); color: white; }
 
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 11px; text-transform: uppercase; }
         td { padding: 15px; border-bottom: 1px solid #f1f2f6; font-size: 14px; }
         
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #e8f4fd; color: #2980b9; }
         .text-right { text-align: right; }
-        .font-mono { font-family: 'Courier New', monospace; font-weight: bold; }
         
-        /* Status message */
         #status-msg { font-size: 13px; padding: 12px 20px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-        /* Modal simple */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal { background: white; padding: 25px; border-radius: 12px; width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .modal h4 { margin-top: 0; color: var(--primary); }
+        .modal { background: white; padding: 25px; border-radius: 12px; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -75,7 +67,7 @@
     <nav>
         <h2>Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
-        <a href="pos.html">🛒 Masuk Kasir</a>
+        <a href="pos.html">🛒 Kasir</a>
         <a href="akun_jurnal.html" class="active">🏦 Daftar Akun</a>
         <a href="jurnal.html">📖 Jurnal Umum</a>
     </nav>
@@ -86,23 +78,23 @@
             <div id="status-msg"></div>
         </div>
 
-        <!-- FORM INPUT/EDIT AKUN -->
+        <!-- FORM DATA AKUN -->
         <div class="card">
             <h3 id="form-title">Tambah Akun Baru</h3>
             <div class="form-grid">
                 <div>
                     <label>Kode Akun</label>
-                    <input type="text" id="kode_akun" placeholder="1101" oninput="autoSuggest(this.value)">
+                    <input type="text" id="kode_akun" placeholder="Contoh: 1101" oninput="autoSuggest(this.value)">
                 </div>
                 <div>
                     <label>Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Kas Kecil">
+                    <input type="text" id="nama_akun" placeholder="Nama Akun">
                 </div>
-                <div style="min-width: 200px;">
-                    <label>Kategori</label>
+                <div>
+                    <label>Kategori (Tabel: kategori_akun)</label>
                     <div class="select-group">
-                        <select id="kategori_akun" onchange="syncNormalPos()">
-                            <!-- Diisi dinamis dari DB -->
+                        <select id="kategori_id">
+                            <option value="">Memuat kategori...</option>
                         </select>
                         <button class="btn-plus" onclick="openCatModal()" title="Tambah Kategori Baru">+</button>
                     </div>
@@ -115,7 +107,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Saldo Awal (IDR)</label>
+                    <label>Saldo Awal</label>
                     <input type="number" id="saldo_awal" value="0">
                 </div>
             </div>
@@ -125,35 +117,35 @@
             </div>
         </div>
 
-        <!-- TABEL DATA AKUN -->
+        <!-- TABEL AKUN -->
         <div class="card">
             <table>
                 <thead>
                     <tr>
                         <th width="10%">Kode</th>
                         <th width="25%">Nama Akun</th>
-                        <th width="15%">Kategori</th>
+                        <th width="20%">Kategori</th>
                         <th width="10%">Normal</th>
-                        <th width="20%" class="text-right">Saldo Berjalan</th>
+                        <th width="15%" class="text-right">Saldo</th>
                         <th width="20%" style="text-align:right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="6" style="text-align:center; padding: 40px; color: #999;">Memuat data...</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding: 40px;">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
-    <!-- Modal Tambah Kategori -->
+    <!-- MODAL TAMBAH KATEGORI -->
     <div class="modal-overlay" id="cat-modal">
         <div class="modal">
-            <h4>Tambah Kategori Akun</h4>
-            <label>Nama Kategori Baru</label>
-            <input type="text" id="new-cat-name" placeholder="Contoh: Aset Tetap" style="margin-bottom: 15px;">
+            <h3 style="margin-top:0">Kategori Baru</h3>
+            <label>Nama Kategori</label>
+            <input type="text" id="new-cat-name" placeholder="Misal: Aset Lancar" style="margin-bottom: 20px;">
             <div style="display:flex; justify-content: flex-end; gap: 10px;">
                 <button class="btn-cancel" onclick="closeCatModal()">Batal</button>
-                <button class="btn-add" onclick="addNewCategory()">Tambah</button>
+                <button class="btn-add" id="btn-save-cat" onclick="addNewCategory()">Simpan</button>
             </div>
         </div>
     </div>
@@ -164,206 +156,161 @@
     const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
 
     let isEditMode = false;
-    let originalCode = null;
-    let categories = ["Aset", "Kewajiban", "Modal", "Pendapatan", "Beban"];
+    let editId = null;
 
     window.onload = async () => {
-        await fetchCategories();
+        await loadKategori();
         await loadData();
     };
 
-    function formatIDR(num) {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
-    }
-
-    // Mengambil list kategori unik dari database agar dropdown sinkron
-    async function fetchCategories() {
+    // 1. Ambil data kategori dari tabel kategori_akun
+    async function loadKategori() {
         try {
-            const { data, error } = await FinexDB.from('akun').select('kategori');
+            const { data, error } = await FinexDB.from('kategori_akun').select('*').order('nama_kategori');
             if (error) throw error;
-            
-            // Ambil kategori unik dan gabungkan dengan default jika belum ada
-            const dbCats = [...new Set(data.map(item => item.kategori))];
-            categories = [...new Set([...categories, ...dbCats])];
-            
-            updateCatDropdown();
-        } catch (err) {
-            console.error("Gagal ambil kategori:", err);
-            updateCatDropdown(); // Tetap render default
-        }
-    }
 
-    function updateCatDropdown() {
-        const select = document.getElementById('kategori_akun');
-        const currentVal = select.value;
-        select.innerHTML = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
-        if (currentVal && categories.includes(currentVal)) select.value = currentVal;
-    }
-
-    function openCatModal() { document.getElementById('cat-modal').style.display = 'flex'; }
-    function closeCatModal() { document.getElementById('cat-modal').style.display = 'none'; }
-
-    function addNewCategory() {
-        const newCat = document.getElementById('new-cat-name').value.trim();
-        if (!newCat) return;
-        
-        if (!categories.includes(newCat)) {
-            categories.push(newCat);
-            updateCatDropdown();
-            document.getElementById('kategori_akun').value = newCat;
-            showStatus("Kategori ditambahkan ke pilihan", "var(--success)");
-        }
-        
-        document.getElementById('new-cat-name').value = '';
-        closeCatModal();
-    }
-
-    function autoSuggest(val) {
-        if(isEditMode || !val) return;
-        const cat = document.getElementById('kategori_akun');
-        const pos = document.getElementById('posisi_normal');
-        
-        if (val.startsWith('1')) { cat.value = 'Aset'; pos.value = 'Debit'; }
-        else if (val.startsWith('2')) { cat.value = 'Kewajiban'; pos.value = 'Kredit'; }
-        else if (val.startsWith('3')) { cat.value = 'Modal'; pos.value = 'Kredit'; }
-        else if (val.startsWith('4')) { cat.value = 'Pendapatan'; pos.value = 'Kredit'; }
-        else if (val.startsWith('5')) { cat.value = 'Beban'; pos.value = 'Debit'; }
-    }
-
-    function syncNormalPos() {
-        const kat = document.getElementById('kategori_akun').value;
-        const pos = document.getElementById('posisi_normal');
-        if (kat === 'Aset' || kat === 'Beban') pos.value = 'Debit';
-        else if (kat === 'Kewajiban' || kat === 'Modal' || kat === 'Pendapatan') pos.value = 'Kredit';
-    }
-
-    async function loadData() {
-        try {
-            const { data: accounts, error: accErr } = await FinexDB.from('akun').select('*').order('kode_akun');
-            if (accErr) throw accErr;
-
-            const { data: journals, error: jrnlErr } = await FinexDB.from('jurnal_umum').select('kode_akun, debit, kredit');
-            if (jrnlErr) throw jrnlErr;
-
-            const mutasiMap = {};
-            journals.forEach(row => {
-                const code = String(row.kode_akun);
-                if (!mutasiMap[code]) mutasiMap[code] = { totalDebit: 0, totalKredit: 0 };
-                mutasiMap[code].totalDebit += parseFloat(row.debit || 0);
-                mutasiMap[code].totalKredit += parseFloat(row.kredit || 0);
-            });
-
-            const tbody = document.getElementById('table-body');
-            if (accounts.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">Belum ada akun.</td></tr>`;
-                return;
+            const select = document.getElementById('kategori_id');
+            if (data.length === 0) {
+                select.innerHTML = '<option value="">Kosong, tambah kategori baru</option>';
+            } else {
+                select.innerHTML = data.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`).join('');
             }
-
-            tbody.innerHTML = accounts.map(acc => {
-                const code = String(acc.kode_akun);
-                const mutasi = mutasiMap[code] || { totalDebit: 0, totalKredit: 0 };
-                const saldoAwal = parseFloat(acc.saldo || 0);
-                let saldoAkhir = acc.posisi_normal === 'Debit' 
-                    ? saldoAwal + mutasi.totalDebit - mutasi.totalKredit 
-                    : saldoAwal + mutasi.totalKredit - mutasi.totalDebit;
-
-                return `
-                    <tr>
-                        <td><code style="font-weight:bold">${acc.kode_akun}</code></td>
-                        <td>${acc.nama_akun}</td>
-                        <td><span class="badge">${acc.kategori}</span></td>
-                        <td><small>${acc.posisi_normal}</small></td>
-                        <td class="text-right font-mono">${formatIDR(saldoAkhir)}</td>
-                        <td style="text-align:right">
-                            <button class="btn-edit" onclick='setEditMode(${JSON.stringify(acc)})'>Edit</button>
-                            <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
-                        </td>
-                    </tr>`;
-            }).join('');
         } catch (err) {
-            showStatus("Gagal memuat data", "var(--danger)");
+            console.error("Gagal load kategori:", err);
         }
     }
 
-    function setEditMode(acc) {
-        isEditMode = true;
-        originalCode = acc.kode_akun;
-        
-        // Pastikan kategori ada di list dropdown saat edit
-        if (!categories.includes(acc.kategori)) {
-            categories.push(acc.kategori);
-            updateCatDropdown();
-        }
+    // 2. Tambah kategori baru ke tabel kategori_akun
+    async function addNewCategory() {
+        const input = document.getElementById('new-cat-name');
+        const name = input.value.trim();
+        if (!name) return;
 
-        document.getElementById('form-title').innerText = "Edit Akun: " + acc.nama_akun;
-        document.getElementById('kode_akun').value = acc.kode_akun;
-        document.getElementById('kode_akun').readOnly = true; 
-        document.getElementById('nama_akun').value = acc.nama_akun;
-        document.getElementById('kategori_akun').value = acc.kategori;
-        document.getElementById('posisi_normal').value = acc.posisi_normal;
-        document.getElementById('saldo_awal').value = acc.saldo;
-        
-        const btnSave = document.getElementById('btn-save');
-        btnSave.innerText = "Perbarui Akun";
-        btnSave.className = "btn-update";
-        document.getElementById('btn-cancel').style.display = 'inline-block';
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const btn = document.getElementById('btn-save-cat');
+        btn.disabled = true;
+        btn.innerText = "Proses...";
+
+        try {
+            const { error } = await FinexDB.from('kategori_akun').insert([{ nama_kategori: name }]);
+            if (error) throw error;
+
+            showStatus("Kategori '" + name + "' berhasil disimpan", "var(--success)");
+            input.value = '';
+            closeCatModal();
+            await loadKategori();
+            document.getElementById('kategori_id').value = name;
+        } catch (err) {
+            showStatus("Gagal: " + err.message, "var(--danger)");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Simpan";
+        }
     }
 
+    // 3. Simpan Akun (Link ke kategori melalui nama_kategori)
     async function saveAccount() {
         const kode = document.getElementById('kode_akun').value;
         const nama = document.getElementById('nama_akun').value;
-        if(!kode || !nama) return showStatus("Lengkapi form!", "var(--danger)");
+        const kategori = document.getElementById('kategori_id').value;
+        const posisi = document.getElementById('posisi_normal').value;
+        const saldo = parseFloat(document.getElementById('saldo_awal').value) || 0;
 
-        const payload = {
-            kode_akun: String(kode),
-            nama_akun: nama,
-            kategori: document.getElementById('kategori_akun').value,
-            posisi_normal: document.getElementById('posisi_normal').value,
-            saldo: parseFloat(document.getElementById('saldo_awal').value) || 0 
+        if (!kode || !nama || !kategori) return showStatus("Lengkapi semua field!", "var(--danger)");
+
+        const payload = { 
+            kode_akun: kode, 
+            nama_akun: nama, 
+            kategori: kategori, 
+            posisi_normal: posisi, 
+            saldo: saldo 
         };
 
         let res;
         if (isEditMode) {
-            res = await FinexDB.from('akun').update(payload).eq('kode_akun', originalCode);
+            res = await FinexDB.from('akun').update(payload).eq('kode_akun', editId);
         } else {
             res = await FinexDB.from('akun').insert([payload]);
         }
 
         if (res.error) {
-            showStatus("Kesalahan: " + res.error.message, "var(--danger)");
+            showStatus("Gagal: " + res.error.message, "var(--danger)");
         } else {
-            showStatus(isEditMode ? "✅ Berhasil diperbarui" : "✅ Berhasil disimpan", "var(--success)");
+            showStatus("Data akun berhasil disimpan", "var(--success)");
             resetForm();
             loadData();
         }
     }
 
-    async function deleteAcc(id) {
-        if(!confirm("Hapus akun " + id + "? Data di Jurnal Umum mungkin akan terpengaruh.")) return;
-        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', String(id));
-        if (error) showStatus("Gagal hapus", "var(--danger)");
-        else {
-            showStatus("🗑️ Terhapus", "var(--primary)");
-            loadData();
+    async function loadData() {
+        try {
+            // Kita join data akun dengan kategori jika diperlukan, 
+            // namun di sini kita asumsikan 'kategori' di tabel 'akun' menyimpan nama dari 'kategori_akun'
+            const { data, error } = await FinexDB.from('akun').select('*').order('kode_akun');
+            if (error) throw error;
+
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = data.map(acc => `
+                <tr>
+                    <td><strong>${acc.kode_akun}</strong></td>
+                    <td>${acc.nama_akun}</td>
+                    <td><span class="badge">${acc.kategori}</span></td>
+                    <td>${acc.posisi_normal}</td>
+                    <td class="text-right">${new Intl.NumberFormat('id-ID').format(acc.saldo)}</td>
+                    <td style="text-align:right">
+                        <button class="btn-edit" onclick='setEditMode(${JSON.stringify(acc)})'>Edit</button>
+                        <button class="btn-del" onclick="deleteAcc('${acc.kode_akun}')">Hapus</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error(err);
         }
+    }
+
+    function setEditMode(acc) {
+        isEditMode = true;
+        editId = acc.kode_akun;
+        document.getElementById('form-title').innerText = "Edit Akun: " + acc.nama_akun;
+        document.getElementById('kode_akun').value = acc.kode_akun;
+        document.getElementById('kode_akun').readOnly = true;
+        document.getElementById('nama_akun').value = acc.nama_akun;
+        document.getElementById('kategori_id').value = acc.kategori;
+        document.getElementById('posisi_normal').value = acc.posisi_normal;
+        document.getElementById('saldo_awal').value = acc.saldo;
+        
+        document.getElementById('btn-save').innerText = "Update Akun";
+        document.getElementById('btn-save').className = "btn-update";
+        document.getElementById('btn-cancel').style.display = "inline-block";
+    }
+
+    async function deleteAcc(id) {
+        if(!confirm("Hapus akun " + id + "?")) return;
+        const { error } = await FinexDB.from('akun').delete().eq('kode_akun', id);
+        if(!error) loadData();
+    }
+
+    function autoSuggest(val) {
+        if (isEditMode) return;
+        const pos = document.getElementById('posisi_normal');
+        if (val.startsWith('1') || val.startsWith('5')) pos.value = 'Debit';
+        else pos.value = 'Kredit';
     }
 
     function resetForm() {
         isEditMode = false;
-        originalCode = null;
+        editId = null;
         document.getElementById('form-title').innerText = "Tambah Akun Baru";
         document.getElementById('kode_akun').value = '';
         document.getElementById('kode_akun').readOnly = false;
         document.getElementById('nama_akun').value = '';
         document.getElementById('saldo_awal').value = 0;
-        
-        const btnSave = document.getElementById('btn-save');
-        btnSave.innerText = "Simpan Akun";
-        btnSave.className = "btn-add";
-        document.getElementById('btn-cancel').style.display = 'none';
+        document.getElementById('btn-save').innerText = "Simpan Akun";
+        document.getElementById('btn-save').className = "btn-add";
+        document.getElementById('btn-cancel').style.display = "none";
     }
+
+    function openCatModal() { document.getElementById('cat-modal').style.display = 'flex'; }
+    function closeCatModal() { document.getElementById('cat-modal').style.display = 'none'; }
 
     function showStatus(msg, color) {
         const s = document.getElementById('status-msg');
