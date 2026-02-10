@@ -62,7 +62,7 @@
 <main>
     <div class="header-flex">
         <div>
-            <h1 style="margin:0">Laporan Pembelian Kantin</h1>
+            <h1 style="margin:0">Laporan Pembelian BeautyBloom</h1>
             <p style="color:#888; margin-top:5px;">Pantau riwayat barang masuk dan pengeluaran modal.</p>
         </div>
         <div style="display:flex; gap:10px;">
@@ -126,7 +126,7 @@
                 </tr>
             </thead>
             <tbody id="report-list">
-                </tbody>
+            </tbody>
         </table>
     </div>
 </main>
@@ -151,7 +151,9 @@
         const search = document.getElementById('search-input').value.toLowerCase();
         
         const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
-        const tglSelesai = `${tahun}-${bulan}-31T23:59:59`;
+        // Menangani jumlah hari dalam bulan secara dinamis agar lebih akurat
+        const lastDay = new Date(tahun, bulan, 0).getDate(); 
+        const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
         const { data, error } = await supabaseClient
             .from('pembelian')
@@ -210,13 +212,16 @@
         let csv = 'Tanggal,Nama Barang,Supplier,Qty,Harga Beli,Total Harga\n';
         dataLaporan.forEach(item => {
             const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
-            csv += `${tgl},${item.produk?.nama_barang || 'N/A'},${item.supplier || '-'},${item.qty},${item.harga_beli},${item.total_harga}\n`;
+            // Menambahkan quote agar nama barang yang mengandung koma tidak merusak format CSV
+            const namaBarang = `"${item.produk?.nama_barang || 'N/A'}"`; 
+            csv += `${tgl},${namaBarang},${item.supplier || '-'},${item.qty},${item.harga_beli},${item.total_harga}\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
+        // Nama file disesuaikan dengan sistem Finex Pos
         link.setAttribute("download", `Laporan_Pembelian_FinexPos_${new Date().getTime()}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
