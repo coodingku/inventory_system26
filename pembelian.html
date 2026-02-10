@@ -110,7 +110,9 @@
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
-        const { data } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
+        // Ambil data produk awal
+        const { data, error } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
+        if (error) console.error("Gagal muat produk:", error);
         allProduk = data || [];
         renderSelect(allProduk);
     };
@@ -127,78 +129,123 @@
 
     function tambahKeDaftar() {
         const select = document.getElementById('select-produk');
+        if (!select.value) return alert("Pilih produk terlebih dahulu!");
+        
         const id = select.value;
         const nama = select.options[select.selectedIndex].getAttribute('data-nama');
         const qty = parseInt(document.getElementById('po-qty').value);
         const harga = parseInt(document.getElementById('po-harga').value);
 
-        if (!id || !qty || qty <= 0 || !harga || harga <= 0) return alert("Lengkapi data dengan benar!");
+        if (!id || !qty || qty <= 0 || !harga || harga <= 0) return alert("Lengkapi Qty dan Harga dengan benar!");
 
         daftarPO.push({ id, nama, qty, harga, subtotal: qty * harga });
         renderTable();
+        
+        // Reset input setelah tambah
         document.getElementById('po-qty').value = '';
         document.getElementById('po-harga').value = '';
+        document.getElementById('search-produk').value = '';
+        renderSelect(allProduk); 
     }
 
     function renderTable() {
         const tbody = document.getElementById('po-list');
         let total = 0;
         if(daftarPO.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Daftar kosong.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Daftar belanja masih kosong.</td></tr>';
             document.getElementById('grand-total').innerText = "Rp 0";
             return;
         }
         tbody.innerHTML = daftarPO.map((item, index) => {
             total += item.subtotal;
-            return `<tr><td><b>${item.nama}</b></td><td>${item.qty}</td><td>Rp ${item.harga.toLocaleString()}</td><td>Rp ${item.subtotal.toLocaleString()}</td><td style="text-align:center"><button onclick="daftarPO.splice(${index},1);renderTable();">❌</button></td></tr>`;
+            return `<tr>
+                <td><b>${item.nama}</b></td>
+                <td>${item.qty}</td>
+                <td>Rp ${item.harga.toLocaleString()}</td>
+                <td>Rp ${item.subtotal.toLocaleString()}</td>
+                <td style="text-align:center"><button onclick="hapusItem(${index})" style="cursor:pointer; border:none; background:none;">❌</button></td>
+            </tr>`;
         }).join('');
         document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
     }
 
+    function hapusItem(index) {
+        daftarPO.splice(index, 1);
+        renderTable();
+    }
+
     async function simpanPO() {
-        if (daftarPO.length === 0) return alert("Daftar kosong!");
+        if (daftarPO.length === 0) return alert("Daftar belanja masih kosong!");
         const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
-        if (!confirm(`Update stok BeautyBloom sekarang?`)) return;
+        
+        if (!confirm(`Simpan transaksi dan update stok BeautyBloom?`)) return;
 
         const btn = document.getElementById('btn-simpan');
         btn.disabled = true;
+        btn.innerText = "⏳ Sedang Memproses...";
+
         const tgl = new Date().toISOString();
         const totalPO = daftarPO.reduce((s, i) => s + i.subtotal, 0);
+        const noBukti = 'PO-' + Date.now().toString().slice(-5);
 
         try {
+            // Kita kumpulkan riwayat stok untuk Bulk Insert (sekali kirim)
+            const listRiwayatStok = [];
+
             for (const item of daftarPO) {
                 // 1. Ambil stok saat ini
-                const { data: p } = await supabaseClient.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                const stokBaru = (parseInt(p.stok_sekarang || 0) + item.qty);
+                const { data: p, error: errFetch } = await supabaseClient
+                    .from('produk')
+                    .select('stok_sekarang')
+                    .eq('id', item.id)
+                    .single();
+                
+                if (errFetch) throw errFetch;
 
-                // 2. Update Master Produk
-                await supabaseClient.from('produk').update({ 
-                    stok_sekarang: stokBaru,
-                    harga_beli: item.harga 
-                }).eq('id', item.id);
+                const stokLama = parseInt(p.stok_sekarang || 0);
+                const stokBaru = stokLama + item.qty;
 
-                // 3. Catat Riwayat Stok (Integrasi Kartu Stok)
-                await supabaseClient.from('riwayat_stok').insert([{
+                // 2. Update Master Produk (Harga Beli & Stok)
+                const { error: errUpdate } = await supabaseClient
+                    .from('produk')
+                    .update({ 
+                        stok_sekarang: stokBaru,
+                        harga_beli: item.harga 
+                    })
+                    .eq('id', item.id);
+                
+                if (errUpdate) throw errUpdate;
+
+                // Masukkan ke penampung riwayat
+                listRiwayatStok.push({
                     id_produk: item.id,
                     tipe: 'MASUK',
                     jumlah: item.qty,
                     stok_akhir: stokBaru,
-                    admin_nama: session.username,
-                    keterangan: `PO dari ${supplier}`
-                }]);
+                    admin_nama: session.username || 'Admin',
+                    keterangan: `PO: ${supplier}`
+                });
             }
 
-            // 4. Jurnal Akuntansi Otomatis
-            await supabaseClient.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: 'PO-' + Date.now().toString().slice(-5), kode_akun: '1103', keterangan: `Beli Stok dari ${supplier}`, debit: totalPO, kredit: 0 },
-                { tanggal: tgl, no_bukti: 'PO-' + Date.now().toString().slice(-5), kode_akun: '1101', keterangan: `Kas Keluar untuk PO ${supplier}`, debit: 0, kredit: totalPO }
-            ]);
+            // 3. Bulk Insert Riwayat Stok
+            const { error: errRiwayat } = await supabaseClient.from('riwayat_stok').insert(listRiwayatStok);
+            if (errRiwayat) throw errRiwayat;
 
-            alert("✅ Stok BeautyBloom Berhasil Diupdate!");
+            // 4. Jurnal Akuntansi Otomatis
+            const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert([
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Stok Masuk: ${supplier}`, debit: totalPO, kredit: 0 },
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Kas Keluar: ${noBukti}`, debit: 0, kredit: totalPO }
+            ]);
+            if (errJurnal) throw errJurnal;
+
+            alert("✅ Transaksi Berhasil Simpan & Stok Terupdate!");
             location.reload();
+
         } catch (e) {
-            alert("Gagal: " + e.message);
+            console.error(e);
+            alert("Terjadi Kesalahan: " + (e.message || "Koneksi terputus"));
             btn.disabled = false;
+            btn.innerText = "💾 SIMPAN, UPDATE STOK & JURNAL";
         }
     }
 </script>
