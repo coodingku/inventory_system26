@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Purchase Order BeautyBloom</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
@@ -111,8 +112,6 @@
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
-        
-        // Load data produk
         const { data, error } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
         if (error) console.error("Gagal muat produk:", error);
         allProduk = data || [];
@@ -145,7 +144,6 @@
         daftarPO.push({ id, nama, qty, harga, subtotal: qty * harga });
         renderTable();
         
-        // Reset & Focus
         document.getElementById('po-qty').value = '';
         document.getElementById('po-harga').value = '';
         document.getElementById('search-produk').value = '';
@@ -198,7 +196,6 @@
             const listPembelian = [];
 
             for (const item of daftarPO) {
-                // 1. Ambil stok saat ini
                 const { data: p, error: errFetch } = await supabaseClient
                     .from('produk')
                     .select('stok_sekarang')
@@ -210,18 +207,13 @@
                 const stokLama = parseInt(p.stok_sekarang || 0);
                 const stokBaru = stokLama + item.qty;
 
-                // 2. Update Master Produk
                 const { error: errUpdate } = await supabaseClient
                     .from('produk')
-                    .update({ 
-                        stok_sekarang: stokBaru,
-                        harga_beli: item.harga 
-                    })
+                    .update({ stok_sekarang: stokBaru, harga_beli: item.harga })
                     .eq('id', item.id);
                 
                 if (errUpdate) throw errUpdate;
 
-                // 3. Data Riwayat Stok
                 listRiwayatStok.push({
                     id_produk: item.id,
                     tipe: 'MASUK',
@@ -231,7 +223,6 @@
                     keterangan: `PO: ${supplier}`
                 });
 
-                // 4. Data Laporan Pembelian
                 listPembelian.push({
                     produk_id: item.id,
                     qty: item.qty,
@@ -242,14 +233,12 @@
                 });
             }
 
-            // Simpan Bulk
             const { error: errBeli } = await supabaseClient.from('pembelian').insert(listPembelian);
             if (errBeli) throw errBeli;
 
             const { error: errStok } = await supabaseClient.from('riwayat_stok').insert(listRiwayatStok);
             if (errStok) throw errStok;
 
-            // Jurnal Umum (Akuntansi)
             const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert([
                 { tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Stok Masuk: ${supplier}`, debit: totalPO, kredit: 0 },
                 { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Kas Keluar: ${noBukti}`, debit: 0, kredit: totalPO }
