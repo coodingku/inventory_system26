@@ -43,6 +43,7 @@
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html" class="active">📥 Pembelian (PO)</a>
+    <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
     <a href="manajemen-user.html">👥 Manajemen User</a>
     <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
 </nav>
@@ -110,7 +111,8 @@
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
-        // Ambil data produk awal
+        
+        // Load data produk
         const { data, error } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
         if (error) console.error("Gagal muat produk:", error);
         allProduk = data || [];
@@ -136,15 +138,18 @@
         const qty = parseInt(document.getElementById('po-qty').value);
         const harga = parseInt(document.getElementById('po-harga').value);
 
-        if (!id || !qty || qty <= 0 || !harga || harga <= 0) return alert("Lengkapi Qty dan Harga dengan benar!");
+        if (!id || isNaN(qty) || qty <= 0 || isNaN(harga) || harga <= 0) {
+            return alert("Lengkapi Qty dan Harga dengan benar!");
+        }
 
         daftarPO.push({ id, nama, qty, harga, subtotal: qty * harga });
         renderTable();
         
-        // Reset input setelah tambah
+        // Reset & Focus
         document.getElementById('po-qty').value = '';
         document.getElementById('po-harga').value = '';
         document.getElementById('search-produk').value = '';
+        document.getElementById('search-produk').focus();
         renderSelect(allProduk); 
     }
 
@@ -175,93 +180,92 @@
     }
 
     async function simpanPO() {
-    if (daftarPO.length === 0) return alert("Daftar belanja masih kosong!");
-    const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
-    
-    if (!confirm(`Simpan transaksi dan update stok BeautyBloom?`)) return;
+        if (daftarPO.length === 0) return alert("Daftar belanja masih kosong!");
+        const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
+        
+        if (!confirm(`Simpan transaksi dan update stok BeautyBloom?`)) return;
 
-    const btn = document.getElementById('btn-simpan');
-    btn.disabled = true;
-    btn.innerText = "⏳ Sedang Memproses...";
+        const btn = document.getElementById('btn-simpan');
+        btn.disabled = true;
+        btn.innerText = "⏳ Sedang Memproses...";
 
-    const tgl = new Date().toISOString();
-    const totalPO = daftarPO.reduce((s, i) => s + i.subtotal, 0);
-    const noBukti = 'PO-' + Date.now().toString().slice(-5);
+        const tgl = new Date().toISOString();
+        const totalPO = daftarPO.reduce((s, i) => s + i.subtotal, 0);
+        const noBukti = 'PO-' + Date.now().toString().slice(-5);
 
-    try {
-        const listRiwayatStok = [];
-        const listPembelian = []; // Tambah penampung untuk tabel pembelian
+        try {
+            const listRiwayatStok = [];
+            const listPembelian = [];
 
-        for (const item of daftarPO) {
-            // 1. Ambil stok saat ini
-            const { data: p, error: errFetch } = await supabaseClient
-                .from('produk')
-                .select('stok_sekarang')
-                .eq('id', item.id)
-                .single();
-            
-            if (errFetch) throw errFetch;
+            for (const item of daftarPO) {
+                // 1. Ambil stok saat ini
+                const { data: p, error: errFetch } = await supabaseClient
+                    .from('produk')
+                    .select('stok_sekarang')
+                    .eq('id', item.id)
+                    .single();
+                
+                if (errFetch) throw errFetch;
 
-            const stokLama = parseInt(p.stok_sekarang || 0);
-            const stokBaru = stokLama + item.qty;
+                const stokLama = parseInt(p.stok_sekarang || 0);
+                const stokBaru = stokLama + item.qty;
 
-            // 2. Update Master Produk
-            const { error: errUpdate } = await supabaseClient
-                .from('produk')
-                .update({ 
-                    stok_sekarang: stokBaru,
-                    harga_beli: item.harga 
-                })
-                .eq('id', item.id);
-            
-            if (errUpdate) throw errUpdate;
+                // 2. Update Master Produk
+                const { error: errUpdate } = await supabaseClient
+                    .from('produk')
+                    .update({ 
+                        stok_sekarang: stokBaru,
+                        harga_beli: item.harga 
+                    })
+                    .eq('id', item.id);
+                
+                if (errUpdate) throw errUpdate;
 
-            // 3. Siapkan data untuk tabel RIWAYAT_STOK
-            listRiwayatStok.push({
-                id_produk: item.id,
-                tipe: 'MASUK',
-                jumlah: item.qty,
-                stok_akhir: stokBaru,
-                admin_nama: session.username || 'Admin',
-                keterangan: `PO: ${supplier}`
-            });
+                // 3. Data Riwayat Stok
+                listRiwayatStok.push({
+                    id_produk: item.id,
+                    tipe: 'MASUK',
+                    jumlah: item.qty,
+                    stok_akhir: stokBaru,
+                    admin_nama: session.username || 'Admin',
+                    keterangan: `PO: ${supplier}`
+                });
 
-            // 4. SIAPKAN DATA UNTUK TABEL PEMBELIAN (Penting agar tampil di Laporan!)
-            listPembelian.push({
-                produk_id: item.id,      // Sesuai skema database Anda
-                qty: item.qty,           // Sesuai skema database Anda
-                harga_beli: item.harga,  // Sesuai skema database Anda
-                total_harga: item.subtotal, // Sesuai skema database Anda
-                supplier: supplier,      // Sesuai skema database Anda
-                created_at: tgl          // Tambahkan waktu simpan
-            });
+                // 4. Data Laporan Pembelian
+                listPembelian.push({
+                    produk_id: item.id,
+                    qty: item.qty,
+                    harga_beli: item.harga,
+                    total_harga: item.subtotal,
+                    supplier: supplier,
+                    created_at: tgl
+                });
+            }
+
+            // Simpan Bulk
+            const { error: errBeli } = await supabaseClient.from('pembelian').insert(listPembelian);
+            if (errBeli) throw errBeli;
+
+            const { error: errStok } = await supabaseClient.from('riwayat_stok').insert(listRiwayatStok);
+            if (errStok) throw errStok;
+
+            // Jurnal Umum (Akuntansi)
+            const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert([
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Stok Masuk: ${supplier}`, debit: totalPO, kredit: 0 },
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Kas Keluar: ${noBukti}`, debit: 0, kredit: totalPO }
+            ]);
+            if (errJurnal) throw errJurnal;
+
+            alert("✅ Berhasil! Stok BeautyBloom terupdate & Jurnal tercatat.");
+            location.reload();
+
+        } catch (e) {
+            console.error(e);
+            alert("Kesalahan: " + (e.message || "Koneksi terputus"));
+            btn.disabled = false;
+            btn.innerText = "💾 SIMPAN, UPDATE STOK & JURNAL";
         }
-
-        // 5. Bulk Insert ke tabel PEMBELIAN (Agar tampil di Laporan)
-        const { error: errPembelian } = await supabaseClient.from('pembelian').insert(listPembelian);
-        if (errPembelian) throw errPembelian;
-
-        // 6. Bulk Insert Riwayat Stok
-        const { error: errRiwayat } = await supabaseClient.from('riwayat_stok').insert(listRiwayatStok);
-        if (errRiwayat) throw errRiwayat;
-
-        // 7. Jurnal Akuntansi Otomatis
-        const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert([
-            { tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Stok Masuk: ${supplier}`, debit: totalPO, kredit: 0 },
-            { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Kas Keluar: ${noBukti}`, debit: 0, kredit: totalPO }
-        ]);
-        if (errJurnal) throw errJurnal;
-
-        alert("✅ Transaksi Berhasil Simpan & Stok Terupdate!");
-        location.reload();
-
-    } catch (e) {
-        console.error(e);
-        alert("Terjadi Kesalahan: " + (e.message || "Koneksi terputus"));
-        btn.disabled = false;
-        btn.innerText = "💾 SIMPAN, UPDATE STOK & JURNAL";
     }
-}
 </script>
 </body>
 </html>
