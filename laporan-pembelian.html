@@ -150,42 +150,46 @@
     };
 
     async function muatLaporan() {
-        const btn = document.querySelector('.btn-filter');
-        const tbody = document.getElementById('report-list');
-        
-        // Indikator Loading agar user tidak spam klik
-        if(btn) btn.innerText = "⏳ Memuat...";
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">Mengambil data...</td></tr>';
+    const btn = document.querySelector('.btn-filter');
+    const tbody = document.getElementById('report-list');
+    
+    if(btn) btn.innerText = "⏳ Memuat...";
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">Mengambil data...</td></tr>';
 
-        const bulan = document.getElementById('filter-bulan').value;
-        const tahun = document.getElementById('filter-tahun').value;
-        const search = document.getElementById('search-input').value.toLowerCase();
-        
-        const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
-        const lastDay = new Date(tahun, bulan, 0).getDate(); 
-        const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
+    const bulan = document.getElementById('filter-bulan').value;
+    const tahun = document.getElementById('filter-tahun').value;
+    const search = document.getElementById('search-input').value.toLowerCase();
+    
+    const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
+    const lastDay = new Date(tahun, bulan, 0).getDate(); 
+    const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
-        try {
-            const { data, error } = await supabaseClient
-                .from('pembelian')
-                .select('*, produk(nama_barang)')
-                .gte('created_at', tglMulai)
-                .lte('created_at', tglSelesai)
-                .order('created_at', { ascending: false })
-                .limit(1000); // Limit keamanan untuk database NANO
+    try {
+        const { data, error } = await supabaseClient
+            .from('pembelian')
+            .select(`
+                *,
+                produk:produk_id ( nama_barang )
+            `) // PERBAIKAN: Memaksa join menggunakan kolom produk_id
+            .gte('created_at', tglMulai)
+            .lte('created_at', tglSelesai)
+            .order('created_at', { ascending: false })
+            .limit(1000);
 
-            if (error) throw error;
+        if (error) throw error;
 
-            dataLaporan = data || [];
-            renderData(search);
-        } catch (err) {
-            console.error("Error muat laporan:", err);
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red; padding:50px;">Gagal memuat data. Silakan coba lagi.</td></tr>';
-        } finally {
-            if(btn) btn.innerHTML = "🔍 Segarkan";
-        }
+        // Debugging: Lihat di console (F12) apakah data benar-benar ada
+        console.log("Data Pembelian:", data); 
+
+        dataLaporan = data || [];
+        renderData(search);
+    } catch (err) {
+        console.error("Error muat laporan:", err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red; padding:50px;">Gagal: ' + err.message + '</td></tr>';
+    } finally {
+        if(btn) btn.innerHTML = "🔍 Segarkan";
     }
-
+}
     function renderData(keyword = "") {
         const tbody = document.getElementById('report-list');
         let totalUang = 0;
