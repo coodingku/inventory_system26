@@ -143,32 +143,47 @@
 
     window.onload = () => {
         const d = new Date();
+        // Set filter ke bulan dan tahun berjalan
         document.getElementById('filter-bulan').value = String(d.getMonth() + 1).padStart(2, '0');
         document.getElementById('filter-tahun').value = d.getFullYear();
         muatLaporan();
     };
 
     async function muatLaporan() {
+        const btn = document.querySelector('.btn-filter');
+        const tbody = document.getElementById('report-list');
+        
+        // Indikator Loading agar user tidak spam klik
+        if(btn) btn.innerText = "⏳ Memuat...";
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">Mengambil data...</td></tr>';
+
         const bulan = document.getElementById('filter-bulan').value;
         const tahun = document.getElementById('filter-tahun').value;
         const search = document.getElementById('search-input').value.toLowerCase();
         
         const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
-        // Menghitung hari terakhir dalam bulan agar filter tanggal akurat
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
         const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
-        const { data, error } = await supabaseClient
-            .from('pembelian')
-            .select('*, produk(nama_barang)')
-            .gte('created_at', tglMulai)
-            .lte('created_at', tglSelesai)
-            .order('created_at', { ascending: false });
+        try {
+            const { data, error } = await supabaseClient
+                .from('pembelian')
+                .select('*, produk(nama_barang)')
+                .gte('created_at', tglMulai)
+                .lte('created_at', tglSelesai)
+                .order('created_at', { ascending: false })
+                .limit(1000); // Limit keamanan untuk database NANO
 
-        if (error) return console.error(error);
+            if (error) throw error;
 
-        dataLaporan = data;
-        renderData(search);
+            dataLaporan = data || [];
+            renderData(search);
+        } catch (err) {
+            console.error("Error muat laporan:", err);
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red; padding:50px;">Gagal memuat data. Silakan coba lagi.</td></tr>';
+        } finally {
+            if(btn) btn.innerHTML = "🔍 Segarkan";
+        }
     }
 
     function renderData(keyword = "") {
@@ -187,18 +202,24 @@
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px; color:#999;">Tidak ditemukan data pembelian.</td></tr>';
         } else {
             tbody.innerHTML = filtered.map(item => {
-                totalUang += item.total_harga;
+                const subtotal = item.total_harga || (item.qty * item.harga_beli);
+                totalUang += subtotal;
                 totalQty += item.qty;
                 hitung++;
-                const tgl = new Date(item.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                
+                const tgl = new Date(item.created_at).toLocaleString('id-ID', { 
+                    dateStyle: 'medium', 
+                    timeStyle: 'short' 
+                });
+
                 return `
                     <tr>
                         <td>${tgl}</td>
-                        <td><strong style="color:var(--primary)">${item.produk?.nama_barang || 'Produk Dihapus'}</strong></td>
+                        <td><strong style="color:var(--primary)">${item.produk?.nama_barang || '<em style="color:red">Produk Dihapus</em>'}</strong></td>
                         <td>${item.supplier || '-'}</td>
                         <td style="text-align:center;">${item.qty}</td>
                         <td style="text-align:right;">Rp ${item.harga_beli.toLocaleString()}</td>
-                        <td style="text-align:right;"><strong>Rp ${item.total_harga.toLocaleString()}</strong></td>
+                        <td style="text-align:right;"><strong>Rp ${subtotal.toLocaleString()}</strong></td>
                     </tr>
                 `;
             }).join('');
@@ -215,7 +236,6 @@
         let csv = 'Tanggal,Nama Barang,Supplier,Qty,Harga Beli,Total Harga\n';
         dataLaporan.forEach(item => {
             const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
-            // Menambahkan tanda kutip agar nama barang dengan koma aman di Excel
             const namaBarang = `"${item.produk?.nama_barang || 'N/A'}"`; 
             csv += `${tgl},${namaBarang},${item.supplier || '-'},${item.qty},${item.harga_beli},${item.total_harga}\n`;
         });
@@ -224,7 +244,7 @@
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", `Laporan_Pembelian_FinexPos_${new Date().getTime()}.csv`);
+        link.setAttribute("download", `Laporan_Pembelian_BeautyBloom_${new Date().getTime()}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
