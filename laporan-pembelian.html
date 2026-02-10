@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Laporan Pembelian BeautyBloom</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
         /* Sidebar */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
-        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
         /* Content */
@@ -21,7 +22,8 @@
         
         .filter-bar { display: flex; gap: 15px; margin-bottom: 25px; align-items: flex-end; flex-wrap: wrap; }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+        label { font-size: 12px; color: #666; font-weight: bold; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
 
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
         .stat-card { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -29,11 +31,13 @@
         .stat-card p { margin: 10px 0 0; font-size: 20px; font-weight: bold; color: var(--primary); }
 
         table { width: 100%; border-collapse: collapse; background: white; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 14px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
-        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+        .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        .badge-delete { color: #e74c3c; font-weight: bold; font-style: italic; }
     </style>
 </head>
 <body>
@@ -44,7 +48,8 @@
     <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html">📥 Pembelian (PO)</a>
     <a href="laporan-pembelian.html" class="active">📑 Laporan Pembelian</a>
-    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 20px;">🛒 Kasir</a>
+    <a href="manajemen-user.html">👥 Manajemen User</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
 </nav>
 
 <main>
@@ -129,12 +134,12 @@
         const bulan = document.getElementById('filter-bulan').value;
         const tahun = document.getElementById('filter-tahun').value;
         
+        // Menentukan rentang tanggal bulan berjalan
         const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
         const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
         try {
-            // Perbaikan Query: Explicit join menggunakan produk_id
             const { data, error } = await supabaseClient
                 .from('pembelian')
                 .select('*, produk:produk_id(nama_barang)')
@@ -172,7 +177,7 @@
                 return `
                     <tr>
                         <td>${tgl}</td>
-                        <td><strong>${item.produk?.nama_barang || '<span style="color:red">Produk Dihapus</span>'}</strong></td>
+                        <td><strong>${item.produk?.nama_barang || '<span class="badge-delete">Produk Dihapus</span>'}</strong></td>
                         <td>${item.supplier || '-'}</td>
                         <td>${item.qty}</td>
                         <td>Rp ${item.harga_beli.toLocaleString()}</td>
@@ -188,11 +193,12 @@
     }
 
     function exportKeExcel() {
-        if (dataLaporan.length === 0) return alert("Tidak ada data!");
+        if (dataLaporan.length === 0) return alert("Tidak ada data untuk diekspor!");
         let csv = 'Tanggal,Nama Barang,Supplier,Qty,Harga Beli,Total Harga\n';
         dataLaporan.forEach(item => {
             const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
-            csv += `${tgl},"${item.produk?.nama_barang || 'N/A'}",${item.supplier || '-'},${item.qty},${item.harga_beli},${item.total_harga}\n`;
+            const namaBarang = item.produk?.nama_barang || 'Produk Dihapus';
+            csv += `${tgl},"${namaBarang}","${item.supplier || '-'}",${item.qty},${item.harga_beli},${item.total_harga}\n`;
         });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
