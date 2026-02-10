@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Laporan Pembelian Lengkap</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
@@ -151,7 +154,7 @@
         const search = document.getElementById('search-input').value.toLowerCase();
         
         const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
-        // Menangani jumlah hari dalam bulan secara dinamis agar lebih akurat
+        // Menghitung hari terakhir dalam bulan agar filter tanggal akurat
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
         const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
@@ -212,7 +215,7 @@
         let csv = 'Tanggal,Nama Barang,Supplier,Qty,Harga Beli,Total Harga\n';
         dataLaporan.forEach(item => {
             const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
-            // Menambahkan quote agar nama barang yang mengandung koma tidak merusak format CSV
+            // Menambahkan tanda kutip agar nama barang dengan koma aman di Excel
             const namaBarang = `"${item.produk?.nama_barang || 'N/A'}"`; 
             csv += `${tgl},${namaBarang},${item.supplier || '-'},${item.qty},${item.harga_beli},${item.total_harga}\n`;
         });
@@ -221,7 +224,6 @@
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        // Nama file disesuaikan dengan sistem Finex Pos
         link.setAttribute("download", `Laporan_Pembelian_FinexPos_${new Date().getTime()}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
