@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeautyBloom | Kartu Stok Lengkap</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
@@ -11,21 +12,23 @@
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
-        nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; }
-        nav a.active { background: var(--accent); color: white; }
+        /* Sidebar Navigation - Standar Finex Pos */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
         
-        main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); }
-        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         
-        .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
-        .filter-group input, .filter-group select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        .filter-group input, .filter-group select { padding: 9px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
         
-        .btn-search { background: var(--accent); color: white; border: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-export { background: var(--success); color: white; border: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-search { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-search:hover { background: #34495e; }
+        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
         .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
@@ -38,24 +41,26 @@
         .badge-keluar { background: #ffebee; color: #c62828; }
         .badge-void { background: #fff3e0; color: #ef6c00; border: 1px solid var(--warning); }
         
-        .col-saldo { background: #f0f7ff; font-weight: bold; text-align: center; }
+        .col-saldo { background: #f0f7ff; font-weight: bold; text-align: center; color: var(--primary); }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>BeautyBloom</h2>
-    <a href="index.html">📊 Dashboard</a>
-    <a href="laporan-penjualan.html">📑 Penjualan</a>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="produk.html">📦 Produk</a>
+    <a href="pembelian.html">📥 Pembelian (PO)</a>
+    <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
+    <a href="inventori_stok.html">📦 Inventori Stok</a>
     <a href="laporan-stok.html" class="active">📋 Kartu Stok</a>
-    <a href="penyesuaian.html">🔄 Stok In/Out</a>
-    <a href="produk.html">📦 Data Produk</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir BeautyBloom</a>
 </nav>
 
 <main>
     <div class="header-flex">
         <h1>Riwayat Arus Barang BeautyBloom</h1>
-        <button class="btn-export" onclick="exportKeExcel()">📗 Export Excel</button>
+        <button class="btn-export" onclick="exportKeExcel()">📗 Export ke Excel (.xlsx)</button>
     </div>
 
     <div class="filter-card">
@@ -68,12 +73,12 @@
             <input type="date" id="endDate">
         </div>
         <div class="filter-group">
-            <label>Tipe</label>
+            <label>Tipe Transaksi</label>
             <select id="filterTipe">
-                <option value="ALL">Semua</option>
-                <option value="MASUK">Masuk (+)</option>
-                <option value="KELUAR">Keluar (-)</option>
-                <option value="VOID">Void (Pembatalan)</option>
+                <option value="ALL">Semua Aktivitas</option>
+                <option value="MASUK">Barang Masuk (+)</option>
+                <option value="KELUAR">Barang Keluar (-)</option>
+                <option value="VOID">Void / Pembatalan</option>
             </select>
         </div>
         <button class="btn-search" onclick="fetchRiwayat()">Cari Data 🔍</button>
@@ -87,13 +92,13 @@
                     <th>Nama Produk</th>
                     <th>Aksi</th>
                     <th>Jumlah</th>
-                    <th style="background: #e1f0ff;">Saldo Akhir</th>
-                    <th>Admin</th>
+                    <th style="background: #e1f0ff; text-align: center;">Saldo Akhir</th>
+                    <th>Admin/System</th>
                     <th>Keterangan</th>
                 </tr>
             </thead>
             <tbody id="stok-body">
-                <tr><td colspan="7" style="text-align:center">Memuat data BeautyBloom...</td></tr>
+                <tr><td colspan="7" style="text-align:center; padding: 40px;">Klik Cari Data untuk memuat riwayat.</td></tr>
             </tbody>
         </table>
     </div>
@@ -120,7 +125,7 @@
 
         try {
             const tbody = document.getElementById('stok-body');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Menghubungkan ke BeautyBloom DB...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px;">⏳ Mengambil data BeautyBloom...</td></tr>';
 
             let query = supabaseClient
                 .from('riwayat_stok')
@@ -129,7 +134,6 @@
                 .lte('created_at', `${end}T23:59:59`)
                 .order('created_at', { ascending: false });
 
-            // Logika Filter diperbaiki agar lebih sensitif terhadap kata VOID
             if (tipe === 'VOID') {
                 query = query.or('tipe.eq.VOID,keterangan.ilike.%VOID%');
             } else if (tipe !== 'ALL') {
@@ -139,15 +143,15 @@
             const { data, error } = await query;
             if (error) throw error;
 
-            currentDisplayData = data;
+            currentDisplayData = data || [];
             tbody.innerHTML = '';
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Belum ada aktivitas stok di BeautyBloom.</td></tr>';
+            if (currentDisplayData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #999;">Tidak ada riwayat stok pada periode ini.</td></tr>';
                 return;
             }
 
-            data.forEach(item => {
+            currentDisplayData.forEach(item => {
                 const ket = (item.keterangan || '').toUpperCase();
                 const isVoid = ket.includes('VOID') || item.tipe === 'VOID';
                 const isMasuk = item.tipe.toUpperCase() === 'MASUK' || isVoid;
@@ -165,7 +169,7 @@
                 tbody.innerHTML += `
                     <tr>
                         <td style="color:#888; font-size:12px;">${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                        <td><b>${item.produk ? item.produk.nama_barang : 'Produk Dihapus'}</b></td>
+                        <td><strong>${item.produk ? item.produk.nama_barang : '<span style="color:red">Produk Dihapus</span>'}</strong></td>
                         <td><span class="badge ${badgeClass}">${label}</span></td>
                         <td style="font-weight:bold; color:${colorAmount}">
                             ${isMasuk ? '+' : '-'}${item.jumlah}
@@ -179,25 +183,30 @@
                 `;
             });
         } catch (e) {
+            console.error(e);
             alert("Error: " + e.message);
         }
     }
 
     function exportKeExcel() {
-        if (currentDisplayData.length === 0) return alert("Pilih data dulu!");
+        if (currentDisplayData.length === 0) return alert("Tidak ada data untuk di-export!");
+        
         const dataExcel = currentDisplayData.map(item => ({
             "Waktu": new Date(item.created_at).toLocaleString('id-ID'),
-            "Produk": item.produk ? item.produk.nama_barang : '?',
-            "Tipe": item.tipe,
-            "Qty": item.jumlah,
-            "Saldo Akhir": item.stok_akhir,
-            "Admin": item.admin_nama,
-            "Keterangan": item.keterangan
+            "Nama Produk": item.produk ? item.produk.nama_barang : 'N/A',
+            "Tipe Transaksi": item.tipe,
+            "Qty Perubahan": item.jumlah,
+            "Saldo Stok Akhir": item.stok_akhir,
+            "Admin": item.admin_nama || 'System',
+            "Keterangan": item.keterangan || '-'
         }));
+
         const ws = XLSX.utils.json_to_sheet(dataExcel);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Stok_BeautyBloom");
-        XLSX.writeFile(wb, `Stok_BeautyBloom_${Date.now()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Riwayat Stok");
+        
+        // Simpan file
+        XLSX.writeFile(wb, `Kartu_Stok_BeautyBloom_${Date.now()}.xlsx`);
     }
 </script>
 </body>
