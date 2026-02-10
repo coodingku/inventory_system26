@@ -8,33 +8,45 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f8fafc; --white: #ffffff; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg); display: flex; color: #1e293b; }
+        
+        /* Sidebar Navigation */
         nav { width: 240px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
-        nav h2 { color: #ff85a2; text-align: center; margin-bottom: 30px; }
-        nav a { color: #cbd5e1; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; }
-        nav a.active { background: var(--accent); color: white; }
+        nav h2 { color: #ff85a2; text-align: center; margin-bottom: 30px; font-size: 1.5rem; }
+        nav a { color: #cbd5e1; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; }
+        nav a:hover { background: rgba(255,255,255,0.1); }
+        nav a.active { background: var(--accent); color: white; font-weight: bold; }
         
+        /* Main Content */
         main { flex: 1; margin-left: 280px; padding: 40px; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
         
-        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; align-items: flex-end; }
-        .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 12px; font-weight: bold; color: #64748b; }
-        select, input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+        /* Filter Section */
+        .filter-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
+        .filter-controls { display: flex; gap: 15px; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.025em; }
+        select, input { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; outline: none; font-size: 14px; transition: border-color 0.2s; }
+        select:focus, input:focus { border-color: var(--accent); }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 12px; background: #f1f5f9; font-size: 12px; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        /* Table Style */
+        .table-container { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 16px; background: #f8fafc; font-size: 13px; color: #475569; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        tr:hover td { background: #fff1f5; }
         
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        /* Components */
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
         .status-lunas { background: #dcfce7; color: #166534; }
         .status-hutang { background: #fee2e2; color: #991b1b; }
         
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-primary { background: var(--accent); color: white; }
+        .btn { padding: 10px 18px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; font-size: 14px; }
         .btn-excel { background: #16a34a; color: white; }
+        .btn-excel:hover { background: #15803d; }
         
-        .loading { text-align: center; padding: 20px; color: #64748b; }
+        .total-section { font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 20px; text-align: right; }
+        .loading { text-align: center; padding: 40px; color: #64748b; font-style: italic; }
     </style>
 </head>
 <body>
@@ -48,72 +60,84 @@
 
 <main>
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h1 style="margin:0">Laporan Pembelian <small style="color:var(--accent)">BeautyBloom</small></h1>
-            <button class="btn btn-excel" onclick="unduhExcel()">Export Excel</button>
+        <div style="margin-bottom: 25px;">
+            <h1 style="margin:0; font-size: 1.8rem;">Laporan Pembelian</h1>
+            <p style="color: #64748b; margin: 5px 0 0 0;">Riwayat belanja stok untuk <b>BeautyBloom</b></p>
         </div>
 
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Bulan</label>
-                <select id="filterBulan" onchange="muatLaporan()">
-                    <option value="01">Januari</option><option value="02" selected>Februari</option>
-                    <option value="03">Maret</option><option value="04">April</option>
-                    <option value="05">Mei</option><option value="06">Juni</option>
-                    <option value="07">Juli</option><option value="08">Agustus</option>
-                    <option value="09">September</option><option value="10">Oktober</option>
-                    <option value="11">November</option><option value="12">Desember</option>
-                </select>
+        <div class="filter-header">
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label>Bulan</label>
+                    <select id="filterBulan" onchange="muatLaporan()">
+                        <option value="01">Januari</option>
+                        <option value="02" selected>Februari</option>
+                        <option value="03">Maret</option>
+                        <option value="04">April</option>
+                        <option value="05">Mei</option>
+                        <option value="06">Juni</option>
+                        <option value="07">Juli</option>
+                        <option value="08">Agustus</option>
+                        <option value="09">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Tahun</label>
+                    <input type="number" id="filterTahun" value="2026" onchange="muatLaporan()" style="width: 80px;">
+                </div>
+                <div class="filter-group">
+                    <label>Cari Supplier/Barang</label>
+                    <input type="text" id="pencarian" placeholder="Search..." onkeyup="filterTabel()">
+                </div>
             </div>
-            <div class="filter-group">
-                <label>Tahun</label>
-                <input type="number" id="filterTahun" value="2026" onchange="muatLaporan()">
-            </div>
-            <div class="filter-group">
-                <label>Cari Produk/Supplier</label>
-                <input type="text" id="pencarian" placeholder="Ketik..." onkeyup="filterTabel()">
-            </div>
+            <button class="btn btn-excel" onclick="unduhExcel()">
+                📥 Export ke Excel
+            </button>
         </div>
 
-        <div id="status-loading" class="loading" style="display:none">Memproses data...</div>
+        <div id="loading" class="loading" style="display:none">Menghubungkan ke database Supabase...</div>
 
-        <table id="tabelPembelian">
-            <thead>
-                <tr>
-                    <th>Tanggal</th>
-                    <th>Nama Barang</th>
-                    <th>Supplier</th>
-                    <th>Jumlah</th>
-                    <th>Harga Beli</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="bodyTabel"></tbody>
-            <tfoot>
-                <tr style="background:#f8fafc; font-weight:bold">
-                    <td colspan="5" style="text-align:right">Total Pembelian Periode Ini:</td>
-                    <td id="grandTotal" colspan="2">Rp 0</td>
-                </tr>
-            </tfoot>
-        </table>
+        <div class="table-container">
+            <table id="tabelPembelian">
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Nama Barang</th>
+                        <th>Supplier</th>
+                        <th>Jumlah</th>
+                        <th>Harga Beli</th>
+                        <th>Subtotal</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyTabel"></tbody>
+            </table>
+        </div>
+
+        <div class="total-section" id="containerTotal">
+            Total Pengeluaran: <span id="grandTotal" style="color: var(--accent);">Rp 0</span>
+        </div>
     </div>
 </main>
 
 <script>
+    // Konfigurasi Supabase
     const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
     async function muatLaporan() {
-        const loading = document.getElementById('status-loading');
-        loading.style.display = 'block';
+        const loader = document.getElementById('loading');
+        loader.style.display = 'block';
         
         const bulan = document.getElementById('filterBulan').value;
         const tahun = document.getElementById('filterTahun').value;
         
-        // Perbaikan Logika Tanggal: Mencari hari terakhir dalam bulan tersebut secara otomatis
-        // date(tahun, bulan, 0) akan memberikan hari terakhir bulan sebelumnya
+        // SOLUSI ERROR 400: Menentukan hari terakhir bulan secara dinamis
+        // New Date(tahun, bulan, 0) menghasilkan tanggal terakhir dari bulan tersebut
         const hariTerakhir = new Date(tahun, bulan, 0).getDate();
         
         const mulai = `${tahun}-${bulan}-01T00:00:00`;
@@ -128,40 +152,41 @@
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            renderTabel(data);
+            tampilkanData(data);
         } catch (err) {
-            console.error(err);
-            alert("Gagal memuat data: " + err.message);
+            console.error("Database Error:", err);
+            alert("Gagal mengambil data dari Supabase. Pastikan koneksi internet stabil.");
         } finally {
-            loading.style.display = 'none';
+            loader.style.display = 'none';
         }
     }
 
-    function renderTabel(data) {
-        const body = document.getElementById('bodyTabel');
+    function tampilkanData(data) {
+        const tbody = document.getElementById('bodyTabel');
         let totalSeluruh = 0;
         
         if (!data || data.length === 0) {
-            body.innerHTML = '<tr><td colspan="7" style="text-align:center">Tidak ada data pembelian di bulan ini.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #94a3b8;">Tidak ada riwayat pembelian untuk periode ini.</td></tr>';
             document.getElementById('grandTotal').innerText = 'Rp 0';
             return;
         }
 
-        body.innerHTML = data.map(item => {
-            const total = item.jumlah * item.harga_beli;
-            totalSeluruh += total;
-            const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
-            const statusClass = item.status === 'Lunas' ? 'status-lunas' : 'status-hutang';
-            
+        tbody.innerHTML = data.map(item => {
+            const subtotal = (item.jumlah || 0) * (item.harga_beli || 0);
+            totalSeluruh += subtotal;
+            const tgl = new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            const status = item.status || 'Hutang';
+            const badgeClass = status.toLowerCase() === 'lunas' ? 'status-lunas' : 'status-hutang';
+
             return `
                 <tr>
                     <td>${tgl}</td>
-                    <td><b>${item.produk?.nama_barang || 'Produk Dihapus'}</b></td>
+                    <td><b>${item.produk?.nama_barang || 'Produk Tidak Ditemukan'}</b></td>
                     <td>${item.supplier || '-'}</td>
                     <td>${item.jumlah}</td>
-                    <td>Rp ${item.harga_beli.toLocaleString()}</td>
-                    <td><b>Rp ${total.toLocaleString()}</b></td>
-                    <td><span class="badge ${statusClass}">${item.status || 'Hutang'}</span></td>
+                    <td>Rp ${(item.harga_beli || 0).toLocaleString()}</td>
+                    <td><b>Rp ${subtotal.toLocaleString()}</b></td>
+                    <td><span class="badge ${badgeClass}">${status}</span></td>
                 </tr>
             `;
         }).join('');
@@ -170,21 +195,23 @@
     }
 
     function filterTabel() {
-        const input = document.getElementById('pencarian').value.toLowerCase();
-        const rows = document.querySelectorAll('#bodyTabel tr');
-        rows.forEach(row => {
-            row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none';
+        const keyword = document.getElementById('pencarian').value.toLowerCase();
+        const baris = document.querySelectorAll('#bodyTabel tr');
+        
+        baris.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(keyword) ? '' : 'none';
         });
     }
 
     function unduhExcel() {
         const table = document.getElementById('tabelPembelian');
-        const wb = XLSX.utils.table_to_book(table);
-        XLSX.writeFile(wb, `Laporan_Pembelian_BeautyBloom_${new Date().getTime()}.xlsx`);
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Pembelian" });
+        XLSX.writeFile(wb, `Laporan_Pembelian_BeautyBloom_${document.getElementById('filterBulan').value}_${document.getElementById('filterTahun').value}.xlsx`);
     }
 
-    // Jalankan saat pertama kali buka
-    window.onload = muatLaporan;
+    // Jalankan otomatis saat halaman dimuat
+    document.addEventListener('DOMContentLoaded', muatLaporan);
 </script>
 
 </body>
