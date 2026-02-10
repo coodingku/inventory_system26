@@ -4,49 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Pembelian | Finex POS</title>
+    <!-- Favicon fix to prevent 404 -->
+    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f8fafc; --white: #ffffff; }
         body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg); display: flex; color: #1e293b; }
         
-        /* Sidebar Navigation */
-        nav { width: 240px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; }
+        nav { width: 240px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 10; }
         nav h2 { color: #ff85a2; text-align: center; margin-bottom: 30px; font-size: 1.5rem; }
         nav a { color: #cbd5e1; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; }
         nav a:hover { background: rgba(255,255,255,0.1); }
         nav a.active { background: var(--accent); color: white; font-weight: bold; }
         
-        /* Main Content */
         main { flex: 1; margin-left: 280px; padding: 40px; }
         .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
         
-        /* Filter Section */
         .filter-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
         .filter-controls { display: flex; gap: 15px; flex-wrap: wrap; }
         .filter-group { display: flex; flex-direction: column; gap: 6px; }
         label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.025em; }
-        select, input { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; outline: none; font-size: 14px; transition: border-color 0.2s; }
-        select:focus, input:focus { border-color: var(--accent); }
+        select, input { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; outline: none; font-size: 14px; }
         
-        /* Table Style */
         .table-container { overflow-x: auto; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { padding: 16px; background: #f8fafc; font-size: 13px; color: #475569; border-bottom: 2px solid #e2e8f0; }
         td { padding: 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        tr:hover td { background: #fff1f5; }
         
-        /* Components */
-        .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .status-lunas { background: #dcfce7; color: #166534; }
         .status-hutang { background: #fee2e2; color: #991b1b; }
         
-        .btn { padding: 10px 18px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; font-size: 14px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; }
         .btn-excel { background: #16a34a; color: white; }
-        .btn-excel:hover { background: #15803d; }
         
         .total-section { font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 20px; text-align: right; }
-        .loading { text-align: center; padding: 40px; color: #64748b; font-style: italic; }
+        .loading { text-align: center; padding: 20px; color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
@@ -62,7 +56,7 @@
     <div class="card">
         <div style="margin-bottom: 25px;">
             <h1 style="margin:0; font-size: 1.8rem;">Laporan Pembelian</h1>
-            <p style="color: #64748b; margin: 5px 0 0 0;">Riwayat belanja stok untuk <b>BeautyBloom</b></p>
+            <p style="color: #64748b; margin: 5px 0 0 0;">Riwayat stok masuk <b>BeautyBloom</b></p>
         </div>
 
         <div class="filter-header">
@@ -86,26 +80,24 @@
                 </div>
                 <div class="filter-group">
                     <label>Tahun</label>
-                    <input type="number" id="filterTahun" value="2026" onchange="muatLaporan()" style="width: 80px;">
+                    <input type="number" id="filterTahun" value="2026" onchange="muatLaporan()" style="width: 85px;">
                 </div>
                 <div class="filter-group">
-                    <label>Cari Supplier/Barang</label>
-                    <input type="text" id="pencarian" placeholder="Search..." onkeyup="filterTabel()">
+                    <label>Cari Data</label>
+                    <input type="text" id="pencarian" placeholder="Nama barang/supplier..." onkeyup="filterTabel()">
                 </div>
             </div>
-            <button class="btn btn-excel" onclick="unduhExcel()">
-                📥 Export ke Excel
-            </button>
+            <button class="btn btn-excel" onclick="unduhExcel()">📥 Export Excel</button>
         </div>
 
-        <div id="loading" class="loading" style="display:none">Menghubungkan ke database Supabase...</div>
+        <div id="loading" class="loading" style="display:none">Memuat data...</div>
 
         <div class="table-container">
             <table id="tabelPembelian">
                 <thead>
                     <tr>
                         <th>Tanggal</th>
-                        <th>Nama Barang</th>
+                        <th>Barang</th>
                         <th>Supplier</th>
                         <th>Jumlah</th>
                         <th>Harga Beli</th>
@@ -117,17 +109,19 @@
             </table>
         </div>
 
-        <div class="total-section" id="containerTotal">
-            Total Pengeluaran: <span id="grandTotal" style="color: var(--accent);">Rp 0</span>
+        <div class="total-section">
+            Total: <span id="grandTotal" style="color: var(--accent);">Rp 0</span>
         </div>
     </div>
 </main>
 
 <script>
-    // Konfigurasi Supabase
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+    // FIX: Gunakan variabel unik untuk menghindari "Already Declared"
+    const SB_URL_POS = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY_POS = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    
+    // Inisialisasi client dengan nama variabel yang aman
+    const clientSupabase = window.supabase.createClient(SB_URL_POS, SB_KEY_POS);
 
     async function muatLaporan() {
         const loader = document.getElementById('loading');
@@ -136,15 +130,14 @@
         const bulan = document.getElementById('filterBulan').value;
         const tahun = document.getElementById('filterTahun').value;
         
-        // SOLUSI ERROR 400: Menentukan hari terakhir bulan secara dinamis
-        // New Date(tahun, bulan, 0) menghasilkan tanggal terakhir dari bulan tersebut
+        // Dinamis menentukan hari terakhir bulan (Februari = 28/29)
         const hariTerakhir = new Date(tahun, bulan, 0).getDate();
         
         const mulai = `${tahun}-${bulan}-01T00:00:00`;
         const sampai = `${tahun}-${bulan}-${hariTerakhir}T23:59:59`;
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await clientSupabase
                 .from('pembelian')
                 .select('*, produk(nama_barang)')
                 .gte('created_at', mulai)
@@ -152,66 +145,59 @@
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            tampilkanData(data);
+            renderData(data);
         } catch (err) {
-            console.error("Database Error:", err);
-            alert("Gagal mengambil data dari Supabase. Pastikan koneksi internet stabil.");
+            console.error("Fetch Error:", err);
         } finally {
             loader.style.display = 'none';
         }
     }
 
-    function tampilkanData(data) {
+    function renderData(data) {
         const tbody = document.getElementById('bodyTabel');
-        let totalSeluruh = 0;
+        let total = 0;
         
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #94a3b8;">Tidak ada riwayat pembelian untuk periode ini.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px;">Data tidak ditemukan.</td></tr>';
             document.getElementById('grandTotal').innerText = 'Rp 0';
             return;
         }
 
         tbody.innerHTML = data.map(item => {
-            const subtotal = (item.jumlah || 0) * (item.harga_beli || 0);
-            totalSeluruh += subtotal;
-            const tgl = new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            const sub = (item.jumlah || 0) * (item.harga_beli || 0);
+            total += sub;
+            const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
             const status = item.status || 'Hutang';
-            const badgeClass = status.toLowerCase() === 'lunas' ? 'status-lunas' : 'status-hutang';
+            const badge = status.toLowerCase() === 'lunas' ? 'status-lunas' : 'status-hutang';
 
             return `
                 <tr>
                     <td>${tgl}</td>
-                    <td><b>${item.produk?.nama_barang || 'Produk Tidak Ditemukan'}</b></td>
+                    <td><b>${item.produk?.nama_barang || 'N/A'}</b></td>
                     <td>${item.supplier || '-'}</td>
                     <td>${item.jumlah}</td>
                     <td>Rp ${(item.harga_beli || 0).toLocaleString()}</td>
-                    <td><b>Rp ${subtotal.toLocaleString()}</b></td>
-                    <td><span class="badge ${badgeClass}">${status}</span></td>
+                    <td><b>Rp ${sub.toLocaleString()}</b></td>
+                    <td><span class="badge ${badge}">${status}</span></td>
                 </tr>
             `;
         }).join('');
 
-        document.getElementById('grandTotal').innerText = `Rp ${totalSeluruh.toLocaleString()}`;
+        document.getElementById('grandTotal').innerText = `Rp ${total.toLocaleString()}`;
     }
 
     function filterTabel() {
-        const keyword = document.getElementById('pencarian').value.toLowerCase();
-        const baris = document.querySelectorAll('#bodyTabel tr');
-        
-        baris.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(keyword) ? '' : 'none';
-        });
+        const key = document.getElementById('pencarian').value.toLowerCase();
+        const rows = document.querySelectorAll('#bodyTabel tr');
+        rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(key) ? '' : 'none');
     }
 
     function unduhExcel() {
-        const table = document.getElementById('tabelPembelian');
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Pembelian" });
-        XLSX.writeFile(wb, `Laporan_Pembelian_BeautyBloom_${document.getElementById('filterBulan').value}_${document.getElementById('filterTahun').value}.xlsx`);
+        const wb = XLSX.utils.table_to_book(document.getElementById('tabelPembelian'));
+        XLSX.writeFile(wb, `Laporan_Pembelian_BeautyBloom_${Date.now()}.xlsx`);
     }
 
-    // Jalankan otomatis saat halaman dimuat
-    document.addEventListener('DOMContentLoaded', muatLaporan);
+    window.onload = muatLaporan;
 </script>
 
 </body>
