@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Stok | Finex POS</title>
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -58,6 +59,11 @@
         .stat-card h3 { margin: 0; font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
         .stat-card p { margin: 10px 0 0; font-size: 24px; font-weight: 800; }
 
+        .filter-panel { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 11px; font-weight: bold; color: var(--text-muted); }
+        .filter-group input, .filter-group select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; }
+
         .control-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; }
         .tabs { display: flex; gap: 5px; background: #e2e8f0; padding: 4px; border-radius: 10px; }
         .tab-btn { padding: 8px 15px; border: none; background: none; cursor: pointer; font-weight: 600; color: #64748b; border-radius: 8px; font-size: 13px; }
@@ -103,6 +109,31 @@
         </div>
     </div>
 
+    <!-- FILTER PANEL (NEW) -->
+    <div class="filter-panel no-print" id="filterPanel">
+        <div class="filter-group">
+            <label>Rentang Waktu</label>
+            <select id="dateRange" onchange="toggleDateInputs()">
+                <option value="all">Semua Waktu</option>
+                <option value="today">Hari Ini</option>
+                <option value="7days">7 Hari Terakhir</option>
+                <option value="custom">Custom Tanggal</option>
+            </select>
+        </div>
+        <div id="customDateInputs" style="display: none; gap: 10px;">
+            <div class="filter-group">
+                <label>Mulai</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="filter-group">
+                <label>Sampai</label>
+                <input type="date" id="endDate">
+            </div>
+        </div>
+        <button class="btn btn-print" style="background: var(--primary); color: white;" onclick="applyFilters()">Terapkan Filter</button>
+        <button class="btn" style="background: #e2e8f0; color: #475569;" onclick="resetFilters()">Reset</button>
+    </div>
+
     <div class="grid no-print">
         <div class="stat-card">
             <h3>Total Produk</h3>
@@ -134,6 +165,7 @@
         </div>
     </div>
 
+    <!-- TABS CONTENT -->
     <div id="tab-stok" class="card tab-content">
         <table id="table-stok">
             <thead>
@@ -153,7 +185,7 @@
         <table id="table-histori">
             <thead>
                 <tr>
-                    <th>Tanggal</th>
+                    <th>Waktu Update</th>
                     <th>Produk</th>
                     <th>Jumlah</th>
                     <th>Petugas</th>
@@ -186,6 +218,8 @@
     const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
 
     let currentMode = 'stok';
+    let rawProduk = [];
+    let rawHistori = [];
 
     async function init() {
         await loadData();
@@ -199,12 +233,57 @@
 
         if (resProduk.error) return;
 
-        const produk = resProduk.data;
-        const histori = resHistori.data || [];
+        rawProduk = resProduk.data;
+        rawHistori = resHistori.data || [];
 
-        renderStok(produk);
-        renderHistori(histori);
-        renderStagnan(produk, histori);
+        applyFilters(); // Initial render with filters
+    }
+
+    function toggleDateInputs() {
+        const range = document.getElementById('dateRange').value;
+        document.getElementById('customDateInputs').style.display = range === 'custom' ? 'flex' : 'none';
+    }
+
+    function applyFilters() {
+        const range = document.getElementById('dateRange').value;
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let filteredHistori = [...rawHistori];
+
+        if (range !== 'all') {
+            filteredHistori = rawHistori.filter(h => {
+                const hDate = new Date(h.created_at);
+                hDate.setHours(0, 0, 0, 0);
+
+                if (range === 'today') {
+                    return hDate.getTime() === today.getTime();
+                } else if (range === '7days') {
+                    const sevenDaysAgo = new Date();
+                    sevenDaysAgo.setDate(today.getDate() - 7);
+                    return hDate >= sevenDaysAgo;
+                } else if (range === 'custom' && start && end) {
+                    const sDate = new Date(start);
+                    const eDate = new Date(end);
+                    return hDate >= sDate && hDate <= eDate;
+                }
+                return true;
+            });
+        }
+
+        renderStok(rawProduk);
+        renderHistori(filteredHistori);
+        renderStagnan(rawProduk, rawHistori);
+    }
+
+    function resetFilters() {
+        document.getElementById('dateRange').value = 'all';
+        document.getElementById('startDate').value = '';
+        document.getElementById('endDate').value = '';
+        toggleDateInputs();
+        applyFilters();
     }
 
     function renderStok(data) {
@@ -232,16 +311,19 @@
     function renderHistori(data) {
         const tbody = document.getElementById('table-histori-body');
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center">Belum ada data.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">Tidak ada riwayat untuk periode ini.</td></tr>`;
             return;
         }
-        tbody.innerHTML = data.map(h => `<tr>
-            <td>${new Date(h.created_at).toLocaleDateString('id-ID')}</td>
-            <td><b>${h.nama_produk}</b></td>
-            <td style="color:var(--success); font-weight:bold">+${h.jumlah}</td>
-            <td>${h.role || 'Kasir'}</td>
-            <td>${h.catatan || '-'}</td>
-        </tr>`).join('');
+        tbody.innerHTML = data.map(h => {
+            const date = new Date(h.created_at);
+            return `<tr>
+                <td>${date.toLocaleDateString('id-ID')} <small style="color:#999">${date.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</small></td>
+                <td><b>${h.nama_produk}</b></td>
+                <td style="color:var(--success); font-weight:bold">+${h.jumlah}</td>
+                <td>${h.role || 'Kasir'}</td>
+                <td>${h.catatan || '-'}</td>
+            </tr>`;
+        }).join('');
     }
 
     function renderStagnan(produk, histori) {
@@ -250,14 +332,12 @@
         let countStagnan = 0;
 
         const html = produk.map(p => {
-            // Cari kapan terakhir produk ini di-restock
             const hLast = histori.find(h => h.nama_produk === p.nama_barang);
             const tglAkhir = hLast ? new Date(hLast.created_at) : new Date(p.created_at || '2025-01-01');
             
             const diffTime = Math.abs(hariIni - tglAkhir);
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            // Kriteria Stagnan: > 30 hari tidak restock
             if (diffDays > 30) {
                 countStagnan++;
                 return `<tr>
@@ -282,6 +362,9 @@
         
         document.getElementById('btn-' + tab).classList.add('active');
         document.getElementById('tab-' + tab).style.display = 'block';
+        
+        // Sembunyikan filter panel jika di tab posisi stok (opsional)
+        // document.getElementById('filterPanel').style.display = tab === 'stok' ? 'none' : 'flex';
     }
 
     function filterTable() {
@@ -293,7 +376,7 @@
     function exportToExcel() {
         const tableId = `table-${currentMode}`;
         const wb = XLSX.utils.table_to_book(document.getElementById(tableId));
-        XLSX.writeFile(wb, `Laporan_${currentMode}_${new Date().toLocaleDateString()}.xlsx`);
+        XLSX.writeFile(wb, `Laporan_${currentMode}_FinexPOS_${new Date().toLocaleDateString()}.xlsx`);
     }
 
     function exportToPDF() {
@@ -301,7 +384,7 @@
         const doc = new jsPDF();
         doc.text(`Finex POS - BeautyBloom: Laporan ${currentMode}`, 14, 15);
         doc.autoTable({ html: `#table-${currentMode}`, startY: 25, headStyles: { fillColor: [44, 62, 80] } });
-        doc.save(`Laporan_${currentMode}.pdf`);
+        doc.save(`Laporan_${currentMode}_FinexPOS.pdf`);
     }
 
     init();
