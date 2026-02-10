@@ -149,45 +149,40 @@
         muatLaporan();
     };
 
-    async function muatLaporan() {
-    const btn = document.querySelector('.btn-filter');
+  async function muatLaporan() {
     const tbody = document.getElementById('report-list');
-    
-    if(btn) btn.innerText = "⏳ Memuat...";
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">Mengambil data...</td></tr>';
-
-    const bulan = document.getElementById('filter-bulan').value;
-    const tahun = document.getElementById('filter-tahun').value;
-    const search = document.getElementById('search-input').value.toLowerCase();
-    
-    const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
-    const lastDay = new Date(tahun, bulan, 0).getDate(); 
-    const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Memuat data BeautyBloom...</td></tr>';
 
     try {
-        const { data, error } = await supabaseClient
+        // 1. Ambil data pembelian saja (Tanpa Join produk)
+        const { data: beli, error: errBeli } = await supabaseClient
             .from('pembelian')
-            .select(`
-                *,
-                produk:produk_id ( nama_barang )
-            `) // PERBAIKAN: Memaksa join menggunakan kolom produk_id
-            .gte('created_at', tglMulai)
-            .lte('created_at', tglSelesai)
-            .order('created_at', { ascending: false })
-            .limit(1000);
+            .select('*') 
+            .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (errBeli) throw errBeli;
 
-        // Debugging: Lihat di console (F12) apakah data benar-benar ada
-        console.log("Data Pembelian:", data); 
+        // 2. Ambil semua data produk untuk referensi nama
+        const { data: prd, error: errPrd } = await supabaseClient
+            .from('produk')
+            .select('id, nama_barang');
 
-        dataLaporan = data || [];
-        renderData(search);
+        if (errPrd) throw errPrd;
+
+        // 3. Gabungkan data di sisi Client (Javascript)
+        dataLaporan = beli.map(b => {
+            const infoProduk = prd.find(p => p.id === b.produk_id);
+            return {
+                ...b,
+                produk: { nama_barang: infoProduk ? infoProduk.nama_barang : 'Produk Dihapus' }
+            };
+        });
+
+        renderData(document.getElementById('search-input').value.toLowerCase());
+
     } catch (err) {
-        console.error("Error muat laporan:", err);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red; padding:50px;">Gagal: ' + err.message + '</td></tr>';
-    } finally {
-        if(btn) btn.innerHTML = "🔍 Segarkan";
+        console.error("Error:", err);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal: ${err.message}</td></tr>`;
     }
 }
     function renderData(keyword = "") {
