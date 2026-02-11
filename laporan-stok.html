@@ -29,7 +29,7 @@
 
         .filter-container { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 10px; align-items: center; }
         .filter-btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; background: white; font-weight: 500; }
-        .filter-btn.active { background: var(--primary); color: white; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; }
@@ -51,6 +51,7 @@
     <a href="inventori_stok.html">📦 Inventori Stok</a>
     <a href="laporan-stok-strategis.html" class="active">📊 Laporan Stok</a>
     <a href="laporan-stok.html">📋 Kartu Stok</a>
+    <a href="penyesuaian.html">🔄 Stok In/Out</a>
 </nav>
 
 <main>
@@ -78,9 +79,10 @@
     </div>
 
     <div class="filter-container">
-        <button class="filter-btn active" onclick="filterData('ALL', this)">Semua</button>
-        <button class="filter-btn" onclick="filterData('EMPTY', this)">Habis (0)</button>
-        <button class="filter-btn" onclick="filterData('READY', this)">Tersedia</button>
+        <span style="font-size: 13px; font-weight: bold; color: #888; margin-right: 5px;">FILTER & EKSPOR:</span>
+        <button class="filter-btn active" onclick="filterData('ALL', this)">Semua Stok</button>
+        <button class="filter-btn" onclick="filterData('EMPTY', this)">Hanya Stok Kosong</button>
+        <button class="filter-btn" onclick="filterData('READY', this)">Hanya Stok Ada</button>
     </div>
 
     <div class="card-table">
@@ -95,7 +97,8 @@
                 </tr>
             </thead>
             <tbody id="table-body">
-                </tbody>
+                <tr><td colspan="5" style="text-align:center; padding: 30px;">Memuat data...</td></tr>
+            </tbody>
         </table>
     </div>
 </main>
@@ -106,33 +109,37 @@
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
     let allProducts = [];
+    let displayedData = []; // Variabel kunci untuk ekspor berdasarkan filter
+    let currentFilterLabel = "Semua Stok";
 
     window.onload = loadData;
 
     async function loadData() {
         const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang');
-        if (error) return;
+        if (error) return alert("Gagal mengambil data");
         
         allProducts = data;
+        displayedData = data; // Default awal adalah semua
         
-        // Hitung Ringkasan
-        const ready = data.filter(p => p.stok_sekarang > 0).length;
-        const empty = data.filter(p => p.stok_sekarang <= 0).length;
-        
-        document.getElementById('count-ready').innerText = ready + " Produk";
-        document.getElementById('count-empty').innerText = empty + " Produk";
+        // Update Ringkasan Statis
+        document.getElementById('count-ready').innerText = data.filter(p => p.stok_sekarang > 0).length + " Produk";
+        document.getElementById('count-empty').innerText = data.filter(p => p.stok_sekarang <= 0).length + " Produk";
         document.getElementById('count-total').innerText = data.length + " Produk";
 
-        renderTable(data);
+        renderTable(displayedData);
     }
 
     function renderTable(data) {
         const tbody = document.getElementById('table-body');
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px;">Tidak ada data untuk filter ini.</td></tr>';
+            return;
+        }
         tbody.innerHTML = data.map(p => `
             <tr>
                 <td><strong>${p.nama_barang}</strong></td>
                 <td>${p.kategori || '-'}</td>
-                <td style="text-align: center;">${p.stok_sekarang}</td>
+                <td style="text-align: center; font-weight: bold;">${p.stok_sekarang}</td>
                 <td>Rp ${parseFloat(p.harga_jual || 0).toLocaleString()}</td>
                 <td style="text-align: center;">
                     <span class="badge" style="background:${p.stok_sekarang <= 0 ? '#fee2e2':'#dcfce7'}; color:${p.stok_sekarang <= 0 ? '#dc2626':'#166534'}">
@@ -146,51 +153,64 @@
     function filterData(mode, btn) {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        if (mode === 'ALL') renderTable(allProducts);
-        else if (mode === 'EMPTY') renderTable(allProducts.filter(p => p.stok_sekarang <= 0));
-        else renderTable(allProducts.filter(p => p.stok_sekarang > 0));
+        currentFilterLabel = btn.innerText;
+
+        if (mode === 'ALL') displayedData = allProducts;
+        else if (mode === 'EMPTY') displayedData = allProducts.filter(p => p.stok_sekarang <= 0);
+        else if (mode === 'READY') displayedData = allProducts.filter(p => p.stok_sekarang > 0);
+
+        renderTable(displayedData);
     }
 
     function exportExcel() {
-        const wb = XLSX.utils.table_to_book(document.getElementById('my-table'));
-        XLSX.writeFile(wb, `Laporan_Stok_BeautyBloom.xlsx`);
+        // Mengubah tabel yang terlihat (filtered) menjadi worksheet
+        const ws = XLSX.utils.json_to_sheet(displayedData.map(p => ({
+            "Nama Produk": p.nama_barang,
+            "Kategori": p.kategori || '-',
+            "Stok": p.stok_sekarang,
+            "Harga Jual": p.harga_jual,
+            "Status": p.stok_sekarang <= 0 ? 'HABIS' : 'READY'
+        })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Stok");
+        XLSX.writeFile(wb, `Laporan_Stok_BeautyBloom_${currentFilterLabel}.xlsx`);
     }
 
     function exportPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        // Judul Laporan
+        // Header Laporan
         doc.setFontSize(18);
+        doc.setTextColor(44, 62, 80);
         doc.text("Laporan Stok BeautyBloom", 14, 20);
         
-        // Sub-Header (Ringkasan)
         doc.setFontSize(11);
         doc.setTextColor(100);
-        const ready = allProducts.filter(p => p.stok_sekarang > 0).length;
-        const empty = allProducts.filter(p => p.stok_sekarang <= 0).length;
-        
-        doc.text(`Stok Tersedia: ${ready} Item`, 14, 30);
-        doc.text(`Stok Habis: ${empty} Item`, 14, 36);
-        doc.text(`Total Keseluruhan: ${allProducts.length} Item`, 14, 42);
-        doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 48);
+        doc.text(`Tipe Laporan: ${currentFilterLabel}`, 14, 28);
+        doc.text(`Jumlah Item: ${displayedData.length} Produk`, 14, 34);
+        doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 14, 40);
 
-        // Tabel Data
+        // Garis Pemisah
+        doc.setDrawColor(233, 30, 99);
+        doc.line(14, 45, 196, 45);
+
+        // Tabel Data (Hanya data yang di-filter)
         doc.autoTable({
-            startY: 55,
+            startY: 50,
             head: [['Nama Produk', 'Kategori', 'Stok', 'Harga Jual', 'Status']],
-            body: allProducts.map(p => [
+            body: displayedData.map(p => [
                 p.nama_barang, 
                 p.kategori || '-', 
                 p.stok_sekarang, 
                 `Rp ${parseFloat(p.harga_jual).toLocaleString()}`,
                 p.stok_sekarang <= 0 ? 'HABIS' : 'READY'
             ]),
-            theme: 'striped',
-            headStyles: { fillColor: [233, 30, 99] } // Warna Pink BeautyBloom
+            headStyles: { fillColor: [233, 30, 99] },
+            alternateRowStyles: { fillColor: [245, 245, 245] }
         });
 
-        doc.save(`Laporan_Stok_BeautyBloom.pdf`);
+        doc.save(`Laporan_Stok_${currentFilterLabel}_BeautyBloom.pdf`);
     }
 </script>
 </body>
