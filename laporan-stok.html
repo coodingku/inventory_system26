@@ -193,24 +193,110 @@
     }
 
     function exportPDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text("Laporan Stok BeautyBloom (Toko & Gudang)", 14, 20);
-        
-        doc.autoTable({
-            startY: 30,
-            head: [['Nama Produk', 'Stok Toko', 'Stok Gudang', 'Total', 'Status']],
-            body: displayedData.map(p => [
-                p.nama_barang, 
-                p.stok_sekarang || 0, 
-                p.stok_gudang || 0, 
-                (p.stok_sekarang || 0) + (p.stok_gudang || 0),
-                ((p.stok_sekarang || 0) + (p.stok_gudang || 0)) <= 0 ? 'KOSONG' : 'TERSEDIA'
-            ]),
-            headStyles: { fillColor: [233, 30, 99] }
-        });
-        doc.save(`Laporan_Stok_BeautyBloom.pdf`);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pinkBeauty = [233, 30, 99]; // Warna Accent Pink
+    const darkBlue = [44, 62, 80];    // Warna Primary Finex
+
+    // --- 1. HEADER & JUDUL ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+    doc.text("Finex Pos | BeautyBloom", 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Laporan Inventori Toko & Gudang", 14, 27);
+    
+    // Tanggal Cetak
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 150, 27);
+
+    // Garis Pemisah Pink
+    doc.setDrawColor(pinkBeauty[0], pinkBeauty[1], pinkBeauty[2]);
+    doc.setLineWidth(1);
+    doc.line(14, 32, 196, 32);
+
+    // --- 2. DESAIN KOTAK RINGKASAN (SUMMARY BOX) ---
+    // Background Kotak
+    doc.setFillColor(248, 249, 250);
+    doc.roundedRect(14, 38, 182, 25, 3, 3, 'F');
+    
+    // Hitung data untuk ringkasan
+    let totalToko = 0;
+    let totalGudang = 0;
+    displayedData.forEach(p => {
+        totalToko += parseInt(p.stok_sekarang || 0);
+        totalGudang += parseInt(p.stok_gudang || 0);
+    });
+
+    // Label Ringkasan
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100);
+    doc.text("RINGKASAN STOK:", 20, 45);
+
+    // Isi Ringkasan
+    doc.setFontSize(11);
+    doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+    doc.text(`Total Stok Toko   : ${totalToko.toLocaleString()} unit`, 20, 52);
+    doc.text(`Total Stok Gudang : ${totalGudang.toLocaleString()} unit`, 20, 58);
+    
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(pinkBeauty[0], pinkBeauty[1], pinkBeauty[2]);
+    doc.text(`TOTAL KESELURUHAN : ${(totalToko + totalGudang).toLocaleString()} unit`, 110, 55);
+
+    // --- 3. TABEL DATA ---
+    doc.autoTable({
+        startY: 70,
+        head: [['NAMA PRODUK', 'STOK TOKO', 'STOK GUDANG', 'TOTAL', 'STATUS']],
+        body: displayedData.map(p => {
+            const sToko = parseInt(p.stok_sekarang || 0);
+            const sGudang = parseInt(p.stok_gudang || 0);
+            const total = sToko + sGudang;
+            return [
+                p.nama_barang.toUpperCase(), 
+                sToko, 
+                sGudang, 
+                total,
+                total <= 0 ? 'KOSONG' : 'TERSEDIA'
+            ];
+        }),
+        theme: 'striped',
+        headStyles: { 
+            fillColor: pinkBeauty, 
+            textColor: [255, 255, 255],
+            fontSize: 10,
+            halign: 'center'
+        },
+        columnStyles: {
+            1: { halign: 'center', fontStyle: 'bold' },
+            2: { halign: 'center', fontStyle: 'bold' },
+            3: { halign: 'center', fontStyle: 'bold', fillColor: [240, 247, 255] },
+            4: { halign: 'center' }
+        },
+        styles: { fontSize: 9, cellPadding: 3 },
+        didParseCell: function(data) {
+            // Memberi warna merah jika stok kosong di kolom status
+            if (data.column.index === 4 && data.cell.text[0] === 'KOSONG') {
+                data.cell.styles.textColor = [220, 53, 69];
+                data.cell.styles.fontStyle = 'bold';
+            }
+        }
+    });
+
+    // --- 4. FOOTER ---
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Halaman ${i} dari ${pageCount} | BeautyBloom Stock Report`, 14, 285);
     }
+
+    doc.save(`Laporan_Stok_BeautyBloom_${new Date().getTime()}.pdf`);
+}
 </script>
 </body>
 </html>
