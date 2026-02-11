@@ -3,45 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BeautyBloom | Kartu Stok Lengkap</title>
+    <title>BeautyBloom | Laporan Stok Strategis</title>
     <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar Navigation - Standar Finex Pos */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
-        nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
-        nav a:hover, nav a.active { background: var(--accent); color: white; }
-        
-        main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
-        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        
-        .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
-        .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
-        .filter-group input, .filter-group select { padding: 9px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-        
-        .btn-search { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-search:hover { background: #34495e; }
-        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; position: fixed; padding: 20px; box-sizing: border-box; }
+        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; }
+        nav a.active { background: var(--accent); color: white; }
 
-        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+
+        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+        .summary-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-top: 4px solid var(--primary); }
+        .summary-card small { color: #666; font-size: 12px; font-weight: bold; }
+        .summary-card h3 { margin: 5px 0 0 0; color: var(--primary); }
+
+        .filter-container { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 10px; align-items: center; }
+        .filter-btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; background: white; font-weight: 500; }
+        .filter-btn.active { background: var(--primary); color: white; }
+
+        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-        
-        /* Badge Styling */
-        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; }
-        .badge-masuk { background: #e8f5e9; color: #2e7d32; }
-        .badge-keluar { background: #ffebee; color: #c62828; }
-        .badge-void { background: #fff3e0; color: #ef6c00; border: 1px solid var(--warning); }
-        
-        .col-saldo { background: #f0f7ff; font-weight: bold; text-align: center; color: var(--primary); }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-pdf { background: #cf3a24; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-excel { background: var(--success); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -49,57 +47,55 @@
 <nav>
     <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="produk.html">📦 Produk</a>
-    <a href="pembelian.html">📥 Pembelian (PO)</a>
-    <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
+    <a href="produk.html">📦 Data Produk</a>
     <a href="inventori_stok.html">📦 Inventori Stok</a>
-    <a href="laporan-stok.html" class="active">📋 Kartu Stok</a>
-    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir BeautyBloom</a>
+    <a href="laporan-stok-strategis.html" class="active">📊 Laporan Stok</a>
+    <a href="laporan-stok.html">📋 Kartu Stok</a>
 </nav>
 
 <main>
     <div class="header-flex">
-        <h1>Riwayat Arus Barang BeautyBloom</h1>
-        <button class="btn-export" onclick="exportKeExcel()">📗 Export ke Excel (.xlsx)</button>
+        <h1>Laporan Stok BeautyBloom</h1>
+        <div class="btn-group">
+            <button class="btn-excel" onclick="exportExcel()">📗 Excel</button>
+            <button class="btn-pdf" onclick="exportPDF()">📕 Export PDF</button>
+        </div>
     </div>
 
-    <div class="filter-card">
-        <div class="filter-group">
-            <label>Dari Tanggal</label>
-            <input type="date" id="startDate">
+    <div class="summary-grid">
+        <div class="summary-card" style="border-color: var(--success);">
+            <small>STOK TERSEDIA (TOKO)</small>
+            <h3 id="count-ready">0 Produk</h3>
         </div>
-        <div class="filter-group">
-            <label>Sampai Tanggal</label>
-            <input type="date" id="endDate">
+        <div class="summary-card" style="border-color: var(--danger);">
+            <small>STOK HABIS (GUDANG)</small>
+            <h3 id="count-empty">0 Produk</h3>
         </div>
-        <div class="filter-group">
-            <label>Tipe Transaksi</label>
-            <select id="filterTipe">
-                <option value="ALL">Semua Aktivitas</option>
-                <option value="MASUK">Barang Masuk (+)</option>
-                <option value="KELUAR">Barang Keluar (-)</option>
-                <option value="VOID">Void / Pembatalan</option>
-            </select>
+        <div class="summary-card">
+            <small>TOTAL ITEM KESELURUHAN</small>
+            <h3 id="count-total">0 Produk</h3>
         </div>
-        <button class="btn-search" onclick="fetchRiwayat()">Cari Data 🔍</button>
+    </div>
+
+    <div class="filter-container">
+        <button class="filter-btn active" onclick="filterData('ALL', this)">Semua</button>
+        <button class="filter-btn" onclick="filterData('EMPTY', this)">Habis (0)</button>
+        <button class="filter-btn" onclick="filterData('READY', this)">Tersedia</button>
     </div>
 
     <div class="card-table">
-        <table>
+        <table id="my-table">
             <thead>
                 <tr>
-                    <th>Waktu</th>
                     <th>Nama Produk</th>
-                    <th>Aksi</th>
-                    <th>Jumlah</th>
-                    <th style="background: #e1f0ff; text-align: center;">Saldo Akhir</th>
-                    <th>Admin/System</th>
-                    <th>Keterangan</th>
+                    <th>Kategori</th>
+                    <th style="text-align: center;">Jumlah Stok</th>
+                    <th>Harga Jual</th>
+                    <th style="text-align: center;">Status</th>
                 </tr>
             </thead>
-            <tbody id="stok-body">
-                <tr><td colspan="7" style="text-align:center; padding: 40px;">Klik Cari Data untuk memuat riwayat.</td></tr>
-            </tbody>
+            <tbody id="table-body">
+                </tbody>
         </table>
     </div>
 </main>
@@ -109,104 +105,92 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
-    let currentDisplayData = [];
+    let allProducts = [];
 
-    window.onload = () => {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('startDate').value = today;
-        document.getElementById('endDate').value = today;
-        fetchRiwayat();
-    };
+    window.onload = loadData;
 
-    async function fetchRiwayat() {
-        const start = document.getElementById('startDate').value;
-        const end = document.getElementById('endDate').value;
-        const tipe = document.getElementById('filterTipe').value;
+    async function loadData() {
+        const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang');
+        if (error) return;
+        
+        allProducts = data;
+        
+        // Hitung Ringkasan
+        const ready = data.filter(p => p.stok_sekarang > 0).length;
+        const empty = data.filter(p => p.stok_sekarang <= 0).length;
+        
+        document.getElementById('count-ready').innerText = ready + " Produk";
+        document.getElementById('count-empty').innerText = empty + " Produk";
+        document.getElementById('count-total').innerText = data.length + " Produk";
 
-        try {
-            const tbody = document.getElementById('stok-body');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px;">⏳ Mengambil data BeautyBloom...</td></tr>';
-
-            let query = supabaseClient
-                .from('riwayat_stok')
-                .select(`*, produk:id_produk(nama_barang)`)
-                .gte('created_at', `${start}T00:00:00`)
-                .lte('created_at', `${end}T23:59:59`)
-                .order('created_at', { ascending: false });
-
-            if (tipe === 'VOID') {
-                query = query.or('tipe.eq.VOID,keterangan.ilike.%VOID%');
-            } else if (tipe !== 'ALL') {
-                query = query.eq('tipe', tipe);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
-            currentDisplayData = data || [];
-            tbody.innerHTML = '';
-
-            if (currentDisplayData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #999;">Tidak ada riwayat stok pada periode ini.</td></tr>';
-                return;
-            }
-
-            currentDisplayData.forEach(item => {
-                const ket = (item.keterangan || '').toUpperCase();
-                const isVoid = ket.includes('VOID') || item.tipe === 'VOID';
-                const isMasuk = item.tipe.toUpperCase() === 'MASUK' || isVoid;
-                
-                let badgeClass = isMasuk ? 'badge-masuk' : 'badge-keluar';
-                let label = item.tipe;
-                let colorAmount = isMasuk ? '#27ae60' : '#e74c3c';
-
-                if (isVoid) {
-                    badgeClass = 'badge-void';
-                    label = 'VOID';
-                    colorAmount = 'var(--warning)';
-                }
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td style="color:#888; font-size:12px;">${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                        <td><strong>${item.produk ? item.produk.nama_barang : '<span style="color:red">Produk Dihapus</span>'}</strong></td>
-                        <td><span class="badge ${badgeClass}">${label}</span></td>
-                        <td style="font-weight:bold; color:${colorAmount}">
-                            ${isMasuk ? '+' : '-'}${item.jumlah}
-                        </td>
-                        <td class="col-saldo">${item.stok_akhir || '-'}</td>
-                        <td>${item.admin_nama || 'System'}</td>
-                        <td style="font-size:12px; ${isVoid ? 'color:var(--warning); font-weight:600;' : 'color:#999; font-style:italic;'}">
-                            ${item.keterangan || '-'}
-                        </td>
-                    </tr>
-                `;
-            });
-        } catch (e) {
-            console.error(e);
-            alert("Error: " + e.message);
-        }
+        renderTable(data);
     }
 
-    function exportKeExcel() {
-        if (currentDisplayData.length === 0) return alert("Tidak ada data untuk di-export!");
-        
-        const dataExcel = currentDisplayData.map(item => ({
-            "Waktu": new Date(item.created_at).toLocaleString('id-ID'),
-            "Nama Produk": item.produk ? item.produk.nama_barang : 'N/A',
-            "Tipe Transaksi": item.tipe,
-            "Qty Perubahan": item.jumlah,
-            "Saldo Stok Akhir": item.stok_akhir,
-            "Admin": item.admin_nama || 'System',
-            "Keterangan": item.keterangan || '-'
-        }));
+    function renderTable(data) {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td><strong>${p.nama_barang}</strong></td>
+                <td>${p.kategori || '-'}</td>
+                <td style="text-align: center;">${p.stok_sekarang}</td>
+                <td>Rp ${parseFloat(p.harga_jual || 0).toLocaleString()}</td>
+                <td style="text-align: center;">
+                    <span class="badge" style="background:${p.stok_sekarang <= 0 ? '#fee2e2':'#dcfce7'}; color:${p.stok_sekarang <= 0 ? '#dc2626':'#166534'}">
+                        ${p.stok_sekarang <= 0 ? 'HABIS' : 'READY'}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+    }
 
-        const ws = XLSX.utils.json_to_sheet(dataExcel);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Riwayat Stok");
+    function filterData(mode, btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (mode === 'ALL') renderTable(allProducts);
+        else if (mode === 'EMPTY') renderTable(allProducts.filter(p => p.stok_sekarang <= 0));
+        else renderTable(allProducts.filter(p => p.stok_sekarang > 0));
+    }
+
+    function exportExcel() {
+        const wb = XLSX.utils.table_to_book(document.getElementById('my-table'));
+        XLSX.writeFile(wb, `Laporan_Stok_BeautyBloom.xlsx`);
+    }
+
+    function exportPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Judul Laporan
+        doc.setFontSize(18);
+        doc.text("Laporan Stok BeautyBloom", 14, 20);
         
-        // Simpan file
-        XLSX.writeFile(wb, `Kartu_Stok_BeautyBloom_${Date.now()}.xlsx`);
+        // Sub-Header (Ringkasan)
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+        const ready = allProducts.filter(p => p.stok_sekarang > 0).length;
+        const empty = allProducts.filter(p => p.stok_sekarang <= 0).length;
+        
+        doc.text(`Stok Tersedia: ${ready} Item`, 14, 30);
+        doc.text(`Stok Habis: ${empty} Item`, 14, 36);
+        doc.text(`Total Keseluruhan: ${allProducts.length} Item`, 14, 42);
+        doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 48);
+
+        // Tabel Data
+        doc.autoTable({
+            startY: 55,
+            head: [['Nama Produk', 'Kategori', 'Stok', 'Harga Jual', 'Status']],
+            body: allProducts.map(p => [
+                p.nama_barang, 
+                p.kategori || '-', 
+                p.stok_sekarang, 
+                `Rp ${parseFloat(p.harga_jual).toLocaleString()}`,
+                p.stok_sekarang <= 0 ? 'HABIS' : 'READY'
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [233, 30, 99] } // Warna Pink BeautyBloom
+        });
+
+        doc.save(`Laporan_Stok_BeautyBloom.pdf`);
     }
 </script>
 </body>
