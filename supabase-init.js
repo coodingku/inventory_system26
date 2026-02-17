@@ -1,23 +1,37 @@
-// supabase-init.js
+// =========================================================
+// FINEX POS - DYNAMIC CONNECTION ENGINE
+// File ini mengambil "Kunci" Database dari Session Login
+// =========================================================
 
-// 1. Ambil data dari session (diisi saat login nanti)
-const ACTIVE_URL = sessionStorage.getItem('CLIENT_URL');
-const ACTIVE_KEY = sessionStorage.getItem('CLIENT_KEY');
+(function() {
+    // 1. Ambil koordinat database dari sessionStorage
+    const SB_URL = sessionStorage.getItem('CLIENT_URL');
+    const SB_KEY = sessionStorage.getItem('CLIENT_KEY');
+    const NAMA_TOKO = sessionStorage.getItem('NAMA_TOKO') || 'Finex Pos';
 
-// 2. Jika tidak ada koordinat (belum login), tendang ke halaman login
-// Kecuali jika user memang sedang berada di halaman login.html
-if (!ACTIVE_URL || !ACTIVE_KEY) {
-    if (!window.location.pathname.includes('login.html')) {
-        window.location.href = 'login_backup.html'; // Sesuaikan nama file login Anda
+    // 2. Proteksi Halaman: Jika tidak ada kunci, tendang kembali ke login
+    if (!SB_URL || !SB_KEY) {
+        // Abaikan proteksi jika user sedang di halaman login
+        if (!window.location.pathname.includes('login.html')) {
+            window.location.replace('login.html');
+        }
     }
-}
 
-// 3. Inisialisasi Supabase menggunakan koordinat dinamis
-// Variabel 'db' ini yang akan dipakai di seluruh file (produk.html, dll)
-const db = supabase.createClient(ACTIVE_URL, ACTIVE_KEY);
+    // 3. Inisialisasi Database Client secara Global
+    // Sekarang Anda bisa menggunakan variabel 'db' di semua file lain
+    window.db = window.supabase.createClient(SB_URL, SB_KEY);
 
-// Bonus: Menampilkan Nama Toko di Header secara otomatis
-document.addEventListener('DOMContentLoaded', () => {
-    const elNamaToko = document.getElementById('display-nama-toko');
-    if (elNamaToko) elNamaToko.innerText = sessionStorage.getItem('NAMA_TOKO') || 'Finex Pos';
-});
+    // 4. Update UI secara otomatis setelah halaman dimuat
+    document.addEventListener('DOMContentLoaded', () => {
+        // Otomatis ganti nama toko di sidebar/header
+        const displayToko = document.querySelector('nav h2') || document.getElementById('store-name-display');
+        if (displayToko) displayToko.innerText = NAMA_TOKO;
+
+        // Cek Session User Internal (untuk nama admin/kasir)
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        const displayUser = document.getElementById('display-user-nav');
+        if (session && displayUser) {
+            displayUser.innerText = session.username;
+        }
+    });
+})();
