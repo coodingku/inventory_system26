@@ -146,27 +146,25 @@
 </div>
 
 <script>
-    // 1. Konfigurasi Supabase
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+    // =========================================================
+    // 1. KONFIGURASI DATABASE MASTER (MILIK ANDA)
+    // =========================================================
+    const MASTER_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co'; // Ganti jika project master beda
+    const MASTER_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const masterDB = window.supabase.createClient(MASTER_URL, MASTER_KEY);
 
-    // 2. Cek Sesi Saat Halaman Dimuat
     window.onload = () => {
-        const sessionData = localStorage.getItem('finex_session');
-        if (sessionData) {
-            try {
-                const session = JSON.parse(sessionData);
-                if (session && session.role) {
-                    redirectByRole(session.role.toLowerCase());
-                }
-            } catch (e) {
-                localStorage.clear();
-            }
+        // Cek jika sudah ada koordinat database aktif
+        const clientUrl = sessionStorage.getItem('CLIENT_URL');
+        if (clientUrl && localStorage.getItem('finex_session')) {
+            const session = JSON.parse(localStorage.getItem('finex_session'));
+            redirectByRole(session.role);
         }
     };
 
-    // 3. Proses Login
+    // =========================================================
+    // 2. PROSES LOGIN DUA TAHAP
+    // =========================================================
     document.getElementById('login-form').onsubmit = async (e) => {
         e.preventDefault();
         
@@ -175,66 +173,75 @@
         const btn = document.getElementById('btn-login');
         const errBox = document.getElementById('err-box');
 
-        // Loading State
-        btn.innerText = "Memverifikasi...";
+        btn.innerText = "Menghubungkan...";
         btn.disabled = true;
         errBox.style.display = 'none';
 
         try {
-            // Query ke tabel users
-            const { data, error } = await FinexDB
+            // --- TAHAP 1: CARI KOORDINAT DI DATABASE MASTER ---
+            const { data: pembeli, error: masterErr } = await masterDB
+                .from('master_pembeli')
+                .select('*')
+                .eq('username', user)
+                .eq('password_login', pass)
+                .single();
+
+            if (masterErr || !pembeli) {
+                throw new Error("Akun tidak ditemukan di sistem master.");
+            }
+
+            // SIMPAN KOORDINAT KE SESSION (Sangat Penting)
+            sessionStorage.setItem('CLIENT_URL', pembeli.client_url);
+            sessionStorage.setItem('CLIENT_KEY', pembeli.client_key);
+            sessionStorage.setItem('NAMA_TOKO', pembeli.nama_toko);
+
+            // --- TAHAP 2: LOGIN KE DATABASE CLIENT (UNTUK ROLE) ---
+            const clientDB = window.supabase.createClient(pembeli.client_url, pembeli.client_key);
+            
+            // Cari user di database client tersebut
+            const { data: userStaff, error: clientErr } = await clientDB
                 .from('users')
                 .select('*')
                 .eq('username', user)
                 .eq('password', pass)
                 .maybeSingle();
 
-            if (error) throw error;
-
-            if (data) {
-                const userRole = data.role.toLowerCase();
-
-                // Simpan Session Lengkap
-                const sessionData = {
-                    id: data.id,
-                    username: data.username,
-                    role: userRole,
-                    loginTime: new Date().toISOString()
-                };
-                
-                localStorage.setItem('finex_session', JSON.stringify(sessionData));
-                
-                // Simpan Role Terpisah (Untuk proteksi halaman master data)
-                localStorage.setItem('user_role', userRole);
-
-                // Berhasil: Redirect
-                redirectByRole(userRole);
-
-            } else {
-                // Gagal
-                errBox.innerText = "Username atau Password salah!";
-                errBox.style.display = 'block';
-                btn.innerText = "MASUK KE SISTEM";
-                btn.disabled = false;
+            if (clientErr || !userStaff) {
+                // Jika di master ada tapi di client tidak ada (belum di-install)
+                throw new Error("Tabel user di database toko belum siap.");
             }
 
+            // SIMPAN SESSION INTERNAL
+            const sessionData = {
+                id: userStaff.id,
+                username: userStaff.username,
+                role: userStaff.role.toLowerCase(),
+                loginTime: new Date().toISOString()
+            };
+            
+            localStorage.setItem('finex_session', JSON.stringify(sessionData));
+            localStorage.setItem('user_role', userStaff.role.toLowerCase());
+
+            // REDIRECT BERDASARKAN ROLE
+            redirectByRole(userStaff.role.toLowerCase());
+
         } catch (err) {
-            console.error("Login Error:", err);
-            errBox.innerText = "Terjadi kesalahan koneksi database.";
+            console.error("Login Error:", err.message);
+            errBox.innerText = err.message;
             errBox.style.display = 'block';
-            btn.disabled = false;
             btn.innerText = "MASUK KE SISTEM";
+            btn.disabled = false;
         }
     };
 
-    // 4. Logika Pengalihan Halaman
     function redirectByRole(role) {
         if (role === 'kasir') {
             window.location.replace('pos.html');
         } else if (role === 'admin') {
             window.location.replace('index.html');
         } else {
-            alert("Role tidak dikenali: " + role);
+            alert("Role tidak dikenali!");
+            sessionStorage.clear();
             localStorage.clear();
             location.reload();
         }
