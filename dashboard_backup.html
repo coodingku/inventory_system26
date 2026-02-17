@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Backup - Finex Pos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .active-link { background-color: #4f46e5; color: white; shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4); }
+    </style>
+</head>
+<body class="bg-slate-50 overflow-hidden">
+
+    <div class="flex h-screen">
+        <aside class="w-72 bg-white border-r border-slate-200 flex flex-col">
+            <div class="p-8">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="bg-indigo-600 p-2 rounded-xl">
+                        <i data-lucide="shield-check" class="text-white w-6 h-6"></i>
+                    </div>
+                    <span class="font-black text-xl tracking-tight text-slate-900">FINEX <span class="text-indigo-600">POS</span></span>
+                </div>
+
+                <nav class="space-y-2">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Menu Backup</p>
+                    
+                    <button onclick="loadPage('file_db.html', this)" class="menu-item active-link w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-sm">
+                        <i data-lucide="database" class="w-5 h-5"></i>
+                        Backup Skema DB
+                    </button>
+
+                    <button onclick="loadPage('backup_data.html', this)" class="menu-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all text-sm">
+                        <i data-lucide="file-json-2" class="w-5 h-5"></i>
+                        Backup Isi Data
+                    </button>
+
+                    <button onclick="loadPage('backup_file.html', this)" class="menu-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-all text-sm">
+                        <i data-lucide="hard-drive" class="w-5 h-5"></i>
+                        Backup File Media
+                    </button>
+                </nav>
+            </div>
+
+            <div class="mt-auto p-8 border-t border-slate-100">
+                <div class="bg-indigo-50 p-4 rounded-2xl">
+                    <p class="text-[10px] font-bold text-indigo-600 uppercase mb-1">Status Sistem</p>
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs font-bold text-indigo-900">Database Terhubung</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+                <h2 id="current-title" class="font-extrabold text-slate-800">Backup Skema DB</h2>
+                <div class="flex items-center gap-4">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest" id="live-clock"></span>
+                    <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200">
+                        <i data-lucide="user" class="text-slate-400 w-5 h-5"></i>
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 bg-slate-50 p-4">
+                <iframe id="content-frame" src="file_db.html" class="w-full h-full rounded-3xl border-0 shadow-sm bg-transparent"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Fungsi untuk mengganti halaman di iframe
+        function loadPage(page, element) {
+            // Update Iframe Source
+            document.getElementById('content-frame').src = page;
+            
+            // Update Title Header
+            const titleMap = {
+                'file_db.html': 'Backup Skema DB',
+                'backup_data.html': 'Backup Isi Data',
+                'backup_file.html': 'Backup File Media'
+            };
+            document.getElementById('current-title').innerText = titleMap[page];
+
+            // Update UI Sidebar (Active State)
+            document.querySelectorAll('.menu-item').forEach(btn => {
+                btn.classList.remove('active-link', 'text-white');
+                btn.classList.add('text-slate-500', 'hover:bg-slate-50');
+            });
+            element.classList.add('active-link');
+            element.classList.remove('text-slate-500', 'hover:bg-slate-50');
+        }
+
+        // Jam Real-time
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('id-ID');
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Inisialisasi Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
