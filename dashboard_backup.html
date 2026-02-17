@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Backup - Finex Pos</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .active-link { background-color: #4f46e5; color: white !important; shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4); }
+        .active-link { background-color: #4f46e5 !important; color: white !important; shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4); }
     </style>
 </head>
 <body class="bg-slate-50 overflow-hidden">
@@ -46,15 +48,22 @@
                         <i data-lucide="hard-drive" class="w-5 h-5"></i>
                         Backup File Media
                     </button>
+
+                    <hr class="my-4 border-slate-100">
+
+                    <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 transition-all text-sm">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        Keluar Sesi
+                    </button>
                 </nav>
             </div>
 
             <div class="p-8 border-t border-slate-100">
                 <div class="bg-indigo-50 p-4 rounded-2xl">
-                    <p class="text-[10px] font-bold text-indigo-600 uppercase mb-1">Status Sistem</p>
+                    <p class="text-[10px] font-bold text-indigo-600 uppercase mb-1">Status Keamanan</p>
                     <div class="flex items-center gap-2">
                         <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                        <span class="text-xs font-bold text-indigo-900">Database Terhubung</span>
+                        <span class="text-xs font-bold text-indigo-900">Sesi API Aktif</span>
                     </div>
                 </div>
             </div>
@@ -62,7 +71,10 @@
 
         <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8">
-                <h2 id="current-title" class="font-extrabold text-slate-800 text-lg">Backup Real-Time</h2>
+                <div class="flex flex-col">
+                    <h2 id="current-title" class="font-extrabold text-slate-800 text-lg">Backup Real-Time</h2>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Project ID: uojhjskgugghwxtdsfvm</p>
+                </div>
                 <div class="flex items-center gap-4">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-widest" id="live-clock"></span>
                     <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200">
@@ -78,19 +90,16 @@
     </div>
 
     <script>
-        // PROTEKSI HALAMAN
-const masterKey = sessionStorage.getItem('FINE_POS_MASTER_KEY');
-if (!masterKey) {
-    window.location.href = 'login_backup.html';
-}
+        // 1. PROTEKSI HALAMAN (WAJIB DI ATAS)
+        const masterKey = sessionStorage.getItem('FINE_POS_MASTER_KEY');
+        if (!masterKey) {
+            window.location.href = 'login_backup.html';
+        }
 
-// Gunakan masterKey ini untuk inisialisasi Supabase di file_db.html nantinya
-        // Fungsi untuk mengganti halaman di iframe
+        // 2. FUNGSI NAVIGASI
         function loadPage(page, element) {
-            // Update Iframe Source
             document.getElementById('content-frame').src = page;
             
-            // Update Title Header
             const titleMap = {
                 'file_db.html': 'Backup Real-Time',
                 'backup_db.html': 'Backup Skema DB',
@@ -99,16 +108,23 @@ if (!masterKey) {
             };
             document.getElementById('current-title').innerText = titleMap[page];
 
-            // Update UI Sidebar (Active State)
             document.querySelectorAll('.menu-item').forEach(btn => {
-                btn.classList.remove('active-link', 'text-white');
+                btn.classList.remove('active-link');
                 btn.classList.add('text-slate-500', 'hover:bg-slate-50');
             });
             element.classList.add('active-link');
             element.classList.remove('text-slate-500', 'hover:bg-slate-50');
         }
 
-        // Jam Real-time
+        // 3. FUNGSI LOGOUT
+        function logout() {
+            if (confirm("Hapus sesi API Key dan keluar?")) {
+                sessionStorage.removeItem('FINE_POS_MASTER_KEY');
+                window.location.href = 'login_backup.html';
+            }
+        }
+
+        // 4. JAM REAL-TIME
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = now.toLocaleTimeString('id-ID');
@@ -116,7 +132,6 @@ if (!masterKey) {
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Inisialisasi Lucide Icons
         lucide.createIcons();
     </script>
 </body>
