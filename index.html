@@ -222,11 +222,24 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    // 1. AMBIL KOORDINAT DARI SESSION (Hasil Jembatan Login)
+    const SB_URL = sessionStorage.getItem('CLIENT_URL');
+    const SB_KEY = sessionStorage.getItem('CLIENT_KEY');
+    const NAMA_TOKO = sessionStorage.getItem('NAMA_TOKO') || 'Finex Pos';
+
+    // 2. PROTEKSI: Jika tidak ada URL/Key, paksa kembali ke login
+    if (!SB_URL || !SB_KEY) {
+        window.location.replace('login.html');
+    }
+
+    // 3. INISIALISASI SUPABASE SECARA DINAMIS
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
     window.onload = () => {
+        // Update Nama Toko di Navigasi jika ada elemennya
+        const displayToko = document.querySelector('nav h2');
+        if (displayToko) displayToko.innerText = NAMA_TOKO;
+
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
@@ -234,6 +247,7 @@
                 .catch(err => console.log('Gagal daftar SW:', err));
         }
 
+        // Cek Session User Internal (untuk nama staff)
         const session = JSON.parse(localStorage.getItem('finex_session'));
         if (!session) return window.location.replace('login.html');
         
@@ -245,7 +259,7 @@
         document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
         try {
-            // 1. Fetch Produk
+            // 1. Fetch Produk (Akan otomatis ke database pelanggan yang login)
             const { data: products } = await supabaseClient.from('produk').select('*');
             if(products) {
                 const totalStock = products.reduce((acc, p) => acc + (p.stok_sekarang || 0), 0);
@@ -269,12 +283,12 @@
                 renderPaymentChart(sales);
             }
 
-            // Hitung Laba Bersih dari Jurnal
+            // Hitung Laba Bersih
             if(jurnal) {
                 let income = 0; let expense = 0;
                 jurnal.forEach(j => {
-                    if(j.kode_akun.startsWith('4')) income += (j.kredit - j.debit);
-                    if(j.kode_akun.startsWith('6')) expense += (j.debit - j.kredit);
+                    if(j.kode_akun.startsWith('4')) income += (parseFloat(j.kredit) - parseFloat(j.debit));
+                    if(j.kode_akun.startsWith('6')) expense += (parseFloat(j.debit) - parseFloat(j.kredit));
                 });
                 document.getElementById('stat-profit').innerText = "Rp " + (income - expense).toLocaleString('id-ID');
             }
@@ -288,6 +302,7 @@
         }
     }
 
+    // --- FUNGSI HELPER TETAP SAMA ---
     function renderTopProducts(details) {
         const summary = {};
         details.forEach(d => {
@@ -314,7 +329,10 @@
             const total = sales.filter(s => s.created_at?.startsWith(dateStr)).reduce((a, b) => a + parseFloat(b.grand_total || 0), 0);
             values.push(total);
         }
-        new Chart(document.getElementById('salesChart'), {
+        
+        const ctx = document.getElementById('salesChart');
+        if (window.mySalesChart) window.mySalesChart.destroy();
+        window.mySalesChart = new Chart(ctx, {
             type: 'line',
             data: { labels, datasets: [{ label: 'Omzet', data: values, borderColor: '#3498db', fill: true, tension: 0.3 }] }
         });
@@ -323,7 +341,10 @@
     function renderPaymentChart(sales) {
         const counts = {};
         sales.forEach(s => { const m = s.metode_pembayaran || 'Tunai'; counts[m] = (counts[m] || 0) + 1; });
-        new Chart(document.getElementById('paymentChart'), {
+        
+        const ctx = document.getElementById('paymentChart');
+        if (window.myPaymentChart) window.myPaymentChart.destroy();
+        window.myPaymentChart = new Chart(ctx, {
             type: 'doughnut',
             data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c'] }] }
         });
@@ -332,7 +353,10 @@
     function renderStockChart(products) {
         const cats = {};
         products.forEach(p => { const c = p.kategori || 'Lainnya'; cats[c] = (cats[c] || 0) + (p.stok_sekarang || 0); });
-        new Chart(document.getElementById('stockPieChart'), {
+        
+        const ctx = document.getElementById('stockPieChart');
+        if (window.myStockChart) window.myStockChart.destroy();
+        window.myStockChart = new Chart(ctx, {
             type: 'bar',
             data: { labels: Object.keys(cats), datasets: [{ label: 'Stok', data: Object.values(cats), backgroundColor: '#9b59b6' }] },
             options: { indexAxis: 'y' }
@@ -340,7 +364,11 @@
     }
 
     function logout() {
-        if(confirm("Keluar?")) { localStorage.clear(); window.location.replace('login.html'); }
+        if(confirm("Keluar dari sistem?")) { 
+            sessionStorage.clear(); // Hapus kunci database
+            localStorage.clear();   // Hapus session user
+            window.location.replace('login.html'); 
+        }
     }
 </script>
 </body>
