@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Access - Finex Pos Backup</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 flex items-center justify-center min-h-screen p-6">
+
+    <div class="max-w-md w-full bg-white rounded-[2.5rem] p-10 shadow-2xl text-center space-y-8">
+        <div class="bg-indigo-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <i data-lucide="shield-alert" class="text-indigo-600 w-12 h-12"></i>
+        </div>
+        
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Access Control</h2>
+            <p class="text-slate-500 text-sm mt-3 leading-relaxed">Masukkan <b>Service API Key</b> untuk mengakses panel pencadangan database.</p>
+        </div>
+
+        <div class="space-y-4">
+            <div class="relative">
+                <i data-lucide="key" class="absolute left-4 top-4 w-5 h-5 text-slate-400"></i>
+                <input type="password" id="api-key" 
+                    placeholder="Enter Service Role Key..." 
+                    class="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm">
+            </div>
+
+            <button onclick="validateAccess()" id="btn-login" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95">
+                <i data-lucide="unlock" class="w-5 h-5"></i>
+                Verifikasi Akses
+            </button>
+        </div>
+        
+        <div class="pt-4">
+            <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-loose">
+                Finex Pos Security Protocol v2.6<br>
+                <span class="text-red-400 text-[9px]">Dilarang memberikan API Key kepada siapapun</span>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function validateAccess() {
+            const keyInput = document.getElementById('api-key').value.trim();
+            const btn = document.getElementById('btn-login');
+
+            // Service Role Key Supabase biasanya diawali dengan 'ey' dan sangat panjang
+            if (keyInput.length < 50) {
+                alert("API Key tidak valid! Pastikan Anda memasukkan Service Role Key yang benar.");
+                return;
+            }
+
+            // Simpan ke Session Storage agar bisa dibaca oleh dashboard_backup.html
+            sessionStorage.setItem('FINE_POS_MASTER_KEY', keyInput);
+
+            // Beri efek loading sederhana
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Authenticating...`;
+            lucide.createIcons();
+
+            setTimeout(() => {
+                window.location.href = 'dashboard_backup.html';
+            }, 1000);
+        }
+
+        // Jalankan icon Lucide
+        lucide.createIcons();
+
+        // Enter key untuk login
+        document.getElementById('api-key').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') validateAccess();
+        });
+    </script>
+</body>
+</html>
