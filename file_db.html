@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backup Database Full - Finex Pos</title>
+    <title>Backup Isi Data - Finex Pos</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
 
@@ -11,7 +11,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
+<body class="bg-transparent flex items-center justify-center min-h-screen p-6">
 
     <div class="max-w-md w-full bg-white rounded-[2.5rem] p-8 shadow-xl text-center space-y-6 border border-slate-100">
         <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
@@ -39,18 +39,31 @@
         </div>
         
         <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            <p class="text-[9px] font-black text-slate-400 uppercase mb-2 leading-relaxed">Status Server: <span class="text-emerald-500">Online</span></p>
-            <p class="text-[9px] text-slate-400">Penting: Jangan tutup halaman ini sampai muncul notifikasi "Selesai".</p>
+            <p class="text-[9px] font-black text-slate-400 uppercase mb-2 leading-relaxed">Status Sesi: <span id="session-status" class="text-amber-500 font-bold tracking-widest">Mengecek...</span></p>
+            <p class="text-[9px] text-slate-400">Penting: Data akan diunduh dalam format perintah SQL INSERT INTO.</p>
         </div>
     </div>
 
     <script>
         // 1. KONFIGURASI SUPABASE
         const SUPABASE_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
         
-        // GUNAKAN 'dbClient' agar tidak error 'Identifier already declared'
-        const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // MENGAMBIL KEY DARI LOGIN (sessionStorage)
+        const SESSION_KEY = sessionStorage.getItem('FINE_POS_MASTER_KEY');
+        const sessionStatus = document.getElementById('session-status');
+
+        if (!SESSION_KEY) {
+            sessionStatus.innerText = "TIDAK ADA AKSES";
+            sessionStatus.classList.replace('text-amber-500', 'text-red-500');
+            alert("Sesi API Key tidak ditemukan. Silakan login kembali.");
+            window.parent.location.href = 'login_backup.html';
+        } else {
+            sessionStatus.innerText = "TERHUBUNG";
+            sessionStatus.classList.replace('text-amber-500', 'text-emerald-500');
+        }
+        
+        // Inisialisasi dbClient
+        const dbClient = supabase.createClient(SUPABASE_URL, SESSION_KEY);
 
         const tableList = [
             'users', 'kategori', 'gudang', 'produk', 'inventory', 
@@ -72,7 +85,8 @@
             btn.classList.add('opacity-50', 'cursor-not-allowed');
 
             let fullSql = `-- FULL BACKUP FINEX POS (DATA REAL-TIME)\n`;
-            fullSql += `-- Generated: ${new Date().toLocaleString('id-ID')}\n\n`;
+            fullSql += `-- Generated: ${new Date().toLocaleString('id-ID')}\n`;
+            fullSql += `-- Project ID: uojhjskgugghwxtdsfvm\n\n`;
 
             try {
                 for (let i = 0; i < tableList.length; i++) {
@@ -81,7 +95,6 @@
                     const percent = Math.round(((i + 1) / tableList.length) * 100);
                     progressBar.style.width = `${percent}%`;
 
-                    // Fetch data menggunakan dbClient yang sudah unik
                     const { data, error } = await dbClient.from(tableName).select('*');
                     
                     if (!error && data && data.length > 0) {
@@ -105,19 +118,22 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `Full_Backup_FinexPos_${new Date().toISOString().slice(0,10)}.sql`;
+                a.download = `Data_Backup_FinexPos_${new Date().toISOString().slice(0,10)}.sql`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 
-                alert("Backup Berhasil! File .sql sudah diunduh.");
+                statusText.innerText = "Selesai!";
+                alert("Backup Berhasil! Data riil sudah diunduh.");
             } catch (err) {
                 console.error(err);
-                alert("Gagal mengambil data. Cek koneksi internet.");
+                alert("Gagal mengambil data. Pastikan API Key yang dimasukkan saat login benar.");
             } finally {
-                statusContainer.classList.add('hidden');
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                setTimeout(() => {
+                    statusContainer.classList.add('hidden');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }, 1000);
             }
         }
 
