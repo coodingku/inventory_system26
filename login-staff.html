@@ -39,7 +39,7 @@
 
     const log = (txt) => { document.getElementById('debug-box').innerHTML += "> " + txt + "<br>"; };
 
-   async function loginStaff() {
+  async function loginStaff() {
     const storeInput = document.getElementById('store-name-input').value.trim();
     const nameInput = document.getElementById('staff-name-input').value.trim().toLowerCase();
     const msg = document.getElementById('msg');
@@ -52,10 +52,10 @@
     log(`Mencari Toko: '${storeInput}'...`);
 
     try {
-        // PERBAIKAN: Gunakan .select() untuk menghindari error 406
+        // Menggunakan kolom yang benar: client_url dan client_key
         const { data: customers, error: errCust } = await masterDB
             .from('master_pembeli') 
-            .select('id, db_url, db_key, nama_toko')
+            .select('id, nama_toko, client_url, client_key')
             .ilike('nama_toko', storeInput);
 
         if (errCust) throw errCust;
@@ -64,32 +64,39 @@
             throw new Error("Toko tidak ditemukan! Periksa ejaan nama toko.");
         }
 
-        const customer = customers[0]; // Ambil hasil pertama
+        const customer = customers[0];
+
+        // Validasi data kolom
+        if (!customer.client_url || !customer.client_key) {
+            throw new Error("Database toko ini belum dikonfigurasi (URL/Key Kosong).");
+        }
+
         log(`Toko '${customer.nama_toko}' ditemukan. Menghubungkan ke DB Pelanggan...`);
 
         // 2. KONEKSI KE DATABASE PELANGGAN
-        const customerDB = window.supabase.createClient(customer.db_url, customer.db_key);
+        const customerDB = window.supabase.createClient(customer.client_url, customer.client_key);
 
-        // 3. CARI NAMA STAFF
+        // 3. CARI NAMA STAFF DI DATABASE PELANGGAN
         const { data: allStaff, error: errStaff } = await customerDB
             .from('employee_staff')
             .select('nama_staff');
 
-        if (errStaff) throw new Error("Gagal mengambil data staff dari toko.");
+        if (errStaff) throw new Error("Gagal mengambil data staff dari database toko.");
 
         const found = allStaff.find(s => s.nama_staff.trim().toLowerCase() === nameInput);
 
         if (found) {
             log("VERIFIKASI BERHASIL!");
+            // Simpan info koneksi di session agar absen-staff.html tahu harus pakai DB mana
             sessionStorage.setItem('STAFF_LOGIN', found.nama_staff);
-            sessionStorage.setItem('CLIENT_DB_URL', customer.db_url);
-            sessionStorage.setItem('CLIENT_DB_KEY', customer.db_key);
+            sessionStorage.setItem('CLIENT_DB_URL', customer.client_url);
+            sessionStorage.setItem('CLIENT_DB_KEY', customer.client_key);
             sessionStorage.setItem('NAMA_TOKO', customer.nama_toko);
             
             window.location.href = 'absen-staff.html';
         } else {
-            log("ERROR: Nama staff tidak terdaftar di toko ini.");
-            msg.innerText = "Nama staff tidak ditemukan di database toko ini!";
+            log("ERROR: Nama staff tidak ditemukan di database toko.");
+            msg.innerText = "Nama staff tidak terdaftar di toko ini!";
             msg.style.display = 'block';
             btn.disabled = false;
         }
