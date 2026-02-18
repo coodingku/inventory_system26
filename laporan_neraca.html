@@ -6,19 +6,21 @@
     <title>Finex Pos | Laporan Neraca</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; }
         
-        nav { width: 250px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; }
+        nav { width: 250px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 10px; display: block; border-radius: 8px; font-size: 14px; margin-bottom: 5px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
 
-        main { flex: 1; padding: 30px; overflow-y: auto; }
+        main { flex: 1; padding: 30px; overflow-y: auto; box-sizing: border-box; width: calc(100% - 250px); }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         
-        /* Toolbar untuk Filter & Aksi */
         .toolbar { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; align-items: flex-end; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .toolbar input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
         .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 5px; }
@@ -42,10 +44,12 @@
         }
         .is-balanced { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .not-balanced { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
 
         @media print {
-            nav, .toolbar { display: none !important; }
-            main { padding: 0; }
+            nav, .toolbar, .user-info { display: none !important; }
+            main { padding: 0; width: 100%; margin: 0; }
             body { background: white; }
             .card { box-shadow: none; border: 1px solid #eee; }
         }
@@ -54,13 +58,19 @@
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="pos.html">🛒 Masuk Kasir</a>
     <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
     <a href="laba_rugi.html">📈 Laba Rugi</a>
     <a href="laporan_neraca.html" style="background: var(--accent); color:white;">⚖️ Laporan Neraca</a>
+    <a href="akun_jurnal.html">🏦 Daftar Akun</a>
     <a href="catat_jurnal.html">📖 Jurnal Umum</a>
+
+    <div class="user-info">
+        <small>AKSES:</small> <b id="display-user-nav">...</b>
+    </div>
+    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 5px; text-align: center; display: block; text-decoration: none;">🚪 Keluar</a>
 </nav>
 
 <main>
@@ -86,8 +96,8 @@
             <table id="table-aktiva">
                 <tr class="group-title"><td colspan="2">Aset Lancar</td></tr>
                 <tr><td>Kas dan Bank (1101/1102)</td><td class="text-right" id="val-kas">Rp 0</td></tr>
-                <tr><td>Persediaan BeautyBloom (1103)</td><td class="text-right" id="val-stok">Rp 0</td></tr>
-                <tr><td>Piutang Pelanggan</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
+                <tr><td>Persediaan Barang (1103)</td><td class="text-right" id="val-stok">Rp 0</td></tr>
+                <tr><td>Piutang Pelanggan (1104)</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
                 
                 <tr class="group-title"><td colspan="2">Aset Tetap</td></tr>
                 <tr><td>Peralatan & Inventaris (12xx)</td><td class="text-right" id="val-alat">Rp 0</td></tr>
@@ -103,12 +113,12 @@
             <h3>PASIVA (KEWAJIBAN & MODAL)</h3>
             <table id="table-pasiva">
                 <tr class="group-title"><td colspan="2">Kewajiban</td></tr>
-                <tr><td>Hutang Dagang</td><td class="text-right" id="val-hutang">Rp 0</td></tr>
+                <tr><td>Hutang Dagang (2101)</td><td class="text-right" id="val-hutang">Rp 0</td></tr>
                 <tr><td>Hutang Pajak (2102)</td><td class="text-right" id="val-pajak">Rp 0</td></tr>
                 
                 <tr class="group-title"><td colspan="2">Modal</td></tr>
-                <tr><td>Modal Pemilik (3xxx)</td><td class="text-right" id="val-modal">Rp 0</td></tr>
-                <tr><td>Laba Ditahan (Tahun Berjalan)</td><td class="text-right" id="val-laba">Rp 0</td></tr>
+                <tr><td>Modal Pemilik (31xx)</td><td class="text-right" id="val-modal">Rp 0</td></tr>
+                <tr><td>Laba Ditahan / Berjalan</td><td class="text-right" id="val-laba">Rp 0</td></tr>
                 
                 <tr class="total-row">
                     <td>TOTAL PASIVA</td>
@@ -118,15 +128,13 @@
         </div>
 
         <div id="balance-msg" class="balance-check">
-            Checking balance...
+            Menghitung saldo...
         </div>
     </div>
 </main>
 
 <script>
-const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+// Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
 window.onload = () => {
     // Set default tanggal hari ini
@@ -137,8 +145,8 @@ window.onload = () => {
 async function calculateBalanceSheet() {
     const targetDate = document.getElementById('filter-date').value;
     try {
-        // Ambil data jurnal sampai tanggal yang dipilih
-        const { data: jurnal, error } = await FinexDB
+        // Ambil data jurnal sampai tanggal yang dipilih dari database pelanggan aktif
+        const { data: jurnal, error } = await db
             .from('jurnal_umum')
             .select('*')
             .lte('tanggal', targetDate + 'T23:59:59');
@@ -155,46 +163,47 @@ async function calculateBalanceSheet() {
             const d = parseFloat(j.debit || 0);
             const kr = parseFloat(j.kredit || 0);
 
-            // AKTIVA (Normal Debit)
+            // AKTIVA (Normal Debit) -> Saldo = Debit - Kredit
             if (k.startsWith('1101') || k.startsWith('1102')) acc.kas += (d - kr);
             if (k.startsWith('1103')) acc.stok += (d - kr);
             if (k.startsWith('1104')) acc.piutang += (d - kr);
             if (k.startsWith('12'))   acc.alat += (d - kr);
             
-            // PASIVA (Normal Kredit)
+            // PASIVA (Normal Kredit) -> Saldo = Kredit - Debit
             if (k.startsWith('2101')) acc.hutang += (kr - d);
             if (k.startsWith('2102')) acc.pajak += (kr - d);
             if (k.startsWith('3'))    acc.modal += (kr - d);
             
-            // LABA RUGI (Pendapatan 4 - Beban 5/6)
+            // LABA RUGI (Tahun Berjalan) -> Pendapatan (4) - Beban (5/6)
             if (k.startsWith('4')) acc.laba += (kr - d);
             if (k.startsWith('5') || k.startsWith('6')) acc.laba -= (d - kr);
         });
 
-        const updateVal = (id, val) => document.getElementById(id).innerText = "Rp " + Math.round(val).toLocaleString('id-ID');
+        const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
 
-        updateVal('val-kas', acc.kas);
-        updateVal('val-stok', acc.stok);
-        updateVal('val-piutang', acc.piutang);
-        updateVal('val-alat', acc.alat);
-        updateVal('val-hutang', acc.hutang);
-        updateVal('val-pajak', acc.pajak);
-        updateVal('val-modal', acc.modal);
-        updateVal('val-laba', acc.laba);
+        document.getElementById('val-kas').innerText = f(acc.kas);
+        document.getElementById('val-stok').innerText = f(acc.stok);
+        document.getElementById('val-piutang').innerText = f(acc.piutang);
+        document.getElementById('val-alat').innerText = f(acc.alat);
+        document.getElementById('val-hutang').innerText = f(acc.hutang);
+        document.getElementById('val-pajak').innerText = f(acc.pajak);
+        document.getElementById('val-modal').innerText = f(acc.modal);
+        document.getElementById('val-laba').innerText = f(acc.laba);
 
         const totalAktiva = acc.kas + acc.stok + acc.piutang + acc.alat;
         const totalPasiva = acc.hutang + acc.pajak + acc.modal + acc.laba;
 
-        updateVal('total-aktiva', totalAktiva);
-        updateVal('total-pasiva', totalPasiva);
+        document.getElementById('total-aktiva').innerText = f(totalAktiva);
+        document.getElementById('total-pasiva').innerText = f(totalPasiva);
 
         const msgBox = document.getElementById('balance-msg');
-        if (Math.abs(totalAktiva - totalPasiva) < 1) { // Toleransi pembulatan < 1 Rupiah
+        // Toleransi selisih pembulatan kecil
+        if (Math.abs(totalAktiva - totalPasiva) < 5) { 
             msgBox.className = "balance-check is-balanced";
             msgBox.innerText = "✅ STATUS: BALANCE (SEIMBANG)";
         } else {
             msgBox.className = "balance-check not-balanced";
-            msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: Rp " + Math.round(totalAktiva - totalPasiva).toLocaleString('id-ID') + ")";
+            msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: " + f(totalAktiva - totalPasiva) + ")";
         }
 
     } catch (e) { 
@@ -203,16 +212,21 @@ async function calculateBalanceSheet() {
 }
 
 function exportToExcel() {
-    const wb = XLSX.utils.book_new();
     const table1 = document.getElementById("table-aktiva");
     const table2 = document.getElementById("table-pasiva");
-    
-    // Menggabungkan data sederhana untuk excel
+    const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.table_to_sheet(table1);
     XLSX.utils.sheet_add_dom(ws, table2, {origin: "D1"});
-    
-    XLSX.utils.book_append_sheet(wb, ws, "Neraca Saldo");
-    XLSX.writeFile(wb, `Neraca_FinexPos_${document.getElementById('filter-date').value}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Neraca");
+    XLSX.writeFile(wb, `Neraca_${sessionStorage.getItem('NAMA_TOKO')}_${document.getElementById('filter-date').value}.xlsx`);
+}
+
+function logout() {
+    if(confirm("Keluar dari sistem?")) {
+        sessionStorage.clear();
+        localStorage.clear();
+        window.location.replace('login.html');
+    }
 }
 </script>
 </body>
