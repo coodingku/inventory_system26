@@ -85,6 +85,7 @@
         };
 
         async function initClosing(username) {
+            // Mengambil sesi kasir yang sedang aktif
             const { data: activeShift } = await db
                 .from('kasir_log').select('*').eq('kasir_nama', username).eq('status', 'Open').maybeSingle();
 
@@ -93,7 +94,7 @@
                 window.location.href = "pos.html";
                 return;
             }
-            shiftId = activeShift.id;
+            shiftId = activeShift.id; // UUID dari kasir_log
             dataCetak.awal = parseFloat(activeShift.saldo_awal || 0);
             dataCetak.kasir = activeShift.kasir_nama;
             loadDataClosing();
@@ -101,12 +102,11 @@
 
         async function loadDataClosing() {
             try {
-                // Ambil data penjualan dalam shift ini
+                // SINKRONISASI MASTER: Filter menggunakan kasir_id (UUID) sesuai tabel penjualan master
                 const { data: sales, error: salesErr } = await db
                     .from('penjualan')
-                    .select('id, subtotal, diskon_global, grand_total, metode_pembayaran')
-                    .eq('kasir_nama', dataCetak.kasir)
-                    .gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString());
+                    .select('id, subtotal, diskon, grand_total, metode_pembayaran')
+                    .eq('kasir_id', shiftId); // Perbaikan filter UUID
                 
                 if (salesErr) throw salesErr;
 
@@ -132,7 +132,7 @@
                 let methodMap = {};
                 sales.forEach(trx => {
                     dataCetak.kotor += parseFloat(trx.subtotal || 0);
-                    dataCetak.diskon += parseFloat(trx.diskon_global || 0);
+                    dataCetak.diskon += parseFloat(trx.diskon || 0); // Sesuai tabel master
                     dataCetak.net += parseFloat(trx.grand_total || 0);
                     
                     const mtd = trx.metode_pembayaran || 'Tunai';
@@ -183,53 +183,32 @@
 
         async function prosesClosing() {
             const fisikValue = document.getElementById('input-fisik').value;
-            if (fisikValue === "") return alert("Masukkan uang fisik laci!");
+            if (fisikValue === "") return alert("Harap input uang fisik laci!");
 
             const fisik = parseFloat(fisikValue);
             const selisih = fisik - totalSistem;
             const tglSekarang = new Date().toISOString();
 
-            if (!confirm("Tutup shift sekarang? Data akan dikunci sesuai Master DB.")) return;
+            if (!confirm("Tutup shift sekarang? Data akan disinkronkan ke Master DB.")) return;
             
             document.getElementById('btn-submit-closing').disabled = true;
 
             try {
-                // 1. UPDATE LOG KASIR SESUAI STRUKTUR MASTER DB
+                // SINKRONISASI MASTER: Update waktu_closing dan tipe data numeric
                 const { error: errLog } = await db
                     .from('kasir_log')
                     .update({
                         waktu_tutup: tglSekarang,
-                        waktu_closing: tglSekarang, // Sinkronisasi Master DB
-                        total_tunai_sistem: totalSistem, // Numeric
-                        total_tunai_fisik: fisik,        // Numeric
-                        selisih: selisih,                // Numeric
-                        saldo_akhir: fisik,              // Numeric
+                        waktu_closing: tglSekarang, // Sinkronisasi kolom Master DB
+                        total_tunai_sistem: totalSistem, // Tipe Numeric
+                        total_tunai_fisik: fisik,        // Tipe Numeric
+                        selisih: selisih,                // Tipe Numeric
+                        saldo_akhir: fisik,              // Tipe Numeric
                         status: 'Closed'
                     })
                     .eq('id', shiftId);
 
                 if (errLog) throw errLog;
-
-                // 2. JURNAL AKUNTANSI
-                const dataJurnal = [
-                    {
-                        tanggal: tglSekarang,
-                        no_bukti: `SHIFT-${shiftId}`,
-                        kode_akun: '1101', // Kas
-                        keterangan: `Penerimaan Kas Shift #${shiftId} (${dataCetak.kasir})`,
-                        debit: dataCetak.net,
-                        kredit: 0
-                    },
-                    {
-                        tanggal: tglSekarang,
-                        no_bukti: `SHIFT-${shiftId}`,
-                        kode_akun: '4101', // Pendapatan
-                        keterangan: `Pendapatan Penjualan Shift #${shiftId}`,
-                        debit: 0,
-                        kredit: dataCetak.net
-                    }
-                ];
-                await db.from('jurnal_umum').insert(dataJurnal);
 
                 renderStruk(fisik, selisih);
                 setTimeout(() => {
@@ -239,7 +218,7 @@
                 }, 500);
 
             } catch (err) {
-                alert("Error: " + err.message);
+                alert("Error saat closing: " + err.message);
                 document.getElementById('btn-submit-closing').disabled = false;
             }
         }
