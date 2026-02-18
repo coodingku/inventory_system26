@@ -59,118 +59,65 @@
 </div>
 
 <script>
-    // 1. AMBIL KONEKSI DINAMIS (Bypass supabase-init.js)
-    const CLIENT_URL = sessionStorage.getItem('CLIENT_DB_URL');
-    const CLIENT_KEY = sessionStorage.getItem('CLIENT_DB_KEY');
-    const loggedStaff = sessionStorage.getItem('STAFF_LOGIN');
-    const namaToko = sessionStorage.getItem('NAMA_TOKO');
+  function startGPS() {
+        const badge = document.getElementById('geo-status');
+        
+        const geoOptions = {
+            enableHighAccuracy: true, 
+            timeout: 8000,           // Batas tunggu 8 detik
+            maximumAge: 10000        // Izinkan cache lokasi 10 detik terakhir agar cepat
+        };
 
-    if (!CLIENT_URL || !loggedStaff) {
-        window.location.replace('login-staff.html');
-    }
-
-    // Inisialisasi DB Pelanggan secara mandiri
-    const db = window.supabase.createClient(CLIENT_URL, CLIENT_KEY);
-
-    document.getElementById('staff-name-tag').innerText = "HALO, " + loggedStaff.toUpperCase();
-    document.getElementById('store-title').innerText = namaToko || "Finex Face ID";
-
-    let labeledDescriptors = [];
-    let configToko = { lat: 0, lon: 0, rad: 100 };
-    let userLoc = { lat: 0, lon: 0 };
-    let isGeoValid = false;
-    let detectionResult = null;
-    let isProcessing = false;
-
-    async function init() {
-        try {
-            const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
-
-            // Load wajah staff ini saja
-            const { data: s } = await db.from('employee_staff').select('face_descriptor').eq('nama_staff', loggedStaff).single();
-            if (s && s.face_descriptor) {
-                const desc = new Float32Array(Object.values(JSON.parse(s.face_descriptor)));
-                labeledDescriptors = [new faceapi.LabeledFaceDescriptors(loggedStaff, [desc])];
-            }
-
-            // Load Lokasi Toko
-            const { data: loc } = await db.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
-            if(loc) configToko = { lat: parseFloat(loc.latitude), lon: parseFloat(loc.longitude), rad: parseInt(loc.radius_meter) };
-
-            startCamera();
-            startGPS();
-        } catch (e) { alert("Error Init: " + e.message); }
-    }
-function startGPS() {
-    const badge = document.getElementById('geo-status');
-    
-    // Opsi GPS yang lebih seimbang antara akurasi dan kecepatan
-    const geoOptions = {
-        enableHighAccuracy: true, // Tetap coba akurasi tinggi
-        timeout: 10000,           // Maksimal tunggu 10 detik
-        maximumAge: 0             // Jangan gunakan cache lokasi lama
-    };
-
-    const watchID = navigator.geolocation.watchPosition(
-        (p) => {
-            userLoc.lat = p.coords.latitude;
-            userLoc.lon = p.coords.longitude;
-            
-            // Hitung Jarak
-            const R = 6371000; // Radius bumi dalam meter
-            const dLat = (configToko.lat - userLoc.lat) * Math.PI/180;
-            const dLon = (configToko.lon - userLoc.lon) * Math.PI/180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(userLoc.lat*Math.PI/180)*Math.cos(configToko.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+        // Fungsi Update UI Jarak
+        const updateDistanceUI = (lat, lon) => {
+            const R = 6371000;
+            const dLat = (configToko.lat - lat) * Math.PI/180;
+            const dLon = (configToko.lon - lon) * Math.PI/180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(configToko.lat*Math.PI/180)*Math.sin(dLon/2)**2;
             const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             
             isGeoValid = dist <= configToko.rad;
-            
-            // Update Tampilan
             badge.className = isGeoValid ? "status-pill area-ok" : "status-pill area-fail";
             badge.innerText = isGeoValid ? `✅ Area Toko (${Math.round(dist)}m)` : `❌ Di Luar Area (${Math.round(dist)}m)`;
-        },
-        (err) => {
-            // Jika terjadi error (Time out atau GPS dimatikan)
-            console.warn("GPS Error: ", err.message);
-            if (err.code === 3) { // Timeout
-                badge.innerText = "⚠️ Sinyal GPS Lemah, Mencoba lagi...";
-            } else {
-                badge.innerText = "❌ GPS Nonaktif/Error";
-                alert("Harap aktifkan Lokasi (GPS) di HP Anda!");
-            }
-        }, 
-        geoOptions
-    );
-}
-   async function startCamera() {
+            
+            userLoc.lat = lat;
+            userLoc.lon = lon;
+        };
+
+        // 1. Ambil lokasi CEPAT (Low Accuracy) untuk inisialisasi awal
+        navigator.geolocation.getCurrentPosition((p) => {
+            updateDistanceUI(p.coords.latitude, p.coords.longitude);
+        }, null, { enableHighAccuracy: false, timeout: 5000 });
+
+        // 2. Jalankan pemantauan PRESISI
+        navigator.geolocation.watchPosition(
+            (p) => updateDistanceUI(p.coords.latitude, p.coords.longitude),
+            (err) => {
+                console.warn("GPS Error:", err.message);
+                if (err.code === 3) badge.innerText = "⚠️ Sinyal Lemah (Gunakan Data Terakhir)";
+            }, 
+            geoOptions
+        );
+    }
+
+    async function startCamera() {
         const video = document.getElementById('video');
         const info = document.getElementById('instruction');
         
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                // Gunakan resolusi ideal untuk HP agar tidak berat
-                video: { 
-                    facingMode: "user",
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                } 
+                video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } 
             });
             video.srcObject = stream;
             
-            // OPTIMASI: Gunakan interval lebih cepat (500ms) tapi dengan beban lebih ringan
+            // Interval scan wajah dipercepat tapi beban AI diringankan
             setInterval(async () => {
                 if (isProcessing) return;
 
-                // Gunakan TinyFaceDetector dengan inputSize kecil (128 atau 160)
-                // Ini kunci agar HP tidak berat saat melakukan scan
+                // inputSize 128 adalah yang paling cepat untuk HP menengah ke bawah
                 const detect = await faceapi.detectSingleFace(
                     video, 
-                    new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 })
+                    new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.5 })
                 ).withFaceLandmarks(true).withFaceDescriptor();
 
                 if (detect) {
@@ -179,22 +126,23 @@ function startGPS() {
                         document.getElementById('btn-action').disabled = false;
                         info.innerText = "Wajah Terdeteksi! Klik Tombol.";
                         info.style.color = "green";
+                    } else {
+                        info.innerText = "Dekati Area Toko untuk Absen";
+                        info.style.color = "orange";
                     }
                 } else {
-                    // Jika wajah hilang, matikan tombol agar tidak salah input
                     if (!isProcessing) {
                         document.getElementById('btn-action').disabled = true;
-                        info.innerText = "Arahkan wajah ke kotak kamera...";
+                        info.innerText = "Arahkan wajah ke kamera...";
                         info.style.color = "black";
                     }
                 }
-            }, 500); // Interval 0.5 detik jauh lebih responsif dibanding 1 detik
+            }, 400); 
 
         } catch (err) {
-            info.innerText = "Gagal akses kamera: " + err.message;
+            info.innerText = "Kamera Error: " + err.message;
         }
     }
-
     // Fungsi prosesAbsen dengan penambahan feedback visual
     async function prosesAbsen() {
         if (!detectionResult || isProcessing) return;
