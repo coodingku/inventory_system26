@@ -50,29 +50,45 @@
         }
     }
 
-    async function loginStaff() {
-        const nameInput = document.getElementById('staff-name').value.trim();
-        const msg = document.getElementById('msg');
-        
-        log("Mencari nama: '" + nameInput + "'");
-        
-        const { data, error } = await clientStaff
-            .from('employee_staff')
-            .select('nama_staff')
-            .ilike('nama_staff', nameInput)
-            .maybeSingle();
+   async function loginStaff() {
+    const input = document.getElementById('staff-name');
+    const nameInput = input.value.trim().toLowerCase(); // Ubah input ke huruf kecil & hapus spasi
+    const msg = document.getElementById('msg');
+    const btn = document.getElementById('btn-masuk');
+    
+    if (!nameInput) return;
 
-        if (data) {
-            log("SUKSES: Ditemukan " + data.nama_staff);
-            sessionStorage.setItem('STAFF_LOGIN', data.nama_staff);
+    btn.disabled = true;
+    log("Mencari dengan metode Client-Side Matching...");
+
+    try {
+        // Ambil SEMUA daftar nama staff dari database
+        const { data: allStaff, error } = await clientStaff
+            .from('employee_staff')
+            .select('nama_staff');
+
+        if (error) throw error;
+
+        // Cari kecocokan secara manual (menghapus spasi dan tidak peduli huruf besar/kecil)
+        const found = allStaff.find(s => 
+            s.nama_staff.trim().toLowerCase() === nameInput
+        );
+
+        if (found) {
+            log("SUKSES: Cocok dengan " + found.nama_staff);
+            sessionStorage.setItem('STAFF_LOGIN', found.nama_staff);
             window.location.href = 'absen-staff.html';
         } else {
-            log("GAGAL: Nama tidak ada di hasil query.");
-            msg.innerText = "⚠️ Nama '" + nameInput + "' tidak ditemukan!";
+            log("GAGAL: Nama '" + nameInput + "' tidak cocok dengan " + allStaff.length + " data di DB.");
+            msg.innerText = "⚠️ Nama tidak ditemukan! Pastikan ejaan benar.";
             msg.style.display = 'block';
+            btn.disabled = false;
         }
+    } catch (e) {
+        log("ERROR: " + e.message);
+        btn.disabled = false;
     }
-
+}
     testConnection();
 </script>
 </body>
