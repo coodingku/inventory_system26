@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Admin Backdate Januari</title>
+    <title>Finex Pos | Admin Backdate</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --info: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
@@ -31,10 +34,8 @@
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: #666; font-size: 13px; }
         
-        /* Modifier Box Styling */
         .modifier-box { background: #fff9f0; border: 1px dashed var(--accent); padding: 12px; border-radius: 8px; margin-bottom: 10px; }
         .modifier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
-
         .total-row { font-size: 22px; font-weight: bold; color: var(--primary); border-top: 2px solid #eee; padding-top: 10px; margin-top: 10px; }
         
         .btn-save { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
@@ -46,21 +47,27 @@
         .input-mod { width: 100%; text-align: right; border: 1px solid #ddd; border-radius: 4px; padding: 6px; font-weight: bold; }
         
         .remove-btn { color: var(--danger); cursor: pointer; font-weight: bold; font-size: 18px; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>Finex Pos Admin</h2>
+        <h2 id="store-name-display">Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
-        <a href="admin_pos_backdate.html" class="active">🕒 Backdate Januari</a>
+        <a href="admin_pos_backdate.html" class="active">🕒 Backdate</a>
         <a href="audit_rekonsiliasi.html">🔍 Audit Rekonsiliasi</a>
         <a href="laba_rugi.html">📈 Laba Rugi</a>
+        
+        <div class="user-info">
+            <small>ADMIN:</small> <b id="display-user-nav">...</b>
+        </div>
+        <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; display: block; text-decoration: none;">🚪 Keluar</a>
     </nav>
         
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <h1 style="margin:0;">Input Data BeautyBloom (Januari)</h1>
+            <h1 style="margin:0;">Input Data Backdate</h1>
             <div style="color:var(--danger); font-weight:bold; background: #fee2e2; padding: 5px 12px; border-radius: 6px; border: 1px solid #fca5a5;">MODE ADMIN: HARGA CUSTOM</div>
         </div>
         <input type="text" id="search" class="search-bar" placeholder="Cari menu untuk diinput..." onkeyup="loadMenu()">
@@ -81,7 +88,6 @@
                 <span id="txt-sub">Rp 0</span>
             </div>
 
-            <!-- Global Modifier Section -->
             <div class="modifier-box">
                 <label style="font-size: 11px; font-weight: bold; color: var(--accent);">MODIFIER HARGA (GLOBAL):</label>
                 <div class="modifier-grid">
@@ -104,26 +110,25 @@
                 <select id="payMethodSelect"></select>
             </div>
 
-            <button class="btn-save" id="btnSave" onclick="saveBackdate()">SIMPAN TRANSAKSI LAMA</button>
+            <button class="btn-save" id="btnSave" onclick="saveBackdate()">SIMPAN TRANSAKSI BACKDATE</button>
         </div>
     </aside>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let cart = [];
     let state = { sub: 0, modifier: 0, total: 0 };
+    const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
-        document.getElementById('inputDate').value = '2026-01-01'; 
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('inputDate').value = today;
         await loadSettings();
         await loadMenu();
     };
 
     async function loadSettings() {
-        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*');
+        const { data: mtd } = await db.from('metode_pembayaran').select('*');
         if (mtd) {
             document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
         }
@@ -131,23 +136,20 @@
 
     async function loadMenu() {
         const q = document.getElementById('search').value;
-        let query = FinexDB.from('produk').select('*');
+        let query = db.from('produk').select('*');
         if (q) query = query.ilike('nama_barang', `%${q}%`);
         const { data } = await query.order('nama_barang');
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})">
                 <strong>${p.nama_barang}</strong><br>
-                <span style="color:var(--success); font-size:12px;">Rp ${p.harga_jual.toLocaleString()}</span>
+                <span style="color:var(--success); font-size:12px;">Rp ${(p.harga_jual || 0).toLocaleString('id-ID')}</span>
             </div>`).join('');
     }
 
     function addCart(id, nama, harga) {
         const idx = cart.findIndex(c => c.id === id);
-        if (idx > -1) { 
-            cart[idx].qty++; 
-        } else { 
-            cart.push({ id, nama_barang: nama, harga: harga, qty: 1 }); 
-        }
+        if (idx > -1) { cart[idx].qty++; } 
+        else { cart.push({ id, nama_barang: nama, harga: harga, qty: 1 }); }
         renderCart();
     }
 
@@ -158,20 +160,15 @@
 
     function renderCart() {
         state.sub = 0;
-        
         const cartHtml = cart.map((item, i) => {
             const itemTotal = item.qty * item.harga;
             state.sub += itemTotal;
-
             return `
                 <div class="cart-item">
                     <div class="cart-item-header">
-                        <div class="item-info">
-                            <b>${item.nama_barang}</b>
-                        </div>
+                        <div class="item-info"><b>${item.nama_barang}</b></div>
                         <span class="remove-btn" onclick="cart.splice(${i},1);renderCart();">&times;</span>
                     </div>
-                    
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div style="display:flex; align-items:center; gap:5px;">
                             <label style="font-size:11px;">Qty:</label>
@@ -183,24 +180,22 @@
                         </div>
                     </div>
                     <div style="text-align:right; margin-top:5px; font-weight:bold; font-size:13px; color:var(--primary);">
-                        Rp ${itemTotal.toLocaleString()}
+                        Rp ${itemTotal.toLocaleString('id-ID')}
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
 
-        // Hitung Modifier
         const modType = document.getElementById('modType').value;
         const modVal = parseFloat(document.getElementById('modValue').value) || 0;
-        
         state.modifier = modVal;
+        
         if (modType === 'discount') state.total = state.sub - modVal;
         else if (modType === 'service') state.total = state.sub + modVal;
         else state.total = state.sub;
 
-        document.getElementById('displayCart').innerHTML = cartHtml;
-        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
+        document.getElementById('displayCart').innerHTML = cartHtml || '<p style="text-align:center; color:#999; margin-top:20px;">Keranjang Kosong</p>';
+        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString('id-ID');
+        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString('id-ID');
     }
 
     async function saveBackdate() {
@@ -213,19 +208,20 @@
         const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
         
         const inv = `BKD-${Date.now().toString().slice(-6)}`;
-        const tglISO = tgl + "T12:00:00Z"; 
+        const tglISO = new Date(tgl + "T12:00:00").toISOString(); 
 
         btn.disabled = true;
         btn.innerText = "SEDANG MENYIMPAN...";
 
         try {
-            // 1. Simpan Header Penjualan
-            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
+            // 1. Simpan Header
+            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
                 no_invoice: inv, 
                 subtotal: state.sub, 
-                diskon: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
+                diskon_global: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
                 grand_total: state.total, 
                 metode_pembayaran: method, 
+                kasir_nama: session.username,
                 created_at: tglISO 
             }]).select().single();
 
@@ -241,22 +237,30 @@
                 subtotal_item: item.qty * item.harga 
             }));
 
-            const { error: errDet } = await FinexDB.from('penjualan_detail').insert(details);
+            const { error: errDet } = await db.from('penjualan_detail').insert(details);
             if (errDet) throw errDet;
 
-            // 3. Jurnal Umum (Double Entry)
-            await FinexDB.from('jurnal_umum').insert([
-                { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penerimaan POS (${method}) - ${inv}`, debit: state.total, kredit: 0 },
-                { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan BeautyBloom - ${inv}`, debit: 0, kredit: state.total }
+            // 3. Jurnal Umum
+            await db.from('jurnal_umum').insert([
+                { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Backdate POS (${method}) - ${inv}`, debit: state.total, kredit: 0 },
+                { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Backdate - ${inv}`, debit: 0, kredit: state.total }
             ]);
 
-            alert("Transaksi Backdate Berhasil Disimpan!");
+            alert("Transaksi Backdate Berhasil!");
             location.reload();
 
         } catch (e) { 
-            alert("Terjadi Kesalahan: " + e.message); 
+            alert("Error: " + e.message); 
             btn.disabled = false;
-            btn.innerText = "SIMPAN TRANSAKSI LAMA";
+            btn.innerText = "SIMPAN TRANSAKSI BACKDATE";
+        }
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
         }
     }
 </script>
