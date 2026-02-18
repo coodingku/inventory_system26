@@ -3,40 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Face ID BeautyBloom</title>
+    <title>Finex Pos | Face ID</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .absen-card { background: white; padding: 25px; border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); width: 100%; max-width: 420px; text-align: center; border: 1px solid #eee; }
         
         #video-container { width: 100%; position: relative; border-radius: 20px; overflow: hidden; background: #1a1a1a; border: 4px solid #fff; box-shadow: 0 8px 25px rgba(0,0,0,0.2); aspect-ratio: 4/3; margin-bottom: 20px; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); filter: brightness(1.15) contrast(1.1); }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); filter: brightness(1.1) contrast(1.1); }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
 
-        .status-pill { padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 700; margin-bottom: 15px; display: block; }
+        .status-pill { padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 700; margin-bottom: 15px; display: block; transition: 0.3s; }
         .area-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
         .area-fail { background: #ffebee; color: #b71c1c; border: 1px solid #ffcdd2; }
 
         .btn-scan { background: var(--accent); color: white; padding: 18px; width: 100%; border: none; border-radius: 16px; font-weight: 800; cursor: pointer; font-size: 16px; transition: 0.3s; box-shadow: 0 6px 15px rgba(233, 30, 99, 0.3); }
         .btn-scan:disabled { background: #eee; color: #aaa; box-shadow: none; cursor: not-allowed; }
         
-        #instruction { font-size: 15px; color: #333; margin-bottom: 15px; font-weight: 600; min-height: 50px; line-height: 1.4; padding: 10px; border-radius: 12px; transition: all 0.3s; }
+        #instruction { font-size: 15px; color: #333; margin-bottom: 15px; font-weight: 600; min-height: 50px; line-height: 1.4; padding: 12px; border-radius: 12px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
         .success-bg { background: #d4edda; color: #155724 !important; border: 1px solid #c3e6cb; }
         .danger-bg { background: #f8d7da; color: #721c24 !important; border: 1px solid #f5c6cb; }
 
-        .loader { width: 18px; height: 18px; border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; margin-right: 10px; vertical-align: middle; }
+        .loader { width: 18px; height: 18px; border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; margin-right: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="absen-card">
-    <h2 style="margin: 0; color: var(--primary);">Finex Face ID</h2>
-    <p style="margin: 5px 0 20px 0; color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 1px;">BEAUTYBLOOM CENTER</p>
+    <h2 style="margin: 0; color: var(--primary);" id="store-title">Finex Face ID</h2>
+    <p id="store-tagline" style="margin: 5px 0 20px 0; color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 1px;">BEAUTYBLOOM CENTER</p>
 
-    <div id="geo-status" class="status-pill area-fail">📍 Mengaktifkan GPS...</div>
+    <div id="geo-status" class="status-pill area-fail">📍 Menginisialisasi GPS...</div>
 
     <div id="video-container">
         <video id="video" autoplay playsinline muted></video>
@@ -44,7 +46,7 @@
     </div>
 
     <div id="instruction">
-        <div class="loader"></div> Menginisialisasi Sistem...
+        <div class="loader"></div> Menghubungkan ke Database...
     </div>
 
     <button id="btn-action" class="btn-scan" onclick="prosesAbsen()" disabled>
@@ -53,12 +55,9 @@
 </div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
-
+    // Variabel 'db' sekarang menggunakan instance dari supabase-init.js
     let labeledDescriptors = [];
-    let configToko = null;
+    let configToko = { latitude: 0, longitude: 0, radius_meter: 100 };
     let userLoc = { lat: 0, lon: 0 };
     let isGeoValid = false;
     let detectionResult = null;
@@ -66,29 +65,50 @@
 
     async function init() {
         const info = document.getElementById('instruction');
+        const storeTitle = document.getElementById('store-title');
+        
         try {
+            // Mengambil nama toko dari session
+            storeTitle.innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex Face ID";
+            
             const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
             
+            // 1. Load AI Models
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
             ]);
 
-            const { data: staff } = await FinexDB.from('employee_staff').select('nama_staff, face_descriptor');
+            // 2. Load Data Wajah Staff menggunakan variabel global 'db'
+            const { data: staff, error: errStaff } = await db.from('employee_staff').select('nama_staff, face_descriptor');
+            if(errStaff) throw errStaff;
+
             labeledDescriptors = (staff || []).map(s => {
                 if(!s.face_descriptor) return null;
-                return new faceapi.LabeledFaceDescriptors(s.nama_staff, [new Float32Array(JSON.parse(s.face_descriptor))]);
+                try {
+                    const descArray = JSON.parse(s.face_descriptor);
+                    const desc = new Float32Array(Object.values(descArray));
+                    return new faceapi.LabeledFaceDescriptors(s.nama_staff, [desc]);
+                } catch(e) { return null; }
             }).filter(x => x !== null);
 
-            const { data: loc } = await FinexDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
-            configToko = loc || { latitude: -8.65, longitude: 115.21, radius_meter: 100 };
+            // 3. Load Pengaturan Lokasi Toko
+            const { data: loc } = await db.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
+            if (loc) {
+                configToko = { 
+                    latitude: parseFloat(loc.latitude), 
+                    longitude: parseFloat(loc.longitude), 
+                    radius_meter: parseInt(loc.radius_meter || 100) 
+                };
+            }
 
-            info.innerText = "Sistem Siap. Posisikan wajah Anda.";
+            info.innerText = "Sistem Siap. Silakan arahkan wajah.";
             startCamera();
             startGeo();
         } catch (e) {
-            info.innerHTML = `<b style="color:red">Error: ${e.message}</b>`;
+            info.innerHTML = `<b style="color:red">Error Inisialisasi: ${e.message}</b>`;
+            console.error(e);
         }
     }
 
@@ -99,7 +119,7 @@
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 320, height: 240, facingMode: "user" } 
+                video: { width: 640, height: 480, facingMode: "user" } 
             });
             video.srcObject = stream;
 
@@ -110,7 +130,7 @@
                 setInterval(async () => {
                     if (isProcessing) return;
 
-                    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 }))
+                    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
                         .withFaceLandmarks(true)
                         .withFaceDescriptor();
 
@@ -120,24 +140,22 @@
                     if (detection) {
                         detectionResult = detection;
                         const resized = faceapi.resizeResults(detection, displaySize);
-                        
-                        ctx.strokeStyle = '#27ae60';
-                        ctx.lineWidth = 4;
-                        const b = resized.detection.box;
-                        ctx.strokeRect(b.x, b.y, b.width, b.height);
+                        ctx.strokeStyle = isGeoValid ? '#27ae60' : '#e74c3c';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(resized.detection.box.x, resized.detection.box.y, resized.detection.box.width, resized.detection.box.height);
                         
                         if (isGeoValid) {
                             document.getElementById('btn-action').disabled = false;
-                            info.innerHTML = `<span style="color:var(--success)">Wajah Terdeteksi! Siap Absen.</span>`;
-                            info.classList.remove('danger-bg');
+                            info.innerHTML = `<span style="color:var(--success)">Wajah Terdeteksi! Klik Tombol.</span>`;
+                        } else {
+                            info.innerHTML = `<span style="color:var(--danger)">Di luar radius absen!</span>`;
                         }
                     } else {
                         detectionResult = null;
                         document.getElementById('btn-action').disabled = true;
-                        if(isGeoValid) info.innerText = "Arahkan wajah ke kotak kamera.";
-                        info.classList.remove('success-bg', 'danger-bg');
+                        if(isGeoValid) info.innerText = "Arahkan wajah ke kamera...";
                     }
-                }, 200);
+                }, 250);
             };
         } catch (err) {
             info.innerText = "Kamera tidak dapat diakses.";
@@ -155,20 +173,21 @@
             if (dist <= configToko.radius_meter) {
                 isGeoValid = true;
                 badge.className = "status-pill area-ok";
-                badge.innerText = `✅ Area BeautyBloom (${Math.round(dist)}m)`;
+                badge.innerText = `✅ Area Toko Terverifikasi (${Math.round(dist)}m)`;
             } else {
                 isGeoValid = false;
                 badge.className = "status-pill area-fail";
-                badge.innerText = `❌ Diluar Area (${Math.round(dist)}m)`;
+                badge.innerText = `❌ Di Luar Area (${Math.round(dist)}m)`;
             }
         }, null, { enableHighAccuracy: true });
     }
 
     function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3;
-        const dP = (lat2 - lat1) * Math.PI/180;
-        const dL = (lon2 - lon1) * Math.PI/180;
-        const a = Math.sin(dP/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dL/2)**2;
+        const R = 6371000;
+        const dLat = (lat2-lat1) * Math.PI/180;
+        const dLon = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
@@ -177,28 +196,20 @@
         
         const info = document.getElementById('instruction');
         const btn = document.getElementById('btn-action');
-        
         isProcessing = true;
         btn.disabled = true;
-        info.innerHTML = `<div class="loader"></div> Mencocokkan biometrik...`;
+        info.innerHTML = `<div class="loader"></div> Verifikasi Biometrik...`;
         
-        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
         const match = faceMatcher.findBestMatch(detectionResult.descriptor);
 
         if (match.label !== 'unknown') {
-            // BERHASIL TERDETEKSI - TAMPILKAN NAMA DENGAN JELAS
             info.classList.add('success-bg');
-            info.innerHTML = `🌟 <b>TERVERIFIKASI: ${match.label.toUpperCase()}</b><br><small>Mohon tunggu sebentar...</small>`;
-            
-            // Jeda 1.5 detik agar user bisa membaca namanya sebelum alert muncul
-            setTimeout(async () => {
-                await simpanAbsensi(match.label);
-            }, 1500);
-            
+            info.innerHTML = `🌟 <b>TERVERIFIKASI: ${match.label.toUpperCase()}</b>`;
+            setTimeout(() => simpanAbsensi(match.label), 1000);
         } else {
-            // GAGAL TERDETEKSI
             info.classList.add('danger-bg');
-            info.innerHTML = `❌ <b>WAJAH TIDAK DIKENALI</b><br><small>Coba lagi dalam 3 detik...</small>`;
+            info.innerHTML = `❌ <b>WAJAH TIDAK DIKENAL</b>`;
             setTimeout(() => { 
                 isProcessing = false; 
                 info.classList.remove('danger-bg');
@@ -207,29 +218,29 @@
     }
 
     async function simpanAbsensi(nama) {
-        const info = document.getElementById('instruction');
-        const tgl = new Date().toISOString().split('T')[0];
+        const tgl = new Date().toLocaleDateString('en-CA');
         const jam = new Date().toISOString();
         
         try {
-            const { data: cek } = await FinexDB.from('presensi')
+            // Menggunakan variabel global 'db'
+            const { data: cek } = await db.from('presensi')
                 .select('*').eq('nama_staff', nama).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
 
             if (cek) {
-                await FinexDB.from('presensi').update({ waktu_pulang: jam, status: 'Selesai' }).eq('id', cek.id);
-                alert(`Terima kasih ${nama}, Absen PULANG Berhasil!`);
+                await db.from('presensi').update({ 
+                    waktu_pulang: jam, status: 'Selesai', lokasi_pulang: `${userLoc.lat},${userLoc.lon}` 
+                }).eq('id', cek.id);
+                alert(`Absen PULANG Berhasil: ${nama}`);
             } else {
-                await FinexDB.from('presensi').insert([{ 
-                    nama_staff: nama, tanggal: tgl, waktu_masuk: jam, 
-                    lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
+                await db.from('presensi').insert([{ 
+                    nama_staff: nama, tanggal: tgl, waktu_masuk: jam, lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
                 }]);
-                alert(`Halo ${nama}, Absen MASUK Berhasil! Selamat bekerja.`);
+                alert(`Absen MASUK Berhasil: ${nama}`);
             }
             location.reload();
         } catch (e) {
-            alert("Gagal simpan data: " + e.message);
+            alert("Gagal simpan: " + e.message);
             isProcessing = false;
-            location.reload();
         }
     }
 
