@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Staff | BeautyBloom Finex Pos</title>
+    <title>Manajemen Staff | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
@@ -25,22 +28,18 @@
         
         .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; transition: 0.2s; font-size: 14px; }
         .btn-scan { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(233, 30, 99, 0.2); }
-        .btn-scan:hover { background: #d81b60; }
         .btn-save { background: var(--success); color: white; display: none; }
         .btn-cancel { background: #eee; color: #666; display: none; }
         
-        /* Table Style */
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 15px; background: #fafafa; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        th { text-align: left; padding: 15px; background: #fafafa; font-size: 13px; color: #888; text-transform: uppercase; }
         td { padding: 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #444; }
-        tr:hover { background: #fcfcfc; }
         
         .action-btns { display: flex; gap: 8px; }
         .btn-icon { border: none; padding: 8px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
         .btn-edit { background: #fff3e0; color: #ef6c00; }
         .btn-del { background: #ffebee; color: #c62828; }
-        .btn-icon:hover { transform: scale(1.1); }
         
         #debug-log { background: #f9f9f9; border-radius: 8px; padding: 10px; font-size: 12px; margin-top: 15px; border-left: 4px solid var(--accent); color: #666; }
         .loader { border: 2px solid #f3f3f3; border-top: 2px solid var(--accent); border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
@@ -50,29 +49,23 @@
 <body>
 
 <div class="container">
-    <!-- Panel Registrasi -->
     <div class="card">
         <h3 id="form-title">👤 Registrasi Staff</h3>
-        
         <div id="video-wrapper">
             <video id="video" autoplay playsinline muted></video>
             <canvas id="overlay-canvas"></canvas>
         </div>
-        
         <input type="hidden" id="edit-id">
         <input type="text" id="nama_staff" placeholder="Nama Lengkap Karyawan">
-        <input type="text" id="jabatan" placeholder="Jabatan (Kasir/Therapist/Admin)">
-        
+        <input type="text" id="jabatan" placeholder="Jabatan (Kasir/Admin/Staff)">
         <button id="btn-scan" class="btn btn-scan" onclick="scanWajah()">📸 AMBIL SAMPEL WAJAH</button>
         <button id="btn-save" class="btn btn-save" onclick="simpanData()">💾 SIMPAN KARYAWAN</button>
         <button id="btn-cancel" class="btn btn-cancel" onclick="resetForm()">Batal Edit</button>
-        
         <div id="debug-log">Log: Menunggu AI...</div>
     </div>
 
-    <!-- Panel Daftar Staff -->
     <div class="card">
-        <h3>📋 Daftar Team BeautyBloom</h3>
+        <h3>📋 Daftar Team</h3>
         <div class="table-container">
             <table>
                 <thead>
@@ -91,10 +84,7 @@
 </div>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let currentDescriptor = null;
 
     function log(txt) { document.getElementById('debug-log').innerText = "Log: " + txt; }
@@ -102,17 +92,17 @@
     window.onload = async () => {
         const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
         try {
-            log("Memuat AI Model (TinyFace)...");
+            log("Memuat AI Model...");
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
             ]);
-            log("AI Siap. Posisikan wajah di tengah.");
+            log("AI Siap.");
             startCamera();
             muatDataStaff();
         } catch(e) { 
-            log("Gagal muat AI. Periksa koneksi."); 
+            log("Gagal muat AI."); 
             console.error(e);
         }
     };
@@ -122,55 +112,44 @@
             const video = document.getElementById('video');
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
             video.srcObject = stream;
-            
             video.onloadedmetadata = () => {
                 const canvas = document.getElementById('overlay-canvas');
                 setInterval(async () => {
                     const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
                     faceapi.matchDimensions(canvas, displaySize);
-                    
                     const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
                     const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                    
                     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
                     faceapi.draw.drawDetections(canvas, resizedDetections);
                 }, 200);
             };
-        } catch(e) { 
-            log("Akses kamera ditolak/tidak ada."); 
-        }
+        } catch(e) { log("Kamera tidak diizinkan."); }
     }
 
     async function scanWajah() {
         const video = document.getElementById('video');
         const btn = document.getElementById('btn-scan');
-        
         btn.disabled = true;
-        log("⏳ Menganalisis wajah (Mohon diam)...");
-        
-        // Gunakan TinyFaceDetector agar responsif
+        log("⏳ Menganalisis wajah...");
         const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-        
         if (result) {
             currentDescriptor = JSON.stringify(Array.from(result.descriptor));
-            log("✅ Sampel Wajah Berhasil Diambil.");
+            log("✅ Wajah Berhasil Diambil.");
             document.getElementById('btn-save').style.display = 'block';
             btn.innerText = "🔄 AMBIL ULANG SAMPEL";
             btn.disabled = false;
         } else {
-            alert("Wajah tidak terdeteksi dengan jelas. Pastikan cahaya cukup dan wajah tidak terhalang.");
+            alert("Wajah tidak terdeteksi.");
             btn.disabled = false;
-            log("Gagal: Wajah tidak terdeteksi.");
         }
     }
 
     async function muatDataStaff() {
-        const { data, error } = await FinexDB.from('employee_staff').select('*').order('created_at', { ascending: false });
+        const { data } = await db.from('employee_staff').select('*').order('created_at', { ascending: false });
         const tbody = document.getElementById('staff-body');
-        
         if (data) {
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Belum ada staff terdaftar.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Belum ada staff.</td></tr>`;
                 return;
             }
             tbody.innerHTML = data.map(s => `
@@ -193,39 +172,27 @@
         const id = document.getElementById('edit-id').value;
         const nama = document.getElementById('nama_staff').value;
         const jab = document.getElementById('jabatan').value;
-        const btnSave = document.getElementById('btn-save');
-
         if(!nama) return alert("Nama wajib diisi!");
         
-        btnSave.disabled = true;
-        btnSave.innerText = "Menyimpan...";
-
         let res;
         if(id) {
-            // Update Nama/Jabatan saja (Wajah tetap kecuali discan ulang)
             const payload = { nama_staff: nama, jabatan: jab };
             if(currentDescriptor) payload.face_descriptor = currentDescriptor;
-            
-            res = await FinexDB.from('employee_staff').update(payload).eq('id', id);
+            res = await db.from('employee_staff').update(payload).eq('id', id);
         } else {
-            // Input Baru
-            if(!currentDescriptor) return alert("Anda harus mengambil sampel wajah terlebih dahulu!");
-            res = await FinexDB.from('employee_staff').insert([{ 
-                nama_staff: nama, 
-                jabatan: jab, 
-                face_descriptor: currentDescriptor 
+            if(!currentDescriptor) return alert("Scan wajah dulu!");
+            res = await db.from('employee_staff').insert([{ 
+                nama_staff: nama, jabatan: jab, face_descriptor: currentDescriptor 
             }]);
         }
 
         if (!res.error) {
-            alert("Berhasil disimpan!");
+            alert("Berhasil!");
             resetForm();
             muatDataStaff();
         } else {
             alert("Error: " + res.error.message);
         }
-        btnSave.disabled = false;
-        btnSave.innerText = "💾 SIMPAN KARYAWAN";
     }
 
     function editStaff(id, nama, jab) {
@@ -233,19 +200,15 @@
         document.getElementById('nama_staff').value = nama;
         document.getElementById('jabatan').value = jab;
         document.getElementById('form-title').innerText = "✏️ Edit Profile Staff";
-        
         document.getElementById('btn-save').style.display = 'block';
         document.getElementById('btn-cancel').style.display = 'block';
-        document.getElementById('btn-scan').innerText = "📸 UPDATE WAJAH (OPSIONAL)";
-        log("Mode Edit: Ubah data atau scan ulang wajah.");
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function hapusStaff(id, nama) {
-        if(confirm(`Hapus data ${nama}? Tindakan ini permanen.`)) {
-            const { error } = await FinexDB.from('employee_staff').delete().eq('id', id);
+        if(confirm(`Hapus ${nama}?`)) {
+            const { error } = await db.from('employee_staff').delete().eq('id', id);
             if(!error) muatDataStaff();
-            else alert("Gagal hapus: " + error.message);
         }
     }
 
@@ -256,11 +219,7 @@
         document.getElementById('form-title').innerText = "👤 Registrasi Staff";
         document.getElementById('btn-save').style.display = 'none';
         document.getElementById('btn-cancel').style.display = 'none';
-        document.getElementById('btn-scan').style.display = 'block';
-        document.getElementById('btn-scan').innerText = "📸 AMBIL SAMPEL WAJAH";
-        document.getElementById('btn-scan').disabled = false;
         currentDescriptor = null;
-        log("Siap meregistrasi staff baru.");
     }
 </script>
 </body>
