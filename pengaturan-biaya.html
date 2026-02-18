@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>Finex Pos | Pengaturan Sistem</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
@@ -37,7 +40,7 @@
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
+        <h2 id="store-name-display">Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
@@ -50,14 +53,14 @@
     <main>
         <div class="header">
             <h1>Pengaturan Sistem</h1>
-            <p style="color: #7f8c8d;">Kelola konfigurasi pajak dan promo BeautyBloom</p>
+            <p style="color: #7f8c8d;">Kelola konfigurasi pajak dan promo toko</p>
         </div>
 
         <div class="card">
-            <h3>Tarif Pajak Global (PB1)</h3>
+            <h3>Tarif Pajak Global (PPN/PB1)</h3>
             <p style="font-size: 14px; color: #666;">Besaran pajak ini akan otomatis diterapkan pada setiap transaksi di kasir.</p>
             <div class="input-group">
-                <input type="number" id="input-ppn" placeholder="Contoh: 10" style="width: 150px;">
+                <input type="number" id="input-ppn" placeholder="Contoh: 11" style="width: 150px;">
                 <button class="btn btn-save" onclick="updatePPN()">Perbarui Pajak</button>
             </div>
         </div>
@@ -66,7 +69,7 @@
             <h3>Manajemen Diskon & Promo</h3>
             <p style="font-size: 14px; color: #666;">Tambahkan pilihan potongan harga untuk pelanggan.</p>
             <div class="input-group">
-                <input type="text" id="nama-diskon" placeholder="Nama Promo (ex: Kantin)" style="flex: 2;">
+                <input type="text" id="nama-diskon" placeholder="Nama Promo (ex: Promo Member)" style="flex: 2;">
                 <input type="number" id="persen-diskon" placeholder="Persen (%)" style="flex: 1;">
                 <button class="btn btn-save" onclick="tambahDiskon()">+ Tambah</button>
             </div>
@@ -86,35 +89,39 @@
     </main>
 
     <script>
-        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+        // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
+
+        window.onload = loadData;
 
         async function loadData() {
-            // Load PPN (ID 1)
-            const { data: ppn, error: errPpn } = await supabaseClient.from('ppn').select('*').eq('id', 1).maybeSingle();
-            if(ppn) {
-                document.getElementById('input-ppn').value = ppn.nilai;
-            } else {
-                console.warn("Data PPN id=1 tidak ditemukan. Pastikan baris ini ada di tabel 'ppn'.");
-            }
+            try {
+                // 1. Load PPN (ID 1) dari database pelanggan
+                const { data: ppn, error: errPpn } = await db.from('ppn').select('*').eq('id', 1).maybeSingle();
+                if(ppn) {
+                    document.getElementById('input-ppn').value = ppn.nilai;
+                } else {
+                    console.warn("Data PPN id=1 tidak ditemukan di database pelanggan.");
+                }
 
-            // Load Diskon
-            const { data: diskon, error: errDisk } = await supabaseClient.from('diskon').select('*').order('persen', {ascending: true});
-            const tbody = document.getElementById('list-diskon');
-            tbody.innerHTML = '';
-            
-            if (diskon) {
-                diskon.forEach(d => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${d.nama_diskon}</strong></td>
-                            <td>${d.persen}%</td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-del" onclick="hapusDiskon('${d.id}')">Hapus</button>
-                            </td>
-                        </tr>`;
-                });
+                // 2. Load Diskon dari database pelanggan
+                const { data: diskon, error: errDisk } = await db.from('diskon').select('*').order('persen', {ascending: true});
+                const tbody = document.getElementById('list-diskon');
+                tbody.innerHTML = '';
+                
+                if (diskon) {
+                    diskon.forEach(d => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><strong>${d.nama_diskon}</strong></td>
+                                <td>${d.persen}%</td>
+                                <td style="text-align: right;">
+                                    <button class="btn btn-del" onclick="hapusDiskon('${d.id}')">Hapus</button>
+                                </td>
+                            </tr>`;
+                    });
+                }
+            } catch (error) {
+                console.error("Gagal memuat data pengaturan:", error);
             }
         }
 
@@ -122,21 +129,24 @@
             const n = document.getElementById('input-ppn').value;
             if(!n) return alert("Masukkan nilai pajak!");
             
-            const { error } = await supabaseClient.from('ppn').update({ nilai: n }).eq('id', 1);
+            // Update tabel 'ppn' milik pelanggan
+            const { error } = await db.from('ppn').update({ nilai: parseFloat(n) }).eq('id', 1);
             if(error) {
-                alert("Gagal update: " + error.message);
+                alert("Gagal update pajak: " + error.message);
             } else {
                 alert("Pajak Berhasil diperbarui ke " + n + "%");
+                loadData();
             }
         }
 
         async function tambahDiskon() {
-            const nama = document.getElementById('nama-diskon').value;
+            const nama = document.getElementById('nama-diskon').value.trim();
             const persen = document.getElementById('persen-diskon').value;
             
             if(!nama || !persen) return alert("Isi semua data promo!");
 
-            const { error } = await supabaseClient.from('diskon').insert([{ nama_diskon: nama, persen: parseFloat(persen) }]);
+            // Insert ke tabel 'diskon' milik pelanggan
+            const { error } = await db.from('diskon').insert([{ nama_diskon: nama, persen: parseFloat(persen) }]);
             if(error) {
                 alert("Gagal menambah diskon: " + error.message);
             } else {
@@ -148,13 +158,14 @@
 
         async function hapusDiskon(id) {
             if(confirm("Hapus pilihan promo ini secara permanen?")) {
-                const { error } = await supabaseClient.from('diskon').delete().eq('id', id);
-                if(error) alert("Gagal menghapus: " + error.message);
-                else loadData();
+                const { error } = await db.from('diskon').delete().eq('id', id);
+                if(error) {
+                    alert("Gagal menghapus: " + error.message);
+                } else {
+                    loadData();
+                }
             }
         }
-
-        window.onload = loadData;
     </script>
 </body>
 </html>
