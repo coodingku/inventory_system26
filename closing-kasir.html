@@ -4,93 +4,187 @@
     <meta charset="UTF-8">
     <title>Finex Pos | Closing Kasir</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
-        :root { --primary: #2c3e50; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; }
+        :root { --primary: #2c3e50; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #ef4444; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; display: flex; justify-content: center; }
-        .closing-card { background: white; width: 400px; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
-        .input-fisik { width: 100%; padding: 15px; font-size: 20px; border: 2px solid #ddd; border-radius: 10px; text-align: center; margin: 20px 0; }
-        .btn-closing { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .closing-card { background: white; width: 450px; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px; font-size: 14px; }
+        .method-header { background: #f8fafc; padding: 8px; font-weight: bold; font-size: 12px; color: #64748b; margin-top: 15px; border-radius: 5px; }
+        .input-fisik { width: 100%; padding: 15px; font-size: 24px; border: 2px solid #ddd; border-radius: 10px; text-align: center; margin: 20px 0; font-weight: bold; color: var(--primary); outline: none; }
+        .input-fisik:focus { border-color: var(--primary); }
+        .btn-closing { width: 100%; padding: 18px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn-closing:hover { background: #1a252f; }
+        .btn-closing:disabled { background: #ccc; cursor: not-allowed; }
+        
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; padding: 5px; }
+        }
     </style>
 </head>
 <body>
 
 <div class="closing-card">
-    <h2 style="text-align: center; margin-top: 0;">Laporan Closing Shift</h2>
+    <h2 style="text-align: center; margin-top: 0; color: var(--primary);">Laporan Closing Shift</h2>
+    <p style="text-align:center; font-size: 12px; color: #888; margin-top: -10px;" id="store-name-label">Store: BeautyBloom</p>
+    
     <div id="shift-info">
-        <div class="info-row"><span>Kasir</span><b id="kasir-nama">-</b></div>
-        <div class="info-row"><span>Jam Buka</span><span id="jam-buka">-</span></div>
-        <div class="info-row"><span>Saldo Awal</span><b id="saldo-awal">Rp 0</b></div>
-        <div class="info-row"><span>Total Penjualan</span><b id="total-jual" style="color:var(--success)">Rp 0</b></div>
-        <hr>
-        <div class="info-row" style="font-size: 18px;"><span>Ekspektasi Kas</span><b id="ekspektasi">Rp 0</b></div>
+        <div class="info-row"><span>Nama Kasir</span><b id="kasir-nama">...</b></div>
+        <div class="info-row"><span>Waktu Buka</span><span id="jam-buka">...</span></div>
+        <div class="info-row"><span>Saldo Awal (Modal)</span><b id="saldo-awal">Rp 0</b></div>
+        
+        <div class="method-header">RINGKASAN METODE BAYAR</div>
+        <div id="payment-methods-list">
+            </div>
+        
+        <hr style="border:none; border-top: 2px solid #eee; margin: 15px 0;">
+        <div class="info-row" style="font-size: 18px; border: none;">
+            <span>Ekspektasi Kas Laci</span>
+            <b id="ekspektasi" style="color: var(--primary);">Rp 0</b>
+        </div>
     </div>
 
-    <label style="display:block; margin-top:20px; font-weight:bold; text-align:center;">Uang Fisik di Laci (Cash)</label>
-    <input type="number" id="uang-fisik" class="input-fisik" placeholder="Masukkan jumlah uang...">
-
-    <div class="info-row" id="selisih-row" style="display:none; color: red;">
-        <span>Selisih</span><b id="selisih">Rp 0</b>
+    <div style="margin-top: 20px; background: #fff9db; padding: 15px; border-radius: 10px; border: 1px solid #ffeeba;">
+        <label style="display:block; font-weight:bold; text-align:center; font-size: 13px;">Uang Fisik di Laci (Cash Only)</label>
+        <input type="number" id="uang-fisik" class="input-fisik" placeholder="0" oninput="hitungSelisih()">
     </div>
 
-    <button class="btn-closing" onclick="prosesClosing()">TUTUP SHIFT & CETAK</button>
+    <div class="info-row" id="selisih-row" style="margin-top: 10px; border: none; font-weight: bold;">
+        <span>Selisih Tunai</span>
+        <b id="selisih">Rp 0</b>
+    </div>
+
+    <button class="btn-closing" id="btn-submit" onclick="prosesClosing()">KONFIRMASI & TUTUP SHIFT</button>
+    <button onclick="window.location.href='pos.html'" style="width:100%; background:none; border:none; color:#888; margin-top:15px; cursor:pointer; font-size:12px;">Kembali ke POS</button>
 </div>
 
-<script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+<div id="print-area"></div>
 
-    let dataShift = {};
+<script>
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
+    let currentShift = null;
+    let totalCashSistem = 0;
+    const session = JSON.parse(localStorage.getItem('finex_session'));
+
+    window.onload = async () => {
+        document.getElementById('store-name-label').innerText = "Unit: " + (sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom");
+        await initClosing();
+    };
 
     async function initClosing() {
-        const shiftId = localStorage.getItem('shift_id');
-        if(!shiftId) return alert("Tidak ada shift aktif!");
+        // Ambil shift yang statusnya masih 'Open' untuk user ini
+        const { data: log, error } = await db.from('kasir_log')
+            .select('*')
+            .eq('kasir_nama', session.username)
+            .eq('status', 'Open')
+            .maybeSingle();
 
-        // 1. Ambil data log kasir (saldo awal)
-        const { data: log } = await supabase.from('kasir_log').select('*').eq('id', shiftId).single();
-        dataShift = log;
-
-        // 2. Ambil total penjualan tunai selama shift ini
-        const { data: sales } = await supabase.from('penjualan')
-            .select('grand_total')
-            .eq('shift_id', shiftId)
-            .eq('metode_pembayaran', 'Tunai');
+        if(!log) {
+            alert("Tidak ada sesi kasir yang aktif!");
+            window.location.href = "pos.html";
+            return;
+        }
         
-        const totalSales = sales.reduce((acc, curr) => acc + parseFloat(curr.grand_total), 0);
-        const ekspektasi = parseFloat(log.saldo_awal) + totalSales;
+        currentShift = log;
+
+        // Ambil SEMUA penjualan di shift ini
+        const { data: sales } = await db.from('penjualan')
+            .select('grand_total, metode_pembayaran')
+            .eq('kasir_nama', session.username)
+            .gte('created_at', log.waktu_buka);
+
+        const methodsSummary = {};
+        let totalTunai = 0;
+
+        sales.forEach(trx => {
+            const mtd = trx.metode_pembayaran || 'Tunai';
+            methodsSummary[mtd] = (methodsSummary[mtd] || 0) + parseFloat(trx.grand_total);
+            if(mtd.toUpperCase() === 'TUNAI') totalTunai += parseFloat(trx.grand_total);
+        });
+
+        // Render Ringkasan Metode
+        const listEl = document.getElementById('payment-methods-list');
+        listEl.innerHTML = Object.entries(methodsSummary).map(([name, val]) => `
+            <div class="info-row"><span>${name}</span><b>Rp ${val.toLocaleString('id-ID')}</b></div>
+        `).join('') || '<div class="info-row"><span>Penjualan</span><b>Rp 0</b></div>';
+
+        totalCashSistem = parseFloat(log.saldo_awal) + totalTunai;
 
         document.getElementById('kasir-nama').innerText = log.kasir_nama;
-        document.getElementById('jam-buka').innerText = new Date(log.created_at).toLocaleString();
-        document.getElementById('saldo-awal').innerText = "Rp " + parseFloat(log.saldo_awal).toLocaleString();
-        document.getElementById('total-jual').innerText = "Rp " + totalSales.toLocaleString();
-        document.getElementById('ekspektasi').innerText = "Rp " + ekspektasi.toLocaleString();
+        document.getElementById('jam-buka').innerText = new Date(log.waktu_buka).toLocaleString('id-ID');
+        document.getElementById('saldo-awal').innerText = "Rp " + parseFloat(log.saldo_awal).toLocaleString('id-ID');
+        document.getElementById('ekspektasi').innerText = "Rp " + totalCashSistem.toLocaleString('id-ID');
+        
+        hitungSelisih();
+    }
+
+    function hitungSelisih() {
+        const fisik = parseFloat(document.getElementById('uang-fisik').value || 0);
+        const selisih = fisik - totalCashSistem;
+        const selisihEl = document.getElementById('selisih');
+        
+        selisihEl.innerText = "Rp " + selisih.toLocaleString('id-ID');
+        selisihEl.style.color = selisih < 0 ? 'var(--danger)' : 'var(--success)';
     }
 
     async function prosesClosing() {
-        const uangFisik = parseFloat(document.getElementById('uang-fisik').value);
-        if(isNaN(uangFisik)) return alert("Masukkan uang fisik!");
+        const fisik = parseFloat(document.getElementById('uang-fisik').value);
+        if(isNaN(fisik)) return alert("Masukkan nominal uang fisik di laci!");
+        
+        const selisih = fisik - totalCashSistem;
+        if(!confirm("Tutup shift sekarang? Data penjualan di sesi ini akan dikunci.")) return;
 
-        const ekspektasi = parseFloat(document.getElementById('ekspektasi').innerText.replace(/\D/g,''));
-        const selisih = uangFisik - ekspektasi;
+        document.getElementById('btn-submit').disabled = true;
+        document.getElementById('btn-submit').innerText = "Memproses...";
 
-        const { error } = await supabase.from('kasir_log').update({
-            saldo_akhir: uangFisik,
-            total_penjualan: ekspektasi - dataShift.saldo_awal,
-            selisih: selisih,
-            status: 'Tutup',
-            jam_tutup: new Date().toISOString()
-        }).eq('id', dataShift.id);
+        try {
+            const tglTutup = new Date().toISOString();
 
-        if(!error) {
-            alert("Shift berhasil ditutup!");
-            // Panggil fungsi cetak struk closing di sini jika perlu
-            localStorage.removeItem('shift_id');
-            window.location.href = "index.html";
+            // 1. Update Log Kasir
+            await db.from('kasir_log').update({
+                saldo_akhir: fisik,
+                selisih: selisih,
+                status: 'Closed',
+                waktu_tutup: tglTutup
+            }).eq('id', currentShift.id);
+
+            // 2. Jika ada selisih, catat ke Jurnal (D: Beban Selisih / K: Pendapatan Selisih)
+            if (selisih !== 0) {
+                const isShortage = selisih < 0; // Kurang uang
+                const entries = [
+                    { 
+                        tanggal: tglTutup, 
+                        no_bukti: `ADJ-${currentShift.id}`, 
+                        kode_akun: isShortage ? '6101' : '1101', // 6101: Beban Selisih, 1101: Kas
+                        keterangan: `Penyesuaian Selisih Kas Shift #${currentShift.id}`, 
+                        debit: Math.abs(selisih), 
+                        kredit: 0 
+                    },
+                    { 
+                        tanggal: tglTutup, 
+                        no_bukti: `ADJ-${currentShift.id}`, 
+                        kode_akun: isShortage ? '1101' : '4201', // 4201: Pendapatan Lain-lain
+                        keterangan: `Penyesuaian Selisih Kas Shift #${currentShift.id}`, 
+                        debit: 0, 
+                        kredit: Math.abs(selisih) 
+                    }
+                ];
+                await db.from('jurnal_umum').insert(entries);
+            }
+
+            alert("Shift Berhasil Ditutup!");
+            window.location.replace('dashboard.html');
+
+        } catch (err) {
+            alert("Error: " + err.message);
+            document.getElementById('btn-submit').disabled = false;
         }
     }
-
-    window.onload = initClosing;
 </script>
 </body>
 </html>
