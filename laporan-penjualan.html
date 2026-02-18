@@ -6,30 +6,22 @@
     <title>Finex Pos | Laporan Penjualan</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); }
-        
         nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 100; }
         nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
         nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-
         main { flex: 1; margin-left: 260px; padding: 30px; width: calc(100% - 260px); }
         .filter-card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
-        
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-        
         button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; display: flex; align-items: center; gap: 5px; }
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
-        .btn-print { background: #95a5a6; color: white; padding: 6px 10px; }
-        .btn-void { background: var(--danger); color: white; padding: 6px 10px; }
-
         .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); }
@@ -123,6 +115,46 @@
 <div id="print-area"></div>
 
 <script>
+    let currentLaporan = [];
+    const session = JSON.parse(localStorage.getItem('finex_session'));
+
+    window.onload = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date-from').value = today;
+        document.getElementById('date-to').value = today;
+        document.getElementById('display-user-nav').innerText = session?.username || "Admin";
+        document.getElementById('store-name-display').innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex Pos";
+        await loadFilterOptions();
+        fetchLaporan();
+    };
+
+    async function loadFilterOptions() {
+        const { data } = await db.from('metode_pembayaran').select('nama_metode');
+        if (data) {
+            const select = document.getElementById('filter-method');
+            data.forEach(m => select.innerHTML += `<option value="${m.nama_metode}">${m.nama_metode}</option>`);
+        }
+    }
+
+    async function fetchLaporan() {
+        const from = document.getElementById('date-from').value + "T00:00:00";
+        const to = document.getElementById('date-to').value + "T23:59:59";
+        const method = document.getElementById('filter-method').value;
+
+        let query = db.from('penjualan').select('*').gte('created_at', from).lte('created_at', to).order('created_at', { ascending: false });
+        if (method !== 'all') query = query.eq('metode_pembayaran', method);
+
+        const { data: sales, error } = await query;
+        if (error) return console.error(error);
+        
+        currentLaporan = sales || [];
+
+        // Ambil rincian split payment dari jurnal
+        const { data: journals } = await db.from('jurnal_umum').select('no_bukti, keterangan, debit').gt('debit', 0).like('keterangan', 'Terima%');
+
+        renderTable(currentLaporan, journals);
+    }
+
     function renderTable(data, journals) {
         const body = document.getElementById('report-body');
         let totalAll = 0;
@@ -130,11 +162,10 @@
         
         data.forEach(item => {
             totalAll += parseFloat(item.grand_total || 0);
-            
-            // Mengambil rincian pembayaran dari jurnal untuk invoice ini
             const splits = journals ? journals.filter(j => j.no_bukti === item.no_invoice) : [];
+            const isSplit = splits.length > 1;
 
-            // 1. BARIS UTAMA: Menampilkan Data Finansial Lengkap
+            // Baris Utama
             body.innerHTML += `
                 <tr style="font-weight: bold; background: #f0f7ff;">
                     <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
@@ -151,14 +182,14 @@
                     </td>
                 </tr>`;
 
-            // 2. BARIS RINCIAN SPLIT: Muncul sebagai baris tambahan di bawahnya
-            if (splits.length > 1) {
+            // Baris Rincian Split
+            if (isSplit) {
                 splits.forEach(sp => {
                     const mtdName = sp.keterangan.split('-')[0].replace("Terima ", "").trim();
                     body.innerHTML += `
                         <tr class="row-split">
-                            <td colspan="6" style="text-align:right; border:none; color:#888;">Rincian Pembayaran:</td>
-                            <td style="border-left: 2px solid var(--accent); font-weight:bold;">${mtdName}</td>
+                            <td colspan="6" style="text-align:right; border:none;">Rincian Split Payment:</td>
+                            <td style="border-left: 2px solid var(--accent);">${mtdName}</td>
                             <td>${parseFloat(sp.debit).toLocaleString('id-ID')}</td>
                             <td></td>
                         </tr>`;
@@ -168,12 +199,28 @@
         document.getElementById('total-sum').innerText = "Rp " + totalAll.toLocaleString('id-ID');
     }
 
-    // Perbaikan Print Nota: Menampilkan rincian pajak dan split payment
+    async function voidBill(id, invoiceNo) {
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nSemua rincian pembayaran & stok akan dihapus/dikembalikan.`)) return;
+        try {
+            const { data: details } = await db.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', id);
+            if (details) {
+                for (const item of details) {
+                    const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.produk_id).single();
+                    if (p) await db.from('produk').update({ stok_sekarang: (p.stok_sekarang || 0) + item.qty }).eq('id', item.produk_id);
+                }
+            }
+            // Hapus Jurnal & Penjualan (Otomatis menghapus rincian split)
+            await db.from('jurnal_umum').delete().eq('no_bukti', invoiceNo);
+            await db.from('penjualan').delete().eq('id', id);
+            alert("Nota berhasil di-VOID.");
+            fetchLaporan();
+        } catch (err) { alert("Gagal proses Void"); }
+    }
+
     async function printBill(id, invoiceNo) {
         const item = currentLaporan.find(i => i.id === id);
         const { data: details } = await db.from('penjualan_detail').select('*').eq('penjualan_id', id);
-        const { data: journals } = await db.from('jurnal_umum').select('keterangan, debit')
-            .eq('no_bukti', invoiceNo).gt('debit', 0).like('keterangan', 'Terima%');
+        const { data: journals } = await db.from('jurnal_umum').select('keterangan, debit').eq('no_bukti', invoiceNo).gt('debit', 0).like('keterangan', 'Terima%');
         
         let itemRows = details.map(it => `
             <div style="display:flex; justify-content:space-between;">
@@ -186,18 +233,25 @@
             return `<div style="display:flex; justify-content:space-between;"><span>${mtd}:</span><span>${j.debit.toLocaleString()}</span></div>`;
         }).join('');
 
+        // Reprint nota mendukung thermal 58mm
         document.getElementById('print-area').innerHTML = `
             <center><b>${sessionStorage.getItem('NAMA_TOKO')}</b><br>SALINAN NOTA<hr></center>
             <div style="font-size:10px;">Inv: ${invoiceNo}<br>Tgl: ${new Date(item.created_at).toLocaleString('id-ID')}</div><hr>
             ${itemRows}<hr>
             <div style="display:flex; justify-content:space-between;"><span>Kotor:</span><span>${item.subtotal.toLocaleString()}</span></div>
             <div style="display:flex; justify-content:space-between;"><span>Diskon:</span><span>-${item.diskon.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${(item.pajak || 0).toLocaleString()}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${item.pajak.toLocaleString()}</span></div>
             <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${item.grand_total.toLocaleString()}</span></div><hr>
-            <b>RINCIAN BAYAR:</b><br>${payRows || item.metode_pembayaran}<br>
+            <b>PEMBAYARAN:</b><br>${payRows || item.metode_pembayaran}<br>
             <div style="display:flex; justify-content:space-between;"><span>Kembali:</span><span>${((item.bayar || item.grand_total) - item.grand_total).toLocaleString()}</span></div>
             <center style="margin-top:10px;"><hr>Terima Kasih</center><div style="height:20px;"></div>`;
         window.print();
+    }
+
+    function exportKeExcel() {
+        // Export Excel mendukung rincian baris di tabel
+        const wb = XLSX.utils.table_to_book(document.getElementById('table-laporan-ui'));
+        XLSX.writeFile(wb, `Laporan_Penjualan_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 </script>
 </body>
