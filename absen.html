@@ -217,40 +217,66 @@
         }
     }
 
-    async function simpanAbsensi(nama) {
-        const tgl = new Date().toLocaleDateString('en-CA');
-        const jam = new Date().toISOString();
-        
-        try {
-            // Menggunakan variabel global 'db'
-           async function simpanAbsensi(nama) {
-        const info = document.getElementById('instruction');
-        const tgl = new Date().toISOString().split('T')[0];
-        const jam = new Date().toISOString();
-        
-        try {
-            const { data: cek } = await db.from('presensi')
-                .select('*').eq('nama_staff', nama).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
+   async function simpanAbsensi(nama) {
+    const info = document.getElementById('instruction');
+    
+    // Gunakan format YYYY-MM-DD yang stabil (ISO local date)
+    const sekarang = new Date();
+    const tgl = sekarang.getFullYear() + '-' + 
+                String(sekarang.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(sekarang.getDate()).padStart(2, '0');
+                
+    const jamISO = sekarang.toISOString();
+    
+    try {
+        // 1. Cek apakah staff ini SUDAH masuk hari ini dan BELUM pulang (status Aktif)
+        // Kita gunakan .eq('tanggal', tgl) untuk memastikan pencarian di hari yang sama
+        const { data: cek, error: errCek } = await db.from('presensi')
+            .select('*')
+            .eq('nama_staff', nama)
+            .eq('tanggal', tgl)
+            .eq('status', 'Aktif')
+            .maybeSingle();
 
-            if (cek) {
-                await db.from('presensi').update({ waktu_pulang: jam, status: 'Selesai' }).eq('id', cek.id);
-                alert(`Terima kasih ${nama}, Absen PULANG Berhasil!`);
-            } else {
-                await db.from('presensi').insert([{ 
-                    nama_staff: nama, tanggal: tgl, waktu_masuk: jam, 
-                    lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
+        if (errCek) throw errCek;
+
+        if (cek) {
+            // LOGIKA PULANG: Jika data ditemukan, update waktu_pulang
+            const { error: errUpdate } = await db.from('presensi')
+                .update({ 
+                    waktu_pulang: jamISO, 
+                    status: 'Selesai', // Ubah status agar besok bisa absen masuk lagi
+                    lokasi_pulang: `${userLoc.lat},${userLoc.lon}` 
+                })
+                .eq('id', cek.id);
+
+            if (errUpdate) throw errUpdate;
+            alert(`Terima kasih ${nama}, Absen PULANG Berhasil!\nHati-hati di jalan.`);
+            
+        } else {
+            // LOGIKA MASUK: Jika tidak ada data 'Aktif' hari ini, buat data baru
+            const { error: errInsert } = await db.from('presensi')
+                .insert([{ 
+                    nama_staff: nama, 
+                    tanggal: tgl, 
+                    waktu_masuk: jamISO, 
+                    lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, 
+                    status: 'Aktif' 
                 }]);
-                alert(`Halo ${nama}, Absen MASUK Berhasil! Selamat bekerja.`);
-            }
-            location.reload();
-        } catch (e) {
-            alert("Gagal simpan data: " + e.message);
-            isProcessing = false;
-            location.reload();
+
+            if (errInsert) throw errInsert;
+            alert(`Halo ${nama}, Absen MASUK Berhasil!\nSelamat bekerja.`);
         }
+        
+        location.reload();
+
+    } catch (e) {
+        console.error("Presensi Error:", e);
+        alert("Gagal memproses presensi: " + e.message);
+        isProcessing = false;
+        // Jangan reload jika error agar user bisa melihat pesan errornya
     }
-
-
+}
     window.onload = init;
 </script>
 </body>
