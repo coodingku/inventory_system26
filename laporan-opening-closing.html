@@ -1,41 +1,18 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Laporan & Reprint Shift</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
-         @media print {
-    @page { 
-        margin: 0; 
-        size: auto; /* Membiarkan printer menentukan panjang kertas otomatis */
-    }
-    body { 
-        margin: 0; 
-        padding: 0; 
-        height: auto !important; /* Mencegah sisa kertas memanjang kosong */
-    }
-    #print-area { 
-        display: block !important; 
-        width: 58mm; /* Standar lebar printer Bluetooth/Thermal */
-        margin: 0;
-        padding: 5px;
-        font-family: 'Courier New', Courier, monospace; /* Font lurus untuk thermal */
-        font-size: 10px;
-        line-height: 1.2;
-        color: black;
-    }
-    /* Menghilangkan elemen browser standar seperti header/footer tanggal */
-    header, footer { display: none !important; }
-}
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --purple: #8e44ad; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; position: fixed; box-sizing: border-box; z-index: 100; overflow-y: auto; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; display: block; font-size: 14px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
@@ -62,10 +39,17 @@
 
         #print-area { display: none; }
         @media print {
+            @page { margin: 0; size: auto; }
             body * { visibility: hidden !important; }
             #print-area, #print-area * { visibility: visible !important; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; font-family: monospace; }
-            @page { margin: 0; }
+            #print-area { 
+                display: block !important; 
+                position: absolute; left: 0; top: 0; 
+                width: 58mm; background: white; 
+                font-family: 'Courier New', Courier, monospace; 
+                font-size: 10px; padding: 5px; line-height: 1.2;
+                height: auto !important; 
+            }
         }
     </style>
 </head>
@@ -73,10 +57,9 @@
 
     <nav>
         <h2 id="store-name-display">Finex Pos</h2>
-        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="index.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
         <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
-        <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
         <a href="laporan-opening-closing.html" class="active">🕒 Log Shift Kasir</a>
         
         <div class="user-info">
@@ -90,7 +73,7 @@
             <div class="header-flex">
                 <div>
                     <h2 style="margin:0;">Riwayat Shift Harian</h2>
-                    <p id="unit-label" style="color:#666; font-size: 14px; margin-top: 5px;">Memuat data unit...</p>
+                    <p id="unit-label" style="color:#666; font-size: 14px; margin-top: 5px;">Memuat data...</p>
                 </div>
                 <div class="filter-group">
                     <label style="font-size: 13px; font-weight: bold;">Pilih Tanggal:</label>
@@ -112,7 +95,7 @@
                     </tr>
                 </thead>
                 <tbody id="log-table-body">
-                    <tr><td colspan="7" style="text-align:center; padding:20px;">Pilih tanggal...</td></tr>
+                    <tr><td colspan="7" style="text-align:center; padding:20px;">Memuat data shift...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -121,12 +104,17 @@
     <div id="print-area"></div>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
+    // Variabel 'db' disediakan dinamis oleh supabase-init.js
+    let dataCetak = { items: [], kotor: 0, net: 0, diskon: 0, pajak: 0, methods: {}, awal: 0, tunai_masuk: 0, kasir: '' };
 
     window.onload = () => {
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        if (!session) return window.location.replace('login.html');
+        
+        document.getElementById('display-user-nav').innerText = session.username;
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('filter-date').value = today;
-        document.getElementById('unit-label').innerHTML = `Log pergerakan kasir unit <b>${sessionStorage.getItem('NAMA_TOKO') || 'BeautyBloom'}</b>.`;
+        document.getElementById('unit-label').innerHTML = `Log shift unit <b>${sessionStorage.getItem('NAMA_TOKO') || 'Finex POS'}</b>.`;
         fetchShiftLogs();
     };
 
@@ -136,24 +124,14 @@
         if (!filterDate) return;
 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">⏳ Memuat data...</td></tr>';
-
         const start = `${filterDate}T00:00:00.000Z`;
         const end = `${filterDate}T23:59:59.999Z`;
 
-        const { data, error } = await db
-            .from('kasir_log')
-            .select('*')
-            .gte('waktu_buka', start)
-            .lte('waktu_buka', end)
-            .order('waktu_buka', { ascending: false });
+        const { data, error } = await db.from('kasir_log').select('*')
+            .gte('waktu_buka', start).lte('waktu_buka', end).order('waktu_buka', { ascending: false });
 
         if (error) {
             tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
-            return;
-        }
-
-        if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;">Tidak ada riwayat shift di tanggal ini.</td></tr>`;
             return;
         }
 
@@ -181,63 +159,96 @@
         }).join('');
     }
 
-      function renderStruk(fisik, selisih) {
-    const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
-    
-    // 1. Render Daftar Item
-    let itemRows = dataCetak.items.map(i => `
-        <div style="display:flex; justify-content:space-between;">
-            <span style="flex:1;">${i.name.substring(0,18)}</span>
-            <span style="width:30px; text-align:right;">x${i.qty}</span>
-            <span style="width:65px; text-align:right;">${i.sub.toLocaleString('id-ID')}</span>
-        </div>
-    `).join('');
-    
-    // 2. Render Rincian Metode Bayar
-    let methodRows = "";
-    for (let m in dataCetak.methods) {
-        methodRows += `
-        <div style="display:flex; justify-content:space-between;">
-            <span>${m}</span><span>${dataCetak.methods[m].toLocaleString('id-ID')}</span>
-        </div>`;
+    async function prepareReprint(log) {
+        // Reset variabel cetak
+        dataCetak = { items: [], kotor: 0, net: 0, diskon: 0, pajak: 0, methods: {}, awal: parseFloat(log.saldo_awal), tunai_masuk: 0, kasir: log.kasir_nama };
+        
+        try {
+            // SINKRONISASI MASTER: Ambil penjualan berdasarkan kasir_id (UUID)
+            const { data: sales } = await db.from('penjualan').select('*').eq('kasir_id', log.id);
+            const salesIds = sales.map(s => s.id);
+            
+            let itemMap = {};
+            if (salesIds.length > 0) {
+                const { data: details } = await db.from('penjualan_detail').select('nama_barang, qty, subtotal_item').in('penjualan_id', salesIds);
+                details?.forEach(it => {
+                    const n = it.nama_barang || 'Item';
+                    if (!itemMap[n]) itemMap[n] = { qty: 0, sub: 0 };
+                    itemMap[n].qty += parseInt(it.qty);
+                    itemMap[n].sub += parseFloat(it.subtotal_item);
+                });
+            }
+
+            sales.forEach(trx => {
+                dataCetak.kotor += parseFloat(trx.subtotal || 0);
+                dataCetak.diskon += parseFloat(trx.diskon || 0);
+                dataCetak.pajak += parseFloat(trx.pajak || 0);
+                dataCetak.net += parseFloat(trx.grand_total || 0);
+                
+                const mtd = trx.metode_pembayaran || 'Tunai';
+                dataCetak.methods[mtd] = (dataCetak.methods[mtd] || 0) + parseFloat(trx.grand_total || 0);
+                if (mtd.toUpperCase() === 'TUNAI' || mtd.toUpperCase() === 'CASH') {
+                    dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
+                }
+            });
+
+            dataCetak.items = Object.entries(itemMap).map(([name, val]) => ({ name, qty: val.qty, sub: val.sub }));
+            
+            renderStrukReprint(parseFloat(log.total_tunai_fisik), parseFloat(log.selisih));
+            setTimeout(() => { window.print(); }, 500);
+
+        } catch (e) { alert("Gagal menyiapkan data cetak: " + e.message); }
     }
 
-    const printArea = document.getElementById('print-area');
-    printArea.innerHTML = `
-        <div style="width: 100%; height: auto; overflow: hidden;">
-            <center>
-                <b style="font-size:12px;">${store}</b><br>
-                REPRINT CLOSING KASIR<br>
-                <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
-            </center>
-            ----------------------------<br>
-            <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
-            ----------------------------<br>
-            <b>RINGKASAN PENJUALAN:</b><br>
-            Kotor  : ${dataCetak.kotor.toLocaleString('id-ID')}<br>
-            Diskon : -${dataCetak.diskon.toLocaleString('id-ID')}<br>
-            Pajak  : ${dataCetak.pajak.toLocaleString('id-ID')}<br>
-            <b>Net Sales : ${dataCetak.net.toLocaleString('id-ID')}</b><br>
-            ----------------------------<br>
-            <b>RINCIAN METODE:</b><br>${methodRows}
-            ----------------------------<br>
-            Modal Awal   : ${dataCetak.awal.toLocaleString('id-ID')}<br>
-            Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString('id-ID')}<br>
-            <b>SIS. TUNAI  : ${totalSistem.toLocaleString('id-ID')}</b><br>
-            <b>FISIK LACI  : ${fisik.toLocaleString('id-ID')}</b><br>
-            <b>SELISIH     : ${selisih.toLocaleString('id-ID')}</b><br>
-            ----------------------------<br>
-            <center style="font-size:9px; margin-top:10px;">
-                Kasir: ${dataCetak.kasir}<br>
-                ***REPRINT SHIFT CLOSED ***
-            </center>
-            <div style="height: 30px;"></div> </div>`;
-}
+    function renderStrukReprint(fisik, selisih) {
+        const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
+        let itemRows = dataCetak.items.map(i => `
+            <div style="display:flex; justify-content:space-between;">
+                <span>${i.name.substring(0,18)} x${i.qty}</span>
+                <span>${i.sub.toLocaleString('id-ID')}</span>
+            </div>`).join('');
+        
+        let methodRows = "";
+        for (let m in dataCetak.methods) {
+            methodRows += `<div style="display:flex; justify-content:space-between;"><span>${m}</span><span>${dataCetak.methods[m].toLocaleString('id-ID')}</span></div>`;
+        }
+
+        const sisTunai = dataCetak.awal + dataCetak.tunai_masuk;
+
+        document.getElementById('print-area').innerHTML = `
+            <div style="width: 100%; height: auto;">
+                <center>
+                    <b style="font-size:12px;">${store}</b><br>
+                    REPRINT CLOSING KASIR<br>
+                    <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
+                </center>
+                ----------------------------<br>
+                <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
+                ----------------------------<br>
+                Kotor  : ${dataCetak.kotor.toLocaleString('id-ID')}<br>
+                Diskon : -${dataCetak.diskon.toLocaleString('id-ID')}<br>
+                Pajak  : ${dataCetak.pajak.toLocaleString('id-ID')}<br>
+                <b>Net Sales : ${dataCetak.net.toLocaleString('id-ID')}</b><br>
+                ----------------------------<br>
+                <b>RINCIAN METODE:</b><br>${methodRows}
+                ----------------------------<br>
+                Modal Awal   : ${dataCetak.awal.toLocaleString('id-ID')}<br>
+                Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString('id-ID')}<br>
+                <b>SIS. TUNAI  : ${sisTunai.toLocaleString('id-ID')}</b><br>
+                <b>FISIK LACI  : ${fisik.toLocaleString('id-ID')}</b><br>
+                <b>SELISIH     : ${selisih.toLocaleString('id-ID')}</b><br>
+                ----------------------------<br>
+                <center style="font-size:9px; margin-top:10px;">
+                    Kasir: ${dataCetak.kasir}<br>
+                    *** REPRINT SHIFT CLOSED ***
+                </center>
+                <div style="height: 30px;"></div>
+            </div>`;
+    }
 
     function logout() {
         if(confirm("Keluar dari sistem?")) {
-            sessionStorage.clear();
-            localStorage.clear();
+            sessionStorage.clear(); localStorage.clear();
             window.location.replace('login.html');
         }
     }
