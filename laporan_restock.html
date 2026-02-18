@@ -4,48 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Stok | Finex POS</title>
-    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
+    <script src="supabase-init.js"></script>
+    
     <style>
         :root { 
-            --primary: #2c3e50; 
-            --accent: #e91e63; 
-            --bg: #f8fafc; 
-            --white: #ffffff; 
-            --text-muted: #64748b;
-            --success: #27ae60;
-            --warning: #f39c12;
-            --danger: #ef4444;
+            --primary: #2c3e50; --accent: #e91e63; --bg: #f8fafc; --white: #ffffff; 
+            --text-muted: #64748b; --success: #27ae60; --warning: #f39c12; --danger: #ef4444;
         }
         
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; 
-            background: var(--bg); 
-            color: var(--primary); 
-            display: flex; 
-        }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--primary); display: flex; }
         
-        nav { 
-            width: 240px; 
-            background: var(--primary); 
-            color: white; 
-            min-height: 100vh; 
-            padding: 20px; 
-            position: fixed; 
-            z-index: 100;
-        }
-        
+        nav { width: 240px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 100; }
         nav h2 { color: #ff85a2; font-size: 22px; margin-bottom: 30px; text-align: center; font-weight: 800; }
         nav a { color: #cbd5e1; text-decoration: none; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 8px; margin-bottom: 8px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; margin-left: 280px; padding: 40px; max-width: 1200px; }
-
+        main { flex: 1; margin-left: 260px; padding: 40px; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
         .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 
@@ -81,16 +60,13 @@
         .stagnan-tag { background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; }
         .stock-low { color: var(--danger); font-weight: bold; }
         
-        @media print {
-            nav, .no-print { display: none !important; }
-            main { margin-left: 0; padding: 0; }
-        }
+        @media print { nav, .no-print { display: none !important; } main { margin-left: 0; padding: 0; } }
     </style>
 </head>
 <body>
 
 <nav class="no-print">
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html"><span>📊</span> Dashboard</a>
     <a href="produk.html"><span>📦</span> Data Produk</a>
     <a href="laporan_stok.html" class="active"><span>📜</span> Laporan Stok</a>
@@ -101,7 +77,7 @@
     <div class="header">
         <div>
             <h1 style="margin:0; font-size: 26px;">Laporan Inventaris</h1>
-            <p style="color: var(--text-muted); margin: 5px 0 0;">Unit: <span style="color:var(--accent); font-weight: bold;">BeautyBloom</span></p>
+            <p style="color: var(--text-muted); margin: 5px 0 0;">Unit: <span id="unit-display" style="color:var(--accent); font-weight: bold;">BeautyBloom</span></p>
         </div>
         <div class="action-buttons no-print">
             <button class="btn btn-excel" onclick="exportToExcel()"><span>📊</span> Excel</button>
@@ -109,10 +85,9 @@
         </div>
     </div>
 
-    <!-- FILTER PANEL (NEW) -->
-    <div class="filter-panel no-print" id="filterPanel">
+    <div class="filter-panel no-print">
         <div class="filter-group">
-            <label>Rentang Waktu</label>
+            <label>Rentang Waktu Riwayat</label>
             <select id="dateRange" onchange="toggleDateInputs()">
                 <option value="all">Semua Waktu</option>
                 <option value="today">Hari Ini</option>
@@ -121,122 +96,76 @@
             </select>
         </div>
         <div id="customDateInputs" style="display: none; gap: 10px;">
-            <div class="filter-group">
-                <label>Mulai</label>
-                <input type="date" id="startDate">
-            </div>
-            <div class="filter-group">
-                <label>Sampai</label>
-                <input type="date" id="endDate">
-            </div>
+            <div class="filter-group"><label>Mulai</label><input type="date" id="startDate"></div>
+            <div class="filter-group"><label>Sampai</label><input type="date" id="endDate"></div>
         </div>
         <button class="btn btn-print" style="background: var(--primary); color: white;" onclick="applyFilters()">Terapkan Filter</button>
         <button class="btn" style="background: #e2e8f0; color: #475569;" onclick="resetFilters()">Reset</button>
     </div>
 
     <div class="grid no-print">
-        <div class="stat-card">
-            <h3>Total Produk</h3>
-            <p id="count-items">0</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--success);">
-            <h3>Stok Toko</h3>
-            <p id="sum-toko">0</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--warning);">
-            <h3>Stok Gudang</h3>
-            <p id="sum-gudang">0</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--danger);">
-            <h3>Item Stagnan</h3>
-            <p id="count-stagnan" style="color: var(--danger);">0</p>
-        </div>
+        <div class="stat-card"><h3>Total Produk</h3><p id="count-items">0</p></div>
+        <div class="stat-card" style="border-left-color: var(--success);"><h3>Stok Toko</h3><p id="sum-toko">0</p></div>
+        <div class="stat-card" style="border-left-color: var(--warning);"><h3>Stok Gudang</h3><p id="sum-gudang">0</p></div>
+        <div class="stat-card" style="border-left-color: var(--danger);"><h3>Item Stagnan</h3><p id="count-stagnan" style="color: var(--danger);">0</p></div>
     </div>
 
     <div class="control-row no-print">
         <div class="tabs">
             <button class="tab-btn active" id="btn-stok" onclick="switchTab('stok')">Posisi Stok</button>
-            <button class="tab-btn" id="btn-histori" onclick="switchTab('histori')">Riwayat Restock</button>
+            <button class="tab-btn" id="btn-histori" onclick="switchTab('histori')">Riwayat Mutasi</button>
             <button class="tab-btn" id="btn-stagnan" onclick="switchTab('stagnan')" style="color: var(--danger);">⚠️ Produk Stagnan</button>
         </div>
-        <div class="search-box">
-            <span>🔍</span>
-            <input type="text" id="searchInput" placeholder="Cari..." onkeyup="filterTable()">
-        </div>
+        <div class="search-box"><span>🔍</span><input type="text" id="searchInput" placeholder="Cari..." onkeyup="filterTable()"></div>
     </div>
 
-    <!-- TABS CONTENT -->
     <div id="tab-stok" class="card tab-content">
         <table id="table-stok">
-            <thead>
-                <tr>
-                    <th>Nama Produk</th>
-                    <th>Kategori</th>
-                    <th>Toko</th>
-                    <th>Gudang</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Nama Produk</th><th>Kategori</th><th>Toko</th><th>Gudang</th><th>Total</th></tr></thead>
             <tbody id="table-stok-body"></tbody>
         </table>
     </div>
 
     <div id="tab-histori" class="card tab-content" style="display: none;">
         <table id="table-histori">
-            <thead>
-                <tr>
-                    <th>Waktu Update</th>
-                    <th>Produk</th>
-                    <th>Jumlah</th>
-                    <th>Petugas</th>
-                    <th>Catatan</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Waktu</th><th>Produk</th><th>Tipe</th><th>Jumlah</th><th>Admin</th><th>Keterangan</th></tr></thead>
             <tbody id="table-histori-body"></tbody>
         </table>
     </div>
 
     <div id="tab-stagnan" class="card tab-content" style="display: none;">
         <table id="table-stagnan">
-            <thead>
-                <tr>
-                    <th>Nama Produk</th>
-                    <th>Stok Saat Ini</th>
-                    <th>Terakhir Restock</th>
-                    <th>Durasi (Hari)</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Nama Produk</th><th>Stok Total</th><th>Terakhir Mutasi</th><th>Durasi (Hari)</th><th>Status</th></tr></thead>
             <tbody id="table-stagnan-body"></tbody>
         </table>
     </div>
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let currentMode = 'stok';
     let rawProduk = [];
     let rawHistori = [];
+
+    window.onload = () => {
+        init();
+    };
 
     async function init() {
         await loadData();
     }
 
     async function loadData() {
+        // Mengambil data dari tabel sesuai struktur 21 tabel
         const [resProduk, resHistori] = await Promise.all([
-            FinexDB.from('produk').select('*').order('nama_barang'),
-            FinexDB.from('riwayat_restock').select('*').order('created_at', { ascending: false })
+            db.from('produk').select('*').order('nama_barang'),
+            db.from('riwayat_stok').select(`*, produk:id_produk(nama_barang)`).order('created_at', { ascending: false })
         ]);
 
-        if (resProduk.error) return;
-
-        rawProduk = resProduk.data;
+        rawProduk = resProduk.data || [];
         rawHistori = resHistori.data || [];
 
-        applyFilters(); // Initial render with filters
+        applyFilters();
     }
 
     function toggleDateInputs() {
@@ -257,17 +186,14 @@
             filteredHistori = rawHistori.filter(h => {
                 const hDate = new Date(h.created_at);
                 hDate.setHours(0, 0, 0, 0);
-
-                if (range === 'today') {
-                    return hDate.getTime() === today.getTime();
-                } else if (range === '7days') {
+                if (range === 'today') return hDate.getTime() === today.getTime();
+                if (range === '7days') {
                     const sevenDaysAgo = new Date();
                     sevenDaysAgo.setDate(today.getDate() - 7);
                     return hDate >= sevenDaysAgo;
-                } else if (range === 'custom' && start && end) {
-                    const sDate = new Date(start);
-                    const eDate = new Date(end);
-                    return hDate >= sDate && hDate <= eDate;
+                }
+                if (range === 'custom' && start && end) {
+                    return hDate >= new Date(start) && hDate <= new Date(end);
                 }
                 return true;
             });
@@ -280,8 +206,6 @@
 
     function resetFilters() {
         document.getElementById('dateRange').value = 'all';
-        document.getElementById('startDate').value = '';
-        document.getElementById('endDate').value = '';
         toggleDateInputs();
         applyFilters();
     }
@@ -289,20 +213,12 @@
     function renderStok(data) {
         const tbody = document.getElementById('table-stok-body');
         let totalToko = 0, totalGudang = 0;
-
         tbody.innerHTML = data.map(p => {
             const st = p.stok_sekarang || 0;
             const sg = p.stok_gudang || 0;
             totalToko += st; totalGudang += sg;
-            return `<tr>
-                <td><b>${p.nama_barang}</b></td>
-                <td>${p.kategori || '-'}</td>
-                <td class="${st < 10 ? 'stock-low' : ''}">${st}</td>
-                <td>${sg}</td>
-                <td style="font-weight:bold">${st + sg}</td>
-            </tr>`;
+            return `<tr><td><b>${p.nama_barang}</b></td><td>${p.kategori || '-'}</td><td class="${st < 5 ? 'stock-low' : ''}">${st}</td><td>${sg}</td><td style="font-weight:bold">${st + sg}</td></tr>`;
         }).join('');
-
         document.getElementById('count-items').innerText = data.length;
         document.getElementById('sum-toko').innerText = totalToko;
         document.getElementById('sum-gudang').innerText = totalGudang;
@@ -310,18 +226,16 @@
 
     function renderHistori(data) {
         const tbody = document.getElementById('table-histori-body');
-        if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">Tidak ada riwayat untuk periode ini.</td></tr>`;
-            return;
-        }
+        if (data.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center">Tidak ada riwayat.</td></tr>`; return; }
         tbody.innerHTML = data.map(h => {
             const date = new Date(h.created_at);
             return `<tr>
-                <td>${date.toLocaleDateString('id-ID')} <small style="color:#999">${date.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</small></td>
-                <td><b>${h.nama_produk}</b></td>
-                <td style="color:var(--success); font-weight:bold">+${h.jumlah}</td>
-                <td>${h.role || 'Kasir'}</td>
-                <td>${h.catatan || '-'}</td>
+                <td>${date.toLocaleDateString('id-ID')} <small>${date.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</small></td>
+                <td><b>${h.produk?.nama_barang || 'Produk Dihapus'}</b></td>
+                <td><span class="badge" style="background:${h.tipe === 'MASUK' ? '#e8f5e9' : '#ffebee'}">${h.tipe}</span></td>
+                <td style="font-weight:bold">${h.tipe === 'MASUK' ? '+' : '-'}${h.jumlah}</td>
+                <td>${h.admin_nama || '-'}</td>
+                <td>${h.keterangan || '-'}</td>
             </tr>`;
         }).join('');
     }
@@ -330,28 +244,17 @@
         const tbody = document.getElementById('table-stagnan-body');
         const hariIni = new Date();
         let countStagnan = 0;
-
         const html = produk.map(p => {
-            const hLast = histori.find(h => h.nama_produk === p.nama_barang);
-            const tglAkhir = hLast ? new Date(hLast.created_at) : new Date(p.created_at || '2025-01-01');
-            
-            const diffTime = Math.abs(hariIni - tglAkhir);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+            const hLast = histori.find(h => h.id_produk === p.id);
+            const tglAkhir = hLast ? new Date(hLast.created_at) : new Date(p.created_at || '2026-01-01');
+            const diffDays = Math.ceil(Math.abs(hariIni - tglAkhir) / (1000 * 60 * 60 * 24));
             if (diffDays > 30) {
                 countStagnan++;
-                return `<tr>
-                    <td><b>${p.nama_barang}</b></td>
-                    <td>${(p.stok_sekarang || 0) + (p.stok_gudang || 0)}</td>
-                    <td>${tglAkhir.toLocaleDateString('id-ID')}</td>
-                    <td style="color:var(--danger); font-weight:bold">${diffDays} Hari</td>
-                    <td><span class="badge stagnan-tag">STAGNAN</span></td>
-                </tr>`;
+                return `<tr><td><b>${p.nama_barang}</b></td><td>${(p.stok_sekarang || 0) + (p.stok_gudang || 0)}</td><td>${tglAkhir.toLocaleDateString('id-ID')}</td><td style="color:var(--danger); font-weight:bold">${diffDays} Hari</td><td><span class="badge stagnan-tag">STAGNAN</span></td></tr>`;
             }
             return null;
         }).filter(x => x).join('');
-
-        tbody.innerHTML = html || `<tr><td colspan="5" style="text-align:center">Semua produk aktif restock.</td></tr>`;
+        tbody.innerHTML = html || `<tr><td colspan="5" style="text-align:center">Semua produk aktif.</td></tr>`;
         document.getElementById('count-stagnan').innerText = countStagnan;
     }
 
@@ -359,12 +262,8 @@
         currentMode = tab;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-        
         document.getElementById('btn-' + tab).classList.add('active');
         document.getElementById('tab-' + tab).style.display = 'block';
-        
-        // Sembunyikan filter panel jika di tab posisi stok (opsional)
-        // document.getElementById('filterPanel').style.display = tab === 'stok' ? 'none' : 'flex';
     }
 
     function filterTable() {
@@ -376,18 +275,16 @@
     function exportToExcel() {
         const tableId = `table-${currentMode}`;
         const wb = XLSX.utils.table_to_book(document.getElementById(tableId));
-        XLSX.writeFile(wb, `Laporan_${currentMode}_FinexPOS_${new Date().toLocaleDateString()}.xlsx`);
+        XLSX.writeFile(wb, `Laporan_${currentMode}_${new Date().toLocaleDateString()}.xlsx`);
     }
 
     function exportToPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text(`Finex POS - BeautyBloom: Laporan ${currentMode}`, 14, 15);
+        doc.text(`Finex POS - Laporan ${currentMode}`, 14, 15);
         doc.autoTable({ html: `#table-${currentMode}`, startY: 25, headStyles: { fillColor: [44, 62, 80] } });
-        doc.save(`Laporan_${currentMode}_FinexPOS.pdf`);
+        doc.save(`Laporan_${currentMode}.pdf`);
     }
-
-    init();
 </script>
 </body>
 </html>
