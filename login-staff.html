@@ -11,58 +11,72 @@
         .login-card { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 350px; text-align: center; }
         h2 { color: var(--primary); margin: 0 0 10px 0; }
         input { width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 12px; box-sizing: border-box; font-size: 16px; text-align: center; outline: none; }
-        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        #msg { font-size: 12px; margin-top: 15px; color: #e74c3c; display: none; }
+        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-login:disabled { background: #ccc; }
+        #msg { font-size: 12px; margin-top: 15px; color: #e74c3c; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
 <div class="login-card">
     <h2>Finex Staff</h2>
-    <p style="font-size: 13px; color: #666;">Masukkan Nama Lengkap Anda</p>
+    <p style="font-size: 13px; color: #666; margin-bottom: 25px;">Masukkan Nama Lengkap Sesuai Data</p>
     
-    <input type="text" id="staff-name" placeholder="Contoh: Budi Santoso" autocomplete="off">
+    <input type="text" id="staff-name" placeholder="Ketik Nama Anda..." autocomplete="off">
     <button id="btn-masuk" class="btn-login" onclick="loginStaff()">MASUK PANEL ABSEN</button>
-    <div id="msg">⚠️ Nama tidak terdaftar di sistem!</div>
+    <div id="msg">⚠️ Nama tidak ditemukan atau sistem terkunci!</div>
 </div>
 
 <script>
+    // Hardcoded Connection (Bypass Admin Session)
     const S_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const clientStaff = window.supabase.createClient(S_URL, S_KEY);
 
     async function loginStaff() {
-        const nameInput = document.getElementById('staff-name').value.trim();
+        const input = document.getElementById('staff-name');
+        const nameInput = input.value.trim();
         const msg = document.getElementById('msg');
         const btn = document.getElementById('btn-masuk');
         
         if (!nameInput) return;
 
         btn.disabled = true;
-        btn.innerText = "Mengecek...";
+        btn.innerText = "Mengecek Database...";
         msg.style.display = 'none';
 
         try {
-            // PERBAIKAN: Gunakan .ilike agar tidak peduli huruf besar atau kecil
-            const { data, error } = await clientStaff.from('employee_staff')
+            // Kita coba ambil data dengan ilike (tidak sensitif huruf besar/kecil)
+            const { data, error } = await clientStaff
+                .from('employee_staff')
                 .select('nama_staff')
-                .ilike('nama_staff', nameInput) 
+                .ilike('nama_staff', nameInput)
                 .maybeSingle();
 
+            if (error) throw error;
+
             if (data) {
-                // Gunakan nama asli dari DB (agar case-sensitive di halaman absen nanti pas)
+                console.log("Login Sukses:", data.nama_staff);
                 sessionStorage.setItem('STAFF_LOGIN', data.nama_staff);
                 window.location.href = 'absen-staff.html';
             } else {
+                msg.innerText = "⚠️ Nama '" + nameInput + "' tidak ditemukan!";
                 msg.style.display = 'block';
                 btn.disabled = false;
                 btn.innerText = "MASUK PANEL ABSEN";
             }
         } catch (e) {
-            alert("Koneksi Error");
+            console.error(e);
+            msg.innerText = "⚠️ Koneksi Gagal atau Akses Ditolak!";
+            msg.style.display = 'block';
             btn.disabled = false;
+            btn.innerText = "MASUK PANEL ABSEN";
         }
     }
+
+    document.getElementById('staff-name').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginStaff();
+    });
 </script>
 </body>
 </html>
