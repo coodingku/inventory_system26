@@ -420,14 +420,13 @@
     }
 }
 
- function renderReceipt(inv, totalBayar) {
+function renderReceipt(inv, totalBayar) {
     const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
     
+    // 1. Render Baris Barang
     const itemRows = cart.map(i => {
-        // Kalkulasi harga dan diskon per item sesuai Master DB
         const subtotalBarang = i.qty * i.harga;
         const pot = (subtotalBarang * (i.discountItem || 0)) / 100;
-        
         return `
             <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
                 <span style="flex:1; overflow:hidden; white-space:nowrap;">${i.nama_barang.substring(0, 18)}</span>
@@ -437,6 +436,25 @@
             ${pot > 0 ? `<div style="text-align:right; font-size:9px; margin-top:-2px;">(Disc: -${pot.toLocaleString('id-ID')})</div>` : ''}
         `;
     }).join('');
+
+    // 2. LOGIKA BARU: Render Rincian Pembayaran (Split Payment)
+    let paymentRows = "";
+    if (state.payments && state.payments.length > 0) {
+        state.payments.forEach(p => {
+            paymentRows += `
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Bayar (${p.metode}):</span>
+                    <span>${p.jumlah.toLocaleString('id-ID')}</span>
+                </div>`;
+        });
+    } else {
+        // Fallback jika pembayaran tunggal
+        paymentRows = `
+            <div style="display:flex; justify-content:space-between;">
+                <span>Bayar:</span>
+                <span>${totalBayar.toLocaleString('id-ID')}</span>
+            </div>`;
+    }
     
     const printArea = document.getElementById('print-area');
     printArea.innerHTML = `
@@ -466,9 +484,11 @@
                 <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:2px;">
                     <span>TOTAL:</span><span>${state.total.toLocaleString('id-ID')}</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; border-top:1px dashed #000; margin-top:3px; padding-top:3px;">
-                    <span>Bayar:</span><span>${totalBayar.toLocaleString('id-ID')}</span>
+                
+                <div style="border-top:1px dashed #000; margin-top:3px; padding-top:3px;">
+                    ${paymentRows}
                 </div>
+
                 <div style="display:flex; justify-content:space-between;">
                     <span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString('id-ID')}</span>
                 </div>
@@ -478,12 +498,10 @@
                 Barang yang sudah dibeli tidak<br>
                 dapat ditukar atau dikembalikan
             </center>
-            <div style="height: 20px;"></div> </div>`;
+            <div style="height: 20px;"></div> 
+        </div>`;
 
-    // OTOMATIS CETAK SETELAH RENDER SELESAI
-    setTimeout(() => {
-        window.print();
-    }, 500);
+    setTimeout(() => { window.print(); }, 500);
 }
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
