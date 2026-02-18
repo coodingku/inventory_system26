@@ -184,58 +184,67 @@
             txt.style.color = selisih < 0 ? '#e74c3c' : '#27ae60';
         }
 
-        async function prosesClosing() {
+      async function prosesClosing() {
             const fisikValue = document.getElementById('input-fisik').value;
-            if (fisikValue === "") return alert("Masukkan uang fisik laci!");
+            if (fisikValue === "") {
+                alert("Harap input uang fisik di laci terlebih dahulu!");
+                return;
+            }
 
             const fisik = parseFloat(fisikValue);
             const selisih = fisik - totalSistem;
+            const tglSekarang = new Date().toISOString();
 
-            if (!confirm("Tutup shift sekarang? Data akan dikunci.")) return;
-            
-            document.getElementById('btn-submit-closing').disabled = true;
-            document.getElementById('btn-submit-closing').innerText = "Memproses...";
+            if (!confirm("Apakah Anda yakin ingin menutup shift?")) return;
 
             try {
-                const tgl = new Date().toISOString();
-
-                // 1. Update Kasir Log
-                const { error: errLog } = await db
+                // 1. UPDATE STATUS KASIR SESUAI STRUKTUR MASTER DB
+                const { error: errLog } = await supabaseClient
                     .from('kasir_log')
                     .update({
-                        waktu_tutup: tgl,
-                        total_tunai_sistem: totalSistem,
-                        total_tunai_fisik: fisik,
-                        selisih: selisih,
+                        waktu_tutup: tglSekarang,
+                        waktu_closing: tglSekarang, // PENYESUAIAN MASTER DB
+                        total_tunai_sistem: totalSistem, // TIPE NUMERIC
+                        total_tunai_fisik: fisik,        // TIPE NUMERIC
+                        selisih: selisih,                // TIPE NUMERIC
                         status: 'Closed'
                     })
                     .eq('id', shiftId);
 
                 if (errLog) throw errLog;
 
-                // 2. Jurnal Akuntansi: Jika ada selisih, catat sebagai beban/pendapatan selisih
-                if (Math.abs(selisih) > 0) {
-                    const entries = [];
-                    if (selisih < 0) { // Kurang uang
-                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '6101', keterangan: `Selisih Kurang Kas Shift #${shiftId}`, debit: Math.abs(selisih), kredit: 0 });
-                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '1101', keterangan: `Penyesuaian Kas Shift #${shiftId}`, debit: 0, kredit: Math.abs(selisih) });
-                    } else { // Lebih uang
-                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '1101', keterangan: `Selisih Lebih Kas Shift #${shiftId}`, debit: selisih, kredit: 0 });
-                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '4201', keterangan: `Pendapatan Lain (Selisih Kas) #${shiftId}`, debit: 0, kredit: selisih });
+                // 2. CATAT KE JURNAL AKUNTANSI (BeautyBloom)
+                const dataJurnal = [
+                    {
+                        tanggal: tglSekarang,
+                        no_bukti: `SHIFT-${shiftId}`,
+                        kode_akun: '7101',
+                        keterangan: `Penerimaan Kas Shift #${shiftId} (${dataCetak.kasir})`,
+                        debit: dataCetak.net,
+                        kredit: 0
+                    },
+                    {
+                        tanggal: tglSekarang,
+                        no_bukti: `SHIFT-${shiftId}`,
+                        kode_akun: '7102',
+                        keterangan: `Pendapatan Penjualan BeautyBloom Shift #${shiftId}`,
+                        debit: 0,
+                        kredit: dataCetak.net
                     }
-                    await db.from('jurnal_umum').insert(entries);
-                }
+                ];
+
+                const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
+                if (errJurnal) throw errJurnal;
 
                 renderStruk(fisik, selisih);
                 setTimeout(() => {
                     window.print();
-                    alert("Shift Berhasil Ditutup!");
+                    alert("Shift Berhasil Ditutup & Jurnal Tercatat!");
                     window.location.href = "dashboard.html";
                 }, 500);
 
             } catch (err) {
-                alert("Error: " + err.message);
-                document.getElementById('btn-submit-closing').disabled = false;
+                alert("Error saat closing: " + err.message);
             }
         }
 
