@@ -5,17 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jurnal Umum | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; margin-left: 240px; padding: 40px; }
+        main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; width: calc(100% - 240px); }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
@@ -35,18 +38,23 @@
         .btn-stock { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         .action-group { display: flex; gap: 10px; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>BeautyBloom</h2>
+        <h2 id="store-name-display">Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
         <a href="akun_jurnal.html">🏦 Daftar Akun</a>
         <a href="catat_jurnal.html" class="active">📖 Jurnal Umum</a>
-        <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
         <a href="laba_rugi.html">📈 Laba Rugi</a>
+        
+        <div class="user-info">
+            <small>ADMIN:</small> <b id="display-user-nav">...</b>
+        </div>
+        <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; display: block; text-align: center; text-decoration: none;">🚪 Keluar</a>
     </nav>
 
     <main>
@@ -66,7 +74,7 @@
                     <input type="text" id="ket" placeholder="Misal: Bayar Listrik">
                 </div>
                 <div>
-                    <label style="display:block; font-size: 11px; margin-bottom:5px;">Akun (Debet)</label>
+                    <label style="display:block; font-size: 11px; margin-bottom:5px;">Akun (Debit)</label>
                     <select id="acc_debet"></select>
                 </div>
                 <div>
@@ -90,7 +98,7 @@
                         <th>No. Bukti</th>
                         <th>Keterangan</th>
                         <th>Kode Akun</th>
-                        <th style="text-align: right;">Debet</th>
+                        <th style="text-align: right;">Debit</th>
                         <th style="text-align: right;">Kredit</th>
                     </tr>
                 </thead>
@@ -102,9 +110,7 @@
     </main>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
     window.onload = async () => {
         await loadDropdowns();
@@ -112,7 +118,7 @@
     };
 
     async function loadDropdowns() {
-        const { data, error } = await FinexDB.from('akun').select('kode_akun, nama_akun').order('kode_akun');
+        const { data, error } = await db.from('akun').select('kode_akun, nama_akun').order('kode_akun');
         if (error) return console.error(error);
         
         const options = data.map(a => `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`).join('');
@@ -121,11 +127,16 @@
     }
 
     async function loadJurnal() {
-        const { data, error } = await FinexDB.from('jurnal_umum').select('*').order('tanggal', { ascending: false }).limit(50);
+        const { data, error } = await db.from('jurnal_umum').select('*').order('tanggal', { ascending: false }).limit(100);
         
         const tbody = document.getElementById('table-jurnal');
         if (error) {
             tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Belum ada catatan jurnal.</td></tr>`;
             return;
         }
 
@@ -135,20 +146,20 @@
                 <td><small>${j.no_bukti || '-'}</small></td>
                 <td>${j.keterangan}</td>
                 <td><strong>${j.kode_akun}</strong></td>
-                <td class="debit-val">${j.debit > 0 ? 'Rp ' + Number(j.debit).toLocaleString() : '-'}</td>
-                <td class="kredit-val">${j.kredit > 0 ? 'Rp ' + Number(j.kredit).toLocaleString() : '-'}</td>
+                <td class="debit-val">${j.debit > 0 ? 'Rp ' + Number(j.debit).toLocaleString('id-ID') : '-'}</td>
+                <td class="kredit-val">${j.kredit > 0 ? 'Rp ' + Number(j.kredit).toLocaleString('id-ID') : '-'}</td>
             </tr>
         `).join('');
     }
 
     async function simpanJurnal() {
-        const ket = document.getElementById('ket').value;
+        const ket = document.getElementById('ket').value.trim();
         const debetAcc = document.getElementById('acc_debet').value;
         const kreditAcc = document.getElementById('acc_kredit').value;
         const nominal = parseFloat(document.getElementById('nominal').value);
 
         if (!ket || !nominal || nominal <= 0) return alert("Isi data dengan benar!");
-        if (debetAcc === kreditAcc) return alert("Akun Debet & Kredit tidak boleh sama!");
+        if (debetAcc === kreditAcc) return alert("Akun Debit & Kredit tidak boleh sama!");
 
         const noBukti = "JR-" + Date.now().toString().slice(-6);
         const tgl = new Date().toISOString();
@@ -158,17 +169,18 @@
             { tanggal: tgl, no_bukti: noBukti, keterangan: ket, kode_akun: kreditAcc, debit: 0, kredit: nominal }
         ];
 
-        const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+        const { error } = await db.from('jurnal_umum').insert(entries);
         
-        if (error) alert("Gagal: " + error.message);
-        else {
+        if (error) {
+            alert("Gagal mencatat jurnal: " + error.message);
+        } else {
             alert("Transaksi Berhasil Dicatat!");
             location.reload();
         }
     }
 
     async function inputStokAwal() {
-        const nominal = prompt("Masukkan Total Nilai Stok Barang (Rp):", "5000000");
+        const nominal = prompt("Masukkan Total Nilai Stok Barang (Rp):", "1000000");
         if (!nominal || isNaN(nominal)) return;
 
         const tgl = new Date().toISOString();
@@ -180,16 +192,16 @@
             { tanggal: tgl, no_bukti: noBukti, keterangan: 'Saldo Awal Persediaan Barang', kode_akun: '3101', debit: 0, kredit: nominal }
         ];
 
-        const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+        const { error } = await db.from('jurnal_umum').insert(entries);
         if (error) alert("Gagal: " + error.message);
         else {
-            alert("Stok Awal Berhasil Ditambahkan ke Persediaan!");
+            alert("Stok Awal Berhasil Ditambahkan ke Jurnal!");
             location.reload();
         }
     }
 
     async function inputModalCepat() {
-        const nominal = prompt("Masukkan Jumlah Modal Tunai (Rp):", "10000000");
+        const nominal = prompt("Masukkan Jumlah Modal Tunai (Rp):", "5000000");
         if (!nominal || isNaN(nominal)) return;
 
         const tgl = new Date().toISOString();
@@ -201,11 +213,19 @@
             { tanggal: tgl, no_bukti: noBukti, keterangan: 'Setoran Modal Tunai', kode_akun: '3101', debit: 0, kredit: nominal }
         ];
 
-        const { error } = await FinexDB.from('jurnal_umum').insert(entries);
+        const { error } = await db.from('jurnal_umum').insert(entries);
         if (error) alert("Gagal: " + error.message);
         else {
             alert("Modal Tunai Berhasil Ditambahkan ke Kas!");
             location.reload();
+        }
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
         }
     }
 </script>
