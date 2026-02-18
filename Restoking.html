@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Master Produk BeautyBloom</title>
+    <title>Finex Pos | Master Produk</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #fdf2f8; --white: #ffffff; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
@@ -49,20 +52,27 @@
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
     <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-    <a href="produk.html" class="active">📦 Produk BeautyBloom</a>
+    <a href="produk.html" class="active">📦 Produk</a>
     <a href="kategori.html">📁 Kategori</a>
     <a href="gudang.html">🏠 Gudang</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
     <a href="pos.html" style="background: var(--success); color: white; text-align:center; margin-top: 10px;">🛒 Kasir</a>
+    
+    <div class="user-info" style="margin-top: 20px;">
+        <small>USER:</small> <b id="display-user-nav">...</b>
+    </div>
+    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; margin-top: 10px;">🚪 Keluar</a>
 </nav>
 
 <main>
@@ -71,7 +81,6 @@
         <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
     </div>
 
-    <!-- Area Notifikasi Request Restock untuk Admin -->
     <div id="admin-notifications" class="notification-area" style="display:none;">
         <h4 style="margin:0 0 10px 0; color:var(--warning);">🔔 Permintaan Restock dari Staff</h4>
         <div id="request-list"></div>
@@ -98,7 +107,6 @@
     </div>
 </main>
 
-<!-- Modal Input Manual Restock -->
 <div id="restockModal" class="modal">
     <div class="modal-content">
         <h3>Manual Restocking</h3>
@@ -115,7 +123,6 @@
     </div>
 </div>
 
-<!-- Modal Produk -->
 <div id="productModal" class="modal">
     <div class="modal-content">
         <h3 id="modalTitle">Tambah Produk</h3>
@@ -136,17 +143,14 @@
 </div>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let masterData = [];
     let activeRestockId = null;
 
     window.onload = () => fetchProduk();
 
     async function fetchProduk() {
-        const { data } = await FinexDB.from('produk').select('*').order('nama_barang');
+        const { data } = await db.from('produk').select('*').order('nama_barang');
         masterData = data || [];
         renderTable(masterData);
         updateNotificationArea();
@@ -171,24 +175,21 @@
         }).join('');
     }
 
-    // FUNGSI STAFF: Mengirim permintaan ke admin (lokal dalam array untuk simulasi, idealnya masuk tabel 'requests' di DB)
     let restockRequests = [];
     function requestRestock(id) {
         const p = masterData.find(x => x.id === id);
         if (!restockRequests.find(r => r.id === id)) {
             restockRequests.push(p);
-            alert(`Permintaan restock untuk ${p.nama_barang} telah dikirim ke Admin.`);
+            alert(`Permintaan restock untuk ${p.nama_barang} telah dikirim.`);
             updateNotificationArea();
         } else {
             alert("Permintaan sudah dikirim sebelumnya.");
         }
     }
 
-    // FUNGSI ADMIN: Melihat notifikasi dan melakukan tindakan manual
     function updateNotificationArea() {
         const area = document.getElementById('admin-notifications');
         const list = document.getElementById('request-list');
-        
         if (restockRequests.length > 0) {
             area.style.display = 'block';
             list.innerHTML = restockRequests.map(r => `
@@ -216,18 +217,15 @@
     async function processRestock() {
         const qty = parseInt(document.getElementById('restock-qty').value);
         if (!qty || qty <= 0) return alert("Masukkan jumlah yang valid");
-
         const p = masterData.find(x => x.id === activeRestockId);
         if (qty > p.stok_gudang) return alert("Stok gudang tidak cukup!");
 
-        // Update database secara manual
-        const { error } = await FinexDB.from('produk').update({
+        const { error } = await db.from('produk').update({
             stok_sekarang: p.stok_sekarang + qty,
             stok_gudang: p.stok_gudang - qty
         }).eq('id', p.id);
 
         if (!error) {
-            // Hapus dari list request
             restockRequests = restockRequests.filter(r => r.id !== activeRestockId);
             closeRestockModal();
             fetchProduk();
@@ -237,7 +235,6 @@
         }
     }
 
-    // Logika Modal Produk Standar
     function openModal() {
         document.getElementById('productForm').reset();
         document.getElementById('prod-id').value = '';
@@ -252,11 +249,10 @@
             nama_barang: document.getElementById('prod-nama').value,
             harga_jual: parseInt(document.getElementById('prod-harga').value),
             stok_sekarang: parseInt(document.getElementById('prod-stok-toko').value),
-            stok_gudang: parseInt(document.getElementById('prod-stok-gudang').value),
-            gudang: 'BeautyBloom'
+            stok_gudang: parseInt(document.getElementById('prod-stok-gudang').value)
         };
-        if (id) await FinexDB.from('produk').update(payload).eq('id', id);
-        else await FinexDB.from('produk').insert([payload]);
+        if (id) await db.from('produk').update(payload).eq('id', id);
+        else await db.from('produk').insert([payload]);
         closeModal(); fetchProduk();
     };
 
@@ -273,6 +269,14 @@
     function filterProduk() {
         const q = document.getElementById('searchBar').value.toLowerCase();
         renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q)));
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
     }
 </script>
 </body>
