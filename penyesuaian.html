@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Inventori Stok</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
@@ -32,8 +35,8 @@
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
-    <a href="index.html">📊 Dashboard</a>
+    <h2 id="store-name-display">Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
     <a href="laporan-penjualan.html">📑 Penjualan</a>
     <a href="laporan-stok.html">📋 Riwayat Stok</a>
     <a href="penyesuaian.html" class="active">🔄 Stok In/Out</a>
@@ -43,7 +46,7 @@
 </nav>
 
 <main>
-    <h1>Penyesuaian Stok BeautyBloom</h1>
+    <h1>Penyesuaian Stok</h1>
     <div class="toolbar">
         <input type="text" id="searchBar" class="search-box" placeholder="Cari nama barang..." onkeyup="filterTabel()">
     </div>
@@ -52,7 +55,7 @@
             <thead>
                 <tr>
                     <th>Nama Barang</th>
-                    <th>Stok</th>
+                    <th>Stok Saat Ini</th>
                     <th>Input Qty</th>
                     <th style="text-align: center;">Aksi</th>
                 </tr>
@@ -63,23 +66,22 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let allProducts = [];
     const sessionData = JSON.parse(localStorage.getItem('finex_session'));
 
-    if (!sessionData) window.location.replace('login.html');
-
     window.onload = () => {
-        document.getElementById('display-user-nav').innerText = sessionData.username || 'Admin';
+        // Nama user dan toko otomatis terupdate via supabase-init.js
         loadProduk();
     };
 
     async function loadProduk() {
-        const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang');
-        if (!error) { allProducts = data; renderTabel(data); }
+        // Menggunakan 'db' pelanggan
+        const { data, error } = await db.from('produk').select('*').order('nama_barang');
+        if (!error) { 
+            allProducts = data; 
+            renderTabel(data); 
+        }
     }
 
     function renderTabel(data) {
@@ -89,8 +91,8 @@
                 <td><span class="badge ${p.stok_sekarang < 10 ? 'bg-low' : ''}">${p.stok_sekarang}</span></td>
                 <td><input type="number" id="adj-${p.id}" class="input-stok" placeholder="0"></td>
                 <td style="text-align: center;">
-                    <button onclick="updateStok('${p.id}', 'masuk')" class="action-btn btn-in">+</button>
-                    <button onclick="updateStok('${p.id}', 'keluar')" class="action-btn btn-out">-</button>
+                    <button onclick="updateStok('${p.id}', 'masuk')" class="action-btn btn-in" title="Tambah Stok">+</button>
+                    <button onclick="updateStok('${p.id}', 'keluar')" class="action-btn btn-out" title="Kurangi Stok">-</button>
                 </td>
             </tr>
         `).join('');
@@ -106,31 +108,34 @@
         if (stokBaru < 0) return alert("Stok tidak cukup!");
 
         try {
-            // 1. Update Produk
-            await supabaseClient.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
+            // 1. Update Produk di DB Pelanggan
+            await db.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
 
-            // 2. Insert Riwayat (Tipe Huruf Besar agar lolos constraint)
+            // 2. Insert Riwayat Stok
             const payload = {
                 id_produk: id,
                 tipe: tipe.toUpperCase(), 
                 jumlah: qty,
-                admin_nama: sessionData.username,
-                keterangan: 'Update Manual'
+                admin_nama: sessionData.username || 'Admin',
+                keterangan: 'Update Manual',
+                stok_akhir: stokBaru
             };
 
-            let { error: errLog } = await supabaseClient.from('riwayat_stok').insert([payload]);
+            let { error: errLog } = await db.from('riwayat_stok').insert([payload]);
             
-            // Fallback kolom produk_id
+            // Fallback jika nama kolom di DB pelanggan berbeda
             if (errLog && errLog.message.includes("column")) {
                 delete payload.id_produk;
                 payload.produk_id = id;
-                await supabaseClient.from('riwayat_stok').insert([payload]);
+                await db.from('riwayat_stok').insert([payload]);
             }
 
-            alert("Berhasil!");
+            alert("Stok berhasil diperbarui!");
             input.value = '';
             loadProduk();
-        } catch (e) { alert("Gagal: " + e.message); }
+        } catch (e) { 
+            alert("Gagal memperbarui stok: " + e.message); 
+        }
     }
 
     function filterTabel() {
@@ -138,7 +143,13 @@
         renderTabel(allProducts.filter(p => p.nama_barang.toLowerCase().includes(val)));
     }
 
-    function logout() { localStorage.clear(); window.location.replace('login.html'); }
+    function logout() { 
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html'); 
+        }
+    }
 </script>
 </body>
 </html>
