@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Closing Shift Lengkap</title>
+    <title>Finex Pos | Closing Shift</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -12,7 +15,8 @@
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
         .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; }
         .method-header { margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent); color: var(--primary); font-size: 14px; font-weight: bold; }
-        input { width: 100%; padding: 12px; margin-top: 10px; font-size: 20px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; font-weight: bold; color: var(--primary); }
+        input { width: 100%; padding: 12px; margin-top: 10px; font-size: 20px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; font-weight: bold; color: var(--primary); outline: none; }
+        input:focus { border-color: var(--accent); }
         .btn-close { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 16px; transition: 0.3s; }
         .btn-close:hover { background: #1a252f; }
         
@@ -26,10 +30,10 @@
 </head>
 <body>
     <div class="card">
-        <h2 style="text-align:center; margin-top:0; color: var(--primary);">Closing Finex Pos</h2>
-        <p style="text-align: center; font-size: 12px; margin-top: -10px; color: #888;">BeautyBloom System</p>
+        <h2 style="text-align:center; margin-top:0; color: var(--primary);" id="store-title">Finex Pos</h2>
+        <p style="text-align: center; font-size: 12px; margin-top: -10px; color: #888;">Ringkasan Akhir Shift</p>
         
-        <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menghimpun Data Transaksi & Detail Barang...</div>
+        <div id="loader" style="text-align:center; color:#888; padding: 20px;">Menghimpun Data Transaksi...</div>
 
         <div id="main-content" style="display:none;">
             <div class="method-header">RINGKASAN ITEM TERJUAL</div>
@@ -37,7 +41,7 @@
 
             <div class="method-header">RINGKASAN PENJUALAN</div>
             <div class="row"><span>Total Penjualan (Kotor)</span><b id="txt-kotor">Rp 0</b></div>
-            <div class="row"><span>Total Diskon Terpakai</span><b id="txt-diskon" style="color:var(--danger);">Rp 0</b></div>
+            <div class="row"><span>Total Diskon</span><b id="txt-diskon" style="color:var(--danger);">Rp 0</b></div>
             <div class="row" style="font-weight:bold;"><span>Total Penjualan (Net)</span><b id="txt-net">Rp 0</b></div>
 
             <div class="method-header">RINCIAN PER METODE</div>
@@ -60,7 +64,7 @@
                 <span>Selisih Tunai:</span><b id="txt-selisih">Rp 0</b>
             </div>
 
-            <button class="btn-close" onclick="prosesClosing()">KONFIRMASI & CETAK LAPORAN</button>
+            <button class="btn-close" id="btn-submit-closing" onclick="prosesClosing()">KONFIRMASI & TUTUP SHIFT</button>
             <button onclick="window.location.href='pos.html'" style="width:100%; background:none; border:none; color:gray; cursor:pointer; margin-top:15px; font-size: 13px;">Kembali ke Kasir</button>
         </div>
     </div>
@@ -68,26 +72,24 @@
     <div id="print-area"></div>
 
     <script>
-        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-
+        // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
         let totalSistem = 0;
         let dataCetak = { items: [], kotor: 0, net: 0, diskon: 0, methods: {}, awal: 0, tunai_masuk: 0, kasir: '' };
         let shiftId = null;
+        const session = JSON.parse(localStorage.getItem('finex_session'));
 
         window.onload = async () => {
-            const session = JSON.parse(localStorage.getItem('finex_session'));
             if (!session) return window.location.href = "login.html";
+            document.getElementById('store-title').innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
             await initClosing(session.username);
         };
 
         async function initClosing(username) {
-            const { data: activeShift } = await supabaseClient
+            const { data: activeShift } = await db
                 .from('kasir_log').select('*').eq('kasir_nama', username).eq('status', 'Open').maybeSingle();
 
             if (!activeShift) {
-                alert("Tidak ada shift aktif!");
+                alert("Tidak ada shift aktif untuk user ini!");
                 window.location.href = "pos.html";
                 return;
             }
@@ -99,72 +101,69 @@
 
         async function loadDataClosing() {
             try {
-                // 1. Ambil data penjualan utama
-                const { data: sales, error: salesErr } = await supabaseClient
+                // 1. Ambil data penjualan utama dalam shift ini
+                const { data: sales, error: salesErr } = await db
                     .from('penjualan')
-                    .select('id, subtotal, diskon, grand_total, metode_pembayaran')
-                    .eq('kasir_id', shiftId);
+                    .select('id, subtotal, diskon_global, grand_total, metode_pembayaran')
+                    .eq('kasir_nama', dataCetak.kasir)
+                    .gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString()); // Batas hari ini atau idealnya sejak waktu_buka shift
                 
                 if (salesErr) throw salesErr;
 
-                // 2. Ambil semua detail barang untuk transaksi-transaksi tersebut
+                // 2. Ambil detail item
                 const salesIds = sales.map(s => s.id);
                 let itemMap = {};
                 
                 if (salesIds.length > 0) {
-                    const { data: details, error: detailErr } = await supabaseClient
+                    const { data: details, error: detailErr } = await db
                         .from('penjualan_detail')
-                        .select('nama_barang, qty, harga_satuan, subtotal_item')
+                        .select('nama_barang, qty, subtotal_item')
                         .in('penjualan_id', salesIds);
                     
                     if (detailErr) throw detailErr;
 
                     details.forEach(it => {
-                        const nama = it.nama_barang || 'Produk Tanpa Nama';
-                        const qty = parseInt(it.qty || 0);
-                        const sub = parseFloat(it.subtotal || (it.qty * it.harga) || 0);
-                        
+                        const nama = it.nama_barang || 'Item';
                         if (!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
-                        itemMap[nama].qty += qty;
-                        itemMap[nama].sub += sub;
+                        itemMap[nama].qty += parseInt(it.qty || 0);
+                        itemMap[nama].sub += parseFloat(it.subtotal_item || 0);
                     });
                 }
 
-                // 3. Kalkulasi Ringkasan Penjualan
+                // 3. Kalkulasi
                 let methodMap = {};
                 sales.forEach(trx => {
                     dataCetak.kotor += parseFloat(trx.subtotal || 0);
-                    dataCetak.diskon += parseFloat(trx.diskon || 0);
+                    dataCetak.diskon += parseFloat(trx.diskon_global || 0);
                     dataCetak.net += parseFloat(trx.grand_total || 0);
                     
                     const mtd = trx.metode_pembayaran || 'Tunai';
                     methodMap[mtd] = (methodMap[mtd] || 0) + parseFloat(trx.grand_total || 0);
-                    if (mtd === 'Tunai') dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
+                    if (mtd.toUpperCase() === 'TUNAI') dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
                 });
 
                 dataCetak.methods = methodMap;
                 totalSistem = dataCetak.awal + dataCetak.tunai_masuk;
 
-                // 4. Render ke UI
+                // 4. Render UI
                 let htmlItems = "";
                 dataCetak.items = [];
                 for (let name in itemMap) {
                     dataCetak.items.push({ name, qty: itemMap[name].qty, sub: itemMap[name].sub });
-                    htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString()}</span></div>`;
+                    htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString('id-ID')}</span></div>`;
                 }
                 
                 document.getElementById('list-barang').innerHTML = htmlItems || '<div style="text-align:center; color:gray; font-size:12px;">Tidak ada item terjual</div>';
-
-                document.getElementById('txt-kotor').innerText = "Rp " + dataCetak.kotor.toLocaleString();
-                document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString();
-                document.getElementById('txt-net').innerText = "Rp " + dataCetak.net.toLocaleString();
-                document.getElementById('txt-awal').innerText = "Rp " + dataCetak.awal.toLocaleString();
-                document.getElementById('txt-tunai-masuk').innerText = "Rp " + dataCetak.tunai_masuk.toLocaleString();
-                document.getElementById('txt-total-sistem').innerText = "Rp " + totalSistem.toLocaleString();
+                document.getElementById('txt-kotor').innerText = "Rp " + dataCetak.kotor.toLocaleString('id-ID');
+                document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString('id-ID');
+                document.getElementById('txt-net').innerText = "Rp " + dataCetak.net.toLocaleString('id-ID');
+                document.getElementById('txt-awal').innerText = "Rp " + dataCetak.awal.toLocaleString('id-ID');
+                document.getElementById('txt-tunai-masuk').innerText = "Rp " + dataCetak.tunai_masuk.toLocaleString('id-ID');
+                document.getElementById('txt-total-sistem').innerText = "Rp " + totalSistem.toLocaleString('id-ID');
 
                 let htmlMethods = "";
                 for (let m in methodMap) {
-                    htmlMethods += `<div class="row"><span>${m}</span><b>Rp ${methodMap[m].toLocaleString()}</b></div>`;
+                    htmlMethods += `<div class="row"><span>${m}</span><b>Rp ${methodMap[m].toLocaleString('id-ID')}</b></div>`;
                 }
                 document.getElementById('list-metode').innerHTML = htmlMethods || '<div class="row"><span>-</span><b>Rp 0</b></div>';
 
@@ -173,7 +172,7 @@
 
             } catch (e) { 
                 console.error(e);
-                alert("Gagal memuat data: " + e.message); 
+                alert("Gagal memuat data closing."); 
             }
         }
 
@@ -181,28 +180,30 @@
             const fisik = parseFloat(document.getElementById('input-fisik').value || 0);
             const selisih = fisik - totalSistem;
             const txt = document.getElementById('txt-selisih');
-            txt.innerText = "Rp " + selisih.toLocaleString();
+            txt.innerText = "Rp " + selisih.toLocaleString('id-ID');
             txt.style.color = selisih < 0 ? '#e74c3c' : '#27ae60';
         }
 
         async function prosesClosing() {
             const fisikValue = document.getElementById('input-fisik').value;
-            if (fisikValue === "") {
-                alert("Harap input uang fisik di laci terlebih dahulu!");
-                return;
-            }
+            if (fisikValue === "") return alert("Masukkan uang fisik laci!");
 
             const fisik = parseFloat(fisikValue);
             const selisih = fisik - totalSistem;
 
-            if (!confirm("Apakah Anda yakin ingin menutup shift?")) return;
+            if (!confirm("Tutup shift sekarang? Data akan dikunci.")) return;
+            
+            document.getElementById('btn-submit-closing').disabled = true;
+            document.getElementById('btn-submit-closing').innerText = "Memproses...";
 
             try {
-                // 1. UPDATE STATUS KASIR
-                const { error: errLog } = await supabaseClient
+                const tgl = new Date().toISOString();
+
+                // 1. Update Kasir Log
+                const { error: errLog } = await db
                     .from('kasir_log')
                     .update({
-                        waktu_tutup: new Date().toISOString(),
+                        waktu_tutup: tgl,
                         total_tunai_sistem: totalSistem,
                         total_tunai_fisik: fisik,
                         selisih: selisih,
@@ -212,43 +213,34 @@
 
                 if (errLog) throw errLog;
 
-                // 2. CATAT KE JURNAL AKUNTANSI (BeautyBloom)
-                const tgl = new Date().toISOString();
-                const dataJurnal = [
-                    {
-                        tanggal: tgl,
-                        no_bukti: `SHIFT-${shiftId}`,
-                        kode_akun: '7101',
-                        keterangan: `Penerimaan Kas Shift #${shiftId} (${dataCetak.kasir})`,
-                        debit: dataCetak.net,
-                        kredit: 0
-                    },
-                    {
-                        tanggal: tgl,
-                        no_bukti: `SHIFT-${shiftId}`,
-                        kode_akun: '7102',
-                        keterangan: `Pendapatan Penjualan BeautyBloom Shift #${shiftId}`,
-                        debit: 0,
-                        kredit: dataCetak.net
+                // 2. Jurnal Akuntansi: Jika ada selisih, catat sebagai beban/pendapatan selisih
+                if (Math.abs(selisih) > 0) {
+                    const entries = [];
+                    if (selisih < 0) { // Kurang uang
+                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '6101', keterangan: `Selisih Kurang Kas Shift #${shiftId}`, debit: Math.abs(selisih), kredit: 0 });
+                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '1101', keterangan: `Penyesuaian Kas Shift #${shiftId}`, debit: 0, kredit: Math.abs(selisih) });
+                    } else { // Lebih uang
+                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '1101', keterangan: `Selisih Lebih Kas Shift #${shiftId}`, debit: selisih, kredit: 0 });
+                        entries.push({ tanggal: tgl, no_bukti: `ADJ-${shiftId}`, kode_akun: '4201', keterangan: `Pendapatan Lain (Selisih Kas) #${shiftId}`, debit: 0, kredit: selisih });
                     }
-                ];
-
-                const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert(dataJurnal);
-                if (errJurnal) throw errJurnal;
+                    await db.from('jurnal_umum').insert(entries);
+                }
 
                 renderStruk(fisik, selisih);
                 setTimeout(() => {
                     window.print();
-                    alert("Shift Berhasil Ditutup & Jurnal Tercatat!");
+                    alert("Shift Berhasil Ditutup!");
                     window.location.href = "dashboard.html";
                 }, 500);
 
             } catch (err) {
-                alert("Error saat closing: " + err.message);
+                alert("Error: " + err.message);
+                document.getElementById('btn-submit-closing').disabled = false;
             }
         }
 
         function renderStruk(fisik, selisih) {
+            const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
             let itemRows = dataCetak.items.map(i => `
                 <div style="display:flex; justify-content:space-between;">
                     <span>${i.name.substring(0,18)} x${i.qty}</span>
@@ -263,30 +255,29 @@
 
             document.getElementById('print-area').innerHTML = `
                 <div style="text-align:center; font-weight:bold;">
-                    <span style="font-size:14px;">FINEX POS</span><br>
-                    BEAUTYBLOOM SYSTEM<br>
-                    <span style="font-size:8px;">${new Date().toLocaleString()}</span>
+                    <span style="font-size:12px;">${store}</span><br>
+                    LAPORAN CLOSING KASIR<br>
+                    <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
                 </div>
-                ----------------------------<br>
-                <b>LAPORAN ITEM TERJUAL:</b><br>${itemRows || 'Tidak ada item'}
-                ----------------------------<br>
-                <b>RINGKASAN PENJUALAN:</b><br>
+                <hr style="border:none; border-top:1px dashed #000;">
+                <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
+                <hr style="border:none; border-top:1px dashed #000;">
                 Kotor  : ${dataCetak.kotor.toLocaleString()}<br>
                 Diskon : -${dataCetak.diskon.toLocaleString()}<br>
-                Net    : ${dataCetak.net.toLocaleString()}<br>
-                ----------------------------<br>
+                <b>Net Sales : ${dataCetak.net.toLocaleString()}</b>
+                <hr style="border:none; border-top:1px dashed #000;">
                 <b>RINCIAN METODE:</b><br>${methodRows}
-                ----------------------------<br>
-                Modal Awal : ${dataCetak.awal.toLocaleString()}<br>
-                Tunai Masuk: ${dataCetak.tunai_masuk.toLocaleString()}<br>
-                <b>SIS. TUNAI : ${totalSistem.toLocaleString()}</b><br>
-                <b>FISIK LACI : ${fisik.toLocaleString()}</b><br>
-                <b>SELISIH    : ${selisih.toLocaleString()}</b><br>
-                ----------------------------<br>
-                <div style="text-align:center; margin-top:10px;">
+                <hr style="border:none; border-top:1px dashed #000;">
+                Modal Awal   : ${dataCetak.awal.toLocaleString()}<br>
+                Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString()}<br>
+                <b>SIS. TUNAI  : ${totalSistem.toLocaleString()}</b><br>
+                <b>FISIK LACI  : ${fisik.toLocaleString()}</b><br>
+                <b>SELISIH     : ${selisih.toLocaleString()}</b>
+                <hr style="border:none; border-top:1px dashed #000;">
+                <center style="font-size:9px; margin-top:10px;">
                     Kasir: ${dataCetak.kasir}<br>
                     *** SHIFT CLOSED ***
-                </div>
+                </center>
             `;
         }
     </script>
