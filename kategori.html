@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Manajemen Kategori</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
@@ -34,8 +37,8 @@
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
-    <a href="index.html">📊 Dashboard</a>
+    <h2 id="store-name-display">Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
     <div class="nav-section">Master Data</div>
     <a href="produk.html">📦 Produk</a>
     <a href="kategori.html" class="active">📁 Kategori</a>
@@ -53,10 +56,10 @@
 </nav>
 
 <main>
-    <h1>Manajemen Kategori Kantin</h1>
+    <h1>Manajemen Kategori</h1>
     <div class="card">
         <div class="form-group">
-            <input type="text" id="nama-kat" placeholder="Tambah kategori baru (contoh: Minuman Dingin)">
+            <input type="text" id="nama-kat" placeholder="Tambah kategori baru (contoh: Minuman)">
             <button class="btn-save" onclick="tambahKategori()">➕ Tambah</button>
         </div>
         <table>
@@ -74,29 +77,17 @@
 </main>
 
 <script>
-    // 1. Inisialisasi Supabase
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
-    // 2. Proteksi Halaman
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     const sessionStr = localStorage.getItem('finex_session');
-    const userRole = localStorage.getItem('user_role');
-
-    if (!sessionStr) {
-        window.location.replace('login.html');
-    }
-
-    const session = JSON.parse(sessionStr);
 
     window.onload = () => {
-        document.getElementById('display-user-nav').innerText = session.username || 'Admin';
+        // Nama user dan nama toko otomatis terupdate via supabase-init.js
         muatKategori();
     };
 
-    // 3. Fungsi Load Data
+    // 3. Fungsi Load Data MENGGUNAKAN 'db'
     async function muatKategori() {
-        const { data, error } = await supabaseClient
+        const { data, error } = await db
             .from('kategori')
             .select('*')
             .order('nama_kategori');
@@ -116,19 +107,19 @@
             <tr>
                 <td><b>${k.nama_kategori}</b></td>
                 <td style="text-align: center;">
-                    <button style="color:red; cursor:pointer; background:none; border:none;" onclick="hapusKategori(${k.id}, '${k.nama_kategori}')">❌ Hapus</button>
+                    <button style="color:red; cursor:pointer; background:none; border:none; font-weight:bold;" onclick="hapusKategori('${k.id}', '${k.nama_kategori}')">❌ Hapus</button>
                 </td>
             </tr>
         `).join('');
     }
 
-    // 4. Fungsi Tambah
+    // 4. Fungsi Tambah MENGGUNAKAN 'db'
     async function tambahKategori() {
         const input = document.getElementById('nama-kat');
         const nama = input.value.trim();
         if(!nama) return alert("Isi nama kategori!");
 
-        const { error } = await supabaseClient.from('kategori').insert([{ nama_kategori: nama }]);
+        const { error } = await db.from('kategori').insert([{ nama_kategori: nama }]);
         if (error) {
             alert("Gagal: " + error.message);
         } else {
@@ -137,18 +128,21 @@
         }
     }
 
-    // 5. Fungsi Hapus
+    // 5. Fungsi Hapus MENGGUNAKAN 'db'
     async function hapusKategori(id, nama) {
         if(confirm(`Hapus kategori "${nama}"?`)) {
-            const { error } = await supabaseClient.from('kategori').delete().eq('id', id);
+            const { error } = await db.from('kategori').delete().eq('id', id);
             if (error) alert("Gagal hapus: " + error.message);
             else muatKategori();
         }
     }
 
     function logout() {
-        localStorage.clear();
-        window.location.replace('login.html');
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear(); // Hapus kunci database
+            localStorage.clear();   // Hapus session user
+            window.location.replace('login.html');
+        }
     }
 </script>
 </body>
