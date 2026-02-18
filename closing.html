@@ -8,6 +8,29 @@
     <script src="supabase-init.js"></script>
 
     <style>
+        @media print {
+    @page { 
+        margin: 0; 
+        size: auto; /* Membiarkan printer menentukan panjang kertas otomatis */
+    }
+    body { 
+        margin: 0; 
+        padding: 0; 
+        height: auto !important; /* Mencegah sisa kertas memanjang kosong */
+    }
+    #print-area { 
+        display: block !important; 
+        width: 58mm; /* Standar lebar printer Bluetooth/Thermal */
+        margin: 0;
+        padding: 5px;
+        font-family: 'Courier New', Courier, monospace; /* Font lurus untuk thermal */
+        font-size: 10px;
+        line-height: 1.2;
+        color: black;
+    }
+    /* Menghilangkan elemen browser standar seperti header/footer tanggal */
+    header, footer { display: none !important; }
+}
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .card { background: white; padding: 25px; border-radius: 15px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
@@ -201,38 +224,58 @@
             } catch (err) { alert(err.message); document.getElementById('btn-submit-closing').disabled = false; }
         }
 
-        function renderStruk(fisik, selisih) {
-            const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
-            let itemRows = dataCetak.items.map(i => `<div style="display:flex; justify-content:space-between;"><span>${i.name.substring(0,18)} x${i.qty}</span><span>${i.sub.toLocaleString()}</span></div>`).join('');
-            
-            // PERBAIKAN: Loop Rincian Metode pada Struk
-            let methodRows = "";
-            for (let m in dataCetak.methods) {
-                methodRows += `<div style="display:flex; justify-content:space-between;"><span>${m}</span><span>${dataCetak.methods[m].toLocaleString()}</span></div>`;
-            }
+      function renderStruk(fisik, selisih) {
+    const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
+    
+    // 1. Render Daftar Item
+    let itemRows = dataCetak.items.map(i => `
+        <div style="display:flex; justify-content:space-between;">
+            <span style="flex:1;">${i.name.substring(0,18)}</span>
+            <span style="width:30px; text-align:right;">x${i.qty}</span>
+            <span style="width:65px; text-align:right;">${i.sub.toLocaleString('id-ID')}</span>
+        </div>
+    `).join('');
+    
+    // 2. Render Rincian Metode Bayar
+    let methodRows = "";
+    for (let m in dataCetak.methods) {
+        methodRows += `
+        <div style="display:flex; justify-content:space-between;">
+            <span>${m}</span><span>${dataCetak.methods[m].toLocaleString('id-ID')}</span>
+        </div>`;
+    }
 
-            document.getElementById('print-area').innerHTML = `
-                <div style="text-align:center; font-weight:bold;">
-                    <span style="font-size:12px;">${store}</span><br>LAPORAN CLOSING KASIR<br>
-                    <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
-                </div>
-                <hr style="border:none; border-top:1px dashed #000;">
-                <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
-                <hr style="border:none; border-top:1px dashed #000;">
-                Kotor  : ${dataCetak.kotor.toLocaleString()}<br>
-                Diskon : -${dataCetak.diskon.toLocaleString()}<br>
-                Pajak  : ${dataCetak.pajak.toLocaleString()}<br> <b>Net Sales : ${dataCetak.net.toLocaleString()}</b>
-                <hr style="border:none; border-top:1px dashed #000;">
-                <b>RINCIAN METODE:</b><br>${methodRows} <hr style="border:none; border-top:1px dashed #000;">
-                Modal Awal   : ${dataCetak.awal.toLocaleString()}<br>
-                Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString()}<br>
-                <b>SIS. TUNAI  : ${totalSistem.toLocaleString()}</b><br>
-                <b>FISIK LACI  : ${fisik.toLocaleString()}</b><br>
-                <b>SELISIH     : ${selisih.toLocaleString()}</b>
-                <hr style="border:none; border-top:1px dashed #000;">
-                <center style="font-size:9px;">Kasir: ${dataCetak.kasir}<br>*** SHIFT CLOSED ***</center>
-            `;
-        }
+    const printArea = document.getElementById('print-area');
+    printArea.innerHTML = `
+        <div style="width: 100%; height: auto; overflow: hidden;">
+            <center>
+                <b style="font-size:12px;">${store}</b><br>
+                LAPORAN CLOSING KASIR<br>
+                <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
+            </center>
+            ----------------------------<br>
+            <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
+            ----------------------------<br>
+            <b>RINGKASAN PENJUALAN:</b><br>
+            Kotor  : ${dataCetak.kotor.toLocaleString('id-ID')}<br>
+            Diskon : -${dataCetak.diskon.toLocaleString('id-ID')}<br>
+            Pajak  : ${dataCetak.pajak.toLocaleString('id-ID')}<br>
+            <b>Net Sales : ${dataCetak.net.toLocaleString('id-ID')}</b><br>
+            ----------------------------<br>
+            <b>RINCIAN METODE:</b><br>${methodRows}
+            ----------------------------<br>
+            Modal Awal   : ${dataCetak.awal.toLocaleString('id-ID')}<br>
+            Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString('id-ID')}<br>
+            <b>SIS. TUNAI  : ${totalSistem.toLocaleString('id-ID')}</b><br>
+            <b>FISIK LACI  : ${fisik.toLocaleString('id-ID')}</b><br>
+            <b>SELISIH     : ${selisih.toLocaleString('id-ID')}</b><br>
+            ----------------------------<br>
+            <center style="font-size:9px; margin-top:10px;">
+                Kasir: ${dataCetak.kasir}<br>
+                *** SHIFT CLOSED ***
+            </center>
+            <div style="height: 30px;"></div> </div>`;
+}
     </script>
 </body>
 </html>
