@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BeautyBloom | Laporan Stok Toko & Gudang</title>
-    <link rel="icon" href="data:,">
+    <title>Finex Pos | Laporan Stok Toko & Gudang</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --info: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; position: fixed; padding: 20px; box-sizing: border-box; }
-        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; }
-        nav a.active { background: var(--accent); color: white; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; position: fixed; padding: 20px; box-sizing: border-box; z-index: 100; }
+        nav h2 { color: #ff85a2; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
 
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
@@ -41,21 +42,27 @@
         .btn-group { display: flex; gap: 10px; }
         .btn-pdf { background: #cf3a24; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-excel { background: var(--success); color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="produk.html">📦 Data Produk</a>
     <a href="laporan-stok-strategis.html" class="active">📊 Laporan Stok</a>
     <a href="laporan-stok.html">📋 Kartu Stok</a>
+    
+    <div class="user-info" style="margin-top: 20px;">
+        <small>USER:</small> <b id="display-user-nav">...</b>
+    </div>
+    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; text-align: center; display: block;">🚪 Keluar</a>
 </nav>
 
 <main>
     <div class="header-flex">
-        <h1>Laporan Stok BeautyBloom</h1>
+        <h1>Laporan Stok Strategis</h1>
         <div class="btn-group">
             <button class="btn-excel" onclick="exportExcel()">📗 Excel</button>
             <button class="btn-pdf" onclick="exportPDF()">📕 PDF</button>
@@ -83,7 +90,7 @@
 
     <div class="filter-container">
         <button class="filter-btn active" onclick="filterData('ALL', this)">Semua Data</button>
-        <button class="filter-btn" onclick="filterData('READY', this)">Stok Ada (Toko/Gudang)</button>
+        <button class="filter-btn" onclick="filterData('READY', this)">Stok Ada</button>
         <button class="filter-btn" onclick="filterData('EMPTY', this)">Stok Kosong</button>
     </div>
 
@@ -106,28 +113,26 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let allProducts = [];
     let displayedData = [];
 
     window.onload = loadData;
 
     async function loadData() {
-        const { data, error } = await supabaseClient.from('produk').select('*').order('nama_barang');
-        if (error) return;
+        // Menggunakan 'db' pelanggan
+        const { data, error } = await db.from('produk').select('*').order('nama_barang');
+        if (error) return console.error(error);
         
-        allProducts = data;
-        displayedData = data;
+        allProducts = data || [];
+        displayedData = data || [];
 
         // Hitung Ringkasan
         let totalToko = 0;
         let totalGudang = 0;
         let emptyCount = 0;
 
-        data.forEach(p => {
+        allProducts.forEach(p => {
             const sToko = parseInt(p.stok_sekarang || 0);
             const sGudang = parseInt(p.stok_gudang || 0);
             totalToko += sToko;
@@ -135,9 +140,9 @@
             if (sToko + sGudang <= 0) emptyCount++;
         });
 
-        document.getElementById('sum-toko').innerText = totalToko.toLocaleString();
-        document.getElementById('sum-gudang').innerText = totalGudang.toLocaleString();
-        document.getElementById('sum-all').innerText = (totalToko + totalGudang).toLocaleString();
+        document.getElementById('sum-toko').innerText = totalToko.toLocaleString('id-ID');
+        document.getElementById('sum-gudang').innerText = totalGudang.toLocaleString('id-ID');
+        document.getElementById('sum-all').innerText = (totalToko + totalGudang).toLocaleString('id-ID');
         document.getElementById('count-empty').innerText = emptyCount + " Produk";
 
         renderTable(displayedData);
@@ -189,114 +194,53 @@
         const ws = XLSX.utils.json_to_sheet(dataExcel);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Laporan Stok");
-        XLSX.writeFile(wb, `BeautyBloom_Stok.xlsx`);
+        XLSX.writeFile(wb, `Laporan_Stok_${sessionStorage.getItem('NAMA_TOKO')}.xlsx`);
     }
 
     function exportPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pinkBeauty = [233, 30, 99]; // Warna Accent Pink
-    const darkBlue = [44, 62, 80];    // Warna Primary Finex
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pinkAccent = [233, 30, 99];
+        const darkBlue = [44, 62, 80];
 
-    // --- 1. HEADER & JUDUL ---
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-    doc.text("Finex Pos | BeautyBloom", 14, 20);
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Laporan Inventori Toko & Gudang", 14, 27);
-    
-    // Tanggal Cetak
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 150, 27);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
+        doc.text(sessionStorage.getItem('NAMA_TOKO') || "Finex Pos", 14, 20);
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        doc.text("Laporan Inventori Strategis", 14, 27);
+        doc.text(`Tanggal: ${new Date().toLocaleDateString('id-ID')}`, 150, 27);
 
-    // Garis Pemisah Pink
-    doc.setDrawColor(pinkBeauty[0], pinkBeauty[1], pinkBeauty[2]);
-    doc.setLineWidth(1);
-    doc.line(14, 32, 196, 32);
+        doc.setDrawColor(pinkAccent[0], pinkAccent[1], pinkAccent[2]);
+        doc.setLineWidth(0.5);
+        doc.line(14, 32, 196, 32);
 
-    // --- 2. DESAIN KOTAK RINGKASAN (SUMMARY BOX) ---
-    // Background Kotak
-    doc.setFillColor(248, 249, 250);
-    doc.roundedRect(14, 38, 182, 25, 3, 3, 'F');
-    
-    // Hitung data untuk ringkasan
-    let totalToko = 0;
-    let totalGudang = 0;
-    displayedData.forEach(p => {
-        totalToko += parseInt(p.stok_sekarang || 0);
-        totalGudang += parseInt(p.stok_gudang || 0);
-    });
+        doc.autoTable({
+            startY: 40,
+            head: [['NAMA PRODUK', 'STOK TOKO', 'STOK GUDANG', 'TOTAL', 'STATUS']],
+            body: displayedData.map(p => {
+                const sToko = parseInt(p.stok_sekarang || 0);
+                const sGudang = parseInt(p.stok_gudang || 0);
+                const total = sToko + sGudang;
+                return [p.nama_barang.toUpperCase(), sToko, sGudang, total, total <= 0 ? 'KOSONG' : 'TERSEDIA'];
+            }),
+            theme: 'striped',
+            headStyles: { fillColor: pinkAccent, textColor: [255, 255, 255], halign: 'center' },
+            columnStyles: { 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'center' } }
+        });
 
-    // Label Ringkasan
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(100);
-    doc.text("RINGKASAN STOK:", 20, 45);
-
-    // Isi Ringkasan
-    doc.setFontSize(11);
-    doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-    doc.text(`Total Stok Toko   : ${totalToko.toLocaleString()} unit`, 20, 52);
-    doc.text(`Total Stok Gudang : ${totalGudang.toLocaleString()} unit`, 20, 58);
-    
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(pinkBeauty[0], pinkBeauty[1], pinkBeauty[2]);
-    doc.text(`TOTAL KESELURUHAN : ${(totalToko + totalGudang).toLocaleString()} unit`, 110, 55);
-
-    // --- 3. TABEL DATA ---
-    doc.autoTable({
-        startY: 70,
-        head: [['NAMA PRODUK', 'STOK TOKO', 'STOK GUDANG', 'TOTAL', 'STATUS']],
-        body: displayedData.map(p => {
-            const sToko = parseInt(p.stok_sekarang || 0);
-            const sGudang = parseInt(p.stok_gudang || 0);
-            const total = sToko + sGudang;
-            return [
-                p.nama_barang.toUpperCase(), 
-                sToko, 
-                sGudang, 
-                total,
-                total <= 0 ? 'KOSONG' : 'TERSEDIA'
-            ];
-        }),
-        theme: 'striped',
-        headStyles: { 
-            fillColor: pinkBeauty, 
-            textColor: [255, 255, 255],
-            fontSize: 10,
-            halign: 'center'
-        },
-        columnStyles: {
-            1: { halign: 'center', fontStyle: 'bold' },
-            2: { halign: 'center', fontStyle: 'bold' },
-            3: { halign: 'center', fontStyle: 'bold', fillColor: [240, 247, 255] },
-            4: { halign: 'center' }
-        },
-        styles: { fontSize: 9, cellPadding: 3 },
-        didParseCell: function(data) {
-            // Memberi warna merah jika stok kosong di kolom status
-            if (data.column.index === 4 && data.cell.text[0] === 'KOSONG') {
-                data.cell.styles.textColor = [220, 53, 69];
-                data.cell.styles.fontStyle = 'bold';
-            }
-        }
-    });
-
-    // --- 4. FOOTER ---
-    const pageCount = doc.internal.getNumberOfPages();
-    for(let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(`Halaman ${i} dari ${pageCount} | BeautyBloom Stock Report`, 14, 285);
+        doc.save(`Laporan_Stok_${new Date().getTime()}.pdf`);
     }
 
-    doc.save(`Laporan_Stok_BeautyBloom_${new Date().getTime()}.pdf`);
-}
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
+    }
 </script>
 </body>
 </html>
