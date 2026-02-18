@@ -314,83 +314,111 @@
         }
     }
 
-    async function executeTransaction() {
-        if (isSaving) return;
-        const rows = document.querySelectorAll('.split-item');
-        state.payments = [];
-        let totalDibayar = 0;
-        rows.forEach(row => {
-            const mtd = row.querySelector('.pay-method').value;
-            const amt = parseFloat(row.querySelector('.pay-amount').value || 0);
-            const akun = row.querySelector('.pay-method').selectedOptions[0].dataset.akun;
-            if(amt > 0) { state.payments.push({ metode: mtd, jumlah: amt, akun: akun }); totalDibayar += amt; }
-        });
-        if (state.payments.length === 0) return alert("Pilih minimal 1 metode pembayaran!");
+   async function executeTransaction() {
+    if (isSaving) return;
+    const rows = document.querySelectorAll('.split-item');
+    state.payments = [];
+    let totalDibayar = 0;
 
-        isSaving = true;
-        document.getElementById('btnConfirm').innerText = "Menyimpan...";
-        const inv = `INV-${Date.now().toString().slice(-6)}`;
-        const tgl = new Date().toISOString();
+    rows.forEach(row => {
+        const mtd = row.querySelector('.pay-method').value;
+        const amt = parseFloat(row.querySelector('.pay-amount').value || 0);
+        const akun = row.querySelector('.pay-method').selectedOptions[0].dataset.akun;
+        if(amt > 0) { 
+            state.payments.push({ metode: mtd, jumlah: amt, akun: akun }); 
+            totalDibayar += amt; 
+        }
+    });
 
-        try {
-            const mainMethod = state.payments.length > 1 ? "SPLIT" : state.payments[0].metode;
+    if (state.payments.length === 0) return alert("Pilih minimal 1 metode pembayaran!");
+
+    isSaving = true;
+    document.getElementById('btnConfirm').innerText = "Menyimpan...";
+    
+    // Sinkronisasi Invoice & Waktu Master
+    const inv = `INV-${Date.now().toString().slice(-6)}`;
+    const tgl = new Date().toISOString();
+
+    try {
+        const mainMethod = state.payments.length > 1 ? "SPLIT" : state.payments[0].metode;
+        
+        // 1. SIMPAN KE TABEL PENJUALAN (SESUAI MASTER DB)
+        const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
+            no_invoice: inv, 
+            subtotal: Math.round(state.sub), 
+            diskon_global: Math.round(state.discGlobal),
+            pajak_ppn: Math.round(state.tax),
+            grand_total: state.total, 
+            bayar: totalDibayar, 
+            kasir_id: currentLogId, // Pastikan ini UUID shift aktif
+            metode_pembayaran: mainMethod,
+            diskon: Math.round(state.discItem + state.discGlobal), // Kolom master
+            pajak: Math.round(state.tax), // Kolom master
+            tanggal: tgl 
+        }]).select().single();
+        
+        if (errTrx) throw errTrx;
+        state.lastTrxId = trx.id; state.lastInv = inv;
+
+        let totalHPP = 0;
+        let detailRows = [];
+
+        // 2. PROSES ITEM & STOK
+        for (const item of cart) {
+            const subItemGross = item.qty * item.harga;
+            const potItem = (subItemGross * (item.discountItem || 0)) / 100;
             
-            // Simpan ke tabel penjualan pelanggan menggunakan kolom master
-            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
-                no_invoice: inv, 
-                subtotal: Math.round(state.sub), 
-                diskon_global: Math.round(state.discGlobal), // Sesuai master
-                pajak_ppn: Math.round(state.tax), // Sesuai master
-                grand_total: state.total, 
-                bayar: totalDibayar, 
-                kasir_id: currentLogId, // Menggunakan UUID log kasir
-                metode_pembayaran: mainMethod,
-                diskon: Math.round(state.discItem + state.discGlobal), // Kolom tambahan master
-                pajak: Math.round(state.tax), // Kolom tambahan master
-                tanggal: tgl 
-            }]).select().single();
-            
-            if (errTrx) throw errTrx;
-            state.lastTrxId = trx.id; state.lastInv = inv;
-
-            let totalHPP = 0;
-            for (const item of cart) {
-                const subItemGross = item.qty * item.harga;
-                const potItem = (subItemGross * item.discountItem) / 100;
-                
-                // Simpan detail menggunakan kolom master
-                await db.from('penjualan_detail').insert([{ 
-                    penjualan_id: trx.id, 
-                    produk_id: item.id, 
-                    nama_barang: item.nama_barang, 
-                    qty: item.qty, 
-                    harga_satuan: item.harga, 
-                    diskon_item_persen: item.discountItem, // Sesuai master
-                    subtotal_item: subItemGross - potItem 
-                }]);
-                
-                const { data: p } = await db.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
-                if (p) {
-                    totalHPP += (p.harga_beli * item.qty);
-                    await db.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
-                }
-            }
-
-            // Jurnal akuntansi tetap otomatis
-            const journalEntries = [];
-            state.payments.forEach(p => {
-                journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: String(p.akun), keterangan: `Terima ${p.metode} - ${inv}`, debit: Math.round(p.jumlah), kredit: 0 });
+            detailRows.push({ 
+                penjualan_id: trx.id, 
+                produk_id: item.id, // Relasi UUID
+                nama_barang: item.nama_barang, 
+                qty: item.qty, 
+                harga_satuan: item.harga, 
+                diskon_item_persen: item.discountItem || 0, // Kolom master
+                subtotal_item: subItemGross - potItem 
             });
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${inv}`, debit: 0, kredit: state.total });
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP - ${inv}`, debit: Math.round(totalHPP), kredit: 0 });
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Stok Keluar - ${inv}`, debit: 0, kredit: Math.round(totalHPP) });
-            await db.from('jurnal_umum').insert(journalEntries);
+            
+            // Ambil data modal (HPP) untuk laporan laba rugi
+            const { data: p } = await db.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
+            if (p) {
+                totalHPP += (parseFloat(p.harga_beli || 0) * item.qty);
+                await db.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+            }
+        }
 
-            renderReceipt(inv, totalDibayar);
-            document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
-        } catch (e) { console.error(e); alert("Kesalahan: " + e.message); isSaving = false; }
+        // Simpan semua detail sekaligus
+        await db.from('penjualan_detail').insert(detailRows);
+
+        // 3. JURNAL AKUNTANSI OTOMATIS
+        const journalEntries = [];
+        state.payments.forEach(p => {
+            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: String(p.akun), keterangan: `Terima ${p.metode} - ${inv}`, debit: Math.round(p.jumlah), kredit: 0 });
+        });
+        journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${inv}`, debit: 0, kredit: state.total });
+        journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP - ${inv}`, debit: Math.round(totalHPP), kredit: 0 });
+        journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Stok Keluar - ${inv}`, debit: 0, kredit: Math.round(totalHPP) });
+        
+        await db.from('jurnal_umum').insert(journalEntries);
+
+        // 4. RENDER STRUK BLUETOOTH READY
+        renderReceipt(inv, totalDibayar);
+        
+        // Tutup modal & Reset Kasir
+        document.getElementById('payModal').style.display = 'none';
+        
+        // CETAK OTOMATIS (Delay 500ms agar render struk selesai sempurna)
+        setTimeout(() => { 
+            window.print(); 
+            document.getElementById('waModal').style.display = 'flex'; 
+        }, 500);
+
+    } catch (e) { 
+        console.error(e); 
+        alert("Kesalahan Transaksi: " + e.message); 
+        isSaving = false; 
+        document.getElementById('btnConfirm').innerText = "Konfirmasi Pembayaran";
     }
+}
 
  function renderReceipt(inv, totalBayar) {
     const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
