@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Pembelian BeautyBloom</title>
-    <link rel="icon" href="data:,">
+    <title>Finex Pos | Laporan Pembelian</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
@@ -38,22 +40,28 @@
         .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         .badge-delete { color: #e74c3c; font-weight: bold; font-style: italic; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html">📥 Pembelian (PO)</a>
     <a href="laporan-pembelian.html" class="active">📑 Laporan Pembelian</a>
     <a href="manajemen-user.html">👥 Manajemen User</a>
     <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
+
+    <div class="user-info" style="margin-top: 20px;">
+        <small>USER:</small> <b id="display-user-nav">...</b>
+    </div>
+    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; text-align: center;">🚪 Keluar</a>
 </nav>
 
 <main>
-    <h1>Laporan Pembelian BeautyBloom</h1>
+    <h1>Laporan Pembelian</h1>
 
     <div class="stats-grid">
         <div class="stat-card">
@@ -85,7 +93,7 @@
             </div>
             <div class="input-group">
                 <label>Tahun</label>
-                <input type="number" id="filter-tahun" value="2026">
+                <input type="number" id="filter-tahun">
             </div>
             <div class="input-group">
                 <label>Cari Supplier/Produk</label>
@@ -114,10 +122,7 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let dataLaporan = [];
 
     window.onload = () => {
@@ -129,18 +134,18 @@
 
     async function muatLaporan() {
         const tbody = document.getElementById('report-list');
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">⏳ Mengambil data BeautyBloom...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">⏳ Mengambil data...</td></tr>';
 
         const bulan = document.getElementById('filter-bulan').value;
         const tahun = document.getElementById('filter-tahun').value;
         
-        // Menentukan rentang tanggal bulan berjalan
         const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
         const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
         try {
-            const { data, error } = await supabaseClient
+            // Query ke database pelanggan yang aktif
+            const { data, error } = await db
                 .from('pembelian')
                 .select('*, produk:produk_id(nama_barang)')
                 .gte('created_at', tglMulai)
@@ -170,8 +175,8 @@
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px; color:#999;">Tidak ada data ditemukan.</td></tr>';
         } else {
             tbody.innerHTML = filtered.map(item => {
-                totalUang += item.total_harga;
-                totalQty += item.qty;
+                totalUang += (item.total_harga || 0);
+                totalQty += (item.qty || 0);
                 hitung++;
                 const tgl = new Date(item.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
                 return `
@@ -180,14 +185,14 @@
                         <td><strong>${item.produk?.nama_barang || '<span class="badge-delete">Produk Dihapus</span>'}</strong></td>
                         <td>${item.supplier || '-'}</td>
                         <td>${item.qty}</td>
-                        <td>Rp ${item.harga_beli.toLocaleString()}</td>
-                        <td><strong>Rp ${item.total_harga.toLocaleString()}</strong></td>
+                        <td>Rp ${(item.harga_beli || 0).toLocaleString('id-ID')}</td>
+                        <td><strong>Rp ${(item.total_harga || 0).toLocaleString('id-ID')}</strong></td>
                     </tr>
                 `;
             }).join('');
         }
 
-        document.getElementById('total-pengeluaran').innerText = `Rp ${totalUang.toLocaleString()}`;
+        document.getElementById('total-pengeluaran').innerText = `Rp ${totalUang.toLocaleString('id-ID')}`;
         document.getElementById('total-item').innerText = `${totalQty} Pcs`;
         document.getElementById('total-transaksi').innerText = `${hitung} Kali`;
     }
@@ -203,8 +208,16 @@
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `Laporan_Pembelian_BeautyBloom_${Date.now()}.csv`;
+        link.download = `Laporan_Pembelian_${Date.now()}.csv`;
         link.click();
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
     }
 </script>
 </body>
