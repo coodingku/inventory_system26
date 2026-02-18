@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manajemen Akun | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { 
             --primary: #2c3e50; 
@@ -19,7 +22,7 @@
         
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; z-index: 100; }
         nav h2 { color: var(--beauty); text-align: center; margin-bottom: 30px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: block; transition: 0.3s; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: block; transition: 0.3s; font-size: 14px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
 
@@ -50,21 +53,27 @@
         .bg-Beban { background: #efebe9; color: #4e342e; }
         
         #status-msg { font-size: 13px; padding: 10px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; color: white; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
-        <a href="#">📊 Dashboard</a>
-        <a href="#">🛒 Kasir</a>
+        <h2 id="store-name-display">Finex Pos</h2>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="pos.html">🛒 Kasir</a>
         <a href="akun_jurnal.html" class="active">🏦 Daftar Akun</a>
         <a href="jurnal.html">📖 Jurnal Umum</a>
+        
+        <div class="user-info">
+            <small>ADMIN:</small> <b id="display-user-nav">...</b>
+        </div>
+        <div style="background: var(--danger); color: white; text-align: center; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px;" onclick="logout()">🚪 Keluar</div>
     </nav>
 
     <main>
         <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin:0">Akun <span style="color:var(--beauty)">BeautyBloom</span></h1>
+            <h1 style="margin:0">Manajemen Bagan Akun</h1>
             <button class="btn-add" onclick="loadData()" style="background: var(--accent)">🔄 Sinkron Saldo</button>
             <div id="status-msg"></div>
         </div>
@@ -136,13 +145,7 @@
     </main>
 
 <script>
-    // Konfigurasi Supabase
-    const SUPABASE_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    
-    // Inisialisasi client hanya sekali
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let isEditMode = false;
     let editId = null;
 
@@ -150,15 +153,15 @@
 
     async function loadData() {
         try {
-            // Ambil data akun dan transaksi jurnal_umum secara paralel
+            // Mengambil data dari database pelanggan yang aktif
             const [resAkun, resJurnal] = await Promise.all([
-                supabaseClient.from('akun').select('*').order('kode_akun'),
-                supabaseClient.from('jurnal_umum').select('kode_akun, debit, kredit')
+                db.from('akun').select('*').order('kode_akun'),
+                db.from('jurnal_umum').select('kode_akun, debit, kredit')
             ]);
 
             if (resAkun.error) throw resAkun.error;
 
-            const akunList = resAkun.data;
+            const akunList = resAkun.data || [];
             const jurnalList = resJurnal.data || [];
             const tbody = document.getElementById('table-body');
             
@@ -166,13 +169,11 @@
             let totalEkuitas = 0;
 
             tbody.innerHTML = akunList.map(acc => {
-                // Filter transaksi untuk akun ini (pastikan tipe data sama dengan String)
                 const trx = jurnalList.filter(j => String(j.kode_akun) === String(acc.kode_akun));
                 
                 const sumDebit = trx.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
                 const sumKredit = trx.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
                 
-                // Rumus Saldo Berjalan
                 let saldoBerjalan = 0;
                 const saldoAwal = Number(acc.saldo) || 0;
 
@@ -182,7 +183,6 @@
                     saldoBerjalan = (saldoAwal + sumKredit) - sumDebit;
                 }
 
-                // Hitung total untuk dashboard
                 if (acc.kategori === 'Aset') totalAset += saldoBerjalan;
                 if (acc.kategori === 'Ekuitas') totalEkuitas += saldoBerjalan;
 
@@ -196,7 +196,7 @@
                             Rp ${new Intl.NumberFormat('id-ID').format(saldoBerjalan)}
                         </td>
                         <td style="text-align:center">
-                            <button onclick='prepareEdit(${JSON.stringify(acc)})' style="background:none; color:var(--accent); cursor:pointer; font-size:12px">Edit</button>
+                            <button onclick='prepareEdit(${JSON.stringify(acc)})' style="background:none; color:var(--accent); cursor:pointer; font-size:12px; font-weight:bold;">Edit</button>
                         </td>
                     </tr>
                 `;
@@ -212,8 +212,8 @@
     }
 
     async function saveAccount() {
-        const kode = document.getElementById('kode_akun').value;
-        const nama = document.getElementById('nama_akun').value;
+        const kode = document.getElementById('kode_akun').value.trim();
+        const nama = document.getElementById('nama_akun').value.trim();
         const kategori = document.getElementById('kategori_val').value;
         const posisi = document.getElementById('posisi_normal').value;
         const saldo = parseFloat(document.getElementById('saldo_awal').value) || 0;
@@ -225,14 +225,14 @@
         try {
             let res;
             if (isEditMode) {
-                res = await supabaseClient.from('akun').update(payload).eq('kode_akun', editId);
+                res = await db.from('akun').update(payload).eq('kode_akun', editId);
             } else {
-                res = await supabaseClient.from('akun').insert([{...payload, kode_akun: kode}]);
+                res = await db.from('akun').insert([{...payload, kode_akun: kode}]);
             }
 
             if (res.error) throw res.error;
             
-            showStatus("Data berhasil diperbarui!", "var(--success)");
+            showStatus("Data berhasil disimpan!", "var(--success)");
             resetForm();
             loadData();
         } catch (err) {
@@ -272,6 +272,14 @@
         s.innerText = msg;
         s.style.backgroundColor = color;
         setTimeout(() => { s.style.display = 'none'; }, 3000);
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
     }
 </script>
 </body>
