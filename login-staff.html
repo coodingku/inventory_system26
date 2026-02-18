@@ -3,58 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Login Staff</title>
+    <title>Finex Pos | Absen Staff</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="supabase-init.js"></script>
+
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        h2 { color: var(--primary); margin-bottom: 10px; }
-        p { color: #666; font-size: 14px; margin-bottom: 30px; }
-        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 12px; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: var(--accent); }
-        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
-        .btn-login:hover { background: #1a252f; transform: translateY(-2px); }
-        .msg { font-size: 12px; margin-top: 15px; color: var(--danger); display: none; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .absen-card { background: white; padding: 25px; border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        #video-container { width: 100%; position: relative; border-radius: 20px; overflow: hidden; background: #1a1a1a; aspect-ratio: 4/3; margin-bottom: 20px; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+        .status-pill { padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 700; margin-bottom: 15px; display: block; }
+        .area-ok { background: #e8f5e9; color: #1b5e20; }
+        .area-fail { background: #ffebee; color: #b71c1c; }
+        .btn-scan { background: var(--primary); color: white; padding: 18px; width: 100%; border: none; border-radius: 16px; font-weight: 800; cursor: pointer; }
+        .btn-scan:disabled { background: #eee; color: #aaa; }
+        #instruction { font-size: 14px; min-height: 40px; margin-bottom: 15px; padding: 10px; border-radius: 10px; }
+        .success-bg { background: #d4edda; color: #155724; }
+        .danger-bg { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
 
-<div class="login-card">
-    <h2>Finex Staff</h2>
-    <p>Masukkan nama lengkap Anda untuk mulai absen biometrik.</p>
-    
-    <input type="text" id="staff-name" placeholder="Contoh: Budi Santoso" autocomplete="off">
-    <button class="btn-login" onclick="loginStaff()">MASUK PANEL ABSEN</button>
-    <div id="error-msg" class="msg">⚠️ Nama staff tidak terdaftar!</div>
+<div class="absen-card">
+    <h2 style="margin:0;">Finex Face ID</h2>
+    <p id="staff-display" style="color: var(--accent); font-weight: bold; margin-bottom: 20px;">Memuat Sesi...</p>
+
+    <div id="geo-status" class="status-pill area-fail">📍 Cek Lokasi...</div>
+
+    <div id="video-container">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <div id="instruction">Menyiapkan Kamera...</div>
+
+    <button id="btn-action" class="btn-scan" onclick="prosesAbsen()" disabled>KONFIRMASI WAJAH</button>
+    <br>
+    <small onclick="sessionStorage.clear(); location.href='login-staff.html'" style="color: #999; cursor: pointer; display: block; margin-top: 15px;">Bukan Anda? Ganti Akun</small>
 </div>
 
 <script>
-    async function loginStaff() {
-        const nameInput = document.getElementById('staff-name').value.trim();
-        const errorMsg = document.getElementById('error-msg');
-        
-        if (!nameInput) return alert("Masukkan nama Anda!");
+    // 1. CEK SESI STAFF (Bukan Sesi Admin)
+    const currentStaff = sessionStorage.getItem('STAFF_LOGIN');
+    if (!currentStaff) {
+        window.location.replace('login-staff.html');
+    } else {
+        document.getElementById('staff-display').innerText = "HALO, " + currentStaff.toUpperCase();
+    }
 
+    let labeledDescriptors = [];
+    let configToko = { latitude: -8.65, longitude: 115.21, radius_meter: 100 }; // Default
+    let userLoc = { lat: 0, lon: 0 };
+    let isGeoValid = false;
+    let detectionResult = null;
+    let isProcessing = false;
+
+    async function init() {
         try {
-            // Cek apakah nama ada di tabel employee_staff
-            const { data, error } = await db.from('employee_staff')
-                .select('nama_staff')
-                .eq('nama_staff', nameInput)
-                .maybeSingle();
+            const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
 
-            if (data) {
-                // Simpan identitas sementara di session agar halaman absen tahu siapa yang login
-                sessionStorage.setItem('STAFF_LOGIN', data.nama_staff);
-                window.location.href = 'absen.html';
-            } else {
-                errorMsg.style.display = 'block';
+            // Ambil data wajah staff ini saja dari DB agar ringan
+            const { data } = await db.from('employee_staff').select('face_descriptor').eq('nama_staff', currentStaff).single();
+            if (data && data.face_descriptor) {
+                const desc = new Float32Array(Object.values(JSON.parse(data.face_descriptor)));
+                labeledDescriptors = [new faceapi.LabeledFaceDescriptors(currentStaff, [desc])];
             }
-        } catch (e) {
-            alert("Koneksi gagal: " + e.message);
+
+            // Ambil Lokasi Toko
+            const { data: loc } = await db.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
+            if(loc) configToko = { latitude: loc.latitude, longitude: loc.longitude, radius_meter: loc.radius_meter };
+
+            startCamera();
+            startGeo();
+        } catch (e) { alert("Error: " + e.message); }
+    }
+
+    async function startCamera() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('overlay');
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+            faceapi.matchDimensions(canvas, { width: video.offsetWidth, height: video.offsetHeight });
+            setInterval(async () => {
+                if (isProcessing) return;
+                const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                if (detection) {
+                    detectionResult = detection;
+                    document.getElementById('btn-action').disabled = !isGeoValid;
+                    document.getElementById('instruction').innerText = isGeoValid ? "Wajah Ditemukan. Silakan Klik Tombol." : "Wajah Oke, tapi lokasi belum masuk radius.";
+                }
+            }, 500);
+        };
+    }
+
+    function startGeo() {
+        navigator.geolocation.watchPosition(p => {
+            userLoc.lat = p.coords.latitude;
+            userLoc.lon = p.coords.longitude;
+            const dLat = (configToko.latitude - userLoc.lat) * Math.PI/180;
+            const dLon = (configToko.longitude - userLoc.lon) * Math.PI/180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(userLoc.lat*Math.PI/180)*Math.cos(configToko.latitude*Math.PI/180)*Math.sin(dLon/2)**2;
+            const dist = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            isGeoValid = dist <= configToko.radius_meter;
+            const badge = document.getElementById('geo-status');
+            badge.className = isGeoValid ? "status-pill area-ok" : "status-pill area-fail";
+            badge.innerText = isGeoValid ? `✅ Di Lokasi (${Math.round(dist)}m)` : `❌ Diluar Area (${Math.round(dist)}m)`;
+        }, null, { enableHighAccuracy: true });
+    }
+
+    async function prosesAbsen() {
+        isProcessing = true;
+        document.getElementById('instruction').innerText = "Memverifikasi...";
+        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+        const match = faceMatcher.findBestMatch(detectionResult.descriptor);
+
+        if (match.label !== 'unknown') {
+            document.getElementById('instruction').className = "success-bg";
+            document.getElementById('instruction').innerText = "VERIFIKASI BERHASIL!";
+            
+            const tgl = new Date().toLocaleDateString('en-CA');
+            const jam = new Date().toISOString();
+            
+            const { data: cek } = await db.from('presensi').select('*').eq('nama_staff', currentStaff).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
+
+            if (cek) {
+                await db.from('presensi').update({ waktu_pulang: jam, status: 'Selesai', lokasi_pulang: `${userLoc.lat},${userLoc.lon}` }).eq('id', cek.id);
+                alert("Absen PULANG Berhasil!");
+            } else {
+                await db.from('presensi').insert([{ nama_staff: currentStaff, tanggal: tgl, waktu_masuk: jam, lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' }]);
+                alert("Absen MASUK Berhasil!");
+            }
+            sessionStorage.clear(); // Otomatis logout setelah absen
+            window.location.replace('login-staff.html');
+        } else {
+            alert("Wajah tidak cocok dengan akun login!");
+            isProcessing = false;
         }
     }
+
+    window.onload = init;
 </script>
 </body>
 </html>
