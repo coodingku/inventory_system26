@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Purchase Order BeautyBloom</title>
-    <link rel="icon" href="data:,">
+    <title>Finex Pos | Purchase Order</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
@@ -40,7 +42,7 @@
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html" class="active">📥 Pembelian (PO)</a>
@@ -50,11 +52,11 @@
 </nav>
 
 <main>
-    <h1>Purchase Order (BeautyBloom)</h1>
+    <h1>Purchase Order (Masuk Stok)</h1>
     <div class="card">
         <div style="margin-bottom: 20px;">
             <label>Nama Supplier / Vendor</label><br>
-            <input type="text" id="po-supplier" placeholder="Contoh: CV. Sembako Makmur" style="width: 400px; margin-top:5px;">
+            <input type="text" id="po-supplier" placeholder="Contoh: CV. Sumber Makmur" style="width: 400px; margin-top:5px;">
         </div>
 
         <div class="form-po">
@@ -102,17 +104,14 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let allProduk = [];
     let daftarPO = [];
     const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
-        if (!session) return window.location.replace('login.html');
-        const { data, error } = await supabaseClient.from('produk').select('id, nama_barang').order('nama_barang');
+        // Load produk dari database pelanggan
+        const { data, error } = await db.from('produk').select('id, nama_barang').order('nama_barang');
         if (error) console.error("Gagal muat produk:", error);
         allProduk = data || [];
         renderSelect(allProduk);
@@ -164,12 +163,12 @@
             return `<tr>
                 <td><b>${item.nama}</b></td>
                 <td>${item.qty}</td>
-                <td>Rp ${item.harga.toLocaleString()}</td>
-                <td>Rp ${item.subtotal.toLocaleString()}</td>
+                <td>Rp ${item.harga.toLocaleString('id-ID')}</td>
+                <td>Rp ${item.subtotal.toLocaleString('id-ID')}</td>
                 <td style="text-align:center"><button onclick="hapusItem(${index})" style="cursor:pointer; border:none; background:none;">❌</button></td>
             </tr>`;
         }).join('');
-        document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
+        document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString('id-ID')}`;
     }
 
     function hapusItem(index) {
@@ -181,7 +180,7 @@
         if (daftarPO.length === 0) return alert("Daftar belanja masih kosong!");
         const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
         
-        if (!confirm(`Simpan transaksi dan update stok BeautyBloom?`)) return;
+        if (!confirm(`Simpan transaksi PO dan update stok?`)) return;
 
         const btn = document.getElementById('btn-simpan');
         btn.disabled = true;
@@ -196,7 +195,8 @@
             const listPembelian = [];
 
             for (const item of daftarPO) {
-                const { data: p, error: errFetch } = await supabaseClient
+                // 1. Ambil stok terakhir dari DB pelanggan
+                const { data: p, error: errFetch } = await db
                     .from('produk')
                     .select('stok_sekarang')
                     .eq('id', item.id)
@@ -207,7 +207,8 @@
                 const stokLama = parseInt(p.stok_sekarang || 0);
                 const stokBaru = stokLama + item.qty;
 
-                const { error: errUpdate } = await supabaseClient
+                // 2. Update stok & harga beli terbaru
+                const { error: errUpdate } = await db
                     .from('produk')
                     .update({ stok_sekarang: stokBaru, harga_beli: item.harga })
                     .eq('id', item.id);
@@ -233,19 +234,22 @@
                 });
             }
 
-            const { error: errBeli } = await supabaseClient.from('pembelian').insert(listPembelian);
+            // Simpan detail pembelian
+            const { error: errBeli } = await db.from('pembelian').insert(listPembelian);
             if (errBeli) throw errBeli;
 
-            const { error: errStok } = await supabaseClient.from('riwayat_stok').insert(listRiwayatStok);
+            // Simpan riwayat mutasi stok
+            const { error: errStok } = await db.from('riwayat_stok').insert(listRiwayatStok);
             if (errStok) throw errStok;
 
-            const { error: errJurnal } = await supabaseClient.from('jurnal_umum').insert([
+            // Catat Jurnal Akuntansi (D: Persediaan, K: Kas)
+            const { error: errJurnal } = await db.from('jurnal_umum').insert([
                 { tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Stok Masuk: ${supplier}`, debit: totalPO, kredit: 0 },
                 { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Kas Keluar: ${noBukti}`, debit: 0, kredit: totalPO }
             ]);
             if (errJurnal) throw errJurnal;
 
-            alert("✅ Berhasil! Stok BeautyBloom terupdate & Jurnal tercatat.");
+            alert("✅ Berhasil! Transaksi tersimpan dan stok diperbarui.");
             location.reload();
 
         } catch (e) {
