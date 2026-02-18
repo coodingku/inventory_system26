@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Manajemen Gudang</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar Navigasi Standar */
+        /* Sidebar Navigasi */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; font-size: 14px; }
@@ -41,7 +44,7 @@
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
+        <h2 id="store-name-display">Finex Pos</h2>
         <a href="index.html">📊 Dashboard</a>
         
         <div class="nav-section">Master Data</div>
@@ -66,10 +69,10 @@
     </nav>
 
     <main>
-        <h1>Manajemen Gudang / Lokasi Kantin</h1>
+        <h1>Manajemen Gudang / Lokasi</h1>
         <div class="card">
             <div class="form-group">
-                <input type="text" id="nama-gudang" placeholder="Nama Gudang/Lokasi (Contoh: Gudang Utama, Etalase Depan)">
+                <input type="text" id="nama-gudang" placeholder="Nama Gudang/Lokasi (Contoh: Gudang Utama, Etalase)">
                 <button class="btn-save" onclick="tambahGudang()">➕ Tambah</button>
             </div>
             <table>
@@ -87,29 +90,23 @@
     </main>
 
     <script>
-        // --- 1. KONFIGURASI ---
-        const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-
-        // --- 2. PROTEKSI SESI ---
+        // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
         const session = JSON.parse(localStorage.getItem('finex_session'));
         const userRole = localStorage.getItem('user_role');
 
-        if (!session) {
-            window.location.replace("login.html");
-        } else if (userRole === 'kasir') {
+        // Proteksi Tambahan
+        if (userRole === 'kasir') {
             window.location.replace("pos.html");
         }
 
         window.onload = () => {
-            if (session) document.getElementById('display-user-nav').innerText = session.username;
+            // Nama user dan nama toko otomatis terupdate via supabase-init.js
             muatGudang();
         };
 
-        // --- 3. FUNGSI CRUD ---
+        // --- FUNGSI CRUD MENGGUNAKAN 'db' ---
         async function muatGudang() {
-            const { data, error } = await supabaseClient
+            const { data, error } = await db
                 .from('gudang')
                 .select('*')
                 .order('nama_gudang', { ascending: true });
@@ -137,7 +134,7 @@
             const nama = input.value.trim();
             if(!nama) return alert("Nama gudang wajib diisi!");
 
-            const { error } = await supabaseClient
+            const { error } = await db
                 .from('gudang')
                 .insert([{ nama_gudang: nama }]);
 
@@ -151,7 +148,7 @@
 
         async function hapusGudang(id, nama) {
             if(confirm(`Hapus gudang "${nama}"? Stok barang di lokasi ini mungkin tidak akan terbaca.`)) {
-                const { error } = await supabaseClient
+                const { error } = await db
                     .from('gudang')
                     .delete()
                     .eq('id', id);
@@ -166,7 +163,8 @@
 
         function logout() {
             if(confirm("Keluar dari sistem?")) {
-                localStorage.clear();
+                sessionStorage.clear(); // Hapus kunci database
+                localStorage.clear();   // Hapus session user
                 window.location.replace("login.html");
             }
         }
