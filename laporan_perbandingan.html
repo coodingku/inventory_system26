@@ -6,17 +6,20 @@
     <title>Analisis Perbandingan | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-sizing: border-box; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; transition: 0.3s; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; }
+        main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; width: calc(100% - 240px); }
         .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         
         .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; gap: 20px; align-items: center; margin-bottom: 25px; }
@@ -39,41 +42,47 @@
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
         .row-highlight { background: #f0f7ff; font-weight: bold; }
 
-        @media print { nav { display: none; } main { margin-left: 0; } .filter-card { display: none; } }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
+
+        @media print { nav, .filter-card, .user-info { display: none !important; } main { margin-left: 0; } }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Kasir Kantin</a>
+    <a href="pos.html">🛒 Kasir</a>
     <a href="laporan_perbandingan.html" class="active">📈 Bandingkan Bulan</a>
     <a href="laba_rugi.html">💰 Laba Rugi</a>
-    <a href="laporan_pajak_tahunan.html">🧾 Pajak Tahunan</a>
     <a href="audit_rekonsiliasi.html">🔍 Audit Jurnal</a>
+
+    <div class="user-info" style="margin-top: 20px;">
+        <small>ADMIN:</small> <b id="display-user-nav">...</b>
+    </div>
+    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; display: block; text-decoration: none;">🚪 Keluar</a>
 </nav>
 
 <main>
     <div class="header-section">
-        <h1 style="margin:0;">Laporan Perbandingan Performa</h1>
+        <h1>Laporan Perbandingan Performa</h1>
         <button onclick="window.print()" style="padding:10px 15px; border-radius:8px; border:1px solid #ddd; cursor:pointer; background:white;">🖨️ Cetak</button>
     </div>
 
     <div class="filter-card">
         <div class="filter-group">
-            <label style="font-size: 11px; font-weight: bold; color: #888;">PILIH BULAN:</label>
+            <label>PILIH BULAN:</label>
             <select id="selectMonth" onchange="loadComparison()"></select>
         </div>
         <div class="filter-group">
-            <label style="font-size: 11px; font-weight: bold; color: #888;">TAHUN:</label>
+            <label>TAHUN:</label>
             <select id="selectYear" onchange="loadComparison()">
                 <option value="2026" selected>2026</option>
                 <option value="2027">2027</option>
             </select>
         </div>
         <div style="flex:1; text-align: right; font-size: 12px; color: #666; font-style: italic;">
-            Perbandingan otomatis dengan satu bulan sebelumnya.
+            Data dibandingkan secara otomatis dengan satu bulan sebelumnya.
         </div>
     </div>
 
@@ -112,10 +121,7 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     let myChart = null;
 
@@ -141,73 +147,79 @@
         const prevM = currM === 0 ? 11 : currM - 1;
         const prevYear = currM === 0 ? year - 1 : year;
 
-        // --- DINAMIS UNTUK FEBRUARI & BULAN LAIN ---
+        // Penentuan rentang tanggal dinamis
         const startDate = `${prevYear}-${(prevM + 1).toString().padStart(2, '0')}-01T00:00:00`;
         const lastDayCurr = new Date(year, currM + 1, 0).getDate();
         const endDate = `${year}-${(currM + 1).toString().padStart(2, '0')}-${lastDayCurr}T23:59:59`;
 
-        const { data: jurnal, error } = await FinexDB.from('jurnal_umum')
-            .select('*')
-            .gte('tanggal', startDate)
-            .lte('tanggal', endDate);
+        try {
+            // Menggunakan 'db' pelanggan aktif
+            const { data: jurnal, error } = await db.from('jurnal_umum')
+                .select('*')
+                .gte('tanggal', startDate)
+                .lte('tanggal', endDate);
 
-        if (error) return alert("Gagal ambil data: " + error.message);
+            if (error) throw error;
 
-        let stats = {
-            prev: { sales: 0, expense: 0 },
-            curr: { sales: 0, expense: 0 }
-        };
+            let stats = {
+                prev: { sales: 0, expense: 0 },
+                curr: { sales: 0, expense: 0 }
+            };
 
-        jurnal.forEach(j => {
-            const d = new Date(j.tanggal);
-            const m = d.getMonth();
-            const y = d.getFullYear();
+            jurnal.forEach(j => {
+                const d = new Date(j.tanggal);
+                const m = d.getMonth();
+                const y = d.getFullYear();
 
-            if (m === currM && y === year) {
-                if (j.kode_akun.startsWith('4')) stats.curr.sales += parseFloat(j.kredit || 0);
-                if (j.kode_akun.startsWith('5') || j.kode_akun.startsWith('6')) stats.curr.expense += parseFloat(j.debit || 0);
-            } else if (m === prevM && y === prevYear) {
-                if (j.kode_akun.startsWith('4')) stats.prev.sales += parseFloat(j.kredit || 0);
-                if (j.kode_akun.startsWith('5') || j.kode_akun.startsWith('6')) stats.prev.expense += parseFloat(j.debit || 0);
-            }
-        });
+                if (m === currM && y === year) {
+                    if (j.kode_akun.startsWith('4')) stats.curr.sales += parseFloat(j.kredit || 0);
+                    if (j.kode_akun.startsWith('5') || j.kode_akun.startsWith('6')) stats.curr.expense += parseFloat(j.debit || 0);
+                } else if (m === prevM && y === prevYear) {
+                    if (j.kode_akun.startsWith('4')) stats.prev.sales += parseFloat(j.kredit || 0);
+                    if (j.kode_akun.startsWith('5') || j.kode_akun.startsWith('6')) stats.prev.expense += parseFloat(j.debit || 0);
+                }
+            });
 
-        const pProfit = stats.prev.sales - stats.prev.expense;
-        const cProfit = stats.curr.sales - stats.curr.expense;
+            const pProfit = stats.prev.sales - stats.prev.expense;
+            const cProfit = stats.curr.sales - stats.curr.expense;
 
-        const getGrowth = (oldVal, newVal) => {
-            if (oldVal === 0) return newVal > 0 ? 100 : 0;
-            return ((newVal - oldVal) / oldVal * 100).toFixed(1);
-        };
+            const getGrowth = (oldVal, newVal) => {
+                if (oldVal === 0) return newVal > 0 ? 100 : 0;
+                return ((newVal - oldVal) / oldVal * 100).toFixed(1);
+            };
 
-        const gSales = getGrowth(stats.prev.sales, stats.curr.sales);
-        const gProfit = getGrowth(pProfit, cProfit);
+            const gSales = getGrowth(stats.prev.sales, stats.curr.sales);
+            const gProfit = getGrowth(pProfit, cProfit);
 
-        document.getElementById('label-prev').innerText = bulanNames[prevM] + ' ' + prevYear;
-        document.getElementById('label-curr').innerText = bulanNames[currM] + ' ' + year;
+            document.getElementById('label-prev').innerText = bulanNames[prevM] + ' ' + prevYear;
+            document.getElementById('label-curr').innerText = bulanNames[currM] + ' ' + year;
 
-        document.getElementById('table-body').innerHTML = `
-            <tr>
-                <td>Total Pendapatan (Omzet)</td>
-                <td>Rp ${stats.prev.sales.toLocaleString()}</td>
-                <td>Rp ${stats.curr.sales.toLocaleString()}</td>
-                <td class="${gSales >= 0 ? 'trend-up' : 'trend-down'}">${gSales > 0 ? '+' : ''}${gSales}%</td>
-            </tr>
-            <tr>
-                <td>Total Beban Pengeluaran</td>
-                <td>Rp ${stats.prev.expense.toLocaleString()}</td>
-                <td>Rp ${stats.curr.expense.toLocaleString()}</td>
-                <td>-</td>
-            </tr>
-            <tr class="row-highlight">
-                <td>Laba Bersih (Net Profit)</td>
-                <td>Rp ${pProfit.toLocaleString()}</td>
-                <td>Rp ${cProfit.toLocaleString()}</td>
-                <td class="${gProfit >= 0 ? 'trend-up' : 'trend-down'}">${gProfit > 0 ? '+' : ''}${gProfit}%</td>
-            </tr>
-        `;
+            document.getElementById('table-body').innerHTML = `
+                <tr>
+                    <td>Total Pendapatan (Omzet)</td>
+                    <td>Rp ${stats.prev.sales.toLocaleString('id-ID')}</td>
+                    <td>Rp ${stats.curr.sales.toLocaleString('id-ID')}</td>
+                    <td class="${gSales >= 0 ? 'trend-up' : 'trend-down'}">${gSales > 0 ? '+' : ''}${gSales}%</td>
+                </tr>
+                <tr>
+                    <td>Total Beban Pengeluaran</td>
+                    <td>Rp ${stats.prev.expense.toLocaleString('id-ID')}</td>
+                    <td>Rp ${stats.curr.expense.toLocaleString('id-ID')}</td>
+                    <td>-</td>
+                </tr>
+                <tr class="row-highlight">
+                    <td>Laba Bersih (Net Profit)</td>
+                    <td>Rp ${pProfit.toLocaleString('id-ID')}</td>
+                    <td>Rp ${cProfit.toLocaleString('id-ID')}</td>
+                    <td class="${gProfit >= 0 ? 'trend-up' : 'trend-down'}">${gProfit > 0 ? '+' : ''}${gProfit}%</td>
+                </tr>
+            `;
 
-        renderSummaryAndChart(stats, pProfit, cProfit, prevM, currM);
+            renderSummaryAndChart(stats, pProfit, cProfit, prevM, currM);
+        } catch (e) {
+            console.error(e);
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Gagal memuat data.</td></tr>`;
+        }
     }
 
     function renderSummaryAndChart(stats, pProfit, cProfit, prevM, currM) {
@@ -217,7 +229,7 @@
         
         document.getElementById('summary-content').innerHTML = `
             <div class="stat-box"><span class="stat-label">Performa Laba:</span> <span class="stat-value">${statusProfit}</span></div>
-            <div class="stat-box"><span class="stat-label">Selisih Nominal:</span> <span class="stat-value">Rp ${(cProfit - pProfit).toLocaleString()}</span></div>
+            <div class="stat-box"><span class="stat-label">Selisih Nominal:</span> <span class="stat-value">Rp ${(cProfit - pProfit).toLocaleString('id-ID')}</span></div>
             <div class="stat-box"><span class="stat-label">Efisiensi Biaya:</span> <span class="stat-value">${stats.curr.expense < stats.prev.expense ? 'Lebih Hemat' : 'Meningkat'}</span></div>
         `;
 
@@ -239,6 +251,14 @@
                 plugins: { legend: { position: 'bottom' } }
             }
         });
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
     }
 </script>
 </body>
