@@ -3,24 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Staff | Debug Mode</title>
+    <title>Login Staff | Multi-DB Mode</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; flex-direction: column; }
-        .login-card { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 350px; text-align: center; }
-        #debug-box { margin-top: 20px; font-size: 10px; color: #888; background: #eee; padding: 10px; border-radius: 10px; max-width: 350px; text-align: left; overflow: auto; }
-        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 12px; box-sizing: border-box; font-size: 16px; text-align: center; }
-        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .login-card { background: white; padding: 35px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 350px; text-align: center; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 15px; text-align: center; }
+        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        #debug-box { margin-top: 20px; font-size: 10px; color: #888; background: #eee; padding: 10px; border-radius: 10px; width: 90%; max-width: 350px; text-align: left; }
     </style>
 </head>
 <body>
 
 <div class="login-card">
-    <h2>Finex Staff</h2>
-    <div id="connection-status" style="font-size: 12px; margin-bottom: 10px;">⏳ Mengecek koneksi database...</div>
+    <h2 style="margin-top:0;">Finex Staff</h2>
+    <p style="font-size: 12px; color: #666; margin-bottom: 20px;">Silakan login ke Database Toko Anda</p>
     
-    <input type="text" id="staff-name" placeholder="Ketik Nama Persis Di DB">
+    <input type="text" id="store-id" placeholder="Masukkan ID Toko (Contoh: BEAUTY01)">
+    <input type="text" id="staff-name" placeholder="Nama Lengkap Staff">
+    
     <button id="btn-masuk" class="btn-login" onclick="loginStaff()">MASUK PANEL ABSEN</button>
     <div id="msg" style="color: red; font-size: 12px; margin-top: 10px; display: none;"></div>
 </div>
@@ -28,70 +30,72 @@
 <div id="debug-box">DEBUG LOG:<br></div>
 
 <script>
-    const S_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const clientStaff = window.supabase.createClient(S_URL, S_KEY);
+    // Koneksi ke MASTER (Hanya untuk mencari URL/Key Database Pelanggan)
+    const M_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const M_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const masterDB = window.supabase.createClient(M_URL, M_KEY);
 
     const log = (txt) => { document.getElementById('debug-box').innerHTML += "> " + txt + "<br>"; };
 
-    // Cek apakah database bisa diakses saat halaman dibuka
-    async function testConnection() {
-        log("Mencoba fetch tabel employee_staff...");
-        const { data, error } = await clientStaff.from('employee_staff').select('nama_staff').limit(1);
-        
-        if (error) {
-            log("ERROR: " + error.message);
-            document.getElementById('connection-status').innerHTML = "❌ Database Terkunci (RLS)";
-            document.getElementById('connection-status').style.color = "red";
-        } else {
-            log("KONEKSI BERHASIL. Data ditemukan: " + (data.length > 0 ? 'Ya' : 'Tabel Kosong'));
-            document.getElementById('connection-status').innerHTML = "✅ Database Terhubung";
-            document.getElementById('connection-status').style.color = "green";
-        }
-    }
+    async function loginStaff() {
+        const storeId = document.getElementById('store-id').value.trim();
+        const staffName = document.getElementById('staff-name').value.trim().toLowerCase();
+        const msg = document.getElementById('msg');
+        const btn = document.getElementById('btn-masuk');
 
-   async function loginStaff() {
-    const input = document.getElementById('staff-name');
-    const nameInput = input.value.trim().toLowerCase();
-    const msg = document.getElementById('msg');
-    const btn = document.getElementById('btn-masuk');
-    
-    if (!nameInput) return;
+        if (!storeId || !staffName) return alert("Isi ID Toko dan Nama!");
 
-    btn.disabled = true;
-    log("Menarik 3 data dari database...");
+        btn.disabled = true;
+        log(`Mencari Database Toko: ${storeId}...`);
 
-    try {
-        const { data: allStaff, error } = await clientStaff
-            .from('employee_staff')
-            .select('nama_staff');
+        try {
+            // 1. Cari info database pelanggan di tabel Master (asumsi tabel bernama 'customers')
+            const { data: customer, error: errCust } = await masterDB
+                .from('customers')
+                .select('db_url, db_key, store_name')
+                .eq('store_id', storeId)
+                .single();
 
-        if (error) throw error;
+            if (errCust || !customer) {
+                throw new Error("ID Toko tidak ditemukan di Database Master!");
+            }
 
-        // Tampilkan daftar nama yang ada di DB ke Log agar Anda bisa lihat
-        const daftarNamaDB = allStaff.map(s => s.nama_staff).join(", ");
-        log("Isi DB: [" + daftarNamaDB + "]");
+            log(`Toko Ditemukan: ${customer.store_name}. Mengoneksikan ke DB Pelanggan...`);
 
-        const found = allStaff.find(s => 
-            s.nama_staff.trim().toLowerCase() === nameInput
-        );
+            // 2. Buat client Supabase baru untuk Database Pelanggan tersebut
+            const clientPelanggan = window.supabase.createClient(customer.db_url, customer.db_key);
 
-        if (found) {
-            log("SUKSES: Cocok dengan " + found.nama_staff);
-            sessionStorage.setItem('STAFF_LOGIN', found.nama_staff);
-            window.location.href = 'absen-staff.html';
-        } else {
-            log("GAGAL: '" + nameInput + "' tidak ada di daftar [" + daftarNamaDB + "]");
-            msg.innerHTML = `⚠️ Nama tidak cocok!<br>Di database adanya: <b>${daftarNamaDB}</b>`;
-            msg.style.display = 'block';
+            // 3. Cari Staff di Database Pelanggan
+            const { data: allStaff, error: errStaff } = await clientPelanggan
+                .from('employee_staff')
+                .select('nama_staff');
+
+            if (errStaff) throw new Error("Gagal mengambil data staff dari DB Pelanggan.");
+
+            const found = allStaff.find(s => s.nama_staff.trim().toLowerCase() === staffName);
+
+            if (found) {
+                log("SUKSES! Staff Terverifikasi.");
+                // Simpan URL & KEY Pelanggan agar absen-staff.html bisa terhubung ke DB yang benar
+                sessionStorage.setItem('STAFF_LOGIN', found.nama_staff);
+                sessionStorage.setItem('CLIENT_DB_URL', customer.db_url);
+                sessionStorage.setItem('CLIENT_DB_KEY', customer.db_key);
+                sessionStorage.setItem('NAMA_TOKO', customer.store_name);
+                
+                window.location.href = 'absen-staff.html';
+            } else {
+                log(`GAGAL: Nama '${staffName}' tidak ada di Toko ${customer.store_name}.`);
+                msg.innerText = "Nama staff tidak terdaftar di toko ini!";
+                msg.style.display = 'block';
+                btn.disabled = false;
+            }
+
+        } catch (e) {
+            log("ERROR: " + e.message);
+            alert(e.message);
             btn.disabled = false;
         }
-    } catch (e) {
-        log("ERROR: " + e.message);
-        btn.disabled = false;
     }
-}
-    testConnection();
 </script>
 </body>
 </html>
