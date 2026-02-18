@@ -181,34 +181,58 @@
         }).join('');
     }
 
-    function prepareReprint(log) {
-        const store = sessionStorage.getItem('NAMA_TOKO') || "FINE POS";
-        const timeTutup = log.waktu_tutup || log.waktu_closing;
-        
-        const strukHTML = `
-            <div style="width:58mm; padding:2mm; font-family:monospace; font-size:10px; color:black; line-height:1.2;">
-                <div style="text-align:center; margin-bottom:5px;">
-                    <b style="font-size:12px;">${store}</b><br>
-                    LAPORAN CLOSING (COPY)
-                </div>
-                <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                Kasir : ${log.kasir_nama}<br>
-                Buka  : ${new Date(log.waktu_buka).toLocaleString('id-ID')}<br>
-                Tutup : ${timeTutup ? new Date(timeTutup).toLocaleString('id-ID') : '-'}<br>
-                <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                Modal Awal   : Rp ${parseFloat(log.saldo_awal || 0).toLocaleString()}<br>
-                Total Tunai  : Rp ${parseFloat(log.saldo_akhir || 0).toLocaleString()}<br>
-                Selisih      : Rp ${parseFloat(log.selisih || 0).toLocaleString()}<br>
-                <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                <div style="text-align:center; font-size:9px; margin-top:5px;">
-                    Dicetak pada: ${new Date().toLocaleString('id-ID')}
-                </div>
-            </div>
-        `;
-
-        document.getElementById('print-area').innerHTML = strukHTML;
-        setTimeout(() => { window.print(); }, 300);
+      function renderStruk(fisik, selisih) {
+    const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
+    
+    // 1. Render Daftar Item
+    let itemRows = dataCetak.items.map(i => `
+        <div style="display:flex; justify-content:space-between;">
+            <span style="flex:1;">${i.name.substring(0,18)}</span>
+            <span style="width:30px; text-align:right;">x${i.qty}</span>
+            <span style="width:65px; text-align:right;">${i.sub.toLocaleString('id-ID')}</span>
+        </div>
+    `).join('');
+    
+    // 2. Render Rincian Metode Bayar
+    let methodRows = "";
+    for (let m in dataCetak.methods) {
+        methodRows += `
+        <div style="display:flex; justify-content:space-between;">
+            <span>${m}</span><span>${dataCetak.methods[m].toLocaleString('id-ID')}</span>
+        </div>`;
     }
+
+    const printArea = document.getElementById('print-area');
+    printArea.innerHTML = `
+        <div style="width: 100%; height: auto; overflow: hidden;">
+            <center>
+                <b style="font-size:12px;">${store}</b><br>
+                REPRINT CLOSING KASIR<br>
+                <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
+            </center>
+            ----------------------------<br>
+            <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
+            ----------------------------<br>
+            <b>RINGKASAN PENJUALAN:</b><br>
+            Kotor  : ${dataCetak.kotor.toLocaleString('id-ID')}<br>
+            Diskon : -${dataCetak.diskon.toLocaleString('id-ID')}<br>
+            Pajak  : ${dataCetak.pajak.toLocaleString('id-ID')}<br>
+            <b>Net Sales : ${dataCetak.net.toLocaleString('id-ID')}</b><br>
+            ----------------------------<br>
+            <b>RINCIAN METODE:</b><br>${methodRows}
+            ----------------------------<br>
+            Modal Awal   : ${dataCetak.awal.toLocaleString('id-ID')}<br>
+            Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString('id-ID')}<br>
+            <b>SIS. TUNAI  : ${totalSistem.toLocaleString('id-ID')}</b><br>
+            <b>FISIK LACI  : ${fisik.toLocaleString('id-ID')}</b><br>
+            <b>SELISIH     : ${selisih.toLocaleString('id-ID')}</b><br>
+            ----------------------------<br>
+            <center style="font-size:9px; margin-top:10px;">
+                Kasir: ${dataCetak.kasir}<br>
+                ***REPRINT SHIFT CLOSED ***
+            </center>
+            <div style="height: 30px;"></div> </div>`;
+}
 
     function logout() {
         if(confirm("Keluar dari sistem?")) {
