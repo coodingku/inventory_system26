@@ -3,7 +3,7 @@
 <head>
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
-    <title>Finex Pos | Laporan Penjualan</title>
+    <title>Finex Pos | Laporan Penjualan Detail</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="supabase-init.js"></script>
@@ -23,29 +23,18 @@
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
         .table-container { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); }
-        td { padding: 12px; border-bottom: 1px solid #eee; }
-        .row-split { background-color: #fcfcfc; font-style: italic; color: #888; font-size: 12px; }
-        .total-row { background: #f1f2f6; font-weight: bold; font-size: 15px; }
-
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #f8f9fa; padding: 10px; text-align: left; border-bottom: 2px solid #eee; color: var(--primary); text-transform: uppercase; font-size: 10px; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        .row-item { background-color: #ffffff; color: #555; }
+        .row-split { background-color: #fff9fb; font-style: italic; color: #e91e63; }
+        .total-row { background: #f1f2f6; font-weight: bold; font-size: 14px; }
         #print-area { display: none; }
         @media print {
-            @page { margin: 0; size: auto; }
             body * { visibility: hidden !important; }
             #print-area, #print-area * { visibility: visible !important; }
-            #print-area { 
-                display: block !important; 
-                position: absolute; left: 0; top: 0; 
-                width: 58mm; background: white; 
-                font-family: 'Courier New', Courier, monospace; 
-                font-size: 10px; padding: 5px; line-height: 1.2;
-                height: auto !important; 
-                color: black;
-            }
-            #print-area hr { border: none; border-top: 1px dashed black; margin: 5px 0; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 10px; padding: 5px; }
         }
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
@@ -57,30 +46,20 @@
         <a href="produk.html">📦 Produk</a>
         <a href="laporan-penjualan.html" class="active">📑 Laporan Penjualan</a>
     </div>
-    
-    <div class="user-info" style="margin-top: 20px;">
+    <div class="user-info" style="margin-top: 20px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;">
         <small>ADMIN:</small> <b id="display-user-nav">...</b>
     </div>
     <a href="pos.html" style="background: #27ae60; color: white; text-align: center; margin-top: 10px; padding: 10px; border-radius: 8px; text-decoration: none; display: block; font-weight: bold;">🛒 Masuk Kasir</a>
 </nav>
 
 <main>
-    <h1>📑 Laporan Penjualan</h1>
-    
+    <h1>📑 Laporan Penjualan Detail</h1>
     <div class="filter-card">
-        <div class="input-group">
-            <label>Dari Tanggal</label>
-            <input type="date" id="date-from">
-        </div>
-        <div class="input-group">
-            <label>Sampai Tanggal</label>
-            <input type="date" id="date-to">
-        </div>
+        <div class="input-group"><label>Dari Tanggal</label><input type="date" id="date-from"></div>
+        <div class="input-group"><label>Sampai Tanggal</label><input type="date" id="date-to"></div>
         <div class="input-group">
             <label>Metode</label>
-            <select id="filter-method">
-                <option value="all">Semua Metode</option>
-            </select>
+            <select id="filter-method"><option value="all">Semua Metode</option></select>
         </div>
         <button class="btn-filter" onclick="fetchLaporan()">🔍 Tampilkan</button>
         <button class="btn-export" onclick="exportKeExcel()">Excel 📥</button>
@@ -92,9 +71,12 @@
                 <tr>
                     <th>Waktu</th>
                     <th>Invoice</th>
-                    <th>Kotor (Subtotal)</th>
+                    <th>Nama Item</th>
+                    <th>Qty</th>
+                    <th>Harga Satuan</th>
+                    <th>Subtotal</th>
                     <th>Diskon</th>
-                    <th>Pajak (PPN)</th>
+                    <th>Pajak</th>
                     <th>Net Sales</th>
                     <th>Metode</th>
                     <th>Jumlah Bayar</th>
@@ -104,7 +86,7 @@
             <tbody id="report-body"></tbody>
             <tfoot>
                 <tr class="total-row">
-                    <td colspan="5" style="text-align: right;">TOTAL PENDAPATAN:</td>
+                    <td colspan="8" style="text-align: right;">TOTAL PENDAPATAN:</td>
                     <td id="total-sum" colspan="4">Rp 0</td>
                 </tr>
             </tfoot>
@@ -116,6 +98,7 @@
 
 <script>
     let currentLaporan = [];
+    let currentDetails = [];
     const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
@@ -123,7 +106,7 @@
         document.getElementById('date-from').value = today;
         document.getElementById('date-to').value = today;
         document.getElementById('display-user-nav').innerText = session?.username || "Admin";
-        document.getElementById('store-name-display').innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex Pos";
+        document.getElementById('store-name-display').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
         await loadFilterOptions();
         fetchLaporan();
     };
@@ -141,54 +124,67 @@
         const to = document.getElementById('date-to').value + "T23:59:59";
         const method = document.getElementById('filter-method').value;
 
+        // 1. Ambil Penjualan
         let query = db.from('penjualan').select('*').gte('created_at', from).lte('created_at', to).order('created_at', { ascending: false });
         if (method !== 'all') query = query.eq('metode_pembayaran', method);
-
         const { data: sales, error } = await query;
         if (error) return console.error(error);
-        
         currentLaporan = sales || [];
 
-        // Ambil rincian split payment dari jurnal
+        // 2. Ambil Detail Barang
+        const saleIds = currentLaporan.map(s => s.id);
+        const { data: details } = await db.from('penjualan_detail').select('*').in('penjualan_id', saleIds);
+        currentDetails = details || [];
+
+        // 3. Ambil Rincian Split dari Jurnal
         const { data: journals } = await db.from('jurnal_umum').select('no_bukti, keterangan, debit').gt('debit', 0).like('keterangan', 'Terima%');
 
-        renderTable(currentLaporan, journals);
+        renderTable(currentLaporan, currentDetails, journals);
     }
 
-    function renderTable(data, journals) {
+    function renderTable(sales, details, journals) {
         const body = document.getElementById('report-body');
         let totalAll = 0;
         body.innerHTML = '';
         
-        data.forEach(item => {
-            totalAll += parseFloat(item.grand_total || 0);
-            const splits = journals ? journals.filter(j => j.no_bukti === item.no_invoice) : [];
-            const isSplit = splits.length > 1;
+        sales.forEach(sale => {
+            totalAll += parseFloat(sale.grand_total || 0);
+            const saleItems = details.filter(d => d.penjualan_id === sale.id);
+            const splits = journals ? journals.filter(j => j.no_bukti === sale.no_invoice) : [];
 
-            // Baris Utama
-            body.innerHTML += `
-                <tr style="font-weight: bold; background: #f0f7ff;">
-                    <td>${new Date(item.created_at).toLocaleString('id-ID')}</td>
-                    <td><b>${item.no_invoice}</b></td>
-                    <td>${(item.subtotal || 0).toLocaleString('id-ID')}</td>
-                    <td style="color:var(--danger)">-${(item.diskon || 0).toLocaleString('id-ID')}</td>
-                    <td>${(item.pajak || 0).toLocaleString('id-ID')}</td>
-                    <td style="color:var(--success)">${(item.grand_total || 0).toLocaleString('id-ID')}</td>
-                    <td>${item.metode_pembayaran}</td>
-                    <td>${(item.bayar || item.grand_total).toLocaleString('id-ID')}</td>
-                    <td style="text-align: center; display: flex; gap: 5px; justify-content: center;">
-                        <button class="btn-print" onclick="printBill('${item.id}', '${item.no_invoice}')">👁️</button>
-                        <button class="btn-void" onclick="voidBill('${item.id}', '${item.no_invoice}')">🗑️</button>
-                    </td>
-                </tr>`;
+            // Loop per item barang agar muncul di kolom tabel
+            saleItems.forEach((item, index) => {
+                const isFirstRow = index === 0;
+                body.innerHTML += `
+                    <tr class="row-item" style="${isFirstRow ? 'border-top: 2px solid #ddd;' : ''}">
+                        <td>${isFirstRow ? new Date(sale.created_at).toLocaleString('id-ID') : ''}</td>
+                        <td>${isFirstRow ? `<b>${sale.no_invoice}</b>` : ''}</td>
+                        <td>${item.nama_barang}</td>
+                        <td>${item.qty}</td>
+                        <td>${(item.harga_satuan || 0).toLocaleString()}</td>
+                        <td>${isFirstRow ? (sale.subtotal || 0).toLocaleString() : ''}</td>
+                        <td style="color:var(--danger)">${isFirstRow ? `-${(sale.diskon || 0).toLocaleString()}` : ''}</td>
+                        <td>${isFirstRow ? (sale.pajak || 0).toLocaleString() : ''}</td>
+                        <td style="color:var(--success)"><b>${isFirstRow ? (sale.grand_total || 0).toLocaleString() : ''}</b></td>
+                        <td>${isFirstRow ? sale.metode_pembayaran : ''}</td>
+                        <td>${isFirstRow ? (sale.bayar || sale.grand_total).toLocaleString() : ''}</td>
+                        <td style="text-align: center;">
+                            ${isFirstRow ? `
+                                <div style="display:flex; gap:3px; justify-content:center;">
+                                    <button style="background:#95a5a6; color:white;" onclick="printBill('${sale.id}', '${sale.no_invoice}')">👁️</button>
+                                    <button style="background:var(--danger); color:white;" onclick="voidBill('${sale.id}', '${sale.no_invoice}')">🗑️</button>
+                                </div>` : ''}
+                        </td>
+                    </tr>`;
+            });
 
-            // Baris Rincian Split
-            if (isSplit) {
+            // Tambahkan baris Split Payment jika ada
+            if (splits.length > 1) {
                 splits.forEach(sp => {
                     const mtdName = sp.keterangan.split('-')[0].replace("Terima ", "").trim();
                     body.innerHTML += `
                         <tr class="row-split">
-                            <td colspan="6" style="text-align:right; border:none;">Rincian Split Payment:</td>
+                            <td colspan="9" style="text-align:right;">Rincian Split Payment:</td>
                             <td style="border-left: 2px solid var(--accent);">${mtdName}</td>
                             <td>${parseFloat(sp.debit).toLocaleString('id-ID')}</td>
                             <td></td>
@@ -200,58 +196,43 @@
     }
 
     async function voidBill(id, invoiceNo) {
-        if (!confirm(`VOID Transaksi ${invoiceNo}?\nSemua rincian pembayaran & stok akan dihapus/dikembalikan.`)) return;
+        if (!confirm(`VOID Transaksi ${invoiceNo}?\nSemua rincian barang & stok akan dikembalikan.`)) return;
         try {
-            const { data: details } = await db.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', id);
-            if (details) {
-                for (const item of details) {
-                    const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.produk_id).single();
-                    if (p) await db.from('produk').update({ stok_sekarang: (p.stok_sekarang || 0) + item.qty }).eq('id', item.produk_id);
-                }
+            const details = currentDetails.filter(d => d.penjualan_id === id);
+            for (const item of details) {
+                const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.produk_id).single();
+                if (p) await db.from('produk').update({ stok_sekarang: (p.stok_sekarang || 0) + item.qty }).eq('id', item.produk_id);
             }
-            // Hapus Jurnal & Penjualan (Otomatis menghapus rincian split)
             await db.from('jurnal_umum').delete().eq('no_bukti', invoiceNo);
             await db.from('penjualan').delete().eq('id', id);
-            alert("Nota berhasil di-VOID.");
+            alert("Berhasil di-VOID.");
             fetchLaporan();
         } catch (err) { alert("Gagal proses Void"); }
     }
 
     async function printBill(id, invoiceNo) {
-        const item = currentLaporan.find(i => i.id === id);
-        const { data: details } = await db.from('penjualan_detail').select('*').eq('penjualan_id', id);
+        const sale = currentLaporan.find(s => s.id === id);
+        const saleItems = currentDetails.filter(d => d.penjualan_id === id);
         const { data: journals } = await db.from('jurnal_umum').select('keterangan, debit').eq('no_bukti', invoiceNo).gt('debit', 0).like('keterangan', 'Terima%');
         
-        let itemRows = details.map(it => `
-            <div style="display:flex; justify-content:space-between;">
-                <span>${it.nama_barang.substring(0,18)} x${it.qty}</span>
-                <span>${(it.subtotal_item).toLocaleString()}</span>
-            </div>`).join('');
-            
-        let payRows = journals.map(j => {
-            const mtd = j.keterangan.split('-')[0].replace("Terima ", "").trim();
-            return `<div style="display:flex; justify-content:space-between;"><span>${mtd}:</span><span>${j.debit.toLocaleString()}</span></div>`;
-        }).join('');
+        let itemRows = saleItems.map(it => `<div>${it.nama_barang} x${it.qty} <span style="float:right">${(it.subtotal_item).toLocaleString()}</span></div>`).join('');
+        let payRows = journals.map(j => `<div>${j.keterangan.split('-')[0]} <span style="float:right">${j.debit.toLocaleString()}</span></div>`).join('');
 
-        // Reprint nota mendukung thermal 58mm
         document.getElementById('print-area').innerHTML = `
             <center><b>${sessionStorage.getItem('NAMA_TOKO')}</b><br>SALINAN NOTA<hr></center>
-            <div style="font-size:10px;">Inv: ${invoiceNo}<br>Tgl: ${new Date(item.created_at).toLocaleString('id-ID')}</div><hr>
+            Inv: ${invoiceNo}<br>${new Date(sale.created_at).toLocaleString()}<hr>
             ${itemRows}<hr>
-            <div style="display:flex; justify-content:space-between;"><span>Kotor:</span><span>${item.subtotal.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between;"><span>Diskon:</span><span>-${item.diskon.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${item.pajak.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>${item.grand_total.toLocaleString()}</span></div><hr>
-            <b>PEMBAYARAN:</b><br>${payRows || item.metode_pembayaran}<br>
-            <div style="display:flex; justify-content:space-between;"><span>Kembali:</span><span>${((item.bayar || item.grand_total) - item.grand_total).toLocaleString()}</span></div>
-            <center style="margin-top:10px;"><hr>Terima Kasih</center><div style="height:20px;"></div>`;
+            Kotor: <span style="float:right">${sale.subtotal.toLocaleString()}</span><br>
+            Pajak: <span style="float:right">${(sale.pajak || 0).toLocaleString()}</span><br>
+            <b>TOTAL: <span style="float:right">${sale.grand_total.toLocaleString()}</span></b><hr>
+            <b>PEMBAYARAN:</b><br>${payRows || sale.metode_pembayaran}<hr>
+            <center>TERIMA KASIH</center><div style="height:30px;"></div>`;
         window.print();
     }
 
     function exportKeExcel() {
-        // Export Excel mendukung rincian baris di tabel
-        const wb = XLSX.utils.table_to_book(document.getElementById('table-laporan-ui'));
-        XLSX.writeFile(wb, `Laporan_Penjualan_${new Date().toISOString().split('T')[0]}.xlsx`);
+        const ws = XLSX.utils.table_to_book(document.getElementById('table-laporan-ui'));
+        XLSX.writeFile(ws, `Laporan_Detail_Finex_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 </script>
 </body>
