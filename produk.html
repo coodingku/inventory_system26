@@ -5,9 +5,6 @@
     <title>Finex Pos | Master Produk Terintegrasi</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <script src="supabase-init.js"></script>
-
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
@@ -57,7 +54,7 @@
 <body>
 
 <nav>
-    <h2 id="display-nama-toko">Finex Pos</h2>
+    <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <hr style="border: 0.5px solid #555; margin: 10px 0;">
     <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
@@ -119,7 +116,7 @@
             </div>
             <div class="form-group">
                 <label>Nama Produk</label>
-                <input type="text" id="prod-nama" placeholder="Contoh: Kopi Susu BeautyBloom" required>
+                <input type="text" id="prod-nama" placeholder="Contoh: Kopi Susu Kantin" required>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group">
@@ -154,7 +151,10 @@
 </div>
 
 <script>
-    // Variabel 'db' disediakan dinamis oleh supabase-init.js
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+
     let masterData = [];
 
     window.onload = async () => {
@@ -162,19 +162,19 @@
     };
 
     async function fetchProduk() {
-        const { data } = await db.from('produk').select('*').order('nama_barang', { ascending: true });
+        const { data } = await FinexDB.from('produk').select('*').order('nama_barang', { ascending: true });
         masterData = data || [];
         renderTable(masterData);
     }
 
     async function loadDropdowns() {
         const [resKat, resGud] = await Promise.all([
-            db.from('kategori').select('nama_kategori'),
-            db.from('gudang').select('nama_gudang')
+            FinexDB.from('kategori').select('nama_kategori'),
+            FinexDB.from('gudang').select('nama_gudang')
         ]);
         
         document.getElementById('prod-kategori').innerHTML = (resKat.data?.length ? resKat.data.map(k => `<option value="${k.nama_kategori}">${k.nama_kategori}</option>`) : '<option value="Umum">Umum</option>');
-        document.getElementById('prod-gudang').innerHTML = (resGud.data?.length ? resGud.data.map(g => `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`) : '<option value="BeautyBloom">BeautyBloom</option>');
+        document.getElementById('prod-gudang').innerHTML = (resGud.data?.length ? resGud.data.map(g => `<option value="${g.nama_gudang}">${g.nama_gudang}</option>`) : '<option value="Kantin">Kantin</option>');
     }
 
     function renderTable(data) {
@@ -183,7 +183,7 @@
             <tr>
                 <td><small>${p.kode_barang || '-'}</small></td>
                 <td><b>${p.nama_barang}</b></td>
-                <td><small>${p.kategori} | ${p.stok_gudang > 0 ? 'Tersedia di Gudang' : 'Toko Utama'}</small></td>
+                <td><small>${p.kategori} | ${p.gudang || 'Utama'}</small></td>
                 <td>Rp ${(p.harga_beli || 0).toLocaleString()}</td>
                 <td style="color:var(--success); font-weight:bold;">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
                 <td><span class="badge-stock ${p.stok_sekarang < 10 ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang}</span></td>
@@ -210,13 +210,13 @@
             kode_barang: document.getElementById('prod-kode').value,
             nama_barang: document.getElementById('prod-nama').value,
             kategori: document.getElementById('prod-kategori').value,
-            stok_gudang: parseInt(document.getElementById('prod-stok').value) || 0, // Menggunakan stok_gudang sesuai schema
+            gudang: document.getElementById('prod-gudang').value,
             harga_beli: parseInt(document.getElementById('prod-beli').value) || 0,
             harga_jual: parseInt(document.getElementById('prod-harga').value) || 0,
             stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0
         };
 
-        const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
+        const res = id ? await FinexDB.from('produk').update(payload).eq('id', id) : await FinexDB.from('produk').insert([payload]);
         if (!res.error) { closeModal(); fetchProduk(); } else { alert(res.error.message); }
     };
 
@@ -226,7 +226,7 @@
         document.getElementById('prod-kode').value = p.kode_barang || '';
         document.getElementById('prod-nama').value = p.nama_barang;
         document.getElementById('prod-kategori').value = p.kategori;
-        document.getElementById('prod-gudang').value = p.stok_gudang;
+        document.getElementById('prod-gudang').value = p.gudang;
         document.getElementById('prod-beli').value = p.harga_beli || 0;
         document.getElementById('prod-harga').value = p.harga_jual;
         document.getElementById('prod-stok').value = p.stok_sekarang;
@@ -236,7 +236,7 @@
 
     async function hapusProduk(id) {
         if (confirm("Hapus produk ini secara permanen?")) {
-            await db.from('produk').delete().eq('id', id);
+            await FinexDB.from('produk').delete().eq('id', id);
             fetchProduk();
         }
     }
@@ -247,7 +247,7 @@
     }
 
     function downloadTemplate() {
-        const template = [{"Kode Barang": "1001", "Nama Produk": "Serum Beauty", "Kategori": "Skincare", "Stok": 20, "Harga Beli": 7000, "Harga Jual": 10000}];
+        const template = [{"Kode Barang": "1001", "Nama Produk": "Nasi Kuning", "Kategori": "Makanan", "Gudang": "Kantin", "Harga Beli": 7000, "Harga Jual": 10000, "Stok": 20}];
         const ws = XLSX.utils.json_to_sheet(template);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Produk");
@@ -286,8 +286,8 @@
                     harga_beli: parseFloat(item["Harga Beli"] || item.harga_beli || 0),
                     harga_jual: parseFloat(item["Harga Jual"] || item.harga_jual || 0),
                     stok_sekarang: parseInt(item.Stok || item.stok_sekarang || 0),
-                    stok_gudang: parseInt(item.Stok || item.stok_gudang || 0),
-                    kategori: item.Kategori || item.kategori || 'Umum'
+                    kategori: item.Kategori || item.kategori || 'Umum',
+                    gudang: item.Gudang || item.gudang || 'Kantin'
                 })).filter(item => item.nama_barang !== "");
 
                 const totalData = cleanedData.length;
@@ -295,7 +295,7 @@
                 
                 for (let i = 0; i < totalData; i += batchSize) {
                     const batch = cleanedData.slice(i, i + batchSize);
-                    const { error } = await db.from('produk').upsert(batch, { onConflict: 'nama_barang' });
+                    const { error } = await FinexDB.from('produk').upsert(batch, { onConflict: 'nama_barang' });
                     if (error) throw error;
 
                     const percentage = Math.round((Math.min(i + batchSize, totalData) / totalData) * 100);
