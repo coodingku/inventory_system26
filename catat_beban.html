@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Catat Pengeluaran BeautyBloom</title>
+    <title>Finex Pos | Catat Pengeluaran</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
         main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
         .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
@@ -20,8 +22,9 @@
         .sub-title { text-align: center; color: #888; font-size: 13px; margin-bottom: 25px; }
         
         label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
-        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; }
+        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; }
         .btn-save { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
         .info-shift { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; }
 
         #print-area { display: none; }
@@ -30,23 +33,28 @@
             #print-area, #print-area * { visibility: visible !important; }
             #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; padding: 5px; font-family: monospace; }
         }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos <span>BEAUTYBLOOM</span></h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="pos.html">🛒 Kasir POS</a>
     <a href="laporan-pengeluaran.html">📑 Laporan Pengeluaran</a>
     <a href="pengeluaran.html" class="active">💸 Catat Pengeluaran</a>
-    <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
+    
+    <div class="user-info">
+        <small>KASIR:</small> <b id="display-user-nav">...</b>
+    </div>
+    <div style="background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="logout()">🚪 Keluar</div>
 </nav>
 
 <main>
     <div class="card">
-        <h2>BeautyBloom</h2>
-        <div class="sub-title">Input Pengeluaran Terintegrasi Akun</div>
+        <h2 id="title-store">BeautyBloom</h2>
+        <div class="sub-title">Input Pengeluaran Operasional</div>
         <div id="shift-status" class="info-shift">Mengecek status shift...</div>
         
         <label>Tanggal:</label>
@@ -58,7 +66,7 @@
         </select>
 
         <label>Keterangan:</label>
-        <input type="text" id="exp-ket" placeholder="Contoh: Pembelian Tissue">
+        <input type="text" id="exp-ket" placeholder="Contoh: Pembelian Sabun Cuci">
 
         <label>Jumlah (Rp):</label>
         <input type="number" id="exp-jumlah" placeholder="0">
@@ -70,27 +78,23 @@
 <div id="print-area"></div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     const session = JSON.parse(localStorage.getItem('finex_session'));
     let activeShiftId = null;
 
     window.onload = async () => {
-        if (!session) return window.location.replace('login.html');
         document.getElementById('exp-tanggal').value = new Date().toISOString().split('T')[0];
+        document.getElementById('title-store').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
         
         await fetchAkunBeban();
         await checkActiveShift();
     };
 
-    // 1. FUNGSI AMBIL DAFTAR AKUN BEBAN DARI DATABASE
     async function fetchAkunBeban() {
         const selectEl = document.getElementById('exp-kategori');
         try {
-            // Kita ambil akun yang biasanya merupakan beban (kepala 5 atau 6)
-            const { data, error } = await FinexDB
+            // Ambil akun beban (kepala 5 atau 6) dari DB pelanggan
+            const { data, error } = await db
                 .from('akun')
                 .select('kode_akun, nama_akun')
                 .or('kode_akun.ilike.5%,kode_akun.ilike.6%')
@@ -98,24 +102,24 @@
 
             if (error) throw error;
 
-            selectEl.innerHTML = '<option value="">-- Pilih Akun --</option>';
+            selectEl.innerHTML = '<option value="">-- Pilih Akun Beban --</option>';
             data.forEach(item => {
                 selectEl.innerHTML += `<option value="${item.kode_akun}">${item.kode_akun} - ${item.nama_akun}</option>`;
             });
         } catch (e) {
             selectEl.innerHTML = '<option value="">Gagal memuat akun</option>';
-            console.error("Fetch Akun Error:", e.message);
         }
     }
 
     async function checkActiveShift() {
-        const { data: shift } = await FinexDB.from('kasir_log').select('id, status').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
+        // Cek shift kasir yang masih 'Open' di DB pelanggan
+        const { data: shift } = await db.from('kasir_log').select('id, status').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
         if (shift) {
             activeShiftId = shift.id;
-            document.getElementById('shift-status').innerHTML = "✅ Kasir: " + session.username;
+            document.getElementById('shift-status').innerHTML = "✅ Sesi Aktif: " + session.username;
             document.getElementById('btn-submit').disabled = false;
         } else {
-            document.getElementById('shift-status').innerHTML = "⚠️ Shift Belum Dibuka!";
+            document.getElementById('shift-status').innerHTML = "⚠️ Shift Belum Dibuka! Buka di Menu Kasir.";
         }
     }
 
@@ -125,45 +129,43 @@
         const ket = document.getElementById('exp-ket').value;
         const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
         
-        // Ambil nama akun dari teks pilihan dropdown
         const selectObj = document.getElementById('exp-kategori');
         const namaAkun = selectObj.options[selectObj.selectedIndex].text.split(' - ')[1];
 
         if(!kodeAkun || !jumlah || !tgl) return alert("Lengkapi semua data!");
 
         const noBukti = 'OUT-' + Date.now();
-        const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}.000Z`;
+        const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
 
         try {
-            // A. SIMPAN KE TABEL PENGELUARAN (Untuk Laporan)
-            const { error: err1 } = await FinexDB.from('pengeluaran').insert([{ 
+            // 1. Simpan ke tabel pengeluaran pelanggan
+            const { error: err1 } = await db.from('pengeluaran').insert([{ 
                 tanggal: tglFix, kategori: namaAkun, keterangan: ket, jumlah: jumlah, kasir_id: activeShiftId 
             }]);
             if (err1) throw err1;
 
-            // B. SIMPAN KE TABEL JURNAL_UMUM (Integrasi Akuntansi)
-            // Pastikan kode_akun '1101' (KAS) memang ada di tabel akun Anda
+            // 2. Simpan ke Jurnal Umum (D: Beban, K: Kas 1101)
             const dataJurnal = [
                 { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeAkun, keterangan: ket, debit: jumlah, kredit: 0 },
                 { tanggal: tglFix, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: jumlah }
             ];
-            const { error: err2 } = await FinexDB.from('jurnal_umum').insert(dataJurnal);
+            const { error: err2 } = await db.from('jurnal_umum').insert(dataJurnal);
             if (err2) throw err2;
 
             siapkanNota(noBukti, tgl, namaAkun, ket, jumlah);
-            alert("✅ Berhasil Disimpan & Terintegrasi ke Jurnal!");
+            alert("✅ Berhasil! Pengeluaran tercatat di sistem akuntansi.");
             window.print();
             location.reload();
 
         } catch (e) {
-            alert("Gagal: " + e.message + "\n\nTips: Pastikan kode akun 1101 (Kas) sudah terdaftar di Master Akun.");
+            alert("Gagal: " + e.message);
         }
     }
 
     function siapkanNota(bukti, tgl, kat, ket, total) {
         document.getElementById('print-area').innerHTML = `
             <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:5px;">
-                <b style="font-size:14px;">BEAUTYBLOOM</b><br>BUKTI PENGELUARAN KAS
+                <b style="font-size:14px;">${sessionStorage.getItem('NAMA_TOKO')}</b><br>BUKTI PENGELUARAN
             </div>
             <div style="font-size:12px; margin-top:10px;">
                 No: ${bukti}<br>
@@ -184,7 +186,13 @@
         `;
     }
 
-    function logout() { localStorage.clear(); window.location.replace('login.html'); }
+    function logout() { 
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear(); 
+            window.location.replace('login.html'); 
+        }
+    }
 </script>
 </body>
 </html>
