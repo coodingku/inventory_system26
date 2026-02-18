@@ -158,79 +158,94 @@
             loadStats();
         };
 
-        async function loadStats() {
-            const btn = document.getElementById('btn-refresh');
-            btn.innerText = "⏳ Memperbarui...";
-            btn.disabled = true;
+       async function loadStats() {
+    const btn = document.getElementById('btn-refresh');
+    btn.innerText = "⏳ Memperbarui...";
+    btn.disabled = true;
 
-            try {
-                const today = new Date();
-                const dateStr = today.toISOString().split('T')[0];
-                const start = `${dateStr}T00:00:00.000Z`;
-                const end = `${dateStr}T23:59:59.999Z`;
+    try {
+        // 1. SINKRONISASI TANGGAL LOKAL (PENTING)
+        // Gunakan en-CA (YYYY-MM-DD) agar sama dengan format yang dikirim oleh Face ID
+        const sekarang = new Date();
+        const dateStr = sekarang.toLocaleDateString('en-CA'); 
+        
+        // Buat range waktu untuk filter penjualan & pengeluaran
+        const start = `${dateStr}T00:00:00.000Z`;
+        const end = `${dateStr}T23:59:59.999Z`;
 
-                // Query ke database pelanggan yang aktif via 'db'
-                const [resSales, resExp, resStock, resAbsen] = await Promise.all([
-                    db.from('penjualan').select('grand_total').gte('created_at', start).lte('created_at', end),
-                    db.from('pengeluaran').select('jumlah').gte('tanggal', start).lte('tanggal', end),
-                    db.from('produk').select('nama_barang, stok_sekarang').lt('stok_sekarang', 10).order('stok_sekarang', { ascending: true }).limit(5),
-                    db.from('presensi').select('nama_staff, waktu_masuk, status').eq('tanggal', dateStr).order('waktu_masuk', { ascending: false })
-                ]);
+        // 2. QUERY DATABASE
+        const [resSales, resExp, resStock, resAbsen] = await Promise.all([
+            db.from('penjualan').select('grand_total').gte('created_at', start).lte('created_at', end),
+            db.from('pengeluaran').select('jumlah').gte('tanggal', start).lte('tanggal', end),
+            db.from('produk').select('nama_barang, stok_sekarang').lt('stok_sekarang', 10).order('stok_sekarang', { ascending: true }).limit(5),
+            // Mengambil data presensi berdasarkan tanggal lokal hari ini
+            db.from('presensi').select('nama_staff, waktu_masuk, waktu_pulang, status').eq('tanggal', dateStr).order('waktu_masuk', { ascending: false })
+        ]);
 
-                // Kalkulasi Stats
-                const totalSales = (resSales.data || []).reduce((acc, curr) => acc + (curr.grand_total || 0), 0);
-                const totalExp = (resExp.data || []).reduce((acc, curr) => acc + (curr.jumlah || 0), 0);
-                const netProfit = totalSales - totalExp;
+        // 3. KALKULASI STATS PENJUALAN
+        const totalSales = (resSales.data || []).reduce((acc, curr) => acc + (curr.grand_total || 0), 0);
+        const totalExp = (resExp.data || []).reduce((acc, curr) => acc + (curr.jumlah || 0), 0);
+        const netProfit = totalSales - totalExp;
 
-                // Update UI Stats
-                document.getElementById('stat-sales').innerText = "Rp " + totalSales.toLocaleString('id-ID');
-                document.getElementById('stat-expense').innerText = "Rp " + totalExp.toLocaleString('id-ID');
-                document.getElementById('stat-count').innerText = (resSales.data || []).length + " Transaksi";
-                document.getElementById('stat-net-profit').innerText = "Rp " + netProfit.toLocaleString('id-ID');
+        // Update UI Stats Utama
+        document.getElementById('stat-sales').innerText = "Rp " + totalSales.toLocaleString('id-ID');
+        document.getElementById('stat-expense').innerText = "Rp " + totalExp.toLocaleString('id-ID');
+        document.getElementById('stat-count').innerText = (resSales.data || []).length + " Transaksi";
+        document.getElementById('stat-net-profit').innerText = "Rp " + netProfit.toLocaleString('id-ID');
 
-                // Update Profit Bar
-                if (totalSales > 0) {
-                    const margin = Math.max(0, (netProfit / totalSales) * 100);
-                    const pBar = document.getElementById('profit-bar');
-                    pBar.style.width = margin + "%";
-                    pBar.style.background = margin < 15 ? 'var(--danger)' : 'var(--success)';
-                    document.getElementById('txt-laba-persen').innerText = Math.round(margin) + "% Margin Bersih";
-                } else {
-                    document.getElementById('profit-bar').style.width = "0%";
-                    document.getElementById('txt-laba-persen').innerText = "0% Margin Bersih";
-                }
-
-                // Update UI Stok
-                const stockTbody = document.getElementById('low-stock-body');
-                if (resStock.data?.length > 0) {
-                    stockTbody.innerHTML = resStock.data.map(p => `<tr><td>${p.nama_barang}</td><td><span class="badge-low">${p.stok_sekarang}</span></td></tr>`).join('');
-                } else {
-                    stockTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:green; font-weight:bold; padding:10px;">✅ Semua Stok Aman</td></tr>';
-                }
-
-                // Update UI Absensi
-                const absenTbody = document.getElementById('dash-absen-list');
-                if (resAbsen.data?.length > 0) {
-                    absenTbody.innerHTML = resAbsen.data.map(s => {
-                        const isOnline = s.status === 'Aktif';
-                        const jam = new Date(s.waktu_masuk).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
-                        return `<tr>
-                            <td><span class="status-dot ${isOnline ? 'dot-online' : 'dot-offline'}"></span><b>${s.nama_staff}</b></td>
-                            <td style="text-align:right; color:#888;">${isOnline ? 'Masuk ' + jam : 'Selesai'}</td>
-                        </tr>`;
-                    }).join('');
-                } else {
-                    absenTbody.innerHTML = '<tr><td style="text-align:center; color:#999; padding:10px;">Belum ada staff absen hari ini</td></tr>';
-                }
-
-            } catch (error) {
-                console.error("Dashboard Error:", error);
-            } finally {
-                btn.innerText = "🔄 Refresh Data";
-                btn.disabled = false;
-            }
+        // Update Profit Bar
+        if (totalSales > 0) {
+            const margin = Math.max(0, (netProfit / totalSales) * 100);
+            const pBar = document.getElementById('profit-bar');
+            pBar.style.width = margin + "%";
+            pBar.style.background = margin < 15 ? 'var(--danger)' : 'var(--success)';
+            document.getElementById('txt-laba-persen').innerText = Math.round(margin) + "% Margin Bersih";
+        } else {
+            document.getElementById('profit-bar').style.width = "0%";
+            document.getElementById('txt-laba-persen').innerText = "0% Margin Bersih";
         }
 
+        // 4. UPDATE UI STOK
+        const stockTbody = document.getElementById('low-stock-body');
+        if (resStock.data?.length > 0) {
+            stockTbody.innerHTML = resStock.data.map(p => `<tr><td>${p.nama_barang}</td><td><span class="badge-low">${p.stok_sekarang}</span></td></tr>`).join('');
+        } else {
+            stockTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:green; font-weight:bold; padding:10px;">✅ Semua Stok Aman</td></tr>';
+        }
+
+        // 5. UPDATE UI ABSENSI (DIPERBAIKI UNTUK MASUK & PULANG)
+        const absenTbody = document.getElementById('dash-absen-list');
+        if (resAbsen.data && resAbsen.data.length > 0) {
+            absenTbody.innerHTML = resAbsen.data.map(s => {
+                const isOnline = s.status === 'Aktif';
+                const jamMasuk = new Date(s.waktu_masuk).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+                
+                // Cek apakah sudah ada jam pulang
+                let statusText = `Masuk ${jamMasuk}`;
+                if (s.waktu_pulang) {
+                    const jamPulang = new Date(s.waktu_pulang).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+                    statusText = `Selesai (${jamPulang})`;
+                }
+
+                return `<tr>
+                    <td>
+                        <span class="status-dot ${isOnline ? 'dot-online' : 'dot-offline'}"></span>
+                        <b>${s.nama_staff}</b>
+                    </td>
+                    <td style="text-align:right; color:#888; font-size:11px;">${statusText}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            absenTbody.innerHTML = '<tr><td style="text-align:center; color:#999; padding:10px;">Belum ada staff absen hari ini</td></tr>';
+        }
+
+    } catch (error) {
+        console.error("Dashboard Error:", error);
+    } finally {
+        btn.innerText = "🔄 Refresh Data";
+        btn.disabled = false;
+    }
+}
         function logout() {
             if(confirm("Keluar dari sistem?")) {
                 sessionStorage.clear();
