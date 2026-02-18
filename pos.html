@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Kasir BeautyBloom</title>
+    <title>Finex Pos | Kasir</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: auto; background: #c0392b; color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
-
+        
         main { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; }
         .search-bar { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 25px; font-size: 16px; outline: none; box-sizing: border-box; }
         .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
@@ -29,8 +31,7 @@
         .cart-item { margin-bottom: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 10px; }
         .cart-item-top { display: flex; justify-content: space-between; align-items: center; }
         .cart-item-discount { margin-top: 5px; display: flex; align-items: center; gap: 10px; }
-        .cart-item-discount label { font-size: 11px; color: #888; }
-        .cart-item-discount select { font-size: 11px; padding: 2px 5px; border-radius: 4px; border: 1px solid #ddd; outline: none; }
+        .cart-item-discount select { font-size: 11px; padding: 2px 5px; border-radius: 4px; border: 1px solid #ddd; }
 
         .summary-panel { padding: 20px; background: #fdfdfd; border-top: 2px solid #eee; }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #666; font-size: 14px; align-items: center; }
@@ -39,106 +40,94 @@
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 20px; width: 450px; max-height: 90vh; overflow-y: auto; }
         
+        .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+
         .split-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background: #f9f9f9; padding: 10px; border-radius: 10px; }
         .split-item select, .split-item input { padding: 8px; border-radius: 5px; border: 1px solid #ddd; flex: 1; }
-        
-        .btn-pay { background: var(--success); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-add-split { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-bottom: 15px; }
 
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; padding: 2mm; background: white; font-family: 'Courier New', monospace; color: black; line-height: 1.2; }
-            @page { margin: 0; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; padding: 2mm; background: white; font-family: monospace; color: black; }
         }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
+        <h2 id="store-name-display">Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html" class="active">🛒 Masuk Kasir</a>
         <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        <div style="font-size: 10px; color: #666; margin-bottom: 8px; padding-left: 10px;">LAPORAN</div>
         <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
-        <a href="closing.html">🏁 Closing Shift</a>
-        <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
+        <a href="pengeluaran.html">💸 Pengeluaran</a>
+        
+        <div class="user-info">
+            <small>KASIR:</small> <b id="display-user-nav">...</b>
+        </div>
+        <div style="background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;" onclick="logout()">🚪 Keluar</div>
     </nav>
         
     <main>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h1 style="margin:0;">Katalog BeautyBloom</h1>
+            <h1 style="margin:0;">Katalog Produk</h1>
             <div id="clock" style="font-weight:bold; color:var(--accent);"></div>
         </div>
-        <input type="text" id="search" class="search-bar" placeholder="Cari menu..." onkeyup="loadMenu()">
+        <input type="text" id="search" class="search-bar" placeholder="Cari nama produk..." onkeyup="loadMenu()">
         <div id="displayMenu" class="grid-menu"></div>
     </main>
 
     <aside class="sidebar-pos">
-        <div class="cart-header">Pesanan Baru</div>
+        <div class="cart-header">Keranjang Belanja</div>
         <div id="displayCart" class="cart-list"></div>
         <div class="summary-panel">
             <div class="summary-row"><span>Subtotal Gross</span><span id="txt-sub">Rp 0</span></div>
-            <div class="summary-row" style="color: var(--danger);"><span>Potongan Item</span><span id="txt-disc-item">Rp 0</span></div>
             <div class="summary-row">
-                <span>Diskon Global (Bill)</span>
+                <span>Diskon Global</span>
                 <select id="discGlobalSelect" onchange="calculateTotal()" style="padding:4px; border-radius:5px; width: 150px;"></select>
             </div>
-            <div class="summary-row" style="color: var(--danger);"><span>Potongan Global</span><span id="txt-disc-global">Rp 0</span></div>
+            <div class="summary-row" style="color: var(--danger);"><span>Total Potongan</span><span id="txt-disc-total">Rp 0</span></div>
             <div class="summary-row"><span>Pajak (PPN)</span><span id="txt-tax">Rp 0</span></div>
             <div class="summary-row total-row"><span>TOTAL</span><span id="txt-total">Rp 0</span></div>
-            <button class="btn-pay" onclick="openPayment()">PROSES BAYAR</button>
+            <button class="btn-pay" id="btn-open-payment" onclick="openPayment()">PROSES PEMBAYARAN</button>
         </div>
     </aside>
 
-    <!-- Modal Pembayaran -->
     <div id="payModal" class="modal">
         <div class="modal-content">
             <h2 id="label-total-modal" style="color: var(--primary); text-align: center; margin-top: 0;"></h2>
             <div id="splitContainer"></div>
-            <button class="btn-add-split" onclick="addSplitRow()">+ Tambah Metode</button>
             <div style="background: #eee; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-                <div class="summary-row"><span>Input:</span><span id="txt-inputed" style="font-weight:bold;">Rp 0</span></div>
+                <div class="summary-row"><span>Input Bayar:</span><span id="txt-inputed" style="font-weight:bold;">Rp 0</span></div>
                 <div class="summary-row" id="row-change" style="display:none; color:var(--success);"><span>Kembali:</span><span id="txt-change" style="font-weight:bold;">Rp 0</span></div>
                 <div class="summary-row" id="row-rem" style="color:var(--danger);"><span>Sisa Tagihan:</span><span id="txt-remaining" style="font-weight:bold;">Rp 0</span></div>
             </div>
             <button class="btn-pay" id="btnConfirm" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
-            <button onclick="closePayment()" style="background:none; border:none; color:gray; width:100%; margin-top:10px; cursor:pointer;">Batal</button>
-        </div>
-    </div>
-
-    <div id="waModal" class="modal">
-        <div class="modal-content" style="text-align: center;">
-            <h2 style="color: var(--success);">Berhasil!</h2>
-            <p>Transaksi selesai.</p>
-            <input type="number" id="waNumber" placeholder="628xxx" style="font-size: 18px; text-align: center; width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px;">
-            <button class="btn-pay" id="btnSendWA" style="background:#25D366;">KIRIM WHATSAPP</button>
-            <button onclick="location.reload()" style="background:none; border:none; color:gray; margin-top:15px; cursor:pointer;">Selesai</button>
+            <button onclick="closePayment()" style="background:none; border:none; color:gray; width:100%; margin-top:15px; cursor:pointer;">Batal</button>
         </div>
     </div>
 
     <div id="openShiftModal" class="modal">
         <div class="modal-content" style="text-align: center;">
-            <h2 style="color: var(--primary);">Buka Kasir Baru</h2>
-            <input type="number" id="inputSaldoAwal" placeholder="Saldo Awal Rp" style="font-size: 24px; font-weight: bold; text-align: center; width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; margin: 20px 0;">
-            <button class="btn-pay" onclick="executeOpenShift()">BUKA KASIR</button>
+            <h2 style="color: var(--primary);">Buka Kasir</h2>
+            <p>Masukkan Modal Awal Laci Kasir:</p>
+            <input type="number" id="inputSaldoAwal" placeholder="0" style="font-size: 24px; font-weight: bold; text-align: center; width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; margin: 20px 0;">
+            <button class="btn-pay" onclick="executeOpenShift()">BUKA KASIR SEKARANG</button>
         </div>
     </div>
 
     <div id="print-area"></div>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let cart = [];
     let taxRate = 0;
     let paymentMethods = [];
     let availableDiscounts = [];
-    let state = { sub: 0, discItem: 0, discGlobal: 0, tax: 0, total: 0, lastTrxId: null, lastInv: "", payments: [] };
+    let state = { sub: 0, discItem: 0, discGlobal: 0, tax: 0, total: 0, payments: [] };
     let currentLogId = null;
     let isSaving = false;
     const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -148,32 +137,48 @@
         await checkActiveShift();
         await loadSettings();
         await loadMenu();
-        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
-        document.getElementById('btnSendWA').onclick = sendWhatsApp;
+        setInterval(() => { 
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); 
+        }, 1000);
     };
 
     async function checkActiveShift() {
-        const { data } = await FinexDB.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
-        if (data) currentLogId = data.id; else document.getElementById('openShiftModal').style.display = 'flex';
+        const { data } = await db.from('kasir_log').select('*').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
+        if (data) {
+            currentLogId = data.id;
+        } else {
+            document.getElementById('openShiftModal').style.display = 'flex';
+        }
     }
 
     async function executeOpenShift() {
         const saldoAwal = parseFloat(document.getElementById('inputSaldoAwal').value || 0);
-        const { data, error } = await FinexDB.from('kasir_log').insert([{ kasir_nama: session.username, saldo_awal: saldoAwal, status: 'Open', waktu_buka: new Date().toISOString() }]).select().single();
-        if (!error) { currentLogId = data.id; document.getElementById('openShiftModal').style.display = 'none'; }
+        const { data, error } = await db.from('kasir_log').insert([{ 
+            kasir_nama: session.username, 
+            saldo_awal: saldoAwal, 
+            status: 'Open', 
+            waktu_buka: new Date().toISOString() 
+        }]).select().single();
+        if (!error) { 
+            currentLogId = data.id; 
+            document.getElementById('openShiftModal').style.display = 'none'; 
+        }
     }
 
     async function loadSettings() {
-        const { data: pData } = await FinexDB.from('ppn').select('nilai').eq('id', 1).single();
+        // Ambil Pajak (ID 1)
+        const { data: pData } = await db.from('ppn').select('nilai').eq('id', 1).single();
         if (pData) taxRate = parseFloat(pData.nilai) / 100;
 
-        const { data: mtd } = await FinexDB.from('metode_pembayaran').select('*');
+        // Ambil Metode Bayar
+        const { data: mtd } = await db.from('metode_pembayaran').select('*');
         paymentMethods = mtd || [];
         
-        const { data: dsk } = await FinexDB.from('diskon').select('*');
+        // Ambil Promo/Diskon
+        const { data: dsk } = await db.from('diskon').select('*');
         availableDiscounts = dsk || [];
         
-        const opts = '<option value="0">0%</option>' + availableDiscounts.map(d => `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
+        const opts = '<option value="0">Pilih Diskon Global (0%)</option>' + availableDiscounts.map(d => `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
         document.getElementById('discGlobalSelect').innerHTML = opts;
 
         calculateTotal();
@@ -181,58 +186,45 @@
 
     async function loadMenu() {
         const q = document.getElementById('search').value;
-        let query = FinexDB.from('produk').select('*').gt('stok_sekarang', 0);
+        let query = db.from('produk').select('*').gt('stok_sekarang', 0);
         if (q) query = query.ilike('nama_barang', `%${q}%`);
         const { data } = await query.order('nama_barang');
+        
         document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
-                <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
-                <div style="font-weight:bold; height:40px; overflow:hidden;">${p.nama_barang}</div>
-                <div style="color:var(--success); font-weight:bold; margin-top:5px;">Rp ${p.harga_jual.toLocaleString()}</div>
+                <span class="stok-badge">Tersedia: ${p.stok_sekarang}</span>
+                <div style="font-weight:bold; height:40px; overflow:hidden; font-size:13px;">${p.nama_barang}</div>
+                <div style="color:var(--success); font-weight:bold; margin-top:5px;">Rp ${p.harga_jual.toLocaleString('id-ID')}</div>
             </div>`).join('');
     }
 
     function addCart(id, nama, harga, stokMaks) {
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) { 
-            if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok habis!"); 
-        } else { cart.push({ id, nama_barang: nama, harga, qty: 1, discountItem: 0 }); }
-        calculateTotal();
-    }
-
-    function updateItemDiscount(index, percent) {
-        cart[index].discountItem = parseFloat(percent);
+            if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok toko tidak mencukupi!"); 
+        } else { 
+            cart.push({ id, nama_barang: nama, harga, qty: 1, discountItem: 0 }); 
+        }
         calculateTotal();
     }
 
     function calculateTotal() {
         let totalSub = 0;
         let totalDiscItem = 0;
-        
         const discGlobalPerc = parseFloat(document.getElementById('discGlobalSelect').value || 0);
 
-        // Map UI Cart
         document.getElementById('displayCart').innerHTML = cart.map((item, i) => {
             const subItem = item.qty * item.harga;
             const potItem = (subItem * item.discountItem) / 100;
             totalSub += subItem;
             totalDiscItem += potItem;
 
-            const discOptions = '<option value="0">0%</option>' + availableDiscounts.map(d => 
-                `<option value="${d.persen}" ${item.discountItem == d.persen ? 'selected' : ''}>${d.persen}%</option>`
-            ).join('');
-
             return `
             <div class="cart-item">
                 <div class="cart-item-top">
                     <div><b>${item.nama_barang}</b><br><small>${item.qty} x ${item.harga.toLocaleString()}</small></div>
-                    <div><b>Rp ${subItem.toLocaleString()}</b> 
+                    <div><b>Rp ${(subItem - potItem).toLocaleString()}</b> 
                     <span onclick="cart.splice(${i},1);calculateTotal();" style="color:red; cursor:pointer; margin-left:10px; font-weight:bold;">&times;</span></div>
-                </div>
-                <div class="cart-item-discount">
-                    <label>Diskon Khusus:</label>
-                    <select onchange="updateItemDiscount(${i}, this.value)">${discOptions}</select>
-                    ${potItem > 0 ? `<span style="color:red; font-size:11px;">- Rp ${potItem.toLocaleString()}</span>` : ''}
                 </div>
             </div>`;
         }).join('');
@@ -240,7 +232,6 @@
         state.sub = totalSub;
         state.discItem = totalDiscItem;
         
-        // Sisa DPP setelah diskon item
         const dpp1 = state.sub - state.discItem;
         state.discGlobal = (dpp1 * discGlobalPerc) / 100;
         
@@ -248,21 +239,17 @@
         state.tax = dppFinal * taxRate;
         state.total = Math.round(dppFinal + state.tax);
 
-        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString();
-        document.getElementById('txt-disc-item').innerText = "- Rp " + Math.round(state.discItem).toLocaleString();
-        document.getElementById('txt-disc-global').innerText = "- Rp " + Math.round(state.discGlobal).toLocaleString();
-        document.getElementById('txt-tax').innerText = "Rp " + Math.round(state.tax).toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
+        document.getElementById('txt-sub').innerText = "Rp " + state.sub.toLocaleString('id-ID');
+        document.getElementById('txt-disc-total').innerText = "- Rp " + Math.round(state.discItem + state.discGlobal).toLocaleString('id-ID');
+        document.getElementById('txt-tax').innerText = "Rp " + Math.round(state.tax).toLocaleString('id-ID');
+        document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString('id-ID');
     }
-
-    // --- LOGIKA PEMBAYARAN ---
 
     function openPayment() {
         if(cart.length === 0) return;
-        document.getElementById('label-total-modal').innerText = "Total Bill: Rp " + state.total.toLocaleString();
+        document.getElementById('label-total-modal').innerText = "Total: Rp " + state.total.toLocaleString('id-ID');
         document.getElementById('splitContainer').innerHTML = "";
         addSplitRow();
-        updateSplitSummary();
         document.getElementById('payModal').style.display = 'flex';
     }
 
@@ -274,15 +261,9 @@
         const options = paymentMethods.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
         div.innerHTML = `
             <select class="pay-method">${options}</select>
-            <input type="number" class="pay-amount" placeholder="0" oninput="updateSplitSummary()">
-            <span style="color:red; cursor:pointer; font-weight:bold;" onclick="this.parentElement.remove(); updateSplitSummary();">&times;</span>`;
+            <input type="number" class="pay-amount" value="${state.total}" oninput="updateSplitSummary()">`;
         document.getElementById('splitContainer').appendChild(div);
-        
-        const inputs = document.querySelectorAll('.pay-amount');
-        if(inputs.length === 1) {
-            inputs[0].value = state.total;
-            updateSplitSummary();
-        }
+        updateSplitSummary();
     }
 
     function updateSplitSummary() {
@@ -291,146 +272,105 @@
         amounts.forEach(input => totalInput += parseFloat(input.value || 0));
         const remaining = state.total - totalInput;
         const change = totalInput - state.total;
-        document.getElementById('txt-inputed').innerText = "Rp " + totalInput.toLocaleString();
+        
+        document.getElementById('txt-inputed').innerText = "Rp " + totalInput.toLocaleString('id-ID');
         if (remaining > 0) {
             document.getElementById('row-rem').style.display = 'flex';
             document.getElementById('row-change').style.display = 'none';
-            document.getElementById('txt-remaining').innerText = "Rp " + remaining.toLocaleString();
+            document.getElementById('txt-remaining').innerText = "Rp " + remaining.toLocaleString('id-ID');
             document.getElementById('btnConfirm').disabled = true;
-            document.getElementById('btnConfirm').style.opacity = 0.5;
         } else {
             document.getElementById('row-rem').style.display = 'none';
             document.getElementById('row-change').style.display = 'flex';
-            document.getElementById('txt-change').innerText = "Rp " + Math.abs(change).toLocaleString();
+            document.getElementById('txt-change').innerText = "Rp " + Math.abs(change).toLocaleString('id-ID');
             document.getElementById('btnConfirm').disabled = false;
-            document.getElementById('btnConfirm').style.opacity = 1;
         }
     }
 
     async function executeTransaction() {
         if (isSaving) return;
-        const rows = document.querySelectorAll('.split-item');
-        state.payments = [];
-        let totalDibayar = 0;
-        rows.forEach(row => {
-            const mtd = row.querySelector('.pay-method').value;
-            const amt = parseFloat(row.querySelector('.pay-amount').value || 0);
-            const akun = row.querySelector('.pay-method').selectedOptions[0].dataset.akun;
-            if(amt > 0) {
-                state.payments.push({ metode: mtd, jumlah: amt, akun: akun });
-                totalDibayar += amt;
-            }
-        });
-        if (state.payments.length === 0) return alert("Pilih minimal 1 metode pembayaran!");
+        const row = document.querySelector('.split-item');
+        const method = row.querySelector('.pay-method').value;
+        const amountPaid = parseFloat(row.querySelector('.pay-amount').value || 0);
+        const kodeAkunAset = row.querySelector('.pay-method').selectedOptions[0].dataset.akun;
 
         isSaving = true;
-        document.getElementById('btnConfirm').innerText = "Menyimpan...";
+        document.getElementById('btnConfirm').innerText = "Memproses...";
         const inv = `INV-${Date.now().toString().slice(-6)}`;
         const tgl = new Date().toISOString();
 
         try {
-            const mainMethod = state.payments.length > 1 ? "SPLIT" : state.payments[0].metode;
-            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
+            // 1. Simpan Transaksi Penjualan
+            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
                 no_invoice: inv, 
-                subtotal: Math.round(state.sub), 
-                diskon: Math.round(state.discItem + state.discGlobal), 
+                subtotal: state.sub, 
+                diskon_global: Math.round(state.discItem + state.discGlobal), 
                 pajak: Math.round(state.tax), 
                 grand_total: state.total, 
-                bayar: totalDibayar, 
-                kasir_id: currentLogId, 
-                metode_pembayaran: mainMethod,
-                tanggal: tgl 
+                bayar: amountPaid, 
+                kasir_nama: session.username,
+                metode_pembayaran: method,
+                created_at: tgl 
             }]).select().single();
             if (errTrx) throw errTrx;
-            state.lastTrxId = trx.id; state.lastInv = inv;
 
             let totalHPP = 0;
             for (const item of cart) {
-                const subItemGross = item.qty * item.harga;
-                const potItem = (subItemGross * item.discountItem) / 100;
-                await FinexDB.from('penjualan_detail').insert([{ 
+                // 2. Simpan Detail & Kurangi Stok Toko
+                await db.from('penjualan_detail').insert([{ 
                     penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
-                    qty: item.qty, harga_satuan: item.harga, subtotal_item: subItemGross - potItem 
+                    qty: item.qty, harga_satuan: item.harga, subtotal_item: (item.qty * item.item) 
                 }]);
-                const { data: p } = await FinexDB.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
+
+                const { data: p } = await db.from('produk').select('stok_sekarang, harga_beli').eq('id', item.id).single();
                 if (p) {
+                    const stokBaru = p.stok_sekarang - item.qty;
                     totalHPP += (p.harga_beli * item.qty);
-                    await FinexDB.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
+                    await db.from('produk').update({ stok_sekarang: stokBaru }).eq('id', item.id);
+                    
+                    // Catat Kartu Stok
+                    await db.from('riwayat_stok').insert([{
+                        id_produk: item.id, tipe: 'KELUAR', jumlah: item.qty, stok_akhir: stokBaru, admin_nama: session.username, keterangan: `Penjualan ${inv}`
+                    }]);
                 }
             }
 
-            const journalEntries = [];
-            let sisaKembali = totalDibayar - state.total;
-            state.payments.forEach(p => {
-                let amountToDebit = p.jumlah;
-                if (p.metode === "Tunai" && sisaKembali > 0) { amountToDebit -= sisaKembali; sisaKembali = 0; }
-                if (amountToDebit > 0) journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: String(p.akun), keterangan: `Terima ${p.metode} - ${inv}`, debit: Math.round(amountToDebit), kredit: 0 });
-            });
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${inv}`, debit: 0, kredit: state.total });
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `Beban Pokok - ${inv}`, debit: Math.round(totalHPP), kredit: 0 });
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Persediaan - ${inv}`, debit: 0, kredit: Math.round(totalHPP) });
-            await FinexDB.from('jurnal_umum').insert(journalEntries);
+            // 3. Jurnal Akuntansi Otomatis
+            const journals = [
+                { tanggal: tgl, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penerimaan ${method} - ${inv}`, debit: state.total, kredit: 0 },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan POS - ${inv}`, debit: 0, kredit: state.total },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP Penjualan - ${inv}`, debit: Math.round(totalHPP), kredit: 0 },
+                { tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Persediaan Keluar - ${inv}`, debit: 0, kredit: Math.round(totalHPP) }
+            ];
+            await db.from('jurnal_umum').insert(journals);
 
-            renderReceipt(inv, totalDibayar);
-            document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
+            // 4. Cetak & Selesai
+            renderReceipt(inv, amountPaid);
+            window.print();
+            location.reload();
+
         } catch (e) {
-            console.error(e); alert("Kesalahan: " + e.message); isSaving = false;
+            alert("Gagal: " + e.message);
+            isSaving = false;
+            document.getElementById('btnConfirm').innerText = "KONFIRMASI & CETAK";
         }
     }
 
     function renderReceipt(inv, totalBayar) {
-        const itemRows = cart.map(i => {
-            const pot = (i.qty * i.harga * i.discountItem) / 100;
-            return `
-            <div style="font-size:10px; margin-bottom:2px;">
-                <div style="display:flex; justify-content:space-between;">
-                    <span>${i.nama_barang} x${i.qty}</span>
-                    <span>${(i.qty * i.harga).toLocaleString()}</span>
-                </div>
-                ${pot > 0 ? `<div style="text-align:right; color:red; font-size:9px;">Disc Item: -${pot.toLocaleString()}</div>` : ''}
-            </div>`;
-        }).join('');
-        
-        const paymentRows = state.payments.map(p => `<div style="display:flex; justify-content:space-between;"><span>${p.metode}:</span><span>${p.jumlah.toLocaleString()}</span></div>`).join('');
-
+        const store = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
+        const items = cart.map(i => `<div style="display:flex; justify-content:space-between;"><span>${i.nama_barang} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
         document.getElementById('print-area').innerHTML = `
-            <div style="width:58mm; padding:2mm; font-family:monospace; color:black;">
-                <center><b style="font-size:14px;">BEAUTYBLOOM</b><br><small>Skincare & Beauty Center</small><br>----------------------------</center>
-                <div style="font-size:10px;">No: ${inv}<br>Tgl: ${new Date().toLocaleString('id-ID')}<br>Ksr: ${session.username}</div>
-                ----------------------------<br>${itemRows}----------------------------<br>
-                <div style="font-size:10px;">
-                    <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span>Pot. Item:</span><span>-${Math.round(state.discItem).toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span>Disc Global:</span><span>-${Math.round(state.discGlobal).toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span>Pajak:</span><span>${Math.round(state.tax).toLocaleString()}</span></div>
-                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; margin-top:2px;">
-                        <span>TOTAL:</span><span>${state.total.toLocaleString()}</span>
-                    </div>
-                </div>
-                ----------------------------<br>
-                <div style="font-size:10px;">
-                    <div style="font-weight:bold;">Pembayaran:</div>
-                    ${paymentRows}
-                    <div style="display:flex; justify-content:space-between; border-top:1px dashed #eee;"><span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString()}</span></div>
-                </div>
-                ----------------------------<br>
-                <center style="font-size:10px; margin-top:5px;">TERIMA KASIH<br>BeautyBloom Skincare</center>
-            </div>`;
+            <div style="text-align:center"><b>${store}</b><br><small>Struk Belanja</small></div><hr>
+            <div style="font-size:10px;">Inv: ${inv}<br>Kasir: ${session.username}</div><hr>
+            ${items}<hr>
+            <div style="display:flex; justify-content:space-between;"><span>TOTAL:</span><b>${state.total.toLocaleString()}</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>BAYAR:</span><span>${totalBayar.toLocaleString()}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>KEMBALI:</span><span>${(totalBayar - state.total).toLocaleString()}</span></div><hr>
+            <center>Terima Kasih</center>
+        `;
     }
 
-   function sendWhatsApp() {
-        const hp = document.getElementById('waNumber').value;
-        if (!hp) return alert("Masukkan nomor WA!");
-        const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
-        
-        const linkNota = window.location.origin + `/invoice-view.html?id=${state.lastTrxId}`;
-        const msg = `*NOTA BEAUTYBLOOM*%0A--------------------------%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0AMetode: ${state.lastMethod}%0A%0A*Lihat Nota Digital:*%0A${linkNota}%0A%0A_Terima kasih sudah berbelanja!_`;
-        
-        window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
-        location.reload();
-    }
-    function logout() { localStorage.clear(); window.location.replace('login.html'); }
+    function logout() { if(confirm("Keluar?")) { sessionStorage.clear(); localStorage.clear(); window.location.replace('login.html'); } }
 </script>
 </body>
 </html>
