@@ -9,23 +9,24 @@
     <script src="supabase-init.js"></script>
 
     <style>
-     @media print {
+  @media print {
     @page { 
         margin: 0; 
     }
     body { 
         margin: 0; 
         padding: 0; 
-        height: auto !important; /* Mencegah kertas memanjang kosong */
+        height: auto !important; /* Mencegah sisa kertas kosong di bawah */
     }
     #print-area { 
         display: block !important; 
-        width: 58mm; /* Lebar standar printer thermal */
+        width: 58mm; /* Standar lebar printer Bluetooth thermal */
         margin: 0;
         padding: 5px;
-        font-family: monospace;
+        font-family: 'Courier New', Courier, monospace;
         font-size: 10px;
         line-height: 1.2;
+        color: black;
     }
 }
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
@@ -391,26 +392,27 @@
         } catch (e) { console.error(e); alert("Kesalahan: " + e.message); isSaving = false; }
     }
 
-   function renderReceipt(inv, totalBayar) {
+ function renderReceipt(inv, totalBayar) {
     const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+    
     const itemRows = cart.map(i => {
-        // Sesuai Master DB: Kalkulasi subtotal dan diskon per item
+        // Kalkulasi harga dan diskon per item sesuai Master DB
         const subtotalBarang = i.qty * i.harga;
         const pot = (subtotalBarang * (i.discountItem || 0)) / 100;
         
         return `
-            <div style="display:flex; justify-content:space-between; font-size:10px;">
-                <span style="flex:1;">${i.nama_barang.substring(0, 18)}</span>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
+                <span style="flex:1; overflow:hidden; white-space:nowrap;">${i.nama_barang.substring(0, 18)}</span>
                 <span style="width:30px; text-align:right;">x${i.qty}</span>
-                <span style="width:60px; text-align:right;">${subtotalBarang.toLocaleString('id-ID')}</span>
+                <span style="width:65px; text-align:right;">${subtotalBarang.toLocaleString('id-ID')}</span>
             </div>
-            ${pot > 0 ? `<div style="text-align:right; font-size:9px; color:#555;">-Disc: ${pot.toLocaleString('id-ID')}</div>` : ''}
+            ${pot > 0 ? `<div style="text-align:right; font-size:9px; margin-top:-2px;">(Disc: -${pot.toLocaleString('id-ID')})</div>` : ''}
         `;
     }).join('');
     
-    // Pastikan area print dibungkus dengan div yang tingginya otomatis
-    document.getElementById('print-area').innerHTML = `
-        <div style="width: 100%; height: auto; overflow: hidden;">
+    const printArea = document.getElementById('print-area');
+    printArea.innerHTML = `
+        <div style="width: 100%; height: auto;">
             <center>
                 <b style="font-size:12px;">${storeName}</b><br>
                 <small>Nota Penjualan</small><br>
@@ -430,7 +432,7 @@
                 <div style="display:flex; justify-content:space-between;">
                     <span>Diskon:</span><span>-${(Math.round(state.discItem + (state.discGlobal || 0))).toLocaleString('id-ID')}</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:3px;">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:2px;">
                     <span>TOTAL:</span><span>${state.total.toLocaleString('id-ID')}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; border-top:1px dashed #000; margin-top:3px; padding-top:3px;">
@@ -442,10 +444,15 @@
             </div>
             <center style="font-size:10px; margin-top:10px;">
                 *** TERIMA KASIH ***<br>
-                Barang yang sudah dibeli<br>
-                tidak dapat ditukar/dikembalikan
+                Barang yang sudah dibeli tidak<br>
+                dapat ditukar atau dikembalikan
             </center>
-            <div style="height: 10px;"></div> </div>`;
+            <div style="height: 20px;"></div> </div>`;
+
+    // OTOMATIS CETAK SETELAH RENDER SELESAI
+    setTimeout(() => {
+        window.print();
+    }, 500);
 }
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
