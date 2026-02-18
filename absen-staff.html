@@ -106,7 +106,47 @@
             startGPS();
         } catch (e) { alert("Error Init: " + e.message); }
     }
+function startGPS() {
+    const badge = document.getElementById('geo-status');
+    
+    // Opsi GPS yang lebih seimbang antara akurasi dan kecepatan
+    const geoOptions = {
+        enableHighAccuracy: true, // Tetap coba akurasi tinggi
+        timeout: 10000,           // Maksimal tunggu 10 detik
+        maximumAge: 0             // Jangan gunakan cache lokasi lama
+    };
 
+    const watchID = navigator.geolocation.watchPosition(
+        (p) => {
+            userLoc.lat = p.coords.latitude;
+            userLoc.lon = p.coords.longitude;
+            
+            // Hitung Jarak
+            const R = 6371000; // Radius bumi dalam meter
+            const dLat = (configToko.lat - userLoc.lat) * Math.PI/180;
+            const dLon = (configToko.lon - userLoc.lon) * Math.PI/180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(userLoc.lat*Math.PI/180)*Math.cos(configToko.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            isGeoValid = dist <= configToko.rad;
+            
+            // Update Tampilan
+            badge.className = isGeoValid ? "status-pill area-ok" : "status-pill area-fail";
+            badge.innerText = isGeoValid ? `✅ Area Toko (${Math.round(dist)}m)` : `❌ Di Luar Area (${Math.round(dist)}m)`;
+        },
+        (err) => {
+            // Jika terjadi error (Time out atau GPS dimatikan)
+            console.warn("GPS Error: ", err.message);
+            if (err.code === 3) { // Timeout
+                badge.innerText = "⚠️ Sinyal GPS Lemah, Mencoba lagi...";
+            } else {
+                badge.innerText = "❌ GPS Nonaktif/Error";
+                alert("Harap aktifkan Lokasi (GPS) di HP Anda!");
+            }
+        }, 
+        geoOptions
+    );
+}
    async function startCamera() {
         const video = document.getElementById('video');
         const info = document.getElementById('instruction');
