@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Riwayat & Cetak Bill</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
-        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; overflow-y: auto; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; transition: 0.3s; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
@@ -42,10 +42,18 @@
 
         #print-area { display: none; }
         @media print {
+            @page { margin: 0; size: auto; }
             body * { visibility: hidden !important; }
             #print-area, #print-area * { visibility: visible !important; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; font-family: monospace; }
-            @page { margin: 0; }
+            #print-area { 
+                display: block !important; 
+                position: absolute; left: 0; top: 0; 
+                width: 58mm; background: white; 
+                font-family: 'Courier New', Courier, monospace; 
+                font-size: 10px; padding: 5px; line-height: 1.2;
+                height: auto !important; 
+            }
+            header, footer { display: none !important; }
         }
     </style>
 </head>
@@ -53,7 +61,7 @@
 
     <nav>
         <h2 id="store-name-display">Finex Pos</h2>
-        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="index.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
         <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
         <a href="laporan-bill.html" class="active">📄 Riwayat Transaksi</a>
@@ -81,7 +89,7 @@
                         <th>Waktu</th>
                         <th>No. Invoice</th>
                         <th>Metode</th>
-                        <th>Total Bayar</th>
+                        <th>Total Akhir</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -101,32 +109,28 @@
                 <span class="close-btn" onclick="closeModal()">&times;</span>
             </div>
             <div id="det-waktu" style="font-size: 12px; color: #888; margin-bottom: 15px;"></div>
-            
             <div id="det-items" style="max-height: 300px; overflow-y: auto;"></div>
             
             <div style="margin-top: 20px; padding-top: 10px; border-top: 2px solid #eee;">
-                <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px;">
-                    <span>Subtotal</span>
-                    <span id="det-subtotal">Rp 0</span>
-                </div>
-                <div id="det-disc-row" style="display: none; justify-content: space-between; font-size: 14px; color: var(--danger); margin-bottom: 5px;">
-                    <span>Potongan Diskon</span>
-                    <span id="det-diskon">- Rp 0</span>
-                </div>
+                <div class="detail-item"><span>Subtotal</span><span id="det-subtotal">Rp 0</span></div>
+                <div class="detail-item" style="color:var(--danger);"><span>Potongan Diskon</span><span id="det-diskon">- Rp 0</span></div>
+                <div class="detail-item"><span>PPN</span><span id="det-pajak">Rp 0</span></div>
                 <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 10px;">
                     <span>Total Akhir</span>
                     <span id="det-total" style="color:var(--success);">Rp 0</span>
                 </div>
             </div>
-            
             <button onclick="closeModal()" style="width: 100%; margin-top: 20px; padding: 12px; border: none; border-radius: 8px; background: #eee; cursor: pointer; font-weight: bold;">TUTUP</button>
         </div>
     </div>
 
     <script>
-        // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
-
         window.onload = () => {
+            const session = JSON.parse(localStorage.getItem('finex_session'));
+            if (!session) return window.location.replace('login.html');
+            document.getElementById('display-user-nav').innerText = session.username;
+            document.getElementById('store-name-display').innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex Pos";
+            
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('filter-date').value = today;
             loadBills();
@@ -135,26 +139,15 @@
         async function loadBills() {
             const selectedDate = document.getElementById('filter-date').value;
             if (!selectedDate) return;
-            
             const start = selectedDate + 'T00:00:00.000Z';
             const end = selectedDate + 'T23:59:59.999Z';
 
-            const { data, error } = await db
-                .from('penjualan')
-                .select('*')
-                .gte('created_at', start)
-                .lte('created_at', end)
-                .order('created_at', { ascending: false });
-
+            const { data, error } = await db.from('penjualan').select('*').gte('created_at', start).lte('created_at', end).order('created_at', { ascending: false });
             if (error) return console.error(error);
 
             const tbody = document.getElementById('bill-table-body');
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Tidak ada transaksi di tanggal ini.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(b => `
+            tbody.innerHTML = data.length === 0 ? '<tr><td colspan="5" style="text-align:center; padding:20px;">Tidak ada transaksi.</td></tr>' : 
+                data.map(b => `
                 <tr>
                     <td>${new Date(b.created_at).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
                     <td><b>${b.no_invoice}</b></td>
@@ -166,89 +159,77 @@
                             <button class="btn-action btn-print" onclick="printBill('${b.id}')">🖨️ Cetak</button>
                         </div>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`).join('');
         }
 
         async function showDetail(id) {
             const { data: sales } = await db.from('penjualan').select('*').eq('id', id).single();
             const { data: details } = await db.from('penjualan_detail').select('*').eq('penjualan_id', id);
-
             if (!sales) return;
 
             document.getElementById('det-invoice').innerText = sales.no_invoice;
             document.getElementById('det-waktu').innerText = new Date(sales.created_at).toLocaleString('id-ID');
             document.getElementById('det-subtotal').innerText = "Rp " + (sales.subtotal || 0).toLocaleString('id-ID');
-            document.getElementById('det-total').innerText = "Rp " + sales.grand_total.toLocaleString('id-ID');
+            document.getElementById('det-diskon').innerText = "- Rp " + (sales.diskon || 0).toLocaleString('id-ID');
+            document.getElementById('det-pajak').innerText = "Rp " + (sales.pajak || 0).toLocaleString('id-ID');
+            document.getElementById('det-total').innerText = "Rp " + (sales.grand_total || 0).toLocaleString('id-ID');
 
-            const discRow = document.getElementById('det-disc-row');
-            if (sales.diskon_global > 0 || (sales.diskon > 0)) {
-                discRow.style.display = 'flex';
-                document.getElementById('det-diskon').innerText = "- Rp " + (sales.diskon_global || sales.diskon).toLocaleString('id-ID');
-            } else {
-                discRow.style.display = 'none';
-            }
-            
             document.getElementById('det-items').innerHTML = (details || []).map(it => `
                 <div class="detail-item">
                     <span>${it.nama_barang} (x${it.qty})</span>
-                    <span>Rp ${(it.qty * it.harga_satuan).toLocaleString('id-ID')}</span>
-                </div>
-            `).join('');
-            
+                    <span>Rp ${(it.subtotal_item || 0).toLocaleString('id-ID')}</span>
+                </div>`).join('');
             document.getElementById('modalDetail').style.display = 'flex';
         }
 
         async function printBill(id) {
             const { data: sales } = await db.from('penjualan').select('*').eq('id', id).single();
             const { data: details } = await db.from('penjualan_detail').select('*').eq('penjualan_id', id);
-            
             if (!sales) return;
 
-            const store = sessionStorage.getItem('NAMA_TOKO') || "FINE POS";
+            const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
             let itemRows = (details || []).map(it => `
-                <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:2px;">
-                    <span style="flex:1;">${it.nama_barang} x${it.qty}</span>
-                    <span>${(it.qty * it.harga_satuan).toLocaleString()}</span>
-                </div>
-            `).join('');
+                <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                    <span style="flex:1;">${it.nama_barang.substring(0,18)} x${it.qty}</span>
+                    <span>${(it.subtotal_item || 0).toLocaleString('id-ID')}</span>
+                </div>`).join('');
+
+            // LOGIKA: Ambil rincian split payment jika ada dari Jurnal
+            const { data: journal } = await db.from('jurnal_umum').select('keterangan, debit').eq('no_bukti', sales.no_invoice).gt('debit', 0);
+            let payRows = "";
+            if (journal && journal.length > 0) {
+                journal.forEach(j => {
+                    if (j.keterangan.includes("Terima")) {
+                        const mtd = j.keterangan.split('-')[0].replace("Terima ", "").trim();
+                        payRows += `<div style="display:flex; justify-content:space-between;"><span>Bayar (${mtd}):</span><span>${j.debit.toLocaleString('id-ID')}</span></div>`;
+                    }
+                });
+            } else {
+                payRows = `<div style="display:flex; justify-content:space-between;"><span>Bayar (${sales.metode_pembayaran}):</span><span>${sales.bayar ? sales.bayar.toLocaleString('id-ID') : sales.grand_total.toLocaleString('id-ID')}</span></div>`;
+            }
 
             document.getElementById('print-area').innerHTML = `
-                <div style="width:58mm; padding:2mm; background:white; color:black; line-height:1.2;">
-                    <div style="text-align:center; margin-bottom:5px;">
-                        <b style="font-size:12px;">${store}</b><br>
-                        <small>SALINAN STRUK</small>
+                <div style="width:100%; height:auto;">
+                    <center><b>${store}</b><br><small>SALINAN STRUK</small></center>
+                    <div style="border-top:1px dashed #000; margin-top:5px; padding-top:5px;">
+                        No: ${sales.no_invoice}<br>Tgl: ${new Date(sales.created_at).toLocaleString('id-ID')}
                     </div>
-                    <div style="font-size:10px; border-top:1px dashed #000; padding-top:5px; margin-top:5px;">
-                        No: ${sales.no_invoice}<br>
-                        Tgl: ${new Date(sales.created_at).toLocaleString('id-ID')}
-                    </div>
-                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                    ${itemRows}
-                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                    <div style="display:flex; justify-content:space-between; font-size:10px;">
-                        <span>Subtotal:</span><span>Rp ${sales.subtotal.toLocaleString()}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:2px;">
-                        <span>TOTAL:</span><span>Rp ${sales.grand_total.toLocaleString()}</span>
-                    </div>
-                    <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-                    <div style="font-size:10px; text-align:center; margin-top:5px;">Terima Kasih</div>
-                </div>
-            `;
+                    ----------------------------<br>${itemRows}----------------------------<br>
+                    <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${sales.subtotal.toLocaleString('id-ID')}</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Diskon:</span><span>-${sales.diskon.toLocaleString('id-ID')}</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>PPN:</span><span>${(sales.pajak || 0).toLocaleString('id-ID')}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px;"><span>TOTAL:</span><span>${sales.grand_total.toLocaleString('id-ID')}</span></div>
+                    <div style="border-top:1px dashed #000; margin-top:3px; padding-top:3px;">${payRows}</div>
+                    <div style="display:flex; justify-content:space-between;"><span>Kembali:</span><span>${((sales.bayar || sales.grand_total) - sales.grand_total).toLocaleString('id-ID')}</span></div>
+                    <center style="margin-top:10px;">*** TERIMA KASIH ***</center>
+                    <div style="height:20px;"></div>
+                </div>`;
             
             setTimeout(() => { window.print(); }, 500);
         }
 
         function closeModal() { document.getElementById('modalDetail').style.display = 'none'; }
-        
-        function logout() {
-            if(confirm("Keluar dari sistem?")) {
-                sessionStorage.clear();
-                localStorage.clear();
-                window.location.replace('login.html');
-            }
-        }
+        function logout() { if(confirm("Keluar?")) { sessionStorage.clear(); localStorage.clear(); window.location.replace('login.html'); } }
     </script>
 </body>
 </html>
