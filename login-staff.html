@@ -3,137 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Absensi | Finex Pos</title>
+    <title>Login Staff | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --success: #27ae60; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .card { background: white; padding: 25px; border-radius: 28px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
-        #video-container { width: 100%; position: relative; border-radius: 20px; overflow: hidden; background: #000; aspect-ratio: 4/3; margin-bottom: 20px; border: 4px solid #fff; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        .btn-scan { background: var(--primary); color: white; padding: 18px; width: 100%; border: none; border-radius: 16px; font-weight: 800; cursor: pointer; font-size: 16px; }
-        .btn-scan:disabled { background: #eee; color: #aaa; }
-        #status-loc { padding: 10px; border-radius: 12px; font-size: 12px; margin-bottom: 10px; font-weight: bold; }
-        .ok { background: #e8f5e9; color: #2e7d32; }
-        .fail { background: #ffebee; color: #c62828; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        h2 { color: var(--primary); margin: 0 0 10px 0; }
+        p { color: #666; font-size: 14px; margin-bottom: 30px; }
+        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 12px; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; text-align: center; }
+        input:focus { border-color: var(--accent); }
+        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .btn-login:disabled { background: #ccc; cursor: not-allowed; }
+        #msg { font-size: 12px; margin-top: 15px; color: #e74c3c; display: none; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2 style="margin:0; color:var(--primary)">Finex Face ID</h2>
-    <p id="staff-name-tag" style="color:var(--accent); font-weight:bold; margin: 10px 0 20px 0;">MEMUAT SESI...</p>
-
-    <div id="status-loc" class="fail">📍 Mengecek Lokasi GPS...</div>
-
-    <div id="video-container">
-        <video id="video" autoplay playsinline muted></video>
-    </div>
-
-    <div id="info-msg" style="margin-bottom:15px; font-size:14px; font-weight:600;">Menyiapkan Biometrik...</div>
-
-    <button id="btn-absensi" class="btn-scan" onclick="prosesAbsen()" disabled>IDENTIFIKASI WAJAH</button>
+<div class="login-card">
+    <h2 id="store-name">Finex Staff</h2>
+    <p>Masukkan nama lengkap Anda sesuai data staff.</p>
+    
+    <input type="text" id="staff-name" placeholder="Nama Lengkap Staff" autocomplete="off">
+    <button id="btn-masuk" class="btn-login" onclick="loginStaff()">MASUK PANEL ABSEN</button>
+    <div id="msg">⚠️ Nama tidak ditemukan!</div>
 </div>
 
 <script>
-    // 1. MANUAL INITIALIZATION (Agar tidak dicegat login.html)
-    const SUPA_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const staffDB = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    // BYPASS: Inisialisasi langsung di sini, jangan panggil supabase-init.js
+    const S_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const clientStaff = window.supabase.createClient(S_URL, S_KEY);
 
-    const namaStaff = sessionStorage.getItem('STAFF_LOGIN');
-    if (!namaStaff) { window.location.replace('login-staff.html'); }
-    else { document.getElementById('staff-name-tag').innerText = "HALO, " + namaStaff.toUpperCase(); }
+    async function loginStaff() {
+        const nameInput = document.getElementById('staff-name').value.trim();
+        const msg = document.getElementById('msg');
+        const btn = document.getElementById('btn-masuk');
+        
+        if (!nameInput) return alert("Ketik nama Anda!");
 
-    let labeledDescriptors = [];
-    let isGeoOk = false;
-    let userCoords = { lat: 0, lon: 0 };
-    let storeConfig = { lat: -8.65, lon: 115.21, rad: 100 }; // Default
+        btn.disabled = true;
+        btn.innerText = "Mengecek...";
+        msg.style.display = 'none';
 
-    async function start() {
         try {
-            const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
+            // Mencari nama di tabel employee_staff
+            const { data, error } = await clientStaff.from('employee_staff')
+                .select('nama_staff')
+                .eq('nama_staff', nameInput)
+                .maybeSingle();
 
-            const { data: s } = await staffDB.from('employee_staff').select('face_descriptor').eq('nama_staff', namaStaff).single();
-            if (s && s.face_descriptor) {
-                const desc = new Float32Array(Object.values(JSON.parse(s.face_descriptor)));
-                labeledDescriptors = [new faceapi.LabeledFaceDescriptors(namaStaff, [desc])];
-            }
-
-            const { data: loc } = await staffDB.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
-            if(loc) storeConfig = { lat: loc.latitude, lon: loc.longitude, rad: loc.radius_meter };
-
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }).then(stream => {
-                document.getElementById('video').srcObject = stream;
-            });
-
-            startGPS();
-            
-            setInterval(async () => {
-                const video = document.getElementById('video');
-                const detect = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                if (detect && isGeoOk) {
-                    window.currentDetection = detect;
-                    document.getElementById('btn-absensi').disabled = false;
-                    document.getElementById('info-msg').innerText = "Wajah Terdeteksi. Klik Tombol!";
-                }
-            }, 1000);
-
-        } catch (err) { console.error(err); }
-    }
-
-    function startGPS() {
-        navigator.geolocation.watchPosition(p => {
-            userCoords.lat = p.coords.latitude;
-            userCoords.lon = p.coords.longitude;
-            const dist = getDistance(userCoords.lat, userCoords.lon, storeConfig.lat, storeConfig.lon);
-            isGeoOk = dist <= storeConfig.rad;
-            const el = document.getElementById('status-loc');
-            el.className = isGeoOk ? "ok" : "fail";
-            el.innerText = isGeoOk ? `✅ Di Lokasi Toko (${Math.round(dist)}m)` : `❌ Di Luar Radius (${Math.round(dist)}m)`;
-        }, null, { enableHighAccuracy: true });
-    }
-
-    function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3;
-        const dLat = (lat2 - lat1) * Math.PI/180;
-        const dLon = (lon2 - lon1) * Math.PI/180;
-        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
-
-    async function prosesAbsen() {
-        if(!window.currentDetection) return;
-        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
-        const match = faceMatcher.findBestMatch(window.currentDetection.descriptor);
-
-        if (match.label !== 'unknown') {
-            const tgl = new Date().toLocaleDateString('en-CA');
-            const jam = new Date().toISOString();
-            
-            const { data: cek } = await staffDB.from('presensi').select('*').eq('nama_staff', namaStaff).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
-
-            if (cek) {
-                await staffDB.from('presensi').update({ waktu_pulang: jam, status: 'Selesai', lokasi_pulang: `${userCoords.lat},${userCoords.lon}` }).eq('id', cek.id);
-                alert("Absen PULANG Berhasil!");
+            if (data) {
+                // Simpan ke sessionStorage (Hanya berlaku di tab HP tersebut)
+                sessionStorage.setItem('STAFF_LOGIN', data.nama_staff);
+                
+                // Pindah ke halaman absen khusus staff
+                window.location.href = 'absen-staff.html';
             } else {
-                await staffDB.from('presensi').insert([{ nama_staff: namaStaff, tanggal: tgl, waktu_masuk: jam, lokasi_masuk: `${userCoords.lat},${userCoords.lon}`, status: 'Aktif' }]);
-                alert("Absen MASUK Berhasil!");
+                msg.style.display = 'block';
+                btn.disabled = false;
+                btn.innerText = "MASUK PANEL ABSEN";
             }
-            sessionStorage.clear();
-            window.location.replace('login-staff.html');
-        } else {
-            alert("Wajah tidak cocok!");
+        } catch (e) {
+            alert("Gangguan Sinyal: " + e.message);
+            btn.disabled = false;
+            btn.innerText = "MASUK PANEL ABSEN";
         }
     }
 
-    window.onload = start;
+    // Izinkan tekan Enter untuk login
+    document.getElementById('staff-name').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginStaff();
+    });
 </script>
 </body>
 </html>
