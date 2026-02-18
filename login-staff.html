@@ -52,24 +52,26 @@
 
    async function loginStaff() {
     const input = document.getElementById('staff-name');
-    const nameInput = input.value.trim().toLowerCase(); // Ubah input ke huruf kecil & hapus spasi
+    const nameInput = input.value.trim().toLowerCase();
     const msg = document.getElementById('msg');
     const btn = document.getElementById('btn-masuk');
     
     if (!nameInput) return;
 
     btn.disabled = true;
-    log("Mencari dengan metode Client-Side Matching...");
+    log("Menarik 3 data dari database...");
 
     try {
-        // Ambil SEMUA daftar nama staff dari database
         const { data: allStaff, error } = await clientStaff
             .from('employee_staff')
             .select('nama_staff');
 
         if (error) throw error;
 
-        // Cari kecocokan secara manual (menghapus spasi dan tidak peduli huruf besar/kecil)
+        // Tampilkan daftar nama yang ada di DB ke Log agar Anda bisa lihat
+        const daftarNamaDB = allStaff.map(s => s.nama_staff).join(", ");
+        log("Isi DB: [" + daftarNamaDB + "]");
+
         const found = allStaff.find(s => 
             s.nama_staff.trim().toLowerCase() === nameInput
         );
@@ -79,8 +81,8 @@
             sessionStorage.setItem('STAFF_LOGIN', found.nama_staff);
             window.location.href = 'absen-staff.html';
         } else {
-            log("GAGAL: Nama '" + nameInput + "' tidak cocok dengan " + allStaff.length + " data di DB.");
-            msg.innerText = "⚠️ Nama tidak ditemukan! Pastikan ejaan benar.";
+            log("GAGAL: '" + nameInput + "' tidak ada di daftar [" + daftarNamaDB + "]");
+            msg.innerHTML = `⚠️ Nama tidak cocok!<br>Di database adanya: <b>${daftarNamaDB}</b>`;
             msg.style.display = 'block';
             btn.disabled = false;
         }
