@@ -5,23 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Dashboard Utama</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { 
-            --primary: #2c3e50; 
-            --accent: #3498db; 
-            --bg: #f4f7f6; 
-            --success: #27ae60; 
-            --danger: #e74c3c;
-            --warning: #f39c12;
+            --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; 
+            --success: #27ae60; --danger: #e74c3c; --warning: #f39c12;
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
         /* Sidebar Navigasi */
-        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; overflow-y: auto; }
+        nav { width: 240px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; overflow-y: auto; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; transition: 0.3s; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: 30px; color: var(--danger); cursor: pointer; padding: 12px; font-weight: bold; border: 1px solid var(--danger); border-radius: 8px; text-align: center; }
+        
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
+        .logout-btn { color: var(--danger); cursor: pointer; padding: 12px; font-weight: bold; border: 1px solid var(--danger); border-radius: 8px; text-align: center; font-size: 13px; }
 
         /* Main Content */
         main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; }
@@ -48,24 +49,27 @@
         .data-table th { text-align: left; color: #888; font-size: 12px; padding: 10px; border-bottom: 1px solid #eee; }
         .data-table td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
         
-        /* Status Badges */
         .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .dot-online { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
         .dot-offline { background-color: #bdc3c7; }
-        .badge-low { background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .badge-low { background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <nav>
-        <h2>Finex Pos</h2>
+        <h2 id="store-name-display">Finex Pos</h2>
         <a href="dashboard.html" class="active">📊 Dashboard</a>
         <a href="pos.html">🛒 Masuk Kasir</a>
         <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
         <div style="font-size: 10px; color: #666; margin-bottom: 8px; padding-left: 10px;">LAPORAN</div>
         <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
-        <a href="laporan-opening-closing.html">🏁 Log Shift Kasir</a>
-        <a href="update_stok.html"><i class="fas fa-box"></i>🛒 Reques Stok</a>
+        <a href="laporan_stok.html">📦 Laporan Stok</a>
+        <a href="laba_rugi.html">📈 Laba Rugi</a>
+        
+        <div class="user-info">
+            <small>USER:</small> <b id="display-user-nav">...</b>
+        </div>
         <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
     </nav>
 
@@ -80,11 +84,11 @@
 
         <div class="stats-grid">
             <div class="stat-card card-sales">
-                <h3>Total Penjualan (Bruto)</h3>
+                <h3>Total Penjualan (Hari Ini)</h3>
                 <p id="stat-sales">Rp 0</p>
             </div>
             <div class="stat-card card-exp">
-                <h3>Total Pengeluaran</h3>
+                <h3>Total Pengeluaran (Hari Ini)</h3>
                 <p id="stat-expense">Rp 0</p>
             </div>
             <div class="stat-card card-count">
@@ -97,27 +101,25 @@
             
             <div>
                 <div class="analysis-section">
-                    <h2>Analisis Laba Bersih Hari Ini</h2>
+                    <h2>Analisis Margin Hari Ini</h2>
                     <div class="label-group">
-                        <span style="color: var(--success);">Laba Operasional</span>
+                        <span style="color: var(--success);">Estimasi Profit</span>
                         <span id="txt-laba-persen">0% Margin</span>
                     </div>
                     <div class="progress-container">
                         <div id="profit-bar" class="progress-bar"></div>
                     </div>
                     <div style="text-align: center; margin-top: 10px;">
-                        <h3 style="margin: 0; color:#888; font-size: 14px;">ESTIMASI SALDO BERSIH:</h3>
+                        <h3 style="margin: 0; color:#888; font-size: 14px;">SALDO BERSIH (NET):</h3>
                         <h1 id="stat-net-profit" style="color: var(--primary); margin: 5px 0;">Rp 0</h1>
                     </div>
                 </div>
 
                 <div class="analysis-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h2 style="margin:0;">Stok Menipis (BeautyBloom)</h2>
-                    </div>
+                    <h2 style="margin:0;">Peringatan Stok Menipis</h2>
                     <table class="data-table">
                         <thead>
-                            <tr><th>Produk</th><th>Stok</th></tr>
+                            <tr><th>Produk</th><th>Stok Toko</th></tr>
                         </thead>
                         <tbody id="low-stock-body">
                             <tr><td colspan="2" style="text-align:center; color:#ccc;">Memuat data...</td></tr>
@@ -128,16 +130,14 @@
 
             <div>
                 <div class="analysis-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2 style="margin:0;">Staff Bertugas</h2>
-                    </div>
+                    <h2 style="margin:0; margin-bottom: 15px;">Staff Bertugas</h2>
                     <table class="data-table">
                         <tbody id="dash-absen-list">
                             <tr><td style="text-align:center; color:#ccc;">Memuat data absen...</td></tr>
                         </tbody>
                     </table>
-                    <button onclick="window.open('absen.html','_blank')" style="width:100%; margin-top:15px; padding:10px; border-radius:8px; border:1px dashed var(--accent); background:none; color:var(--accent); cursor:pointer; font-weight:bold;">
-                        📲 Buka Panel Absensi
+                    <button onclick="window.location.href='rekap_absensi.html'" style="width:100%; margin-top:15px; padding:10px; border-radius:8px; border:1px dashed var(--accent); background:none; color:var(--accent); cursor:pointer; font-weight:bold;">
+                        📝 Lihat Rekap Absensi
                     </button>
                 </div>
             </div>
@@ -146,9 +146,7 @@
     </main>
 
     <script>
-        const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-        const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-        const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+        // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
         window.onload = () => {
             const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -160,7 +158,7 @@
 
         async function loadStats() {
             const btn = document.getElementById('btn-refresh');
-            btn.innerText = "⏳ Memproses...";
+            btn.innerText = "⏳ Memperbarui...";
             btn.disabled = true;
 
             try {
@@ -169,12 +167,12 @@
                 const start = `${dateStr}T00:00:00.000Z`;
                 const end = `${dateStr}T23:59:59.999Z`;
 
-                // 1. Ambil Penjualan, Pengeluaran, & Stok secara paralel
+                // Query ke database pelanggan yang aktif via 'db'
                 const [resSales, resExp, resStock, resAbsen] = await Promise.all([
-                    FinexDB.from('penjualan').select('grand_total').gte('created_at', start).lte('created_at', end),
-                    FinexDB.from('pengeluaran').select('jumlah').gte('tanggal', start).lte('tanggal', end),
-                    FinexDB.from('produk').select('nama_barang, stok_sekarang').lt('stok_sekarang', 10).order('stok_sekarang', { ascending: true }).limit(5),
-                    FinexDB.from('presensi').select('nama_staff, waktu_masuk, status').eq('tanggal', dateStr).order('waktu_masuk', { ascending: false })
+                    db.from('penjualan').select('grand_total').gte('created_at', start).lte('created_at', end),
+                    db.from('pengeluaran').select('jumlah').gte('tanggal', start).lte('tanggal', end),
+                    db.from('produk').select('nama_barang, stok_sekarang').lt('stok_sekarang', 10).order('stok_sekarang', { ascending: true }).limit(5),
+                    db.from('presensi').select('nama_staff, waktu_masuk, status').eq('tanggal', dateStr).order('waktu_masuk', { ascending: false })
                 ]);
 
                 // Kalkulasi Stats
@@ -183,10 +181,10 @@
                 const netProfit = totalSales - totalExp;
 
                 // Update UI Stats
-                document.getElementById('stat-sales').innerText = "Rp " + totalSales.toLocaleString();
-                document.getElementById('stat-expense').innerText = "Rp " + totalExp.toLocaleString();
+                document.getElementById('stat-sales').innerText = "Rp " + totalSales.toLocaleString('id-ID');
+                document.getElementById('stat-expense').innerText = "Rp " + totalExp.toLocaleString('id-ID');
                 document.getElementById('stat-count').innerText = (resSales.data || []).length + " Transaksi";
-                document.getElementById('stat-net-profit').innerText = "Rp " + netProfit.toLocaleString();
+                document.getElementById('stat-net-profit').innerText = "Rp " + netProfit.toLocaleString('id-ID');
 
                 // Update Profit Bar
                 if (totalSales > 0) {
@@ -195,6 +193,9 @@
                     pBar.style.width = margin + "%";
                     pBar.style.background = margin < 15 ? 'var(--danger)' : 'var(--success)';
                     document.getElementById('txt-laba-persen').innerText = Math.round(margin) + "% Margin Bersih";
+                } else {
+                    document.getElementById('profit-bar').style.width = "0%";
+                    document.getElementById('txt-laba-persen').innerText = "0% Margin Bersih";
                 }
 
                 // Update UI Stok
@@ -202,7 +203,7 @@
                 if (resStock.data?.length > 0) {
                     stockTbody.innerHTML = resStock.data.map(p => `<tr><td>${p.nama_barang}</td><td><span class="badge-low">${p.stok_sekarang}</span></td></tr>`).join('');
                 } else {
-                    stockTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:green;">✅ Stok Aman</td></tr>';
+                    stockTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:green; font-weight:bold; padding:10px;">✅ Semua Stok Aman</td></tr>';
                 }
 
                 // Update UI Absensi
@@ -217,11 +218,11 @@
                         </tr>`;
                     }).join('');
                 } else {
-                    absenTbody.innerHTML = '<tr><td style="text-align:center; color:#999;">Belum ada staff absen</td></tr>';
+                    absenTbody.innerHTML = '<tr><td style="text-align:center; color:#999; padding:10px;">Belum ada staff absen hari ini</td></tr>';
                 }
 
             } catch (error) {
-                console.error(error);
+                console.error("Dashboard Error:", error);
             } finally {
                 btn.innerText = "🔄 Refresh Data";
                 btn.disabled = false;
@@ -229,7 +230,8 @@
         }
 
         function logout() {
-            if(confirm("Keluar dari Finex Pos?")) {
+            if(confirm("Keluar dari sistem?")) {
+                sessionStorage.clear();
                 localStorage.clear();
                 window.location.replace('login.html');
             }
