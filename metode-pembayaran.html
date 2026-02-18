@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Metode Pembayaran</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
@@ -46,8 +49,8 @@
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
-    <a href="index.html">📊 Dashboard</a>
+    <h2 id="store-name-display">Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
     <div class="nav-section">Master Data</div>
     <a href="produk.html">📦 Produk</a>
     <a href="kategori.html">📁 Kategori</a>
@@ -60,7 +63,7 @@
 </nav>
 
 <main>
-    <h1>Metode Pembayaran Kantin</h1>
+    <h1>Metode Pembayaran</h1>
     <div class="card">
         <div class="form-container">
             <div class="input-group">
@@ -104,16 +107,14 @@
             <select id="edit-akun" class="akun-dropdown"></select>
         </div>
         <div style="display: flex; gap: 10px;">
-            <button class="btn-save" style="flex:1;" onclick="updateMetode()">💾 Simpan Perubahan</button>
+            <button class="btn-save" style="flex:1;" onclick="updateMetode()">💾 Simpan</button>
             <button onclick="tutupModal()" style="flex:1; border:none; border-radius:8px; cursor:pointer;">Batal</button>
         </div>
     </div>
 </div>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
     window.onload = () => {
         muatAkun();
@@ -121,7 +122,8 @@
     };
 
     async function muatAkun() {
-        const { data, error } = await supabaseClient.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '1%').order('kode_akun');
+        // Ambil akun berkode '1' (Aset) dari database pelanggan
+        const { data, error } = await db.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '1%').order('kode_akun');
         const dropdowns = document.querySelectorAll('.akun-dropdown');
         if (!error && data) {
             dropdowns.forEach(select => {
@@ -132,7 +134,7 @@
     }
 
     async function muatMetode() {
-        const { data, error } = await supabaseClient.from('metode_pembayaran').select('*').order('nama_metode');
+        const { data, error } = await db.from('metode_pembayaran').select('*').order('nama_metode');
         const tbody = document.getElementById('tabel-metode');
         if (error) return;
         
@@ -153,14 +155,15 @@
         const akun = document.getElementById('select-akun').value;
         if(!nama || !akun) return alert("Lengkapi data!");
 
-        const { error } = await supabaseClient.from('metode_pembayaran').insert([{ nama_metode: nama, kode_akun: akun }]);
+        const { error } = await db.from('metode_pembayaran').insert([{ nama_metode: nama, kode_akun: akun }]);
         if (!error) {
             document.getElementById('new-metode').value = '';
             muatMetode();
+        } else {
+            alert(error.message);
         }
     }
 
-    // FUNGSI MODAL EDIT
     function bukaModal(id, nama, akun) {
         document.getElementById('edit-id').value = id;
         document.getElementById('edit-nama').value = nama;
@@ -177,7 +180,7 @@
         const nama = document.getElementById('edit-nama').value;
         const akun = document.getElementById('edit-akun').value;
 
-        const { error } = await supabaseClient.from('metode_pembayaran').update({ 
+        const { error } = await db.from('metode_pembayaran').update({ 
             nama_metode: nama, 
             kode_akun: akun 
         }).eq('id', id);
@@ -191,12 +194,18 @@
 
     async function hapusMetode(id, nama) {
         if(confirm(`Hapus metode "${nama}"?`)) {
-            await supabaseClient.from('metode_pembayaran').delete().eq('id', id);
+            await db.from('metode_pembayaran').delete().eq('id', id);
             muatMetode();
         }
     }
 
-    function logout() { localStorage.clear(); window.location.replace('login.html'); }
+    function logout() { 
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html'); 
+        }
+    }
 </script>
 </body>
 </html>
