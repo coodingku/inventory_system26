@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Closing Shift Lengkap</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
@@ -16,9 +15,7 @@
         .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; }
         .method-header { margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent); color: var(--primary); font-size: 14px; font-weight: bold; }
         input { width: 100%; padding: 12px; margin-top: 10px; font-size: 20px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; font-weight: bold; color: var(--primary); outline: none; }
-        input:focus { border-color: var(--accent); }
         .btn-close { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 16px; transition: 0.3s; }
-        .btn-close:hover { background: #1a252f; }
         
         #print-area { display: none; }
         @media print {
@@ -42,6 +39,7 @@
             <div class="method-header">RINGKASAN PENJUALAN</div>
             <div class="row"><span>Total Penjualan (Kotor)</span><b id="txt-kotor">Rp 0</b></div>
             <div class="row"><span>Total Diskon</span><b id="txt-diskon" style="color:var(--danger);">Rp 0</b></div>
+            <div class="row"><span>Total Pajak (PPN)</span><b id="txt-pajak">Rp 0</b></div>
             <div class="row" style="font-weight:bold;"><span>Total Penjualan (Net)</span><b id="txt-net">Rp 0</b></div>
 
             <div class="method-header">RINCIAN PER METODE</div>
@@ -72,9 +70,8 @@
     <div id="print-area"></div>
 
     <script>
-        // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
         let totalSistem = 0;
-        let dataCetak = { items: [], kotor: 0, net: 0, diskon: 0, methods: {}, awal: 0, tunai_masuk: 0, kasir: '' };
+        let dataCetak = { items: [], kotor: 0, net: 0, diskon: 0, pajak: 0, methods: {}, awal: 0, tunai_masuk: 0, kasir: '' };
         let shiftId = null;
         const session = JSON.parse(localStorage.getItem('finex_session'));
 
@@ -85,16 +82,13 @@
         };
 
         async function initClosing(username) {
-            // Mengambil sesi kasir yang sedang aktif
-            const { data: activeShift } = await db
-                .from('kasir_log').select('*').eq('kasir_nama', username).eq('status', 'Open').maybeSingle();
-
+            const { data: activeShift } = await db.from('kasir_log').select('*').eq('kasir_nama', username).eq('status', 'Open').maybeSingle();
             if (!activeShift) {
-                alert("Tidak ada shift aktif untuk user ini!");
+                alert("Tidak ada shift aktif!");
                 window.location.href = "pos.html";
                 return;
             }
-            shiftId = activeShift.id; // UUID dari kasir_log
+            shiftId = activeShift.id;
             dataCetak.awal = parseFloat(activeShift.saldo_awal || 0);
             dataCetak.kasir = activeShift.kasir_nama;
             loadDataClosing();
@@ -102,11 +96,10 @@
 
         async function loadDataClosing() {
             try {
-                // SINKRONISASI MASTER: Filter menggunakan kasir_id (UUID) sesuai tabel penjualan master
-                const { data: sales, error: salesErr } = await db
-                    .from('penjualan')
-                    .select('id, subtotal, diskon, grand_total, metode_pembayaran')
-                    .eq('kasir_id', shiftId); // Perbaikan filter UUID
+                // SINKRONISASI MASTER: Filter menggunakan kasir_id (UUID)
+                const { data: sales, error: salesErr } = await db.from('penjualan')
+                    .select('id, subtotal, diskon, pajak, grand_total, metode_pembayaran')
+                    .eq('kasir_id', shiftId);
                 
                 if (salesErr) throw salesErr;
 
@@ -114,14 +107,8 @@
                 let itemMap = {};
                 
                 if (salesIds.length > 0) {
-                    const { data: details, error: detailErr } = await db
-                        .from('penjualan_detail')
-                        .select('nama_barang, qty, subtotal_item')
-                        .in('penjualan_id', salesIds);
-                    
-                    if (detailErr) throw detailErr;
-
-                    details.forEach(it => {
+                    const { data: details } = await db.from('penjualan_detail').select('nama_barang, qty, subtotal_item').in('penjualan_id', salesIds);
+                    details?.forEach(it => {
                         const nama = it.nama_barang || 'Item';
                         if (!itemMap[nama]) itemMap[nama] = { qty: 0, sub: 0 };
                         itemMap[nama].qty += parseInt(it.qty || 0);
@@ -132,17 +119,23 @@
                 let methodMap = {};
                 sales.forEach(trx => {
                     dataCetak.kotor += parseFloat(trx.subtotal || 0);
-                    dataCetak.diskon += parseFloat(trx.diskon || 0); // Sesuai tabel master
+                    dataCetak.diskon += parseFloat(trx.diskon || 0);
+                    dataCetak.pajak += parseFloat(trx.pajak || 0);
                     dataCetak.net += parseFloat(trx.grand_total || 0);
                     
                     const mtd = trx.metode_pembayaran || 'Tunai';
                     methodMap[mtd] = (methodMap[mtd] || 0) + parseFloat(trx.grand_total || 0);
-                    if (mtd.toUpperCase() === 'TUNAI') dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
+                    
+                    // PERBAIKAN: Deteksi Tunai Masuk (Case Insensitive)
+                    if (mtd.toUpperCase() === 'TUNAI' || mtd.toUpperCase() === 'CASH') {
+                        dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
+                    }
                 });
 
                 dataCetak.methods = methodMap;
                 totalSistem = dataCetak.awal + dataCetak.tunai_masuk;
 
+                // Render UI
                 let htmlItems = "";
                 dataCetak.items = [];
                 for (let name in itemMap) {
@@ -150,9 +143,10 @@
                     htmlItems += `<div class="row"><span>${name} x${itemMap[name].qty}</span><span>${itemMap[name].sub.toLocaleString('id-ID')}</span></div>`;
                 }
                 
-                document.getElementById('list-barang').innerHTML = htmlItems || '<div style="text-align:center; color:gray; font-size:12px;">Tidak ada item terjual</div>';
+                document.getElementById('list-barang').innerHTML = htmlItems || '<div style="text-align:center; color:gray;">Tidak ada item</div>';
                 document.getElementById('txt-kotor').innerText = "Rp " + dataCetak.kotor.toLocaleString('id-ID');
                 document.getElementById('txt-diskon').innerText = "-Rp " + dataCetak.diskon.toLocaleString('id-ID');
+                document.getElementById('txt-pajak').innerText = "Rp " + dataCetak.pajak.toLocaleString('id-ID');
                 document.getElementById('txt-net').innerText = "Rp " + dataCetak.net.toLocaleString('id-ID');
                 document.getElementById('txt-awal').innerText = "Rp " + dataCetak.awal.toLocaleString('id-ID');
                 document.getElementById('txt-tunai-masuk').innerText = "Rp " + dataCetak.tunai_masuk.toLocaleString('id-ID');
@@ -167,10 +161,7 @@
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
 
-            } catch (e) { 
-                console.error(e);
-                alert("Gagal memuat data closing."); 
-            }
+            } catch (e) { console.error(e); alert("Gagal memuat data."); }
         }
 
         function hitungSelisih() {
@@ -183,59 +174,46 @@
 
         async function prosesClosing() {
             const fisikValue = document.getElementById('input-fisik').value;
-            if (fisikValue === "") return alert("Harap input uang fisik laci!");
-
+            if (fisikValue === "") return alert("Input uang fisik!");
             const fisik = parseFloat(fisikValue);
             const selisih = fisik - totalSistem;
-            const tglSekarang = new Date().toISOString();
+            const tgl = new Date().toISOString();
 
-            if (!confirm("Tutup shift sekarang? Data akan disinkronkan ke Master DB.")) return;
-            
+            if (!confirm("Tutup shift?")) return;
             document.getElementById('btn-submit-closing').disabled = true;
 
             try {
-                // SINKRONISASI MASTER: Update waktu_closing dan tipe data numeric
-                const { error: errLog } = await db
-                    .from('kasir_log')
-                    .update({
-                        waktu_tutup: tglSekarang,
-                        waktu_closing: tglSekarang, // Sinkronisasi kolom Master DB
-                        total_tunai_sistem: totalSistem, // Tipe Numeric
-                        total_tunai_fisik: fisik,        // Tipe Numeric
-                        selisih: selisih,                // Tipe Numeric
-                        saldo_akhir: fisik,              // Tipe Numeric
-                        status: 'Closed'
-                    })
-                    .eq('id', shiftId);
+                // UPDATE KASIR_LOG
+                const { error } = await db.from('kasir_log').update({
+                    waktu_tutup: tgl,
+                    waktu_closing: tgl,
+                    total_tunai_sistem: totalSistem,
+                    total_tunai_fisik: fisik,
+                    selisih: selisih,
+                    saldo_akhir: fisik,
+                    status: 'Closed'
+                }).eq('id', shiftId);
 
-                if (errLog) throw errLog;
+                if (error) throw error;
 
                 renderStruk(fisik, selisih);
-                setTimeout(() => {
-                    window.print();
-                    alert("Shift Berhasil Ditutup!");
-                    window.location.href = "dashboard.html";
-                }, 500);
-
-            } catch (err) {
-                alert("Error saat closing: " + err.message);
-                document.getElementById('btn-submit-closing').disabled = false;
-            }
+                setTimeout(() => { window.print(); window.location.href = "dashboard.html"; }, 500);
+            } catch (err) { alert(err.message); document.getElementById('btn-submit-closing').disabled = false; }
         }
 
         function renderStruk(fisik, selisih) {
             const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
-            let itemRows = dataCetak.items.map(i => `
-                <div style="display:flex; justify-content:space-between;">
-                    <span>${i.name.substring(0,18)} x${i.qty}</span>
-                    <span>${i.sub.toLocaleString()}</span>
-                </div>
-            `).join('');
+            let itemRows = dataCetak.items.map(i => `<div style="display:flex; justify-content:space-between;"><span>${i.name.substring(0,18)} x${i.qty}</span><span>${i.sub.toLocaleString()}</span></div>`).join('');
             
+            // PERBAIKAN: Loop Rincian Metode pada Struk
+            let methodRows = "";
+            for (let m in dataCetak.methods) {
+                methodRows += `<div style="display:flex; justify-content:space-between;"><span>${m}</span><span>${dataCetak.methods[m].toLocaleString()}</span></div>`;
+            }
+
             document.getElementById('print-area').innerHTML = `
                 <div style="text-align:center; font-weight:bold;">
-                    <span style="font-size:12px;">${store}</span><br>
-                    LAPORAN CLOSING KASIR<br>
+                    <span style="font-size:12px;">${store}</span><br>LAPORAN CLOSING KASIR<br>
                     <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
                 </div>
                 <hr style="border:none; border-top:1px dashed #000;">
@@ -243,18 +221,16 @@
                 <hr style="border:none; border-top:1px dashed #000;">
                 Kotor  : ${dataCetak.kotor.toLocaleString()}<br>
                 Diskon : -${dataCetak.diskon.toLocaleString()}<br>
-                <b>Net Sales : ${dataCetak.net.toLocaleString()}</b>
+                Pajak  : ${dataCetak.pajak.toLocaleString()}<br> <b>Net Sales : ${dataCetak.net.toLocaleString()}</b>
                 <hr style="border:none; border-top:1px dashed #000;">
+                <b>RINCIAN METODE:</b><br>${methodRows} <hr style="border:none; border-top:1px dashed #000;">
                 Modal Awal   : ${dataCetak.awal.toLocaleString()}<br>
                 Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString()}<br>
                 <b>SIS. TUNAI  : ${totalSistem.toLocaleString()}</b><br>
                 <b>FISIK LACI  : ${fisik.toLocaleString()}</b><br>
                 <b>SELISIH     : ${selisih.toLocaleString()}</b>
                 <hr style="border:none; border-top:1px dashed #000;">
-                <center style="font-size:9px; margin-top:10px;">
-                    Kasir: ${dataCetak.kasir}<br>
-                    *** SHIFT CLOSED ***
-                </center>
+                <center style="font-size:9px;">Kasir: ${dataCetak.kasir}<br>*** SHIFT CLOSED ***</center>
             `;
         }
     </script>
