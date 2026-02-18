@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BeautyBloom | Jurnal Umum Anti-Duplikasi</title>
+    <title>Finex Pos | Jurnal Umum Audit</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
@@ -25,7 +28,6 @@
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         input[type="date"], select, .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; min-width: 150px; }
         
-        /* Switch Style */
         .switch-container { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 15px; border-radius: 30px; border: 1px solid #ddd; cursor: pointer; user-select: none; }
         .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -53,7 +55,6 @@
         .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; position: relative; overflow: hidden; }
         .stat-card label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
         .stat-card span { font-size: 22px; font-weight: 800; display: block; }
-        .stat-card.active-filter { border: 2px solid var(--accent); }
 
         .warning-banner { background: #fff4e6; border-left: 5px solid #fd7e14; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: flex; align-items: center; justify-content: space-between; }
 
@@ -67,7 +68,7 @@
 <body>
 
 <nav class="no-print">
-    <h2>BeautyBloom <span>Finex POS</span></h2>
+    <h2 id="store-name-display">BeautyBloom <span>Finex POS</span></h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="pos.html">🛒 Masuk Kasir</a>
     <a href="akun_jurnal.html">🏦 Daftar Akun</a>
@@ -78,7 +79,7 @@
 <main>
     <div class="header">
         <div>
-            <h2 style="margin:0;">Jurnal Umum (Final Audit)</h2>
+            <h2 style="margin:0;">Jurnal Umum (Audit Kas)</h2>
             <p style="color: #666; font-size: 13px;">Kelola transparansi data antara Invoice dan Closing Shift</p>
         </div>
         <div class="no-print" style="display:flex; gap:10px;">
@@ -153,11 +154,15 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     window.onload = () => {
+        const session = JSON.parse(localStorage.getItem('finex_session'));
+        if (!session) return window.location.replace('login.html');
+        
+        // Update Nama Toko di Navigasi
+        const storeEl = document.getElementById('store-name-display');
+        if (storeEl) storeEl.innerHTML = `${sessionStorage.getItem('NAMA_TOKO') || "Finex POS"} <span>Sistem Akuntansi</span>`;
+
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('date-from').value = today;
         document.getElementById('date-to').value = today;
@@ -169,25 +174,27 @@
         const to = document.getElementById('date-to').value;
         const isModeBersih = document.getElementById('mode-pajak').checked;
         
-        // Update UI Status
         const banner = document.getElementById('status-banner');
         const modeText = document.getElementById('calculation-mode');
+        
         if(isModeBersih) {
             banner.style.borderLeftColor = "var(--success)";
             banner.style.background = "#f0fdf4";
-            modeText.innerHTML = "<b style='color:var(--success)'>MODE BERSIH AKTIF</b>: Data Closing Shift otomatis diabaikan dari tabel & saldo.";
+            modeText.innerHTML = "<b style='color:var(--success)'>MODE BERSIH AKTIF</b>: Data Closing Shift otomatis diabaikan.";
         } else {
             banner.style.borderLeftColor = "#fd7e14";
             banner.style.background = "#fff4e6";
-            modeText.innerHTML = "Menampilkan SEMUA data (Hati-hati: Angka Closing & Invoice akan terjumlah dua kali)";
+            modeText.innerHTML = "Menampilkan SEMUA data (Peringatan: Potensi double counting antara Invoice & Closing)";
         }
 
         try {
-            const { data: akunData } = await supabaseClient.from('akun').select('kode_akun, nama_akun');
+            // Ambil mapping nama akun
+            const { data: akunData } = await db.from('akun').select('kode_akun, nama_akun');
             const akunMap = {};
             akunData?.forEach(a => akunMap[String(a.kode_akun)] = a.nama_akun);
 
-            let query = supabaseClient.from('jurnal_umum').select('*')
+            // Ambil data jurnal dari database pelanggan yang aktif
+            let query = db.from('jurnal_umum').select('*')
                 .gte('tanggal', from + 'T00:00:00')
                 .lte('tanggal', to + 'T23:59:59')
                 .order('tanggal', { ascending: true });
@@ -195,16 +202,17 @@
             const { data, error } = await query;
             if (error) throw error;
 
-            // CORE LOGIC: Jika Mode Bersih, buang semua data yang punya kata "Closing"
+            // Logika Filter Mode Bersih
             let finalData = data;
             if (isModeBersih) {
-                finalData = data.filter(item => !item.keterangan.toLowerCase().includes('closing'));
+                finalData = data.filter(item => !item.keterangan.toLowerCase().includes('closing') && !item.no_bukti.toLowerCase().includes('shift'));
             }
 
             renderTable(finalData, akunMap);
 
         } catch (err) {
-            console.error(err);
+            console.error("Fetch Jurnal Error:", err);
+            alert("Gagal memuat data jurnal.");
         }
     }
 
@@ -215,11 +223,9 @@
         data.forEach(j => {
             const d = parseFloat(j.debit || 0);
             const k = parseFloat(j.kredit || 0);
-            
-            // Hitung hanya data yang masuk ke list
             sDeb += d; sKre += k;
 
-            const isClosing = j.keterangan.toLowerCase().includes('closing');
+            const isClosing = j.keterangan.toLowerCase().includes('closing') || j.no_bukti.toLowerCase().includes('shift');
             const badge = isClosing ? 
                 '<span class="badge badge-closing">Closing Shift</span>' : 
                 '<span class="badge badge-invoice">Invoice POS</span>';
@@ -236,16 +242,16 @@
                         <span style="font-size:12px; color:#666">${akunMap[j.kode_akun] || 'Akun: ' + j.kode_akun}</span>
                     </td>
                     <td><b style="color:var(--accent)">${j.kode_akun}</b></td>
-                    <td class="debit-val">${d > 0 ? d.toLocaleString() : '-'}</td>
-                    <td class="kredit-val">${k > 0 ? k.toLocaleString() : '-'}</td>
+                    <td class="debit-val">${d > 0 ? d.toLocaleString('id-ID') : '-'}</td>
+                    <td class="kredit-val">${k > 0 ? k.toLocaleString('id-ID') : '-'}</td>
                 </tr>
             `;
         });
 
         document.getElementById('body-jurnal').innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding:30px;">Tidak ada data pada periode ini.</td></tr>';
-        document.getElementById('total-debit').innerText = "Rp " + sDeb.toLocaleString();
-        document.getElementById('total-kredit').innerText = "Rp " + sKre.toLocaleString();
-        document.getElementById('total-netto').innerText = "Rp " + (sDeb - sKre).toLocaleString();
+        document.getElementById('total-debit').innerText = "Rp " + sDeb.toLocaleString('id-ID');
+        document.getElementById('total-kredit').innerText = "Rp " + sKre.toLocaleString('id-ID');
+        document.getElementById('total-netto').innerText = "Rp " + (sDeb - sKre).toLocaleString('id-ID');
     }
 
     function filterTable() {
@@ -256,7 +262,8 @@
 
     function exportToExcel() {
         const wb = XLSX.utils.table_to_book(document.getElementById("table-jurnal"));
-        XLSX.writeFile(wb, `Jurnal_Audit_BeautyBloom.xlsx`);
+        const fileName = `Jurnal_Audit_${sessionStorage.getItem('NAMA_TOKO') || 'Finex'}.xlsx`;
+        XLSX.writeFile(wb, fileName);
     }
 </script>
 </body>
