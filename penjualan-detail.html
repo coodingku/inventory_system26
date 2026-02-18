@@ -124,9 +124,9 @@
 
     async function muatDaftarKasir() {
         // Ambil daftar nama kasir unik dari tabel penjualan di database pelanggan
-        const { data } = await db.from('penjualan').select('kasir_nama');
+        const { data } = await db.from('penjualan').select('kasir_id');
         if (data) {
-            const listNama = [...new Set(data.map(k => k.kasir_nama).filter(n => n))];
+            const listNama = [...new Set(data.map(k => k.kasir_id).filter(n => n))];
             const select = document.getElementById('select-kasir');
             listNama.forEach(nama => {
                 const opt = document.createElement('option');
@@ -152,14 +152,14 @@
                 .from('penjualan_detail')
                 .select(`
                     qty, harga_satuan, subtotal_item, nama_barang,
-                    penjualan!inner ( created_at, kasir_nama, no_invoice ),
+                    penjualan!inner ( created_at, kasir_id, no_invoice ),
                     produk ( harga_beli )
                 `)
                 .gte('penjualan.created_at', `${tgl1}T00:00:00`)
                 .lte('penjualan.created_at', `${tgl2}T23:59:59`);
 
             if (kasirTerpilih) {
-                query = query.eq('penjualan.kasir_nama', kasirTerpilih);
+                query = query.eq('penjualan.kasir_id', kasirTerpilih);
             }
 
             const { data, error } = await query.order('penjualan(created_at)', { ascending: false });
@@ -176,7 +176,7 @@
                     const subOmzet = parseFloat(item.subtotal_item || 0);
                     const subHpp = modalPerPcs * item.qty;
                     const subLaba = subOmzet - subHpp;
-                    const namaKasir = item.penjualan?.kasir_nama || "System";
+                    const namaKasir = item.penjualan?.kasir_id || "System";
                     const tglTrx = new Date(item.penjualan?.created_at).toLocaleDateString('id-ID');
 
                     totalOmzet += subOmzet;
