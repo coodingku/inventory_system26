@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Login Staff</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        h2 { color: var(--primary); margin-bottom: 10px; }
+        p { color: #666; font-size: 14px; margin-bottom: 30px; }
+        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 12px; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--accent); }
+        .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .btn-login:hover { background: #1a252f; transform: translateY(-2px); }
+        .msg { font-size: 12px; margin-top: 15px; color: var(--danger); display: none; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2>Finex Staff</h2>
+    <p>Masukkan nama lengkap Anda untuk mulai absen biometrik.</p>
+    
+    <input type="text" id="staff-name" placeholder="Contoh: Budi Santoso" autocomplete="off">
+    <button class="btn-login" onclick="loginStaff()">MASUK PANEL ABSEN</button>
+    <div id="error-msg" class="msg">⚠️ Nama staff tidak terdaftar!</div>
+</div>
+
+<script>
+    async function loginStaff() {
+        const nameInput = document.getElementById('staff-name').value.trim();
+        const errorMsg = document.getElementById('error-msg');
+        
+        if (!nameInput) return alert("Masukkan nama Anda!");
+
+        try {
+            // Cek apakah nama ada di tabel employee_staff
+            const { data, error } = await db.from('employee_staff')
+                .select('nama_staff')
+                .eq('nama_staff', nameInput)
+                .maybeSingle();
+
+            if (data) {
+                // Simpan identitas sementara di session agar halaman absen tahu siapa yang login
+                sessionStorage.setItem('STAFF_LOGIN', data.nama_staff);
+                window.location.href = 'absen.html';
+            } else {
+                errorMsg.style.display = 'block';
+            }
+        } catch (e) {
+            alert("Koneksi gagal: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
