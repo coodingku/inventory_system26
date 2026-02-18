@@ -9,6 +9,25 @@
     <script src="supabase-init.js"></script>
 
     <style>
+     @media print {
+    @page { 
+        margin: 0; 
+    }
+    body { 
+        margin: 0; 
+        padding: 0; 
+        height: auto !important; /* Mencegah kertas memanjang kosong */
+    }
+    #print-area { 
+        display: block !important; 
+        width: 58mm; /* Lebar standar printer thermal */
+        margin: 0;
+        padding: 5px;
+        font-family: monospace;
+        font-size: 10px;
+        line-height: 1.2;
+    }
+}
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
@@ -372,30 +391,62 @@
         } catch (e) { console.error(e); alert("Kesalahan: " + e.message); isSaving = false; }
     }
 
-    function renderReceipt(inv, totalBayar) {
-        const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
-        const itemRows = cart.map(i => {
-            const pot = (i.qty * i.harga * i.discountItem) / 100;
-            return `<div style="display:flex; justify-content:space-between; font-size:10px;">
-                        <span>${i.nama_barang} x${i.qty}</span>
-                        <span>${(i.qty * i.harga).toLocaleString()}</span>
-                    </div>
-                    ${pot > 0 ? `<div style="text-align:right; font-size:9px;">-Disc Item: ${pot.toLocaleString()}</div>` : ''}`;
-        }).join('');
+   function renderReceipt(inv, totalBayar) {
+    const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+    const itemRows = cart.map(i => {
+        // Sesuai Master DB: Kalkulasi subtotal dan diskon per item
+        const subtotalBarang = i.qty * i.harga;
+        const pot = (subtotalBarang * (i.discountItem || 0)) / 100;
         
-        document.getElementById('print-area').innerHTML = `
-            <center><b>${storeName}</b><br><small>Nota Digital</small><br>--------------------------</center>
-            <div style="font-size:10px;">Inv: ${inv}<br>Tgl: ${new Date().toLocaleString('id-ID')}</div>
-            --------------------------<br>${itemRows}--------------------------<br>
-            <div style="font-size:10px;">
-                <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>Diskon:</span><span>-${(Math.round(state.discItem + state.discGlobal)).toLocaleString()}</span></div>
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px;"><span>TOTAL:</span><span>${state.total.toLocaleString()}</span></div>
-                <div style="display:flex; justify-content:space-between; border-top:1px dashed #eee;"><span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString()}</span></div>
+        return `
+            <div style="display:flex; justify-content:space-between; font-size:10px;">
+                <span style="flex:1;">${i.nama_barang.substring(0, 18)}</span>
+                <span style="width:30px; text-align:right;">x${i.qty}</span>
+                <span style="width:60px; text-align:right;">${subtotalBarang.toLocaleString('id-ID')}</span>
             </div>
-            <center style="font-size:10px; margin-top:5px;">*** TERIMA KASIH ***</center>`;
-    }
-
+            ${pot > 0 ? `<div style="text-align:right; font-size:9px; color:#555;">-Disc: ${pot.toLocaleString('id-ID')}</div>` : ''}
+        `;
+    }).join('');
+    
+    // Pastikan area print dibungkus dengan div yang tingginya otomatis
+    document.getElementById('print-area').innerHTML = `
+        <div style="width: 100%; height: auto; overflow: hidden;">
+            <center>
+                <b style="font-size:12px;">${storeName}</b><br>
+                <small>Nota Penjualan</small><br>
+                ----------------------------
+            </center>
+            <div style="font-size:10px; margin-bottom:5px;">
+                Inv: ${inv}<br>
+                Tgl: ${new Date().toLocaleString('id-ID')}
+            </div>
+            ----------------------------<br>
+            ${itemRows}
+            ----------------------------<br>
+            <div style="font-size:10px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Subtotal:</span><span>${state.sub.toLocaleString('id-ID')}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Diskon:</span><span>-${(Math.round(state.discItem + (state.discGlobal || 0))).toLocaleString('id-ID')}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:3px;">
+                    <span>TOTAL:</span><span>${state.total.toLocaleString('id-ID')}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-top:1px dashed #000; margin-top:3px; padding-top:3px;">
+                    <span>Bayar:</span><span>${totalBayar.toLocaleString('id-ID')}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString('id-ID')}</span>
+                </div>
+            </div>
+            <center style="font-size:10px; margin-top:10px;">
+                *** TERIMA KASIH ***<br>
+                Barang yang sudah dibeli<br>
+                tidak dapat ditukar/dikembalikan
+            </center>
+            <div style="height: 10px;"></div> </div>`;
+}
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
         if (!hp) return alert("Masukkan nomor WA!");
