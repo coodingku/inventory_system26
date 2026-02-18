@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventori & Aset | Finex Pos</title>
-    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
-        /* Sidebar Navigation - Disamakan dengan modul PO & Laporan */
+        /* Sidebar Navigation */
         nav { width: 250px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; display: block; font-size: 14px; transition: 0.3s; }
@@ -37,23 +39,31 @@
         .btn-update { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-update:hover { background: var(--accent); }
         .btn-refresh { background: white; border: 1px solid #ddd; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Finex Pos</h2>
+    <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html">📥 Pembelian (PO)</a>
     <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
     <a href="inventori_stok.html" class="active">📦 Inventori Stok</a>
-    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir BeautyBloom</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="pos.html" style="background: var(--success); color: white; text-align: center;">🛒 Kasir</a>
+
+    <div class="user-info">
+        <small>USER:</small> <b id="display-user-nav">...</b>
+    </div>
+    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; text-align: center;">🚪 Keluar</a>
 </nav>
 
 <main>
     <div class="header-box">
-        <h1>Manajemen Stok & Aset BeautyBloom</h1>
+        <h1>Manajemen Stok & Valuasi Aset</h1>
         <button class="btn-refresh" onclick="loadInventory()">🔄 Refresh Data</button>
     </div>
 
@@ -78,8 +88,8 @@
             <thead>
                 <tr>
                     <th>Nama Barang</th>
-                    <th>Harga Beli Terakhir</th>
-                    <th>Stok Saat Ini</th>
+                    <th>Harga Beli</th>
+                    <th>Stok</th>
                     <th>Satuan</th>
                     <th>Nilai Aset</th>
                     <th>Status</th>
@@ -93,14 +103,13 @@
 </main>
 
 <script>
-    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(SB_URL, SB_KEY);
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
     window.onload = loadInventory;
 
     async function loadInventory() {
-        const { data: produk, error } = await FinexDB.from('produk').select('*').order('nama_barang');
+        // Menggunakan 'db' pelanggan
+        const { data: produk, error } = await db.from('produk').select('*').order('nama_barang');
 
         if (error) return alert("Gagal muat stok: " + error.message);
 
@@ -119,10 +128,10 @@
             html += `
                 <tr class="${isLow ? 'low-stock' : ''}">
                     <td><strong>${p.nama_barang}</strong></td>
-                    <td>Rp ${hrgBeli.toLocaleString()}</td>
+                    <td>Rp ${hrgBeli.toLocaleString('id-ID')}</td>
                     <td>${p.stok_sekarang}</td>
                     <td>pcs</td>
-                    <td><strong>Rp ${nilaiAset.toLocaleString()}</strong></td>
+                    <td><strong>Rp ${nilaiAset.toLocaleString('id-ID')}</strong></td>
                     <td>
                         <span class="badge ${isLow ? 'badge-low' : 'badge-ok'}">
                             ${isLow ? 'Stok Rendah' : 'Tersedia'}
@@ -137,7 +146,7 @@
 
         document.getElementById('inventory-body').innerHTML = html || '<tr><td colspan="7" style="text-align:center;">Tidak ada data produk.</td></tr>';
         document.getElementById('total-items').innerText = produk.length;
-        document.getElementById('total-asset-value').innerText = "Rp " + totalAsset.toLocaleString();
+        document.getElementById('total-asset-value').innerText = "Rp " + totalAsset.toLocaleString('id-ID');
         document.getElementById('total-low-stock').innerText = lowStockCount;
     }
 
@@ -150,13 +159,21 @@
 
         if (totalBaru < 0) return alert("Stok tidak boleh kurang dari 0!");
 
-        const { error } = await FinexDB.from('produk').update({ stok_sekarang: totalBaru }).eq('id', id);
+        const { error } = await db.from('produk').update({ stok_sekarang: totalBaru }).eq('id', id);
 
         if (!error) {
             alert("Berhasil melakukan penyesuaian stok!");
             loadInventory();
         } else {
             alert("Gagal update: " + error.message);
+        }
+    }
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.replace('login.html');
         }
     }
 </script>
