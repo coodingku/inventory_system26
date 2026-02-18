@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Receipt | BeautyBoom</title>
+    <title>E-Receipt | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         body { font-family: 'Courier New', Courier, monospace; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; margin: 0; }
         .receipt-card { background: white; width: 100%; max-width: 380px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-radius: 8px; position: relative; }
         .header { text-align: center; border-bottom: 2px dashed #eee; padding-bottom: 15px; margin-bottom: 20px; }
-        .header h2 { margin: 0; color: #2c3e50; letter-spacing: 1px; }
+        .header h2 { margin: 0; color: #2c3e50; letter-spacing: 1px; text-transform: uppercase; }
         .info { font-size: 13px; line-height: 1.8; margin-bottom: 20px; color: #555; }
         .items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .items-table th { border-bottom: 1px solid #eee; text-align: left; padding-bottom: 8px; color: #888; text-transform: uppercase; font-size: 11px; }
@@ -19,7 +22,7 @@
         .bold { font-weight: bold; font-size: 18px; color: #2c3e50; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
         .footer { text-align: center; margin-top: 35px; font-size: 12px; color: #999; line-height: 1.5; }
         .loading { text-align: center; padding: 50px; color: #666; font-family: sans-serif; }
-        .btn-print { width: 100%; margin-top: 25px; padding: 12px; border: none; background: #3498db; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-print { width: 100%; margin-top: 25px; padding: 12px; border: none; background: #3498db; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif; }
         @media print { .btn-print { display: none; } body { background: white; padding: 0; } .receipt-card { box-shadow: none; border: none; } }
     </style>
 </head>
@@ -29,14 +32,15 @@
     
     <div id="receipt" class="receipt-card" style="display: none;">
         <div class="header">
-            <h2>Finex Pos</h2>
-            <p style="font-size: 12px; margin: 5px 0; color: #7f8c8d;">Struk Belanja BeautyBloom Resmi</p>
+            <h2 id="store-name-receipt">FINEX POS</h2>
+            <p style="font-size: 12px; margin: 5px 0; color: #7f8c8d;">Struk Belanja Resmi</p>
         </div>
 
         <div class="info">
             <div class="flex"><span>No. Invoice</span><strong id="inv-no"></strong></div>
             <div class="flex"><span>Waktu</span><span id="inv-date"></span></div>
             <div class="flex"><span>Metode</span><span id="inv-method"></span></div>
+            <div class="flex"><span>Kasir</span><span id="inv-cashier"></span></div>
         </div>
 
         <table class="items-table">
@@ -54,6 +58,9 @@
             <div id="row-diskon" class="flex" style="color: #e74c3c; display: none;">
                 <span>Potongan Diskon</span><span id="inv-diskon"></span>
             </div>
+            <div id="row-pajak" class="flex" style="display: none;">
+                <span>Pajak (PPN)</span><span id="inv-pajak"></span>
+            </div>
             <div class="flex bold"><span>TOTAL AKHIR</span><span id="inv-total"></span></div>
             <div class="flex" style="margin-top: 15px; font-size: 13px; color: #7f8c8d;">
                 <span>Diterima</span><span id="inv-bayar"></span>
@@ -65,74 +72,81 @@
 
         <div class="footer">
             <p>*** Terima Kasih ***</p>
-            <p>Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.</p>
+            <p id="footer-msg">Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.</p>
         </div>
         
         <button onclick="window.print()" class="btn-print">Cetak Nota / Simpan PDF</button>
     </div>
 
 <script>
-    // Konfigurasi Database
-    const SUPA_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    
-    // Menggunakan nama variabel berbeda agar tidak bentrok dengan global 'supabase'
-    const finexDB = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
+    // Catatan: Karena ini diakses pelanggan (tanpa login), supabase-init.js 
+    // akan mencoba mengambil sub-domain/slug dari URL untuk menentukan API Key.
 
     async function loadInvoice() {
         const urlParams = new URLSearchParams(window.location.search);
         const invoiceId = urlParams.get('id');
 
         if (!invoiceId) {
-            document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>ID Nota tidak ditemukan dalam tautan.</p>";
+            document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>Link nota tidak valid.</p>";
             return;
         }
 
         try {
-            // Ambil data Penjualan
-            const { data: trx, error: errTrx } = await finexDB
+            // Ambil data Penjualan dari DB pelanggan yang tepat
+            const { data: trx, error: errTrx } = await db
                 .from('penjualan')
                 .select('*')
                 .eq('id', invoiceId)
-                .single();
+                .maybeSingle();
 
-            if (errTrx || !trx) throw new Error("Data nota tidak ditemukan atau sudah dihapus.");
+            if (errTrx || !trx) throw new Error("Data nota tidak ditemukan.");
 
             // Ambil data Detail Item
-            const { data: items, error: errItems } = await finexDB
+            const { data: items, error: errItems } = await db
                 .from('penjualan_detail')
                 .select('*')
                 .eq('penjualan_id', invoiceId);
 
             // Mapping Data ke UI
+            document.getElementById('store-name-receipt').innerText = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
             document.getElementById('inv-no').innerText = trx.no_invoice;
+            document.getElementById('inv-cashier').innerText = trx.kasir_nama || '-';
             document.getElementById('inv-date').innerText = new Date(trx.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
             document.getElementById('inv-method').innerText = trx.metode_pembayaran || 'Tunai';
             
-            document.getElementById('inv-subtotal').innerText = "Rp " + trx.subtotal.toLocaleString();
+            document.getElementById('inv-subtotal').innerText = "Rp " + (trx.subtotal || 0).toLocaleString('id-ID');
             
-            if (trx.diskon > 0) {
+            const discValue = parseFloat(trx.diskon_global || trx.diskon || 0);
+            if (discValue > 0) {
                 document.getElementById('row-diskon').style.display = 'flex';
-                document.getElementById('inv-diskon').innerText = "-Rp " + trx.diskon.toLocaleString();
+                document.getElementById('inv-diskon').innerText = "-Rp " + discValue.toLocaleString('id-ID');
             }
 
-            document.getElementById('inv-total').innerText = "Rp " + trx.grand_total.toLocaleString();
-            document.getElementById('inv-bayar').innerText = "Rp " + (trx.bayar || 0).toLocaleString();
-            document.getElementById('inv-kembali').innerText = "Rp " + ((trx.bayar || 0) - trx.grand_total).toLocaleString();
+            if (trx.pajak > 0) {
+                document.getElementById('row-pajak').style.display = 'flex';
+                document.getElementById('inv-pajak').innerText = "Rp " + trx.pajak.toLocaleString('id-ID');
+            }
 
-            const itemsHtml = items.map(item => `
+            document.getElementById('inv-total').innerText = "Rp " + trx.grand_total.toLocaleString('id-ID');
+            document.getElementById('inv-bayar').innerText = "Rp " + (trx.bayar || 0).toLocaleString('id-ID');
+            
+            const kembali = (trx.bayar || 0) - trx.grand_total;
+            document.getElementById('inv-kembali').innerText = "Rp " + (kembali > 0 ? kembali : 0).toLocaleString('id-ID');
+
+            const itemsHtml = (items || []).map(item => `
                 <tr>
                     <td>
                         <div style="font-weight:bold; color:#333;">${item.nama_barang}</div>
-                        <div style="color:#888; font-size:11px;">${item.qty} x Rp ${item.harga_satuan.toLocaleString()}</div>
+                        <div style="color:#888; font-size:11px;">${item.qty} x Rp ${item.harga_satuan.toLocaleString('id-ID')}</div>
                     </td>
-                    <td style="text-align: right; font-weight:bold;">${item.subtotal_item.toLocaleString()}</td>
+                    <td style="text-align: right; font-weight:bold;">${parseFloat(item.subtotal_item || 0).toLocaleString('id-ID')}</td>
                 </tr>
             `).join('');
             
             document.getElementById('inv-items').innerHTML = itemsHtml;
 
-            // Sembunyikan loader dan tampilkan nota
+            // Tampilkan nota
             document.getElementById('loader').style.display = 'none';
             document.getElementById('receipt').style.display = 'block';
 
@@ -141,8 +155,10 @@
         }
     }
 
-    // Jalankan fungsi
-    loadInvoice();
+    // Jalankan setelah DOM & Script Init siap
+    window.onload = () => {
+        setTimeout(loadInvoice, 500); 
+    };
 </script>
 </body>
 </html>
