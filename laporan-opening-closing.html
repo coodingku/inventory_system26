@@ -5,117 +5,119 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Laporan & Reprint Shift</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --purple: #8e44ad; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
         
-        /* Sidebar Navigasi */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; position: fixed; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; cursor: pointer; transition: 0.3s; display: block; font-size: 14px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
-        .logout-btn { margin-top: auto; color: var(--danger); font-weight: bold; padding: 12px; cursor: pointer; border-radius: 8px; border: 1px solid var(--danger); text-align: center; margin-top: 50px; }
-
-        /* Main Content */
-        main { flex: 1; margin-left: 250px; padding: 40px; min-height: 100vh; box-sizing: border-box; }
+        
+        main { flex: 1; margin-left: 250px; padding: 40px; min-height: 100vh; box-sizing: border-box; width: calc(100% - 250px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
         
-        /* Filter Styles */
         .filter-group { display: flex; align-items: center; gap: 10px; background: #eee; padding: 10px 15px; border-radius: 10px; }
         .filter-group input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
         .btn-search { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-search:hover { background: #2980b9; }
 
-        /* Table Styles */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; font-size: 14px; }
+        th { background: #f8f9fa; color: var(--primary); text-align: left; padding: 15px; border-bottom: 2px solid #eee; font-size: 13px; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
         
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .open { background: #e8f5e9; color: #2e7d32; }
         .closed { background: #ffebee; color: #c62828; }
 
-        .btn-reprint { background: var(--purple); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; }
-        .btn-reprint:hover { background: #732d91; transform: scale(1.05); }
+        .btn-reprint { background: var(--purple); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
 
-        /* Area Cetak */
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden !important; }
             #print-area, #print-area * { visibility: visible !important; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; background: white; font-family: monospace; }
+            @page { margin: 0; }
         }
     </style>
 </head>
 <body>
 
-<nav>
-    <h2>Finex Pos</h2>
-    <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Masuk Kasir</a>
-    <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
-    <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
-    <a href="laporan-opening-closing.html" class="active">🕒 Log Shift Kasir</a>
-    <a href="closing.html">🏁 Closing Shift</a>
-    <div class="logout-btn" onclick="logout()">🚪 Keluar Sistem</div>
-</nav>
-
-<main>
-    <div class="card">
-        <div class="header-flex">
-            <div>
-                <h2 style="margin:0;">Riwayat Shift Harian</h2>
-                <p style="color:#666; font-size: 14px; margin-top: 5px;">Data buka/tutup laci kasir <b>BeautyBloom</b>.</p>
-            </div>
-            <div class="filter-group">
-                <label style="font-size: 13px; font-weight: bold;">Pilih Tanggal:</label>
-                <input type="date" id="filter-date">
-                <button class="btn-search" onclick="fetchShiftLogs()">Cari Data</button>
-            </div>
-        </div>
+    <nav>
+        <h2 id="store-name-display">Finex Pos</h2>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="pos.html">🛒 Masuk Kasir</a>
+        <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+        <a href="laporan-bill.html">📄 Riwayat Transaksi</a>
+        <a href="laporan-opening-closing.html" class="active">🕒 Log Shift Kasir</a>
         
-        <table>
-            <thead>
-                <tr>
-                    <th>Kasir</th>
-                    <th>Waktu Buka</th>
-                    <th>Waktu Tutup</th>
-                    <th>Saldo Awal</th>
-                    <th>Setoran Akhir</th>
-                    <th>Status</th>
-                    <th>Opsi</th>
-                </tr>
-            </thead>
-            <tbody id="log-table-body">
-                <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</main>
+        <div class="user-info">
+            <small>ADMIN:</small> <b id="display-user-nav">...</b>
+        </div>
+        <div class="logout-btn" style="background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;" onclick="logout()">🚪 Keluar Sistem</div>
+    </nav>
 
-<div id="print-area"></div>
+    <main>
+        <div class="card">
+            <div class="header-flex">
+                <div>
+                    <h2 style="margin:0;">Riwayat Shift Harian</h2>
+                    <p id="unit-label" style="color:#666; font-size: 14px; margin-top: 5px;">Memuat data unit...</p>
+                </div>
+                <div class="filter-group">
+                    <label style="font-size: 13px; font-weight: bold;">Pilih Tanggal:</label>
+                    <input type="date" id="filter-date">
+                    <button class="btn-search" onclick="fetchShiftLogs()">Cari</button>
+                </div>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kasir</th>
+                        <th>Waktu Buka</th>
+                        <th>Waktu Tutup</th>
+                        <th>Saldo Awal</th>
+                        <th>Saldo Akhir</th>
+                        <th>Status</th>
+                        <th>Opsi</th>
+                    </tr>
+                </thead>
+                <tbody id="log-table-body">
+                    <tr><td colspan="7" style="text-align:center; padding:20px;">Pilih tanggal...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="print-area"></div>
 
 <script>
-    const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-    const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-    const FinexDB = window.supabase.createClient(URL_DB, KEY_DB);
+    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
-    // Inisialisasi tanggal hari ini dengan benar
-    document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
+    window.onload = () => {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('filter-date').value = today;
+        document.getElementById('unit-label').innerHTML = `Log pergerakan kasir unit <b>${sessionStorage.getItem('NAMA_TOKO') || 'BeautyBloom'}</b>.`;
+        fetchShiftLogs();
+    };
 
     async function fetchShiftLogs() {
         const filterDate = document.getElementById('filter-date').value;
         const tbody = document.getElementById('log-table-body');
-        
-        if (!filterDate) return alert("Pilih tanggal terlebih dahulu.");
+        if (!filterDate) return;
 
-        // Format ISO yang aman untuk menghindari error out of range
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">⏳ Memuat data...</td></tr>';
+
         const start = `${filterDate}T00:00:00.000Z`;
         const end = `${filterDate}T23:59:59.999Z`;
 
-        const { data, error } = await FinexDB
+        const { data, error } = await db
             .from('kasir_log')
             .select('*')
             .gte('waktu_buka', start)
@@ -128,28 +130,28 @@
         }
 
         if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;">Tidak ada riwayat shift pada tanggal ini.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;">Tidak ada riwayat shift di tanggal ini.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = data.map(log => {
             const timeTutup = log.waktu_tutup || log.waktu_closing;
             const displayTutup = timeTutup 
-                ? new Date(timeTutup).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) 
+                ? new Date(timeTutup).toLocaleString('id-ID', {hour:'2-digit', minute:'2-digit'}) 
                 : '<b style="color:orange;">Belum Tutup</b>';
 
             return `
                 <tr>
                     <td><b>${log.kasir_nama}</b></td>
-                    <td>${new Date(log.waktu_buka).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'})}</td>
+                    <td>${new Date(log.waktu_buka).toLocaleString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
                     <td>${displayTutup}</td>
-                    <td>Rp ${parseFloat(log.saldo_awal || 0).toLocaleString()}</td>
-                    <td><b style="color:var(--primary)">Rp ${parseFloat(log.saldo_akhir || 0).toLocaleString()}</b></td>
+                    <td>Rp ${parseFloat(log.saldo_awal || 0).toLocaleString('id-ID')}</td>
+                    <td><b>Rp ${parseFloat(log.saldo_akhir || 0).toLocaleString('id-ID')}</b></td>
                     <td><span class="badge ${log.status === 'Open' ? 'open' : 'closed'}">${log.status}</span></td>
                     <td>
                         ${log.status === 'Closed' ? 
-                            `<button class="btn-reprint" onclick='prepareReprint(${JSON.stringify(log)})'>🖨️ Cetak Struk</button>` : 
-                            `<small style="color:var(--success); font-weight:bold;">SHIFT AKTIF</small>`}
+                            `<button class="btn-reprint" onclick='prepareReprint(${JSON.stringify(log)})'>🖨️ Cetak</button>` : 
+                            `<small style="color:var(--success); font-weight:bold;">Sesi Aktif</small>`}
                     </td>
                 </tr>
             `;
@@ -157,30 +159,27 @@
     }
 
     function prepareReprint(log) {
+        const store = sessionStorage.getItem('NAMA_TOKO') || "FINE POS";
         const timeTutup = log.waktu_tutup || log.waktu_closing;
         
         const strukHTML = `
-            <div style="width:58mm; padding:2mm; font-family:monospace; font-size:11px; color:black;">
-                <center>
-                    <b style="font-size:14px;">BEAUTYBLOOM POS</b><br>
-                    REPRINT LAPORAN CLOSING<br>
-                    ----------------------------
-                </center>
-                ID Shift: #${log.id}<br>
-                Kasir    : ${log.kasir_nama}<br>
-                Buka     : ${new Date(log.waktu_buka).toLocaleString('id-ID')}<br>
-                Tutup    : ${timeTutup ? new Date(timeTutup).toLocaleString('id-ID') : '-'}<br>
-                ----------------------------<br>
-                Saldo Modal : Rp ${parseFloat(log.saldo_awal || 0).toLocaleString()}<br>
-                Total Tunai : Rp ${parseFloat(log.saldo_akhir || 0).toLocaleString()}<br>
-                ----------------------------<br>
-                Selisih Fisik: Rp ${parseFloat(log.selisih || 0).toLocaleString()}<br>
-                ----------------------------<br>
-                <center>
-                    Laporan ini adalah salinan sah.<br>
-                    Printed: ${new Date().toLocaleString('id-ID')}<br>
-                    *** TERIMA KASIH ***
-                </center>
+            <div style="width:58mm; padding:2mm; font-family:monospace; font-size:10px; color:black; line-height:1.2;">
+                <div style="text-align:center; margin-bottom:5px;">
+                    <b style="font-size:12px;">${store}</b><br>
+                    LAPORAN CLOSING (COPY)
+                </div>
+                <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                Kasir : ${log.kasir_nama}<br>
+                Buka  : ${new Date(log.waktu_buka).toLocaleString('id-ID')}<br>
+                Tutup : ${timeTutup ? new Date(timeTutup).toLocaleString('id-ID') : '-'}<br>
+                <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                Modal Awal   : Rp ${parseFloat(log.saldo_awal || 0).toLocaleString()}<br>
+                Total Tunai  : Rp ${parseFloat(log.saldo_akhir || 0).toLocaleString()}<br>
+                Selisih      : Rp ${parseFloat(log.selisih || 0).toLocaleString()}<br>
+                <div style="border-top:1px dashed #000; margin:5px 0;"></div>
+                <div style="text-align:center; font-size:9px; margin-top:5px;">
+                    Dicetak pada: ${new Date().toLocaleString('id-ID')}
+                </div>
             </div>
         `;
 
@@ -190,13 +189,11 @@
 
     function logout() {
         if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
             localStorage.clear();
             window.location.replace('login.html');
         }
     }
-
-    // Panggil fungsi saat pertama kali dimuat
-    fetchShiftLogs();
 </script>
 </body>
 </html>
