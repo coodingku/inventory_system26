@@ -55,7 +55,20 @@
 </div>
 
 <script>
-    // Variabel 'db' sekarang menggunakan instance dari supabase-init.js
+  // 1. AMBIL KONEKSI DINAMIS DARI SESSION
+    const CLIENT_URL = sessionStorage.getItem('CLIENT_DB_URL');
+    const CLIENT_KEY = sessionStorage.getItem('CLIENT_DB_KEY');
+    const namaStaffLogin = sessionStorage.getItem('STAFF_LOGIN');
+
+    // Jika tidak ada data login, kembalikan ke login staff
+    if (!CLIENT_URL || !namaStaffLogin) {
+        window.location.replace('login-staff.html');
+    }
+
+    // 2. BUAT INSTANCE DATABASE PELANGGAN
+    // Variabel 'db' ini akan digunakan oleh semua fungsi di bawahnya
+    const db = window.supabase.createClient(CLIENT_URL, CLIENT_KEY);
+
     let labeledDescriptors = [];
     let configToko = { latitude: 0, longitude: 0, radius_meter: 100 };
     let userLoc = { lat: 0, lon: 0 };
@@ -66,34 +79,37 @@
     async function init() {
         const info = document.getElementById('instruction');
         const storeTitle = document.getElementById('store-title');
+        const storeTagline = document.getElementById('store-tagline');
         
         try {
-            // Mengambil nama toko dari session
+            // Tampilkan Nama Toko & Sesi Staff
             storeTitle.innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex Face ID";
+            storeTagline.innerHTML = `SESI: <b style="color:var(--accent)">${namaStaffLogin.toUpperCase()}</b>`;
             
             const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
             
-            // 1. Load AI Models
+            // Load AI Models
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
             ]);
 
-            // 2. Load Data Wajah Staff menggunakan variabel global 'db'
-            const { data: staff, error: errStaff } = await db.from('employee_staff').select('nama_staff, face_descriptor');
-            if(errStaff) throw errStaff;
+            // Load Data Wajah Staff (Hanya ambil wajah milik staff yang sedang login agar cepat)
+            const { data: staff, error: errStaff } = await db.from('employee_staff')
+                .select('nama_staff, face_descriptor')
+                .eq('nama_staff', namaStaffLogin)
+                .single();
 
-            labeledDescriptors = (staff || []).map(s => {
-                if(!s.face_descriptor) return null;
-                try {
-                    const descArray = JSON.parse(s.face_descriptor);
-                    const desc = new Float32Array(Object.values(descArray));
-                    return new faceapi.LabeledFaceDescriptors(s.nama_staff, [desc]);
-                } catch(e) { return null; }
-            }).filter(x => x !== null);
+            if(errStaff || !staff.face_descriptor) {
+                throw new Error("Data wajah Anda belum terdaftar. Hubungi Admin.");
+            }
 
-            // 3. Load Pengaturan Lokasi Toko
+            const descArray = JSON.parse(staff.face_descriptor);
+            const desc = new Float32Array(Object.values(descArray));
+            labeledDescriptors = [new faceapi.LabeledFaceDescriptors(staff.nama_staff, [desc])];
+
+            // Load Pengaturan Lokasi Toko
             const { data: loc } = await db.from('pengaturan_toko').select('*').eq('id', 1).maybeSingle();
             if (loc) {
                 configToko = { 
@@ -107,11 +123,9 @@
             startCamera();
             startGeo();
         } catch (e) {
-            info.innerHTML = `<b style="color:red">Error Inisialisasi: ${e.message}</b>`;
-            console.error(e);
+            info.innerHTML = `<b style="color:red">${e.message}</b>`;
         }
     }
-
     async function startCamera() {
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay');
