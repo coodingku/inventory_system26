@@ -223,26 +223,33 @@
         
         try {
             // Menggunakan variabel global 'db'
+           async function simpanAbsensi(nama) {
+        const info = document.getElementById('instruction');
+        const tgl = new Date().toISOString().split('T')[0];
+        const jam = new Date().toISOString();
+        
+        try {
             const { data: cek } = await db.from('presensi')
                 .select('*').eq('nama_staff', nama).eq('tanggal', tgl).eq('status', 'Aktif').maybeSingle();
 
             if (cek) {
-                await db.from('presensi').update({ 
-                    waktu_pulang: jam, status: 'Selesai', lokasi_pulang: `${userLoc.lat},${userLoc.lon}` 
-                }).eq('id', cek.id);
-                alert(`Absen PULANG Berhasil: ${nama}`);
+                await db.from('presensi').update({ waktu_pulang: jam, status: 'Selesai' }).eq('id', cek.id);
+                alert(`Terima kasih ${nama}, Absen PULANG Berhasil!`);
             } else {
                 await db.from('presensi').insert([{ 
-                    nama_staff: nama, tanggal: tgl, waktu_masuk: jam, lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
+                    nama_staff: nama, tanggal: tgl, waktu_masuk: jam, 
+                    lokasi_masuk: `${userLoc.lat},${userLoc.lon}`, status: 'Aktif' 
                 }]);
-                alert(`Absen MASUK Berhasil: ${nama}`);
+                alert(`Halo ${nama}, Absen MASUK Berhasil! Selamat bekerja.`);
             }
             location.reload();
         } catch (e) {
-            alert("Gagal simpan: " + e.message);
+            alert("Gagal simpan data: " + e.message);
             isProcessing = false;
+            location.reload();
         }
     }
+
 
     window.onload = init;
 </script>
