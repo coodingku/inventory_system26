@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Dinamis BeautyBloom | Finex Pos</title>
+    <title>Laporan Rincian Pembayaran | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { 
             --primary: #0f172a; 
@@ -15,7 +18,7 @@
         }
         
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
-        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 1200px; margin: auto; }
+        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 1300px; margin: auto; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }
         .header h2 { margin: 0; color: var(--primary); }
@@ -49,7 +52,7 @@
         .loading { text-align: center; padding: 50px; color: #64748b; }
 
         @media print {
-            .filter-box, .btn-export, button { display: none; }
+            .filter-box, .btn-export, button, nav { display: none !important; }
             body { padding: 0; background: white; }
             .container { box-shadow: none; border: none; max-width: 100%; }
         }
@@ -60,8 +63,8 @@
 <div class="container">
     <div class="header">
         <div>
-            <h2>Laporan Penjualan BeautyBloom</h2>
-            <div style="color: #64748b; font-size: 14px;">Sistem Finex Pos - Laporan Rincian Pembayaran Dinamis</div>
+            <h2 id="store-name-display">Finex Pos</h2>
+            <div style="color: #64748b; font-size: 14px;">Laporan Rincian Pembayaran Dinamis</div>
         </div>
         <div style="display: flex; gap: 10px;">
             <button class="btn-export" onclick="exportToExcel()">Export Excel</button>
@@ -86,15 +89,11 @@
     </div>
 
     <div id="summary-area" class="summary-grid">
-        <!-- Rincian Bawah Akan Muncul Di Sini -->
-    </div>
+        </div>
 </div>
 
 <script>
-const SUPA_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
-
-const client = supabase.createClient(SUPA_URL, SUPA_KEY);
+// Variabel 'db' disediakan secara dinamis oleh supabase-init.js
 
 window.onload = () => {
     const now = new Date();
@@ -106,11 +105,12 @@ async function fetchData() {
     const start = document.getElementById('date-start').value;
     const end = document.getElementById('date-end').value;
     
-    document.getElementById('content-area').innerHTML = '<div class="loading">Memproses data dari POS...</div>';
+    document.getElementById('content-area').innerHTML = '<div class="loading">Memproses data dari server...</div>';
     document.getElementById('summary-area').innerHTML = '';
 
     try {
-        const { data, error } = await client
+        // Menggunakan 'db' pelanggan yang sedang login
+        const { data, error } = await db
             .from('penjualan')
             .select('*')
             .gte('created_at', start + 'T00:00:00')
@@ -133,7 +133,6 @@ function processAndRender(data) {
     const dailyData = {};
     const paymentMethods = new Set();
     
-    // Inisialisasi Grand Totals
     const totals = {
         gross: 0,
         disc: 0,
@@ -156,23 +155,22 @@ function processAndRender(data) {
         }
 
         const sub = parseFloat(item.subtotal || 0);
-        const disc = parseFloat(item.diskon || 0);
-        const nett = sub - disc;
+        const disc = parseFloat(item.diskon_global || item.diskon || 0);
+        const grand = parseFloat(item.grand_total || 0);
 
         dailyData[dateKey].gross += sub;
         dailyData[dateKey].disc += disc;
-        dailyData[dateKey].payments[method] = (dailyData[dateKey].payments[method] || 0) + nett;
+        dailyData[dateKey].payments[method] = (dailyData[dateKey].payments[method] || 0) + grand;
         
-        // Akumulasi Global
         totals.gross += sub;
         totals.disc += disc;
-        totals.methods[method] = (totals.methods[method] || 0) + nett;
+        totals.methods[method] = (totals.methods[method] || 0) + grand;
     });
 
     const sortedMethods = Array.from(paymentMethods).sort();
     
-    // Hitung Pajak Global
     totals.nett = totals.gross - totals.disc;
+    // Asumsi perhitungan Pajak 15.5% (PB1 10% + Service 5% dari DPP)
     totals.dpp = totals.nett / 1.155;
     totals.svc = totals.dpp * 0.05;
     totals.pb1 = (totals.dpp + totals.svc) * 0.10;
@@ -194,7 +192,7 @@ function renderTable(dailyData, methods, grandTotals) {
                         <th rowspan="2">Gross Sales</th>
                         <th rowspan="2">Diskon</th>
                         <th rowspan="2">Net Sales</th>
-                        <th colspan="3">Pajak & Service (Est)</th>
+                        <th colspan="3">Estimasi Pajak (PB1)</th>
                         <th colspan="${methods.length}" style="background:#831843">Metode Pembayaran (POS)</th>
                         <th rowspan="2" style="background:#c2410c">Total Harian</th>
                     </tr>
@@ -236,19 +234,18 @@ function renderTable(dailyData, methods, grandTotals) {
         html += `<td class="bg-total">${f(rowPaymentSum)}</td></tr>`;
     });
 
-    // Footer Table
     html += `
                 </tbody>
                 <tfoot>
                     <tr class="footer-row">
-                        <td class="text-left">TOTAL</td>
+                        <td class="text-left">GRAND TOTAL</td>
                         <td>${f(grandTotals.gross)}</td>
                         <td>-${f(grandTotals.disc)}</td>
                         <td>${f(grandTotals.nett)}</td>
                         <td>${f(grandTotals.dpp)}</td>
                         <td>${f(grandTotals.svc)}</td>
                         <td>${f(grandTotals.pb1)}</td>
-                        ${methods.map(m => `<td>${f(grandTotals.methods[m])}</td>`).join('')}
+                        ${methods.map(m => `<td>${f(grandTotals.methods[m] || 0)}</td>`).join('')}
                         <td style="background:#fbbf24">${f(grandTotals.grandTotal)}</td>
                     </tr>
                 </tfoot>
@@ -286,7 +283,7 @@ function renderSummary(totals, methods) {
             ${methodHtml}
             <div style="margin: 10px 0; border-top: 2px solid #1e293b;"></div>
             <div class="summary-item">
-                <span style="color:var(--accent)">GRAND TOTAL</span>
+                <span style="color:var(--accent)">TOTAL PENERIMAAN</span>
                 <span style="color:var(--accent)">${f(totals.grandTotal)}</span>
             </div>
         </div>
@@ -298,7 +295,7 @@ function renderSummary(totals, methods) {
 function exportToExcel() {
     const table = document.getElementById("report-table");
     if(!table) return;
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan BeautyBloom" });
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
     XLSX.writeFile(wb, `Laporan_Rincian_POS_${new Date().getTime()}.xlsx`);
 }
 </script>
