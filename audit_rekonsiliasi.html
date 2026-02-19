@@ -133,54 +133,62 @@
     }
 
     // Fungsi Deep Fix: Menghapus jurnal lama dan menulis ulang berdasarkan data kasir yang valid
-    async function deepFix(noInvoice, penjualanId) {
-        if (!confirm(`Tulis ulang jurnal untuk ${noInvoice}? Ini akan memperbaiki nilai Pendapatan dan HPP agar sesuai standar.`)) return;
+    // Fungsi Deep Fix: Menghapus jurnal lama dan menulis ulang berdasarkan data kasir yang valid
+async function deepFix(noInvoice, penjualanId) {
+    if (!confirm(`Tulis ulang jurnal untuk ${noInvoice}? \nSistem akan menghitung ulang HPP dan Pendapatan agar sinkron.`)) return;
 
-        try {
-            // 1. Ambil data asli dari Penjualan & Detailnya
-            const { data: salesHeader } = await FinexDB.from('penjualan').select('*').eq('id', penjualanId).single();
-            const { data: salesDetail } = await FinexDB.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
-            
-            // 2. Hitung ulang HPP berdasarkan harga beli produk saat ini
-            let totalHPP = 0;
-            for (const item of salesDetail) {
-                const { data: prod } = await FinexDB.from('produk').select('harga_beli').eq('id', item.produk_id).single();
-                if (prod) {
-                    totalHPP += (parseFloat(prod.harga_beli || 0) * item.qty);
-                }
+    try {
+        // 1. Ambil data asli dari Penjualan & Detailnya
+        const { data: salesHeader, error: errH } = await FinexDB.from('penjualan').select('*').eq('id', penjualanId).single();
+        const { data: salesDetail, error: errD } = await FinexDB.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
+        
+        if (errH || errD) throw new Error("Gagal mengambil detail transaksi.");
+
+        // 2. Hitung ulang HPP berdasarkan harga beli produk saat ini
+        let totalHPP = 0;
+        for (const item of salesDetail) {
+            const { data: prod } = await FinexDB.from('produk').select('harga_beli').eq('id', item.produk_id).single();
+            if (prod && prod.harga_beli) {
+                totalHPP += (parseFloat(prod.harga_beli) * item.qty);
             }
-
-            // 3. Tentukan Akun Kas berdasarkan metode pembayaran
-            const mtd = salesHeader.metode_pembayaran;
-            const akunKas = (mtd === 'QRIS' || mtd === 'Bank' || mtd === 'Transfer') ? '1102' : '1101';
-
-            // 4. Hapus Jurnal Lama
-            await FinexDB.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
-
-            // 5. Masukkan Jurnal Baru yang Benar
-            const tgl = salesHeader.tanggal;
-            const entries = [
-                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync POS: ${noInvoice}`, kode_akun: akunKas, debit: salesHeader.grand_total, kredit: 0 },
-                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync POS: ${noInvoice}`, kode_akun: '4101', debit: 0, kredit: salesHeader.grand_total }
-            ];
-
-            if (totalHPP > 0) {
-                entries.push(
-                    { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync HPP: ${noInvoice}`, kode_akun: '5101', debit: totalHPP, kredit: 0 },
-                    { tanggal: tgl, no_bukti: noInvoice, keterangan: `Re-Sync HPP: ${noInvoice}`, kode_akun: '1103', debit: 0, kredit: totalHPP }
-                );
-            }
-
-            const { error } = await FinexDB.from('jurnal_umum').insert(entries);
-            if (error) throw error;
-
-            alert("Sinkronisasi Berhasil! Jurnal telah diperbaiki.");
-            runAudit();
-
-        } catch (e) {
-            alert("Gagal Sinkronisasi: " + e.message);
         }
+
+        // 3. Tentukan Akun Aset (Debit) berdasarkan metode pembayaran
+        // Jika QRIS/Bank/Transfer ke 1102, Jika Cash ke 1101
+        const mtd = (salesHeader.metode_pembayaran || '').toLowerCase();
+        const akunDebit = (mtd.includes('qris') || mtd.includes('bank') || mtd.includes('transfer')) ? '1102' : '1101';
+
+        // 4. Hapus Jurnal Lama (Pembersihan data ganda/salah)
+        await FinexDB.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
+
+        // 5. Susun Jurnal Baru yang Lengkap (Pendapatan + HPP)
+        const tgl = salesHeader.created_at || salesHeader.tanggal;
+        const entries = [
+            // Entri Pendapatan
+            { tanggal: tgl, no_bukti: noInvoice, keterangan: `Audit Re-Sync POS: ${noInvoice}`, kode_akun: akunDebit, debit: salesHeader.grand_total, kredit: 0 },
+            { tanggal: tgl, no_bukti: noInvoice, keterangan: `Audit Re-Sync POS: ${noInvoice}`, kode_akun: '4101', debit: 0, kredit: salesHeader.grand_total }
+        ];
+
+        // Tambahkan Entri HPP jika nilai ditemukan
+        if (totalHPP > 0) {
+            entries.push(
+                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Audit Re-Sync HPP: ${noInvoice}`, kode_akun: '5101', debit: totalHPP, kredit: 0 },
+                { tanggal: tgl, no_bukti: noInvoice, keterangan: `Audit Re-Sync HPP: ${noInvoice}`, kode_akun: '1103', debit: 0, kredit: totalHPP }
+            );
+        }
+
+        // 6. Masukkan ke Database
+        const { error: errInsert } = await FinexDB.from('jurnal_umum').insert(entries);
+        if (errInsert) throw errInsert;
+
+        alert("✅ Sinkronisasi Berhasil!\nJurnal Pendapatan & HPP telah diperbarui.");
+        runAudit(); // Refresh tabel audit
+
+    } catch (e) {
+        console.error(e);
+        alert("❌ Gagal Sinkronisasi: " + e.message);
     }
+}
 </script>
 </body>
 </html>
