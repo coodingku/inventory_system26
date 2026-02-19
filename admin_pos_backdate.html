@@ -216,7 +216,7 @@
 
         try {
             // 1. Simpan Header Penjualan
-            const { data: trx, error: errTrx } = await FinexDB.from('penjualan').insert([{ 
+            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
                 no_invoice: inv, 
                 subtotal: state.sub, 
                 diskon: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
@@ -237,11 +237,11 @@
                 subtotal_item: item.qty * item.harga 
             }));
 
-            const { error: errDet } = await FinexDB.from('penjualan_detail').insert(details);
+            const { error: errDet } = await db.from('penjualan_detail').insert(details);
             if (errDet) throw errDet;
 
             // 3. Jurnal Umum (Double Entry)
-            await FinexDB.from('jurnal_umum').insert([
+            await db.from('jurnal_umum').insert([
                 { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penerimaan POS (${method}) - ${inv}`, debit: state.total, kredit: 0 },
                 { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan BeautyBloom - ${inv}`, debit: 0, kredit: state.total }
             ]);
