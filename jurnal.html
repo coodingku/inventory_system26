@@ -3,65 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Jurnal Umum Audit</title>
+    <title>Finex Pos | Jurnal Umum Audit & Auto-Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --info: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
         nav h2 span { color: white; font-size: 12px; display: block; opacity: 0.7; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; margin-left: 240px; padding: 40px; }
+        main { flex: 1; margin-left: 240px; padding: 40px; min-height: 100vh; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .container-report { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
         .toolbar { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         input[type="date"], select, .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; min-width: 150px; }
-        
-        .switch-container { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 15px; border-radius: 30px; border: 1px solid #ddd; cursor: pointer; user-select: none; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent); }
-        input:checked + .slider:before { transform: translateX(20px); }
 
         .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
+        .btn-audit { background: var(--primary); color: white; }
+        .btn-fix-all { background: var(--warning); color: white; }
         .btn-export { background: #27ae60; color: white; }
 
         .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-        .badge-closing { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
-        .badge-invoice { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        .badge-error { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        .badge-success { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         th { background: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; border-bottom: 2px solid #eee; text-transform: uppercase; font-size: 11px; }
-        td { padding: 12px; border-bottom: 1px solid #eee; color: var(--primary); vertical-align: top; }
+        td { padding: 12px; border-bottom: 1px solid #eee; color: var(--primary); }
         
-        .row-closing { background-color: #fafafa; font-style: italic; color: #999; }
-        .debit-val { text-align: right; color: var(--success); font-weight: bold; }
-        .kredit-val { text-align: right; color: var(--danger); font-weight: bold; }
+        .btn-small-fix { background: var(--warning); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 30px; }
-        .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; position: relative; overflow: hidden; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
         .stat-card label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
         .stat-card span { font-size: 22px; font-weight: 800; display: block; }
 
-        .warning-banner { background: #fff4e6; border-left: 5px solid #fd7e14; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: flex; align-items: center; justify-content: space-between; }
-
         @media print {
-            nav, .toolbar, .no-print, .warning-banner { display: none !important; }
+            nav, .toolbar, .no-print { display: none !important; }
             main { margin-left: 0; padding: 0; }
-            .container-report { box-shadow: none; padding: 0; }
         }
     </style>
 </head>
@@ -70,200 +59,219 @@
 <nav class="no-print">
     <h2 id="store-name-display">BeautyBloom <span>Finex POS</span></h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Masuk Kasir</a>
-    <a href="akun_jurnal.html">🏦 Daftar Akun</a>
-    <a href="catat_jurnal.html" class="active">📖 Jurnal Umum</a>
-    <a href="laporan_laba_rugi.html">📈 Laba Rugi</a>
+    <a href="pos.html">🛒 Kasir POS</a>
+    <a href="admin_pos_backdate.html">🕒 Backdate POS</a>
+    <a href="catat_jurnal.html" class="active">🔍 Audit Jurnal</a>
+    <a href="laba_rugi.html">📈 Laba Rugi</a>
 </nav>
 
 <main>
     <div class="header">
         <div>
-            <h2 style="margin:0;">Jurnal Umum (Audit Kas)</h2>
-            <p style="color: #666; font-size: 13px;">Kelola transparansi data antara Invoice dan Closing Shift</p>
+            <h2 style="margin:0;">Audit & Rekonsiliasi HPP</h2>
+            <p style="color: #666; font-size: 13px;">Sinkronisasi otomatis antara Penjualan Kasir dan Jurnal Umum</p>
         </div>
         <div class="no-print" style="display:flex; gap:10px;">
+            <button class="btn btn-fix-all" id="btnFixAll" style="display:none;" onclick="fixAllMismatches()">⚡ Perbaiki Semua</button>
             <button class="btn btn-export" onclick="exportToExcel()">📥 Export Excel</button>
-            <button class="btn" style="background:#eee" onclick="window.print()">🖨️ Cetak</button>
         </div>
-    </div>
-
-    <div class="warning-banner no-print" id="status-banner">
-        <div>
-            <strong>🔍 Status Perhitungan:</strong> 
-            <span id="calculation-mode">Menampilkan SEMUA data (Potensi Double Counting)</span>
-        </div>
-        <label class="switch-container">
-            <span style="font-size: 12px; font-weight: bold; color: var(--accent)">Mode Bersih (No Closing)</span>
-            <div class="switch">
-                <input type="checkbox" id="mode-pajak" onchange="fetchJurnal()">
-                <span class="slider"></span>
-            </div>
-        </label>
     </div>
 
     <div class="container-report">
         <div class="toolbar no-print">
             <div class="filter-group">
-                <label>PERIODE AWAL</label>
+                <label>DARI TANGGAL</label>
                 <input type="date" id="date-from">
             </div>
             <div class="filter-group">
-                <label>PERIODE AKHIR</label>
+                <label>SAMPAI TANGGAL</label>
                 <input type="date" id="date-to">
             </div>
-            <div class="filter-group">
-                <label>CARI TRANSAKSI</label>
-                <input type="text" id="search-box" class="search-input" placeholder="No. Bukti / Ket..." onkeyup="filterTable()">
-            </div>
-            <div style="flex:1"></div>
-            <button class="btn" style="background:var(--primary); color:white" onclick="fetchJurnal()">Tampilkan Data ⚡</button>
+            <button class="btn btn-audit" onclick="runAudit()">Jalankan Audit 🔍</button>
         </div>
 
-        <table id="table-jurnal">
+        <table id="table-audit">
             <thead>
                 <tr>
-                    <th>Waktu</th>
-                    <th>No. Bukti</th>
-                    <th>Keterangan Transaksi</th>
-                    <th>Ref</th>
-                    <th style="text-align: right;">Debit</th>
-                    <th style="text-align: right;">Kredit</th>
+                    <th>Waktu / Invoice</th>
+                    <th>Grand Total (Kasir)</th>
+                    <th>Jurnal Pendapatan</th>
+                    <th>Jurnal HPP</th>
+                    <th>Selisih</th>
+                    <th>Status</th>
+                    <th class="no-print">Tindakan</th>
                 </tr>
             </thead>
-            <tbody id="body-jurnal">
-                <tr><td colspan="6" style="text-align:center; padding:40px; color:#999;">Klik "Tampilkan Data" untuk memuat...</td></tr>
+            <tbody id="body-audit">
+                <tr><td colspan="7" style="text-align:center; padding:40px; color:#999;">Gunakan filter tanggal dan klik "Jalankan Audit".</td></tr>
             </tbody>
         </table>
 
         <div class="summary-grid">
             <div class="stat-card">
-                <label>Total Debit Terhitung</label>
-                <span id="total-debit" style="color:var(--success)">Rp 0</span>
+                <label>Total Transaksi Diaudit</label>
+                <span id="stat-total">0</span>
             </div>
             <div class="stat-card">
-                <label>Total Kredit Terhitung</label>
-                <span id="total-kredit" style="color:var(--danger)">Rp 0</span>
+                <label>Jurnal Belum Sinkron</label>
+                <span id="stat-mismatch" style="color:var(--danger)">0</span>
             </div>
-            <div class="stat-card" style="background: var(--primary); color: white;">
-                <label style="color: rgba(255,255,255,0.6)">Saldo Akhir Periode</label>
-                <span id="total-netto">Rp 0</span>
+            <div class="stat-card" style="background: var(--success); color: white;">
+                <label style="color: rgba(255,255,255,0.7)">Data Tersinkronisasi</label>
+                <span id="stat-ok">0</span>
             </div>
         </div>
     </div>
 </main>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
-    window.onload = () => {
-        const session = JSON.parse(localStorage.getItem('finex_session'));
-        if (!session) return window.location.replace('login.html');
-        
-        // Update Nama Toko di Navigasi
-        const storeEl = document.getElementById('store-name-display');
-        if (storeEl) storeEl.innerHTML = `${sessionStorage.getItem('NAMA_TOKO') || "Finex POS"} <span>Sistem Akuntansi</span>`;
+    let mismatchList = [];
 
+    window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('date-from').value = today;
         document.getElementById('date-to').value = today;
-        fetchJurnal();
     };
 
-    async function fetchJurnal() {
+    async function runAudit() {
         const from = document.getElementById('date-from').value;
         const to = document.getElementById('date-to').value;
-        const isModeBersih = document.getElementById('mode-pajak').checked;
+        const tbody = document.getElementById('body-audit');
         
-        const banner = document.getElementById('status-banner');
-        const modeText = document.getElementById('calculation-mode');
-        
-        if(isModeBersih) {
-            banner.style.borderLeftColor = "var(--success)";
-            banner.style.background = "#f0fdf4";
-            modeText.innerHTML = "<b style='color:var(--success)'>MODE BERSIH AKTIF</b>: Data Closing Shift otomatis diabaikan.";
-        } else {
-            banner.style.borderLeftColor = "#fd7e14";
-            banner.style.background = "#fff4e6";
-            modeText.innerHTML = "Menampilkan SEMUA data (Peringatan: Potensi double counting antara Invoice & Closing)";
-        }
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Sedang menganalisa data...</td></tr>';
+        mismatchList = [];
 
         try {
-            // Ambil mapping nama akun
-            const { data: akunData } = await db.from('akun').select('kode_akun, nama_akun');
-            const akunMap = {};
-            akunData?.forEach(a => akunMap[String(a.kode_akun)] = a.nama_akun);
-
-            // Ambil data jurnal dari database pelanggan yang aktif
-            let query = db.from('jurnal_umum').select('*')
+            // 1. Ambil Penjualan
+            const { data: sales } = await db.from('penjualan')
+                .select('*')
                 .gte('tanggal', from + 'T00:00:00')
                 .lte('tanggal', to + 'T23:59:59')
-                .order('tanggal', { ascending: true });
+                .order('tanggal', { ascending: false });
 
-            const { data, error } = await query;
-            if (error) throw error;
+            // 2. Ambil Jurnal
+            const { data: journals } = await db.from('jurnal_umum')
+                .select('*')
+                .gte('tanggal', from + 'T00:00:00')
+                .lte('tanggal', to + 'T23:59:59');
 
-            // Logika Filter Mode Bersih
-            let finalData = data;
-            if (isModeBersih) {
-                finalData = data.filter(item => !item.keterangan.toLowerCase().includes('closing') && !item.no_bukti.toLowerCase().includes('shift'));
-            }
+            let html = '';
+            let countOk = 0;
 
-            renderTable(finalData, akunMap);
+            sales.forEach(s => {
+                const totalSales = Math.round(s.grand_total || 0);
+                
+                // Cek Jurnal Pendapatan (4101)
+                const revEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === '4101');
+                const totalInJurnal = revEntries.reduce((sum, j) => sum + Math.round(j.kredit || 0), 0);
+                
+                // Cek Jurnal HPP (5101)
+                const hppEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === '5101');
+                const hppCount = hppEntries.length;
+
+                const diff = totalSales - totalInJurnal;
+                const isMatch = (Math.abs(diff) < 2) && (hppCount > 0);
+
+                if (!isMatch) mismatchList.push({ inv: s.no_invoice, id: s.id });
+                else countOk++;
+
+                html += `
+                    <tr>
+                        <td><b>${s.no_invoice}</b><br><small>${new Date(s.tanggal).toLocaleString('id-ID')}</small></td>
+                        <td>Rp ${totalSales.toLocaleString()}</td>
+                        <td>Rp ${totalInJurnal.toLocaleString()}</td>
+                        <td>${hppCount > 0 ? '✅ Tercatat' : '❌ Kosong'}</td>
+                        <td style="color:${Math.abs(diff) > 0 ? 'var(--danger)' : 'inherit'}">Rp ${diff.toLocaleString()}</td>
+                        <td>
+                            <span class="badge ${isMatch ? 'badge-success' : 'badge-error'}">
+                                ${isMatch ? 'Sinkron' : 'Mismatch'}
+                            </span>
+                        </td>
+                        <td class="no-print">
+                            ${!isMatch ? `<button class="btn-small-fix" onclick="deepFix('${s.no_invoice}', '${s.id}')">Fix Jurnal</button>` : '✅'}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada transaksi ditemukan.</td></tr>';
+            
+            // Update Stats
+            document.getElementById('stat-total').innerText = sales.length;
+            document.getElementById('stat-mismatch').innerText = mismatchList.length;
+            document.getElementById('stat-ok').innerText = countOk;
+            document.getElementById('btnFixAll').style.display = mismatchList.length > 0 ? 'flex' : 'none';
 
         } catch (err) {
-            console.error("Fetch Jurnal Error:", err);
-            alert("Gagal memuat data jurnal.");
+            console.error(err);
+            alert("Gagal melakukan audit data.");
         }
     }
 
-    function renderTable(data, akunMap) {
-        let html = '';
-        let sDeb = 0, sKre = 0;
+    async function deepFix(noInvoice, penjualanId, isQuiet = false) {
+        try {
+            // 1. Ambil data asli transaksi
+            const { data: header } = await db.from('penjualan').select('*').eq('id', penjualanId).single();
+            const { data: details } = await db.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
+            
+            // 2. Hitung Ulang HPP
+            let calculatedHPP = 0;
+            for (const item of details) {
+                const { data: p } = await db.from('produk').select('harga_beli').eq('id', item.produk_id).single();
+                if (p && p.harga_beli) calculatedHPP += (parseFloat(p.harga_beli) * item.qty);
+            }
 
-        data.forEach(j => {
-            const d = parseFloat(j.debit || 0);
-            const k = parseFloat(j.kredit || 0);
-            sDeb += d; sKre += k;
+            // 3. Tentukan Akun Kas Berdasarkan Metode
+            const mtd = (header.metode_pembayaran || "").toLowerCase();
+            const akunDebit = (mtd.includes('qris') || mtd.includes('bank') || mtd.includes('transfer')) ? '1102' : '1101';
 
-            const isClosing = j.keterangan.toLowerCase().includes('closing') || j.no_bukti.toLowerCase().includes('shift');
-            const badge = isClosing ? 
-                '<span class="badge badge-closing">Closing Shift</span>' : 
-                '<span class="badge badge-invoice">Invoice POS</span>';
-            const rowClass = isClosing ? 'row-closing' : '';
+            // 4. Hapus Jurnal Lama & Insert Jurnal Baru yang Benar
+            await db.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
 
-            html += `
-                <tr class="${rowClass}">
-                    <td><small>${new Date(j.tanggal).toLocaleDateString('id-ID')}<br>${new Date(j.tanggal).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</small></td>
-                    <td><code>${j.no_bukti || '-'}</code></td>
-                    <td>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <strong>${j.keterangan}</strong> ${badge}
-                        </div>
-                        <span style="font-size:12px; color:#666">${akunMap[j.kode_akun] || 'Akun: ' + j.kode_akun}</span>
-                    </td>
-                    <td><b style="color:var(--accent)">${j.kode_akun}</b></td>
-                    <td class="debit-val">${d > 0 ? d.toLocaleString('id-ID') : '-'}</td>
-                    <td class="kredit-val">${k > 0 ? k.toLocaleString('id-ID') : '-'}</td>
-                </tr>
-            `;
-        });
+            const entries = [
+                { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: akunDebit, keterangan: `Fix Pendapatan - ${noInvoice}`, debit: Math.round(header.grand_total), kredit: 0 },
+                { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: '4101', keterangan: `Fix Pendapatan - ${noInvoice}`, debit: 0, kredit: Math.round(header.grand_total) }
+            ];
 
-        document.getElementById('body-jurnal').innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding:30px;">Tidak ada data pada periode ini.</td></tr>';
-        document.getElementById('total-debit').innerText = "Rp " + sDeb.toLocaleString('id-ID');
-        document.getElementById('total-kredit').innerText = "Rp " + sKre.toLocaleString('id-ID');
-        document.getElementById('total-netto').innerText = "Rp " + (sDeb - sKre).toLocaleString('id-ID');
+            if (calculatedHPP > 0) {
+                entries.push(
+                    { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: '5101', keterangan: `Fix HPP - ${noInvoice}`, debit: Math.round(calculatedHPP), kredit: 0 },
+                    { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: '1103', keterangan: `Fix HPP - ${noInvoice}`, debit: 0, kredit: Math.round(calculatedHPP) }
+                );
+            }
+
+            await db.from('jurnal_umum').insert(entries);
+            
+            if (!isQuiet) {
+                alert(`Invoice ${noInvoice} berhasil disinkronkan!`);
+                runAudit();
+            }
+        } catch (e) {
+            console.error(e);
+            if (!isQuiet) alert(`Gagal memperbaiki ${noInvoice}`);
+        }
     }
 
-    function filterTable() {
-        const q = document.getElementById('search-box').value.toLowerCase();
-        const rows = document.querySelectorAll('#body-jurnal tr');
-        rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none');
+    async function fixAllMismatches() {
+        if (!confirm(`Perbaiki ${mismatchList.length} transaksi sekaligus?`)) return;
+        
+        const btn = document.getElementById('btnFixAll');
+        btn.innerText = "Memproses...";
+        btn.disabled = true;
+
+        for (const item of mismatchList) {
+            await deepFix(item.inv, item.id, true);
+        }
+
+        alert("Semua jurnal berhasil disinkronkan!");
+        runAudit();
+        btn.disabled = false;
+        btn.innerText = "⚡ Perbaiki Semua";
     }
 
     function exportToExcel() {
-        const wb = XLSX.utils.table_to_book(document.getElementById("table-jurnal"));
-        const fileName = `Jurnal_Audit_${sessionStorage.getItem('NAMA_TOKO') || 'Finex'}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        const wb = XLSX.utils.table_to_book(document.getElementById("table-audit"));
+        XLSX.writeFile(wb, `Audit_Jurnal_HPP_${new Date().toLocaleDateString()}.xlsx`);
     }
 </script>
 </body>
