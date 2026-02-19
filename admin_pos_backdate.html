@@ -198,7 +198,7 @@
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString('id-ID');
     }
 
-  async function saveBackdate() {
+async function saveBackdate() {
     if (cart.length === 0) return alert("Keranjang masih kosong!");
     
     const btn = document.getElementById('btnSave');
@@ -207,19 +207,14 @@
     const method = mtdEl.value;
     const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
     
-    // PERBAIKAN: Ambil UUID User, bukan username
-    // Pastikan di localStorage 'finex_session' mengandung 'id' (UUID)
-    const kasirUuid = session.id || session.user_id; 
-
-    if (!kasirUuid) {
-        return alert("Error: ID Admin tidak ditemukan. Silakan login ulang.");
-    }
+    // MENGGUNAKAN TEKS SESUAI PERMINTAAN
+    const kasirName = "admin1"; 
 
     const inv = `BKD-${Date.now().toString().slice(-6)}`;
     const tglISO = new Date(tgl + "T12:00:00").toISOString(); 
 
     btn.disabled = true;
-    btn.innerText = "SEDANG MENYIMPAN...";
+    btn.innerText = "⏳ SEDANG MEMPROSES...";
 
     try {
         // 1. Simpan Header ke tabel 'penjualan'
@@ -229,24 +224,37 @@
             diskon_global: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
             grand_total: state.total, 
             metode_pembayaran: method, 
-            kasir_id: kasirUuid, // SEKARANG MENGGUNAKAN UUID
+            kasir_id: kasirName, // SEKARANG MENERIMA TEKS "admin1"
             created_at: tglISO 
-        }]).select('id').single(); // Perbaikan select: hanya ambil ID
+        }]).select('id').single();
 
         if (errTrx) throw errTrx;
 
-        // 2. Simpan Detail ke tabel 'penjualan_detail'
-        const details = cart.map(item => ({
-            penjualan_id: trx.id, 
-            produk_id: item.id, 
-            nama_barang: item.nama_barang, 
-            qty: item.qty, 
-            harga_satuan: item.harga, 
-            subtotal_item: item.qty * item.harga 
-        }));
+        // 2. Simpan Detail & KURANGI STOK SECARA MANUAL
+        for (const item of cart) {
+            // A. Simpan Detail Transaksi
+            const { error: errDet } = await db.from('penjualan_detail').insert({
+                penjualan_id: trx.id, 
+                produk_id: item.id, 
+                nama_barang: item.nama_barang, 
+                qty: item.qty, 
+                harga_satuan: item.harga, 
+                subtotal_item: item.qty * item.harga 
+            });
+            if (errDet) throw errDet;
 
-        const { error: errDet } = await db.from('penjualan_detail').insert(details);
-        if (errDet) throw errDet;
+            // B. AMBIL STOK LAMA & UPDATE STOK BARU (Agar Stok Berkurang)
+            const { data: pData, error: errP } = await db
+                .from('produk')
+                .select('stok')
+                .eq('id', item.id)
+                .single();
+            
+            if (pData) {
+                const stokBaru = (pData.stok || 0) - item.qty;
+                await db.from('produk').update({ stok: stokBaru }).eq('id', item.id);
+            }
+        }
 
         // 3. Jurnal Umum (Double Entry)
         await db.from('jurnal_umum').insert([
@@ -254,12 +262,12 @@
             { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Backdate - ${inv}`, debit: 0, kredit: state.total }
         ]);
 
-        alert("Transaksi Backdate Berhasil!");
+        alert(`Transaksi ${inv} Berhasil! Stok telah diperbarui.`);
         location.reload();
 
     } catch (e) { 
         console.error(e);
-        alert("Error: " + e.message); 
+        alert("Gagal Simpan: " + e.message); 
         btn.disabled = false;
         btn.innerText = "SIMPAN TRANSAKSI BACKDATE";
     }
