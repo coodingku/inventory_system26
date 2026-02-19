@@ -199,62 +199,88 @@
     }
 
 
-    async function saveBackdate() {
-        if (cart.length === 0) return alert("Keranjang masih kosong!");
+  async function saveBackdate() {
+    if (cart.length === 0) return alert("Keranjang masih kosong!");
+    
+    const btn = document.getElementById('btnSave');
+    const tgl = document.getElementById('inputDate').value;
+    const mtdEl = document.getElementById('payMethodSelect');
+    const method = mtdEl.value;
+    const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
+    
+    const inv = `BKD-${Date.now().toString().slice(-6)}`;
+    const tglISO = tgl + "T12:00:00Z"; 
+
+    btn.disabled = true;
+    btn.innerText = "SEDANG MENYIMPAN...";
+
+    try {
+        // 1. Simpan Header Penjualan
+        const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
+            no_invoice: inv, 
+            subtotal: state.sub, 
+            diskon: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
+            grand_total: state.total, 
+            metode_pembayaran: method,
+            created_at: tglISO 
+        }]).select().single();
+
+        if (errTrx) throw errTrx;
+
+        // 2. Simpan Detail & Hitung Total HPP & Kurangi Stok
+        let totalHPPGlobal = 0;
         
-        const btn = document.getElementById('btnSave');
-        const tgl = document.getElementById('inputDate').value;
-        const mtdEl = document.getElementById('payMethodSelect');
-        const method = mtdEl.value;
-        const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
-        
-        const inv = `BKD-${Date.now().toString().slice(-6)}`;
-        const tglISO = tgl + "T12:00:00Z"; 
+        for (const item of cart) {
+            // A. Ambil harga beli (HPP) dan stok terbaru dari database produk
+            const { data: p } = await db.from('produk').select('harga_beli, stok').eq('id', item.id).single();
+            const hppSatuan = p ? (p.harga_beli || 0) : 0;
+            const subtotalHPP = hppSatuan * item.qty;
+            totalHPPGlobal += subtotalHPP;
 
-        btn.disabled = true;
-        btn.innerText = "SEDANG MENYIMPAN...";
-
-        try {
-            // 1. Simpan Header Penjualan
-            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
-                no_invoice: inv, 
-                subtotal: state.sub, 
-                diskon: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
-                grand_total: state.total, 
-                metode_pembayaran: method, 
-                created_at: tglISO 
-            }]).select().single();
-
-            if (errTrx) throw errTrx;
-
-            // 2. Simpan Detail
-            const details = cart.map(item => ({
+            // B. Simpan ke Penjualan Detail
+            const { error: errDet } = await db.from('penjualan_detail').insert({
                 penjualan_id: trx.id, 
                 produk_id: item.id, 
                 nama_barang: item.nama_barang, 
                 qty: item.qty, 
                 harga_satuan: item.harga, 
                 subtotal_item: item.qty * item.harga 
-            }));
-
-            const { error: errDet } = await db.from('penjualan_detail').insert(details);
+            });
             if (errDet) throw errDet;
 
-            // 3. Jurnal Umum (Double Entry)
-            await db.from('jurnal_umum').insert([
-                { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penerimaan POS (${method}) - ${inv}`, debit: state.total, kredit: 0 },
-                { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan BeautyBloom - ${inv}`, debit: 0, kredit: state.total }
-            ]);
-
-            alert("Transaksi Backdate Berhasil Disimpan!");
-            location.reload();
-
-        } catch (e) { 
-            alert("Terjadi Kesalahan: " + e.message); 
-            btn.disabled = false;
-            btn.innerText = "SIMPAN TRANSAKSI LAMA";
+            // C. Update Stok Produk (Manual)
+            const stokBaru = (p.stok || 0) - item.qty;
+            await db.from('produk').update({ stok: stokBaru }).eq('id', item.id);
         }
+
+        // 3. Jurnal Umum (Double Entry)
+        const jurnalData = [
+            // Jurnal Pendapatan
+            { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penerimaan POS (${method}) - ${inv}`, debit: state.total, kredit: 0 },
+            { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan BeautyBloom - ${inv}`, debit: 0, kredit: state.total }
+        ];
+
+        // 4. Jurnal HPP (Jika HPP > 0)
+        if (totalHPPGlobal > 0) {
+            jurnalData.push(
+                { tanggal: tglISO, no_bukti: inv, kode_akun: '5101', keterangan: `Beban HPP - ${inv}`, debit: totalHPPGlobal, kredit: 0 },
+                { tanggal: tglISO, no_bukti: inv, kode_akun: '1103', keterangan: `Persediaan Barang (Keluar) - ${inv}`, debit: 0, kredit: totalHPPGlobal }
+            );
+        }
+
+        const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnalData);
+        if (errJurnal) throw errJurnal;
+
+        alert("Transaksi Berhasil! Stok berkurang dan HPP tercatat di jurnal.");
+        location.reload();
+
+    } catch (e) { 
+        console.error(e);
+        alert("Terjadi Kesalahan: " + e.message); 
+        btn.disabled = false;
+        btn.innerText = "SIMPAN TRANSAKSI LAMA";
     }
+}
     function logout() {
         if(confirm("Keluar dari sistem?")) {
             sessionStorage.clear();
