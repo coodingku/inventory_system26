@@ -46,11 +46,9 @@
 <nav>
     <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html">📥 Pembelian (PO)</a>
     <a href="laporan-pembelian.html" class="active">📑 Laporan Pembelian</a>
     <a href="admin_buku_hutang.html">📖 Buku Hutang</a>
-    <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
 </nav>
 
 <main>
@@ -62,7 +60,7 @@
             <p id="total-pengeluaran">Rp 0</p>
         </div>
         <div class="stat-card" style="border-left-color: var(--danger);">
-            <h3>Hutang Belum Lunas</h3>
+            <h3>Hutang Belum Lunas (2101)</h3>
             <p id="total-hutang">Rp 0</p>
         </div>
         <div class="stat-card" style="border-left-color: var(--success);">
@@ -97,7 +95,6 @@
                 </select>
             </div>
             <button class="btn-filter" onclick="muatLaporan()">🔍 Cari Data</button>
-            <button class="btn-export" onclick="exportKeExcel()">Export CSV</button>
         </div>
 
         <table>
@@ -135,31 +132,40 @@
 
         const bulan = document.getElementById('filter-bulan').value;
         const tahun = document.getElementById('filter-tahun').value;
-        const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
+        
+        // Perbaikan format tanggal agar kompatibel dengan PostgreSQL/Supabase
+        const tglMulai = `${tahun}-${bulan}-01T00:00:00.000Z`;
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
-        const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
+        const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59.999Z`;
 
         try {
-            // Ambil data dari tabel pembelian
+            // 1. Ambil data dari tabel pembelian dengan relasi produk
             const { data, error } = await db
                 .from('pembelian')
-                .select('*, produk:produk_id(nama_barang)')
+                .select(`
+                    *,
+                    produk:produk_id ( nama_barang )
+                `)
                 .gte('created_at', tglMulai)
                 .lte('created_at', tglSelesai)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
             dataLaporan = data || [];
-            
-            // Hitung Total Hutang secara global (dari akun 2101)
-            const { data: jurnalHutang } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', '2101');
+            console.log("Data diterima:", dataLaporan);
+
+            // 2. Hitung Saldo Hutang Global (Akun 2101)
+            const { data: jurnalHutang } = await db.from('jurnal_umum')
+                .select('debit, kredit')
+                .eq('kode_akun', '2101');
+                
             const totalHutangGlobal = (jurnalHutang || []).reduce((s, i) => s + (parseFloat(i.kredit || 0) - parseFloat(i.debit || 0)), 0);
             document.getElementById('total-hutang').innerText = `Rp ${totalHutangGlobal.toLocaleString('id-ID')}`;
 
             renderData();
         } catch (err) {
-            console.error(err);
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Error: ${err.message}</td></tr>`;
+            console.error("Fetch Error:", err);
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding:20px;">Error: ${err.message}</td></tr>`;
         }
     }
 
@@ -168,30 +174,32 @@
         const statusFilter = document.getElementById('filter-status').value;
         let totalUang = 0, totalQty = 0;
 
+        // Filter data berdasarkan pilihan status (Tunai/Tempo)
         const filtered = dataLaporan.filter(item => {
-            // Karena tabel pembelian lama mungkin belum ada kolom 'metode', kita asumsikan 'TUNAI' jika kosong
             const metode = item.metode || 'TUNAI'; 
             return statusFilter === 'ALL' || metode === statusFilter;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:50px;">Tidak ada transaksi.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:50px; color:#999;">Tidak ada data ditemukan untuk periode ini.</td></tr>';
         } else {
             tbody.innerHTML = filtered.map(item => {
-                totalUang += (item.total_harga || 0);
-                totalQty += (item.qty || 0);
-                const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
+                totalUang += (parseFloat(item.total_harga) || 0);
+                totalQty += (parseFloat(item.qty) || 0);
+                
+                const tgl = new Date(item.created_at).toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: 'numeric'});
                 const metode = item.metode || 'TUNAI';
+                const namaBarang = item.produk ? item.produk.nama_barang : '<span style="color:red">Produk Dihapus</span>';
                 
                 return `
                     <tr>
                         <td>${tgl}</td>
-                        <td><b>${item.produk?.nama_barang || 'Produk Dihapus'}</b></td>
+                        <td><b>${namaBarang}</b></td>
                         <td>${item.supplier || '-'}</td>
                         <td><span class="badge ${metode === 'TUNAI' ? 'badge-tunai' : 'badge-tempo'}">${metode}</span></td>
                         <td>${item.qty} Pcs</td>
                         <td>Rp ${(item.total_harga || 0).toLocaleString('id-ID')}</td>
-                        <td>${metode === 'TUNAI' ? 'Lunas' : 'Belum Lunas'}</td>
+                        <td>${metode === 'TUNAI' ? 'Lunas' : '<b>Hutang</b>'}</td>
                     </tr>
                 `;
             }).join('');
@@ -199,19 +207,6 @@
 
         document.getElementById('total-pengeluaran').innerText = `Rp ${totalUang.toLocaleString('id-ID')}`;
         document.getElementById('total-item').innerText = `${totalQty} Pcs`;
-    }
-
-    function exportKeExcel() {
-        // Logika ekspor CSV sederhana
-        let csv = 'Tanggal,Barang,Supplier,Metode,Qty,Total\n';
-        dataLaporan.forEach(i => {
-            csv += `${i.created_at},${i.produk?.nama_barang},${i.supplier},${i.metode || 'TUNAI'},${i.qty},${i.total_harga}\n`;
-        });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `Laporan_Beli_${Date.now()}.csv`;
-        link.click();
     }
 </script>
 </body>
