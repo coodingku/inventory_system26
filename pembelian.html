@@ -3,39 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Purchase Order</title>
+    <title>Finex Pos | Purchase Order & Debt</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
-        
-        /* Sidebar Navigation */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-
-        /* Main Content */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .form-po { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 15px; margin-bottom: 25px; align-items: end; }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 12px; color: #666; font-weight: bold; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
-
         .btn-add { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; height: 45px; }
         .btn-save { background: var(--success); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
-
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
-        
         .total-section { margin-top: 20px; text-align: right; font-size: 24px; font-weight: bold; color: var(--primary); border-top: 2px solid #eee; padding-top: 15px; }
+        .payment-box { background: #fdf2f4; padding: 20px; border-radius: 12px; border: 1px solid #f9d6e0; margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
         .search-box { background: #fff5f8; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px dashed var(--accent); }
     </style>
 </head>
@@ -44,19 +35,24 @@
 <nav>
     <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html" class="active">📥 Pembelian (PO)</a>
     <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
-    <a href="manajemen-user.html">👥 Manajemen User</a>
     <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
 </nav>
 
 <main>
     <h1>Purchase Order (Masuk Stok)</h1>
+    
     <div class="card">
-        <div style="margin-bottom: 20px;">
-            <label>Nama Supplier / Vendor</label><br>
-            <input type="text" id="po-supplier" placeholder="Contoh: CV. Sumber Makmur" style="width: 400px; margin-top:5px;">
+        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div class="input-group" style="flex: 2;">
+                <label>Nama Supplier / Vendor</label>
+                <input type="text" id="po-supplier" placeholder="Contoh: CV. Sumber Makmur">
+            </div>
+            <div class="input-group" style="flex: 1;">
+                <label>No. Referensi / Nota</label>
+                <input type="text" id="po-ref" placeholder="No Nota Supplier">
+            </div>
         </div>
 
         <div class="form-po">
@@ -93,29 +89,58 @@
             </tbody>
         </table>
 
+        <div class="payment-box">
+            <div class="input-group">
+                <label>Metode Pembayaran</label>
+                <select id="po-metode" onchange="toggleTempo()">
+                    <option value="TUNAI">TUNAI (LUNAS)</option>
+                    <option value="TEMPO">TEMPO (HUTANG DAGANG)</option>
+                </select>
+            </div>
+            <div class="input-group" id="group-jatuh-tempo" style="display: none;">
+                <label>Tanggal Jatuh Tempo</label>
+                <input type="date" id="po-due-date">
+            </div>
+            <div class="input-group">
+                <label>Bayar Sekarang (DP)</label>
+                <input type="number" id="po-dibayar" value="0" oninput="hitungSisa()">
+            </div>
+        </div>
+
         <div class="total-section">
+            <div style="font-size: 14px; color: #666;">SISA HUTANG: <span id="sisa-hutang">Rp 0</span></div>
             TOTAL PO: <span id="grand-total" style="color:var(--success)">Rp 0</span>
         </div>
 
         <button class="btn-save" id="btn-simpan" onclick="simpanPO()">
-            💾 SIMPAN, UPDATE STOK & JURNAL
+            💾 SIMPAN PEMBELIAN & UPDATE AKUNTANSI
         </button>
     </div>
 </main>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let allProduk = [];
     let daftarPO = [];
+    let totalGlobal = 0;
     const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
-        // Load produk dari database pelanggan
         const { data, error } = await db.from('produk').select('id, nama_barang').order('nama_barang');
-        if (error) console.error("Gagal muat produk:", error);
         allProduk = data || [];
         renderSelect(allProduk);
+        
+        // Set default due date 14 hari dari sekarang
+        const date = new Date();
+        date.setDate(date.getDate() + 14);
+        document.getElementById('po-due-date').value = date.toISOString().split('T')[0];
     };
+
+    function toggleTempo() {
+        const metode = document.getElementById('po-metode').value;
+        const group = document.getElementById('group-jatuh-tempo');
+        group.style.display = metode === 'TEMPO' ? 'flex' : 'none';
+        hitungSisa();
+    }
 
     function renderSelect(data) {
         const select = document.getElementById('select-produk');
@@ -129,46 +154,39 @@
 
     function tambahKeDaftar() {
         const select = document.getElementById('select-produk');
-        if (!select.value) return alert("Pilih produk terlebih dahulu!");
-        
         const id = select.value;
         const nama = select.options[select.selectedIndex].getAttribute('data-nama');
         const qty = parseInt(document.getElementById('po-qty').value);
         const harga = parseInt(document.getElementById('po-harga').value);
 
-        if (!id || isNaN(qty) || qty <= 0 || isNaN(harga) || harga <= 0) {
-            return alert("Lengkapi Qty dan Harga dengan benar!");
-        }
+        if (!id || isNaN(qty) || qty <= 0 || isNaN(harga) || harga <= 0) return alert("Lengkapi data barang!");
 
         daftarPO.push({ id, nama, qty, harga, subtotal: qty * harga });
         renderTable();
-        
         document.getElementById('po-qty').value = '';
         document.getElementById('po-harga').value = '';
-        document.getElementById('search-produk').value = '';
-        document.getElementById('search-produk').focus();
-        renderSelect(allProduk); 
     }
 
     function renderTable() {
         const tbody = document.getElementById('po-list');
-        let total = 0;
+        totalGlobal = 0;
         if(daftarPO.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Daftar belanja masih kosong.</td></tr>';
             document.getElementById('grand-total').innerText = "Rp 0";
             return;
         }
         tbody.innerHTML = daftarPO.map((item, index) => {
-            total += item.subtotal;
-            return `<tr>
-                <td><b>${item.nama}</b></td>
-                <td>${item.qty}</td>
-                <td>Rp ${item.harga.toLocaleString('id-ID')}</td>
-                <td>Rp ${item.subtotal.toLocaleString('id-ID')}</td>
-                <td style="text-align:center"><button onclick="hapusItem(${index})" style="cursor:pointer; border:none; background:none;">❌</button></td>
-            </tr>`;
+            totalGlobal += item.subtotal;
+            return `<tr><td><b>${item.nama}</b></td><td>${item.qty}</td><td>Rp ${item.harga.toLocaleString()}</td><td>Rp ${item.subtotal.toLocaleString()}</td><td style="text-align:center"><button onclick="hapusItem(${index})">❌</button></td></tr>`;
         }).join('');
-        document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString('id-ID')}`;
+        document.getElementById('grand-total').innerText = `Rp ${totalGlobal.toLocaleString('id-ID')}`;
+        hitungSisa();
+    }
+
+    function hitungSisa() {
+        const dibayar = parseInt(document.getElementById('po-dibayar').value || 0);
+        const sisa = totalGlobal - dibayar;
+        document.getElementById('sisa-hutang').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
     }
 
     function hapusItem(index) {
@@ -177,86 +195,53 @@
     }
 
     async function simpanPO() {
-        if (daftarPO.length === 0) return alert("Daftar belanja masih kosong!");
+        if (daftarPO.length === 0) return alert("Daftar belanja kosong!");
         const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
-        
-        if (!confirm(`Simpan transaksi PO dan update stok?`)) return;
+        const metode = document.getElementById('po-metode').value;
+        const dibayar = parseInt(document.getElementById('po-dibayar').value || 0);
+        const sisa = totalGlobal - dibayar;
+        const dueDate = metode === 'TEMPO' ? document.getElementById('po-due-date').value : null;
 
         const btn = document.getElementById('btn-simpan');
         btn.disabled = true;
-        btn.innerText = "⏳ Sedang Memproses...";
-
-        const tgl = new Date().toISOString();
-        const totalPO = daftarPO.reduce((s, i) => s + i.subtotal, 0);
-        const noBukti = 'PO-' + Date.now().toString().slice(-5);
 
         try {
-            const listRiwayatStok = [];
-            const listPembelian = [];
+            const tgl = new Date().toISOString();
+            const noBukti = 'PO-' + Date.now().toString().slice(-5);
 
+            // 1. Update Stok & Harga Beli
             for (const item of daftarPO) {
-                // 1. Ambil stok terakhir dari DB pelanggan
-                const { data: p, error: errFetch } = await db
-                    .from('produk')
-                    .select('stok_sekarang')
-                    .eq('id', item.id)
-                    .single();
-                
-                if (errFetch) throw errFetch;
-
-                const stokLama = parseInt(p.stok_sekarang || 0);
-                const stokBaru = stokLama + item.qty;
-
-                // 2. Update stok & harga beli terbaru
-                const { error: errUpdate } = await db
-                    .from('produk')
-                    .update({ stok_sekarang: stokBaru, harga_beli: item.harga })
-                    .eq('id', item.id);
-                
-                if (errUpdate) throw errUpdate;
-
-                listRiwayatStok.push({
-                    id_produk: item.id,
-                    tipe: 'MASUK',
-                    jumlah: item.qty,
-                    stok_akhir: stokBaru,
-                    admin_nama: session.username || 'Admin',
-                    keterangan: `PO: ${supplier}`
-                });
-
-                listPembelian.push({
-                    produk_id: item.id,
-                    qty: item.qty,
-                    harga_beli: item.harga,
-                    total_harga: item.subtotal,
-                    supplier: supplier,
-                    created_at: tgl
-                });
+                const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                await db.from('produk').update({ 
+                    stok_sekarang: (p.stok_sekarang || 0) + item.qty, 
+                    harga_beli: item.harga 
+                }).eq('id', item.id);
             }
 
-            // Simpan detail pembelian
-            const { error: errBeli } = await db.from('pembelian').insert(listPembelian);
-            if (errBeli) throw errBeli;
+            // 2. Jurnal Akuntansi (Double Entry)
+            const jurnal = [];
+            // DEBIT: Persediaan Barang (1103)
+            jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Masuk Stok: ${supplier}`, debit: totalGlobal, kredit: 0 });
 
-            // Simpan riwayat mutasi stok
-            const { error: errStok } = await db.from('riwayat_stok').insert(listRiwayatStok);
-            if (errStok) throw errStok;
+            if (metode === 'TUNAI') {
+                // KREDIT: Kas (1101) - Lunas
+                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar Supplier: ${supplier}`, debit: 0, kredit: totalGlobal });
+            } else {
+                // KREDIT: Kas (Jika ada DP)
+                if (dibayar > 0) {
+                    jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar DP ke ${supplier}`, debit: 0, kredit: dibayar });
+                }
+                // KREDIT: Hutang Dagang (2101) - Sisa Hutang
+                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '2101', keterangan: `Hutang Dagang (Tempo s/d ${dueDate})`, debit: 0, kredit: sisa });
+            }
 
-            // Catat Jurnal Akuntansi (D: Persediaan, K: Kas)
-            const { error: errJurnal } = await db.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Stok Masuk: ${supplier}`, debit: totalPO, kredit: 0 },
-                { tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Kas Keluar: ${noBukti}`, debit: 0, kredit: totalPO }
-            ]);
-            if (errJurnal) throw errJurnal;
+            await db.from('jurnal_umum').insert(jurnal);
 
-            alert("✅ Berhasil! Transaksi tersimpan dan stok diperbarui.");
+            alert("✅ Transaksi Pembelian Berhasil Dicatat!");
             location.reload();
-
         } catch (e) {
-            console.error(e);
-            alert("Kesalahan: " + (e.message || "Koneksi terputus"));
+            alert("Error: " + e.message);
             btn.disabled = false;
-            btn.innerText = "💾 SIMPAN, UPDATE STOK & JURNAL";
         }
     }
 </script>
