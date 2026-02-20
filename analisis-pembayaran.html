@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Saldo | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --blue: #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a:hover { background: var(--accent); color: white; }
+        
+        main { flex: 1; margin-left: 250px; padding: 40px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        
+        .summary-box { padding: 15px; border-radius: 10px; margin-bottom: 10px; color: white; }
+        .bg-kas { background: var(--primary); }
+        .bg-bank { background: var(--blue); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th { text-align: left; padding: 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        
+        .debit { color: var(--success); font-weight: bold; }
+        .kredit { color: var(--danger); font-weight: bold; }
+        .filter-bar { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+        input { padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
+    <a href="admin_buku_hutang.html">📖 Buku Hutang</a>
+    <a href="analisis-pembayaran.html" style="background:var(--accent); color:white;">🔍 Audit Pembayaran</a>
+</nav>
+
+<main>
+    <h1>Deteksi & Rekonsiliasi Akun</h1>
+    
+    <div class="filter-bar">
+        <label>Bulan:</label>
+        <input type="month" id="filter-bulan" onchange="loadAuditData()">
+        <span style="font-size: 12px; color: #666;">*Gunakan file ini untuk mencari selisih saldo Kas & Bank.</span>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="summary-box bg-kas">
+                <small>KAS UTAMA</small>
+                <h2 id="saldo-1101">Rp 0</h2>
+            </div>
+            <h3>Riwayat Mutasi (1101)</h3>
+            <table>
+                <thead>
+                    <tr><th>Tanggal</th><th>Keterangan</th><th>Masuk (D)</th><th>Keluar (K)</th></tr>
+                </thead>
+                <tbody id="list-1101"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="summary-box bg-bank">
+                <small>BANK / TRANSFER</small>
+                <h2 id="saldo-1102">Rp 0</h2>
+            </div>
+            <h3>Riwayat Mutasi (1102)</h3>
+            <table>
+                <thead>
+                    <tr><th>Tanggal</th><th>Keterangan</th><th>Masuk (D)</th><th>Keluar (K)</th></tr>
+                </thead>
+                <tbody id="list-1102"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.onload = () => {
+        const now = new Date();
+        document.getElementById('filter-bulan').value = now.toISOString().substring(0, 7);
+        loadAuditData();
+    };
+
+    async function loadAuditData() {
+        const monthYear = document.getElementById('filter-bulan').value;
+        const start = `${monthYear}-01T00:00:00.000Z`;
+        const end = `${monthYear}-31T23:59:59.999Z`;
+
+        try {
+            // Ambil Jurnal untuk 1101 dan 1102
+            const { data, error } = await db.from('jurnal_umum')
+                .select('*')
+                .in('kode_akun', ['1101', '1102'])
+                .gte('tanggal', start)
+                .lte('tanggal', end)
+                .order('tanggal', { ascending: true });
+
+            if (error) throw error;
+
+            renderTable('1101', data.filter(i => i.kode_akun === '1101'));
+            renderTable('1102', data.filter(i => i.kode_akun === '1102'));
+
+        } catch (e) { alert(e.message); }
+    }
+
+    function renderTable(kode, logs) {
+        const tbody = document.getElementById(`list-${kode}`);
+        let totalD = 0;
+        let totalK = 0;
+        
+        tbody.innerHTML = logs.map(i => {
+            totalD += parseFloat(i.debit || 0);
+            totalK += parseFloat(i.kredit || 0);
+            return `
+                <tr>
+                    <td>${new Date(i.tanggal).toLocaleDateString('id-ID')}</td>
+                    <td>${i.keterangan}</td>
+                    <td class="debit">${i.debit > 0 ? 'Rp '+i.debit.toLocaleString() : '-'}</td>
+                    <td class="kredit">${i.kredit > 0 ? 'Rp '+i.kredit.toLocaleString() : '-'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const saldoAkhir = totalD - totalK;
+        document.getElementById(`saldo-${kode}`).innerText = "Rp " + saldoAkhir.toLocaleString('id-ID');
+        
+        if (logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Tidak ada mutasi bulan ini.</td></tr>';
+        }
+    }
+</script>
+</body>
+</html>
