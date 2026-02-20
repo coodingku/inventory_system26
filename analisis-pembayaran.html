@@ -89,28 +89,36 @@
         loadAuditData();
     };
 
-    async function loadAuditData() {
-        const monthYear = document.getElementById('filter-bulan').value;
-        const start = `${monthYear}-01T00:00:00.000Z`;
-        const end = `${monthYear}-31T23:59:59.999Z`;
+   async function loadAuditData() {
+    const monthYear = document.getElementById('filter-bulan').value; // Format: "2026-02"
+    if (!monthYear) return;
 
-        try {
-            // Ambil Jurnal untuk 1101 dan 1102
-            const { data, error } = await db.from('jurnal_umum')
-                .select('*')
-                .in('kode_akun', ['1101', '1102'])
-                .gte('tanggal', start)
-                .lte('tanggal', end)
-                .order('tanggal', { ascending: true });
+    const [year, month] = monthYear.split('-');
+    
+    // Menghitung hari terakhir bulan tersebut secara otomatis
+    const lastDay = new Date(year, month, 0).getDate(); 
+    
+    const start = `${monthYear}-01T00:00:00.000Z`;
+    const end = `${monthYear}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`;
 
-            if (error) throw error;
+    try {
+        const { data, error } = await db.from('jurnal_umum')
+            .select('*')
+            .in('kode_akun', ['1101', '1102'])
+            .gte('tanggal', start)
+            .lte('tanggal', end)
+            .order('tanggal', { ascending: true });
 
-            renderTable('1101', data.filter(i => i.kode_akun === '1101'));
-            renderTable('1102', data.filter(i => i.kode_akun === '1102'));
+        if (error) throw error;
 
-        } catch (e) { alert(e.message); }
+        renderTable('1101', data.filter(i => i.kode_akun === '1101'));
+        renderTable('1102', data.filter(i => i.kode_akun === '1102'));
+
+    } catch (e) { 
+        console.error("Audit Error:", e);
+        alert("Gagal memuat data audit: " + e.message); 
     }
-
+}
     function renderTable(kode, logs) {
         const tbody = document.getElementById(`list-${kode}`);
         let totalD = 0;
