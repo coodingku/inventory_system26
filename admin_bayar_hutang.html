@@ -4,12 +4,12 @@
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pencatatan Hutang | Finex Pos</title>
+    <title>Buku Pembantu Hutang | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="supabase-init.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --blue: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
         
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
@@ -36,9 +36,10 @@
         .badge-danger { background: #fee2e2; color: var(--danger); }
         .badge-success { background: #dcfce7; color: var(--success); }
 
-        .btn { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
-        .btn-pdf { background: #e74c3c; color: white; }
-        .btn-print-mini { background: #3498db; color: white; padding: 6px 12px; font-size: 11px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; margin-right: 5px; }
+        .btn-pdf { background: #e74c3c; color: white; padding: 10px 15px; font-size: 13px; }
+        .btn-pay { background: var(--success); color: white; }
+        .btn-print-mini { background: var(--blue); color: white; }
 
         @media print {
             nav, .filter-box, .btn, .no-print { display: none !important; }
@@ -99,6 +100,7 @@
             <thead>
                 <tr>
                     <th>Nama Supplier / Vendor</th>
+                    <th style="text-align:center">Jumlah Item</th>
                     <th style="text-align:right">Belanja (Kredit)</th>
                     <th style="text-align:right">Bayar (Debit)</th>
                     <th style="text-align:right">Sisa Hutang</th>
@@ -107,7 +109,7 @@
                 </tr>
             </thead>
             <tbody id="buku-hutang-body">
-                <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                <tr><td colspan="7" style="text-align:center;">Memuat data buku pembantu...</td></tr>
             </tbody>
         </table>
     </div>
@@ -120,12 +122,12 @@
 
     async function fetchBukuHutang() {
         try {
-            // Mengambil data jurnal hutang (2101)
+            // 1. Ambil data jurnal hutang (Akun 2101)
             const { data: jurnal, error: errJ } = await db.from('jurnal_umum')
                 .select('*').eq('kode_akun', '2101').order('tanggal', { ascending: true });
             if (errJ) throw errJ;
 
-            // Mengambil data detail item dari tabel pembelian untuk detail nota
+            // 2. Ambil rincian item dari tabel pembelian
             const { data: detailBeli, error: errP } = await db.from('pembelian')
                 .select('*, produk:produk_id(nama_barang)');
             if (errP) throw errP;
@@ -133,6 +135,7 @@
             globalBukuHutang = {};
             let totalGlobal = 0;
 
+            // Proses data jurnal
             jurnal.forEach(j => {
                 let sName = "Umum";
                 if(j.keterangan.includes(":")) sName = j.keterangan.split(":")[1].trim();
@@ -140,7 +143,7 @@
                 else if(j.keterangan.toLowerCase().includes("po:")) sName = j.keterangan.replace(/po:/gi, "").trim();
 
                 if (!globalBukuHutang[sName]) {
-                    globalBukuHutang[sName] = { transaksi: 0, bayar: 0, sisa: 0, items: [] };
+                    globalBukuHutang[sName] = { transaksi: 0, bayar: 0, sisa: 0, items: [], totalQty: 0 };
                 }
 
                 const deb = parseFloat(j.debit || 0);
@@ -151,32 +154,17 @@
                 totalGlobal += (kre - deb);
             });
 
-            // Memasukkan detail item pembelian ke masing-masing supplier
+            // Sinkronkan rincian item ke supplier
             detailBeli.forEach(p => {
-                if (globalBukuHutang[p.supplier]) {
-                    globalBukuHutang[p.supplier].items.push(p);
+                const sName = p.supplier || "Umum";
+                if (globalBukuHutang[sName]) {
+                    globalBukuHutang[sName].items.push(p);
+                    globalBukuHutang[sName].totalQty += parseInt(p.qty || 0);
                 }
             });
 
             renderTable(globalBukuHutang, totalGlobal);
         } catch (e) { console.error(e); alert("Gagal memuat data."); }
-    }
-
-    function filterData() {
-        const q = document.getElementById('search-supplier').value.toLowerCase();
-        const stat = document.getElementById('filter-status').value;
-        let filtered = {};
-        let total = 0;
-
-        for (const name in globalBukuHutang) {
-            const s = globalBukuHutang[name];
-            const isHutang = s.sisa > 0;
-            if (name.toLowerCase().includes(q) && (stat === "ALL" || (stat === "HUTANG" && isHutang) || (stat === "LUNAS" && !isHutang))) {
-                filtered[name] = s;
-                total += s.sisa;
-            }
-        }
-        renderTable(filtered, total);
     }
 
     function renderTable(data, totalGlobal) {
@@ -191,32 +179,35 @@
             html += `
                 <tr>
                     <td><b>${name}</b></td>
+                    <td style="text-align:center">${s.totalQty} Item</td>
                     <td style="text-align:right">Rp ${s.transaksi.toLocaleString('id-ID')}</td>
                     <td style="text-align:right">Rp ${s.bayar.toLocaleString('id-ID')}</td>
                     <td style="text-align:right; font-weight:bold; color:${isLunas ? 'green' : 'red'}">Rp ${s.sisa.toLocaleString('id-ID')}</td>
                     <td style="text-align:center"><span class="badge ${isLunas ? 'badge-success' : 'badge-danger'}">${isLunas ? 'LUNAS' : 'HUTANG'}</span></td>
                     <td class="no-print" style="text-align:center">
-                        <button class="btn-print-mini" onclick="printA4Nota('${name}')">🖨️ Nota A4</button>
+                        <button class="btn btn-pay" onclick="window.location.href='admin_bayar_hutang.html?supplier=${encodeURIComponent(name)}&sisa=${s.sisa}'">💸 Bayar</button>
+                        <button class="btn btn-print-mini" onclick="printA4Nota('${name}')">🖨️ Nota A4</button>
                     </td>
                 </tr>
             `;
         }
-        tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center;">Tidak ada data.</td></tr>';
+        tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center;">Data tidak ditemukan.</td></tr>';
         document.getElementById('total-hutang-global').innerText = "Rp " + totalGlobal.toLocaleString('id-ID');
         document.getElementById('total-supplier').innerText = count;
     }
 
     function printA4Nota(supplierName) {
         const s = globalBukuHutang[supplierName];
-        const win = window.open('', '', 'width=900,height=800');
+        if (!s) return;
         
+        const win = window.open('', '', 'width=900,height=800');
         let itemRows = s.items.map(item => `
             <tr>
                 <td>${new Date(item.created_at).toLocaleDateString('id-ID')}</td>
                 <td>${item.produk?.nama_barang || 'Produk'}</td>
-                <td>${item.qty}</td>
-                <td>Rp ${parseFloat(item.harga_beli).toLocaleString('id-ID')}</td>
-                <td>Rp ${parseFloat(item.total_harga).toLocaleString('id-ID')}</td>
+                <td align="center">${item.qty}</td>
+                <td align="right">Rp ${parseFloat(item.harga_beli).toLocaleString('id-ID')}</td>
+                <td align="right">Rp ${parseFloat(item.total_harga).toLocaleString('id-ID')}</td>
             </tr>
         `).join('');
 
@@ -225,13 +216,13 @@
             <head>
                 <title>Nota Konfirmasi Hutang - ${supplierName}</title>
                 <style>
-                    body { font-family: sans-serif; padding: 40px; }
+                    body { font-family: 'Segoe UI', sans-serif; padding: 40px; }
                     .header { border-bottom: 3px solid #2c3e50; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;}
                     .header h2 { margin: 0; color: #e91e63; }
                     table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
                     th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
                     th { background: #f2f2f2; }
-                    .summary { margin-top: 30px; float: right; width: 300px; }
+                    .summary { margin-top: 30px; float: right; width: 350px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
                     .summary table tr td { border: none; padding: 5px; }
                     .footer { margin-top: 100px; display: flex; justify-content: space-between; text-align: center; }
                     .sign { border-top: 1px solid #000; width: 180px; margin-top: 60px; }
@@ -241,34 +232,35 @@
                 <div class="header">
                     <div><h2>Finex Pos</h2><p>BeautyBloom Management</p></div>
                     <div style="text-align:right">
-                        <h3>KONFIRMASI SALDO HUTANG</h3>
-                        <p>Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
+                        <h3 style="margin:0">KONFIRMASI SALDO HUTANG</h3>
+                        <p style="margin:0">Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
                     </div>
                 </div>
                 <p>Kepada Yth: <b>${supplierName}</b></p>
-                <p>Rincian item pembelian yang belum terbayar/terhutang:</p>
+                <p>Berikut adalah rincian rincian item pembelian yang tercatat dalam sistem kami:</p>
                 
                 <table>
                     <thead>
                         <tr>
                             <th>Tanggal</th>
                             <th>Nama Item</th>
-                            <th>Qty</th>
-                            <th>Harga Satuan</th>
-                            <th>Subtotal</th>
+                            <th style="text-align:center">Qty</th>
+                            <th style="text-align:right">Harga Satuan</th>
+                            <th style="text-align:right">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${itemRows || '<tr><td colspan="5" style="text-align:center">Tidak ada detail item pembelian terekam.</td></tr>'}
+                        ${itemRows || '<tr><td colspan="5" style="text-align:center">Tidak ada detail item terekam untuk supplier ini.</td></tr>'}
                     </tbody>
                 </table>
 
                 <div class="summary">
-                    <table>
-                        <tr><td>Total Belanja</td><td align="right">Rp ${s.transaksi.toLocaleString('id-ID')}</td></tr>
-                        <tr><td>Total Telah Dibayar</td><td align="right">Rp ${s.bayar.toLocaleString('id-ID')}</td></tr>
+                    <table width="100%">
+                        <tr><td>Total Belanja (Kredit)</td><td align="right">Rp ${s.transaksi.toLocaleString('id-ID')}</td></tr>
+                        <tr><td>Total Pelunasan (Debit)</td><td align="right">Rp ${s.bayar.toLocaleString('id-ID')}</td></tr>
+                        <tr><td colspan="2"><hr></td></tr>
                         <tr style="font-weight:bold; color:#e91e63; font-size:16px;">
-                            <td>SISA HUTANG</td><td align="right">Rp ${s.sisa.toLocaleString('id-ID')}</td>
+                            <td>SISA KEWAJIBAN</td><td align="right">Rp ${s.sisa.toLocaleString('id-ID')}</td>
                         </tr>
                     </table>
                 </div>
@@ -297,6 +289,26 @@
         }).from(element).save().then(() => {
             document.getElementById('pdf-header').style.display = 'none';
         });
+    }
+
+    function filterData() {
+        const q = document.getElementById('search-supplier').value.toLowerCase();
+        const stat = document.getElementById('filter-status').value;
+        let filtered = {};
+        let total = 0;
+
+        for (const name in globalBukuHutang) {
+            const s = globalBukuHutang[name];
+            const isHutang = s.sisa > 0;
+            const matchSearch = name.toLowerCase().includes(q);
+            const matchStatus = stat === "ALL" || (stat === "HUTANG" && isHutang) || (stat === "LUNAS" && !isHutang);
+
+            if (matchSearch && matchStatus) {
+                filtered[name] = s;
+                total += s.sisa;
+            }
+        }
+        renderTable(filtered, total);
     }
 </script>
 </body>
