@@ -3,22 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Pembelian</title>
+    <title>Finex Pos | Laporan Pembelian & Hutang</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
-        /* Sidebar */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        /* Content */
         main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         
@@ -33,14 +30,15 @@
         .stat-card p { margin: 10px 0 0; font-size: 20px; font-weight: bold; color: var(--primary); }
 
         table { width: 100%; border-collapse: collapse; background: white; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 14px; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 13px; color: #555; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; }
+        .badge-tunai { background: #dcfce7; color: #16a34a; }
+        .badge-tempo { background: #fee2e2; color: #dc2626; }
         
         .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        
-        .badge-delete { color: #e74c3c; font-weight: bold; font-style: italic; }
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; }
     </style>
 </head>
 <body>
@@ -51,30 +49,25 @@
     <a href="produk.html">📦 Produk</a>
     <a href="pembelian.html">📥 Pembelian (PO)</a>
     <a href="laporan-pembelian.html" class="active">📑 Laporan Pembelian</a>
-    <a href="manajemen-user.html">👥 Manajemen User</a>
+    <a href="admin_buku_hutang.html">📖 Buku Hutang</a>
     <a href="pos.html" style="background: var(--success); color: white; text-align: center; margin-top: 10px;">🛒 Kasir</a>
-
-    <div class="user-info" style="margin-top: 20px;">
-        <small>USER:</small> <b id="display-user-nav">...</b>
-    </div>
-    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 10px; text-align: center;">🚪 Keluar</a>
 </nav>
 
 <main>
-    <h1>Laporan Pembelian</h1>
+    <h1>Laporan Pembelian & Monitoring Hutang</h1>
 
     <div class="stats-grid">
         <div class="stat-card">
-            <h3>Total Pengeluaran</h3>
+            <h3>Total Belanja (Bulan Ini)</h3>
             <p id="total-pengeluaran">Rp 0</p>
         </div>
-        <div class="stat-card">
-            <h3>Total Barang Masuk</h3>
-            <p id="total-item">0 Pcs</p>
+        <div class="stat-card" style="border-left-color: var(--danger);">
+            <h3>Hutang Belum Lunas</h3>
+            <p id="total-hutang">Rp 0</p>
         </div>
-        <div class="stat-card">
-            <h3>Jumlah Transaksi</h3>
-            <p id="total-transaksi">0 Kali</p>
+        <div class="stat-card" style="border-left-color: var(--success);">
+            <h3>Jumlah Item Masuk</h3>
+            <p id="total-item">0 Pcs</p>
         </div>
     </div>
 
@@ -96,11 +89,15 @@
                 <input type="number" id="filter-tahun">
             </div>
             <div class="input-group">
-                <label>Cari Supplier/Produk</label>
-                <input type="text" id="search-input" placeholder="Ketik nama..." onkeyup="renderData(this.value.toLowerCase())">
+                <label>Filter Status</label>
+                <select id="filter-status" onchange="renderData()">
+                    <option value="ALL">Semua Pembelian</option>
+                    <option value="TUNAI">Hanya Tunai</option>
+                    <option value="TEMPO">Hanya Tempo</option>
+                </select>
             </div>
-            <button class="btn-filter" onclick="muatLaporan()">🔍 Segarkan</button>
-            <button class="btn-export" onclick="exportKeExcel()">Excel (CSV)</button>
+            <button class="btn-filter" onclick="muatLaporan()">🔍 Cari Data</button>
+            <button class="btn-export" onclick="exportKeExcel()">Export CSV</button>
         </div>
 
         <table>
@@ -109,20 +106,20 @@
                     <th>Tanggal</th>
                     <th>Nama Barang</th>
                     <th>Supplier</th>
+                    <th>Metode</th>
                     <th>Qty</th>
-                    <th>Harga Beli</th>
                     <th>Total</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody id="report-list">
-                <tr><td colspan="6" style="text-align:center; padding:50px;">Klik Segarkan untuk memuat data.</td></tr>
+                <tr><td colspan="7" style="text-align:center; padding:50px;">Memuat laporan...</td></tr>
             </tbody>
         </table>
     </div>
 </main>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let dataLaporan = [];
 
     window.onload = () => {
@@ -134,17 +131,16 @@
 
     async function muatLaporan() {
         const tbody = document.getElementById('report-list');
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px;">⏳ Mengambil data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:50px;">⏳ Menghitung data...</td></tr>';
 
         const bulan = document.getElementById('filter-bulan').value;
         const tahun = document.getElementById('filter-tahun').value;
-        
         const tglMulai = `${tahun}-${bulan}-01T00:00:00`;
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
         const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
         try {
-            // Query ke database pelanggan yang aktif
+            // Ambil data dari tabel pembelian
             const { data, error } = await db
                 .from('pembelian')
                 .select('*, produk:produk_id(nama_barang)')
@@ -154,39 +150,48 @@
 
             if (error) throw error;
             dataLaporan = data || [];
+            
+            // Hitung Total Hutang secara global (dari akun 2101)
+            const { data: jurnalHutang } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', '2101');
+            const totalHutangGlobal = (jurnalHutang || []).reduce((s, i) => s + (parseFloat(i.kredit || 0) - parseFloat(i.debit || 0)), 0);
+            document.getElementById('total-hutang').innerText = `Rp ${totalHutangGlobal.toLocaleString('id-ID')}`;
+
             renderData();
         } catch (err) {
             console.error(err);
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding:50px;">Error: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Error: ${err.message}</td></tr>`;
         }
     }
 
-    function renderData(keyword = "") {
+    function renderData() {
         const tbody = document.getElementById('report-list');
-        let totalUang = 0, totalQty = 0, hitung = 0;
+        const statusFilter = document.getElementById('filter-status').value;
+        let totalUang = 0, totalQty = 0;
 
         const filtered = dataLaporan.filter(item => {
-            const nama = (item.produk?.nama_barang || "").toLowerCase();
-            const supp = (item.supplier || "").toLowerCase();
-            return nama.includes(keyword) || supp.includes(keyword);
+            // Karena tabel pembelian lama mungkin belum ada kolom 'metode', kita asumsikan 'TUNAI' jika kosong
+            const metode = item.metode || 'TUNAI'; 
+            return statusFilter === 'ALL' || metode === statusFilter;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:50px; color:#999;">Tidak ada data ditemukan.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:50px;">Tidak ada transaksi.</td></tr>';
         } else {
             tbody.innerHTML = filtered.map(item => {
                 totalUang += (item.total_harga || 0);
                 totalQty += (item.qty || 0);
-                hitung++;
-                const tgl = new Date(item.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
+                const metode = item.metode || 'TUNAI';
+                
                 return `
                     <tr>
                         <td>${tgl}</td>
-                        <td><strong>${item.produk?.nama_barang || '<span class="badge-delete">Produk Dihapus</span>'}</strong></td>
+                        <td><b>${item.produk?.nama_barang || 'Produk Dihapus'}</b></td>
                         <td>${item.supplier || '-'}</td>
-                        <td>${item.qty}</td>
-                        <td>Rp ${(item.harga_beli || 0).toLocaleString('id-ID')}</td>
-                        <td><strong>Rp ${(item.total_harga || 0).toLocaleString('id-ID')}</strong></td>
+                        <td><span class="badge ${metode === 'TUNAI' ? 'badge-tunai' : 'badge-tempo'}">${metode}</span></td>
+                        <td>${item.qty} Pcs</td>
+                        <td>Rp ${(item.total_harga || 0).toLocaleString('id-ID')}</td>
+                        <td>${metode === 'TUNAI' ? 'Lunas' : 'Belum Lunas'}</td>
                     </tr>
                 `;
             }).join('');
@@ -194,30 +199,19 @@
 
         document.getElementById('total-pengeluaran').innerText = `Rp ${totalUang.toLocaleString('id-ID')}`;
         document.getElementById('total-item').innerText = `${totalQty} Pcs`;
-        document.getElementById('total-transaksi').innerText = `${hitung} Kali`;
     }
 
     function exportKeExcel() {
-        if (dataLaporan.length === 0) return alert("Tidak ada data untuk diekspor!");
-        let csv = 'Tanggal,Nama Barang,Supplier,Qty,Harga Beli,Total Harga\n';
-        dataLaporan.forEach(item => {
-            const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
-            const namaBarang = item.produk?.nama_barang || 'Produk Dihapus';
-            csv += `${tgl},"${namaBarang}","${item.supplier || '-'}",${item.qty},${item.harga_beli},${item.total_harga}\n`;
+        // Logika ekspor CSV sederhana
+        let csv = 'Tanggal,Barang,Supplier,Metode,Qty,Total\n';
+        dataLaporan.forEach(i => {
+            csv += `${i.created_at},${i.produk?.nama_barang},${i.supplier},${i.metode || 'TUNAI'},${i.qty},${i.total_harga}\n`;
         });
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csv], { type: 'text/csv' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `Laporan_Pembelian_${Date.now()}.csv`;
+        link.download = `Laporan_Beli_${Date.now()}.csv`;
         link.click();
-    }
-
-    function logout() {
-        if(confirm("Keluar dari sistem?")) {
-            sessionStorage.clear();
-            localStorage.clear();
-            window.location.replace('login.html');
-        }
     }
 </script>
 </body>
