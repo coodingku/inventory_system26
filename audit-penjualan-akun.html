@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Penjualan vs Akun | Finex Pos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --blue: #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a:hover { background: var(--accent); color: white; }
+        
+        main { flex: 1; margin-left: 250px; padding: 40px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        
+        .header-box { padding: 15px; border-radius: 10px; margin-bottom: 20px; color: white; text-align: center; }
+        .bg-1101 { background: #27ae60; } /* Hijau untuk Tunai */
+        .bg-1102 { background: #2980b9; } /* Biru untuk Bank */
+        
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { text-align: left; padding: 10px; background: #f8f9fa; border-bottom: 2px solid #eee; text-transform: uppercase; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        
+        .filter-bar { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 20px; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .total-info { font-size: 18px; font-weight: bold; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
+    <a href="analisis-pembayaran.html">🔍 Audit Jurnal</a>
+    <a href="audit-penjualan-akun.html" style="background:var(--accent); color:white;">💰 Audit Penjualan</a>
+</nav>
+
+<main>
+    <h1>Audit Penjualan Berdasarkan Akun</h1>
+    
+    <div class="filter-bar">
+        <div style="display:flex; flex-direction:column; gap:5px;">
+            <label style="font-size:11px; font-weight:bold;">PILIH PERIODE BULAN</label>
+            <input type="month" id="filter-bulan" onchange="fetchDataPenjualan()">
+        </div>
+        <div style="margin-left:auto; text-align:right;">
+            <div class="total-info">Total Penjualan: <span id="grand-total-all">Rp 0</span></div>
+            <small style="color:#888;">Data diambil langsung dari Tabel Penjualan</small>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="header-box bg-1101">
+                <small>EXPECTED TO ACCOUNT</small>
+                <h3>1101 - KAS (TUNAI)</h3>
+                <h2 id="total-1101">Rp 0</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>No. Faktur</th><th>Tanggal</th><th>Total</th></tr>
+                </thead>
+                <tbody id="list-1101"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="header-box bg-1102">
+                <small>EXPECTED TO ACCOUNT</small>
+                <h3>1102 - BANK (TRANSFER/QRIS)</h3>
+                <h2 id="total-1102">Rp 0</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>No. Faktur</th><th>Tanggal</th><th>Total</th></tr>
+                </thead>
+                <tbody id="list-1102"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.onload = () => {
+        const now = new Date();
+        document.getElementById('filter-bulan').value = now.toISOString().substring(0, 7);
+        fetchDataPenjualan();
+    };
+
+    async function fetchDataPenjualan() {
+        const monthYear = document.getElementById('filter-bulan').value;
+        const [year, month] = monthYear.split('-');
+        const lastDay = new Date(year, month, 0).getDate();
+        
+        const start = `${monthYear}-01T00:00:00.000Z`;
+        const end = `${monthYear}-${lastDay}T23:59:59.999Z`;
+
+        try {
+            // Kita ambil data dari tabel PENJUALAN
+            // Sesuaikan kolom 'total' atau 'grand_total' sesuai database Anda
+            const { data, error } = await db.from('penjualan')
+                .select('*')
+                .gte('created_at', start)
+                .lte('created_at', end)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            renderAudit(data);
+        } catch (e) {
+            console.error(e);
+            alert("Error: Pastikan nama kolom 'metode_pembayaran' dan 'total' sudah benar di tabel penjualan.");
+        }
+    }
+
+    function renderAudit(data) {
+        const list1101 = document.getElementById('list-1101');
+        const list1102 = document.getElementById('list-1102');
+        
+        let sum1101 = 0;
+        let sum1102 = 0;
+        
+        let html1101 = "";
+        let html1102 = "";
+
+        data.forEach(item => {
+            // Ganti 'total' dengan nama kolom nominal Anda (misal: total_harga atau grand_total)
+            const nominal = parseFloat(item.total || item.total_harga || item.grand_total || 0);
+            const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
+            const faktur = item.no_faktur || item.id;
+
+            // Logika pemisahan akun berdasarkan metode_pembayaran
+            const metode = (item.metode_pembayaran || item.metode || "").toUpperCase();
+
+            if (metode === 'TUNAI') {
+                sum1101 += nominal;
+                html1101 += `<tr><td>${faktur}</td><td>${tgl}</td><td>Rp ${nominal.toLocaleString()}</td></tr>`;
+            } else {
+                // Semua yang bukan Tunai (Transfer, QRIS, Debit) masuk ke 1102
+                sum1102 += nominal;
+                html1102 += `<tr><td>${faktur}</td><td>${tgl}</td><td>Rp ${nominal.toLocaleString()}</td></tr>`;
+            }
+        });
+
+        list1101.innerHTML = html1101 || '<tr><td colspan="3" align="center">Tidak ada transaksi tunai</td></tr>';
+        list1102.innerHTML = html1102 || '<tr><td colspan="3" align="center">Tidak ada transaksi non-tunai</td></tr>';
+
+        document.getElementById('total-1101').innerText = "Rp " + sum1101.toLocaleString('id-ID');
+        document.getElementById('total-1102').innerText = "Rp " + sum1102.toLocaleString('id-ID');
+        document.getElementById('grand-total-all').innerText = "Rp " + (sum1101 + sum1102).toLocaleString('id-ID');
+    }
+</script>
+</body>
+</html>
