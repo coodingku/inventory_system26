@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Pelunasan Hutang Dagang</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { color: var(--primary); border-bottom: 2px solid #eee; padding-bottom: 10px; text-align: center; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .info-hutang { background: #fff4e6; border-left: 4px solid #fd7e14; padding: 15px; margin-bottom: 20px; font-size: 14px; }
+        .btn-pay { background: var(--success); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-pay:hover { background: #219150; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Pelunasan Hutang</h2>
+    
+    <div class="info-hutang">
+        <strong>Saldo Hutang Saat Ini (2101):</strong><br>
+        <span id="saldo-hutang" style="font-size: 20px; font-weight: 800; color: #d35400;">Rp 0</span>
+    </div>
+
+    <div class="input-group">
+        <label>Pilih Sumber Dana (Bayar Pakai)</label>
+        <select id="akun-sumber">
+            <option value="1101">1101 - Kas Utama (Tunai)</option>
+            <option value="1102">1102 - Bank / QRIS (Transfer)</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label>Nama Supplier / Keterangan</label>
+        <input type="text" id="keterangan" placeholder="Contoh: Pelunasan Nota PO-12345 (CV. Sumber Makmur)">
+    </div>
+
+    <div class="input-group">
+        <label>Nominal Pembayaran (Rp)</label>
+        <input type="number" id="nominal-bayar" placeholder="0" style="font-size: 18px; font-weight: bold;">
+    </div>
+
+    <button class="btn-pay" onclick="prosesPelunasan()">BAYAR HUTANG SEKARANG 💸</button>
+</div>
+
+<script>
+    window.onload = () => {
+        fetchSaldoHutang();
+    };
+
+    async function fetchSaldoHutang() {
+        try {
+            // Menghitung total saldo akun 2101 (Kredit - Debit)
+            const { data, error } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', '2101');
+            if (error) throw error;
+
+            const totalHutang = data.reduce((sum, item) => sum + (parseFloat(item.kredit || 0) - parseFloat(item.debit || 0)), 0);
+            document.getElementById('saldo-hutang').innerText = "Rp " + totalHutang.toLocaleString('id-ID');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function prosesPelunasan() {
+        const nominal = parseFloat(document.getElementById('nominal-bayar').value || 0);
+        const ket = document.getElementById('keterangan').value;
+        const akunSumber = document.getElementById('akun-sumber').value;
+
+        if (nominal <= 0 || !ket) return alert("Lengkapi data pembayaran!");
+
+        if (!confirm(`Konfirmasi Pembayaran:\nNominal: Rp ${nominal.toLocaleString()}\nKeterangan: ${ket}\n\nLanjutkan?`)) return;
+
+        try {
+            const noBukti = `PAY-${Date.now().toString().slice(-6)}`;
+            const tgl = new Date().toISOString();
+
+            // Jurnal Pelunasan Hutang
+            // Debit: 2101 (Hutang Dagang berkurang)
+            // Kredit: 1101/1102 (Kas/Bank berkurang)
+            const { error } = await db.from('jurnal_umum').insert([
+                { 
+                    tanggal: tgl, 
+                    no_bukti: noBukti, 
+                    kode_akun: '2101', 
+                    keterangan: `Pelunasan: ${ket}`, 
+                    debit: nominal, 
+                    kredit: 0 
+                },
+                { 
+                    tanggal: tgl, 
+                    no_bukti: noBukti, 
+                    kode_akun: akunSumber, 
+                    keterangan: `Bayar Hutang: ${ket}`, 
+                    debit: 0, 
+                    kredit: nominal 
+                }
+            ]);
+
+            if (error) throw error;
+
+            alert("✅ Pembayaran Hutang Berhasil Dicatat!");
+            location.reload();
+
+        } catch (e) {
+            alert("Gagal: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
