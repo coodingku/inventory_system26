@@ -193,73 +193,78 @@
         renderTable();
     }
 
-    async function simpanPO() {
-        if (daftarPO.length === 0) return alert("Daftar belanja kosong!");
-        const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
-        const metode = document.getElementById('po-metode').value;
-        const dibayar = parseInt(document.getElementById('po-dibayar').value || 0);
-        const sisa = totalGlobal - dibayar;
-        const dueDate = metode === 'TEMPO' ? document.getElementById('po-due-date').value : null;
+   async function simpanPO() {
+    if (daftarPO.length === 0) return alert("Daftar belanja kosong!");
+    const supplier = document.getElementById('po-supplier').value.trim() || "Supplier Umum";
+    const metode = document.getElementById('po-metode').value;
+    const dibayar = parseInt(document.getElementById('po-dibayar').value || 0);
+    const sisa = totalGlobal - dibayar;
+    const dueDate = metode === 'TEMPO' ? document.getElementById('po-due-date').value : null;
 
-        const btn = document.getElementById('btn-simpan');
-        btn.disabled = true;
-        btn.innerText = "⏳ Memproses...";
+    const btn = document.getElementById('btn-simpan');
+    btn.disabled = true;
+    btn.innerText = "⏳ Memproses...";
 
-        try {
-            const tgl = new Date().toISOString();
-            const noBukti = 'PO-' + Date.now().toString().slice(-5);
-            const dataPembelian = [];
+    try {
+        const tgl = new Date().toISOString();
+        const noBukti = 'PO-' + Date.now().toString().slice(-5);
+        const dataPembelian = [];
 
-            // 1. Update Stok, Harga Beli, & Siapkan Data Pembelian
-            for (const item of daftarPO) {
-                const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.id).single();
-                
-                // Update ke tabel Produk
-                await db.from('produk').update({ 
-                    stok_sekarang: (p.stok_sekarang || 0) + item.qty, 
-                    harga_beli: item.harga 
-                }).eq('id', item.id);
+        // 1. Update Stok, Harga Beli, & Siapkan Data Pembelian
+        for (const item of daftarPO) {
+            const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.id).single();
+            
+            // Update ke tabel Produk
+            await db.from('produk').update({ 
+                stok_sekarang: (p.stok_sekarang || 0) + item.qty, 
+                harga_beli: item.harga 
+            }).eq('id', item.id);
 
-                // Masukkan ke array Data Pembelian (SESUAI TABEL PEMBELIAN)
-                dataPembelian.push({
-                    produk_id: item.id,
-                    qty: item.qty,
-                    harga_beli: item.harga,
-                    supplier: supplier,
-                    total_harga: item.subtotal,
-                    created_at: tgl
-                });
-            }
-
-            // 2. SIMPAN KE TABEL PEMBELIAN (PENTING!)
-            const { error: errBeli } = await db.from('pembelian').insert(dataPembelian);
-            if (errBeli) throw errBeli;
-
-            // 3. Jurnal Akuntansi (Double Entry)
-            const jurnal = [];
-            jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Masuk Stok: ${supplier}`, debit: totalGlobal, kredit: 0 });
-
-            if (metode === 'TUNAI') {
-                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar Supplier: ${supplier}`, debit: 0, kredit: totalGlobal });
-            } else {
-                if (dibayar > 0) {
-                    jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar DP ke ${supplier}`, debit: 0, kredit: dibayar });
-                }
-                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '2101', keterangan: `Hutang Dagang: ${supplier} (Tempo ${dueDate})`, debit: 0, kredit: sisa });
-            }
-
-            const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnal);
-            if (errJurnal) throw errJurnal;
-
-            alert("✅ Pembelian Berhasil! Stok dan Laporan diperbarui.");
-            location.reload();
-        } catch (e) {
-            console.error(e);
-            alert("Error: " + e.message);
-            btn.disabled = false;
-            btn.innerText = "💾 SIMPAN PEMBELIAN & UPDATE AKUNTANSI";
+            // Masukkan ke array Data Pembelian (DENGAN KOLOM METODE)
+            dataPembelian.push({
+                produk_id: item.id,
+                qty: item.qty,
+                harga_beli: item.harga,
+                supplier: supplier,
+                total_harga: item.subtotal,
+                metode: metode, // <--- PERBAIKAN: Sekarang metode (TUNAI/TEMPO) ikut tersimpan
+                created_at: tgl
+            });
         }
+
+        // 2. SIMPAN KE TABEL PEMBELIAN
+        const { error: errBeli } = await db.from('pembelian').insert(dataPembelian);
+        if (errBeli) throw errBeli;
+
+        // 3. Jurnal Akuntansi (Double Entry)
+        const jurnal = [];
+        // DEBIT: Persediaan Barang (1103)
+        jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Masuk Stok: ${supplier}`, debit: totalGlobal, kredit: 0 });
+
+        if (metode === 'TUNAI') {
+            // KREDIT: Kas (1101) - Lunas
+            jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar Supplier: ${supplier}`, debit: 0, kredit: totalGlobal });
+        } else {
+            // KREDIT: Kas (Jika ada DP)
+            if (dibayar > 0) {
+                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar DP ke ${supplier}`, debit: 0, kredit: dibayar });
+            }
+            // KREDIT: Hutang Dagang (2101) - Sisa Hutang
+            jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '2101', keterangan: `Hutang Dagang: ${supplier} (Tempo ${dueDate})`, debit: 0, kredit: sisa });
+        }
+
+        const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnal);
+        if (errJurnal) throw errJurnal;
+
+        alert("✅ Pembelian Berhasil! Stok dan Laporan diperbarui.");
+        location.reload();
+    } catch (e) {
+        console.error(e);
+        alert("Error: " + e.message);
+        btn.disabled = false;
+        btn.innerText = "💾 SIMPAN PEMBELIAN & UPDATE AKUNTANSI";
     }
+}
 </script>
 </body>
 </html>
