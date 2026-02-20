@@ -129,7 +129,6 @@
         allProduk = data || [];
         renderSelect(allProduk);
         
-        // Set default due date 14 hari dari sekarang
         const date = new Date();
         date.setDate(date.getDate() + 14);
         document.getElementById('po-due-date').value = date.toISOString().split('T')[0];
@@ -204,44 +203,61 @@
 
         const btn = document.getElementById('btn-simpan');
         btn.disabled = true;
+        btn.innerText = "⏳ Memproses...";
 
         try {
             const tgl = new Date().toISOString();
             const noBukti = 'PO-' + Date.now().toString().slice(-5);
+            const dataPembelian = [];
 
-            // 1. Update Stok & Harga Beli
+            // 1. Update Stok, Harga Beli, & Siapkan Data Pembelian
             for (const item of daftarPO) {
                 const { data: p } = await db.from('produk').select('stok_sekarang').eq('id', item.id).single();
+                
+                // Update ke tabel Produk
                 await db.from('produk').update({ 
                     stok_sekarang: (p.stok_sekarang || 0) + item.qty, 
                     harga_beli: item.harga 
                 }).eq('id', item.id);
+
+                // Masukkan ke array Data Pembelian (SESUAI TABEL PEMBELIAN)
+                dataPembelian.push({
+                    produk_id: item.id,
+                    qty: item.qty,
+                    harga_beli: item.harga,
+                    supplier: supplier,
+                    total_harga: item.subtotal,
+                    created_at: tgl
+                });
             }
 
-            // 2. Jurnal Akuntansi (Double Entry)
+            // 2. SIMPAN KE TABEL PEMBELIAN (PENTING!)
+            const { error: errBeli } = await db.from('pembelian').insert(dataPembelian);
+            if (errBeli) throw errBeli;
+
+            // 3. Jurnal Akuntansi (Double Entry)
             const jurnal = [];
-            // DEBIT: Persediaan Barang (1103)
             jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1103', keterangan: `Masuk Stok: ${supplier}`, debit: totalGlobal, kredit: 0 });
 
             if (metode === 'TUNAI') {
-                // KREDIT: Kas (1101) - Lunas
                 jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar Supplier: ${supplier}`, debit: 0, kredit: totalGlobal });
             } else {
-                // KREDIT: Kas (Jika ada DP)
                 if (dibayar > 0) {
                     jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '1101', keterangan: `Bayar DP ke ${supplier}`, debit: 0, kredit: dibayar });
                 }
-                // KREDIT: Hutang Dagang (2101) - Sisa Hutang
-                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '2101', keterangan: `Hutang Dagang (Tempo s/d ${dueDate})`, debit: 0, kredit: sisa });
+                jurnal.push({ tanggal: tgl, no_bukti: noBukti, kode_akun: '2101', keterangan: `Hutang Dagang: ${supplier} (Tempo ${dueDate})`, debit: 0, kredit: sisa });
             }
 
-            await db.from('jurnal_umum').insert(jurnal);
+            const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnal);
+            if (errJurnal) throw errJurnal;
 
-            alert("✅ Transaksi Pembelian Berhasil Dicatat!");
+            alert("✅ Pembelian Berhasil! Stok dan Laporan diperbarui.");
             location.reload();
         } catch (e) {
+            console.error(e);
             alert("Error: " + e.message);
             btn.disabled = false;
+            btn.innerText = "💾 SIMPAN PEMBELIAN & UPDATE AKUNTANSI";
         }
     }
 </script>
