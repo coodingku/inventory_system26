@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audit Saldo | Finex Pos</title>
@@ -89,13 +90,14 @@
         loadAuditData();
     };
 
-   async function loadAuditData() {
-    const monthYear = document.getElementById('filter-bulan').value; // Format: "2026-02"
+  async function loadAuditData() {
+    const monthYear = document.getElementById('filter-bulan').value; // Contoh: "2026-02"
     if (!monthYear) return;
 
+    // Memecah tahun dan bulan
     const [year, month] = monthYear.split('-');
     
-    // Menghitung hari terakhir bulan tersebut secara otomatis
+    // Logika Pintar: Mencari tanggal terakhir (Februari akan jadi 28)
     const lastDay = new Date(year, month, 0).getDate(); 
     
     const start = `${monthYear}-01T00:00:00.000Z`;
@@ -111,6 +113,7 @@
 
         if (error) throw error;
 
+        // Pisahkan data untuk Kas (1101) dan Bank (1102)
         renderTable('1101', data.filter(i => i.kode_akun === '1101'));
         renderTable('1102', data.filter(i => i.kode_akun === '1102'));
 
