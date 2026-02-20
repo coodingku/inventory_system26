@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transit Bill Pajak | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -30,14 +31,14 @@
         .btn-generate { background: var(--accent); color: white; display: none; }
         .btn-generate:hover { background: #c2185b; transform: translateY(-2px); }
         
-        .loading { font-size: 12px; color: var(--warning); font-style: italic; display: none; }
+        .loading { font-size: 12px; color: var(--warning); font-style: italic; display: none; margin-top: 10px; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>Pajak Transit</h2>
-    <p style="text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">Hitung & pindahkan PPN secara kolektif</p>
+    <p style="text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">Memindahkan Pendapatan (4101) ke Hutang Pajak (2102)</p>
     <hr class="divider">
 
     <div class="filter-section">
@@ -53,37 +54,37 @@
             </div>
         </div>
         <button class="btn btn-check" onclick="fetchOmzet()">CEK TOTAL OMZET 🔍</button>
-        <div id="loader" class="loading">Menghitung saldo akun 4101...</div>
+        <div id="loader" class="loading">Sedang mengambil data dari database...</div>
     </div>
 
     <div id="result-area" class="info-omzet">
-        <label>Omzet Pendapatan (4101)</label>
+        <label>Total Omzet (Kredit 4101)</label>
         <span id="display-omzet" class="val-omzet">Rp 0</span>
 
         <div class="tax-input-box">
             <div style="flex: 1;">
-                <label>Persen Pajak (%)</label>
+                <label>Pajak (%)</label>
                 <input type="number" id="tax-percent" value="11" oninput="calculateTax()">
             </div>
             <div style="flex: 2;">
-                <label>Nilai Pajak Terhitung</label>
+                <label>PPN Terhitung</label>
                 <span id="display-tax" class="val-tax">Rp 0</span>
             </div>
         </div>
 
         <div style="margin-top: 20px; text-align: left;">
             <label>Keterangan Jurnal</label>
-            <input type="text" id="keterangan" placeholder="Contoh: PPN Penjualan Jan-Feb">
+            <input type="text" id="keterangan" placeholder="Contoh: Penyesuaian Pajak Januari">
         </div>
 
         <button class="btn btn-generate" id="btn-save" onclick="generateJurnalPajak()" style="margin-top: 20px;">
-            GENERATE JURNAL SEKARANG ⚡
+            GENERATE JURNAL PAJAK ⚡
         </button>
     </div>
 </div>
 
 <script>
-    // Inisialisasi db (Gunakan supabase-init.js jika ada)
+    // Konfigurasi Database
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const db = window.supabase.createClient(URL_DB, KEY_DB);
@@ -91,6 +92,7 @@
     let dataOmzet = 0;
     let taxValue = 0;
 
+    // Set Default Tanggal Hari Ini
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('date-from').value = today;
@@ -105,18 +107,31 @@
         if (!from || !to) return alert("Pilih rentang tanggal!");
 
         loader.style.display = 'block';
+        document.getElementById('result-area').style.display = 'none';
         
         try {
-            // Mengambil saldo Kredit di akun 4101 pada periode terpilih
+            // Kita gunakan filter yang lebih fleksibel untuk kode_akun (Teks/Angka)
+            // Dan menyertakan rentang waktu penuh dalam satu hari
             const { data, error } = await db.from('jurnal_umum')
                 .select('kredit')
-                .eq('kode_akun', '4101')
-                .gte('tanggal', from + 'T00:00:00')
-                .lte('tanggal', to + 'T23:59:59');
+                .eq('kode_akun', '4101') 
+                .gte('tanggal', `${from}T00:00:00`)
+                .lte('tanggal', `${to}T23:59:59`);
 
             if (error) throw error;
 
-            dataOmzet = data.reduce((sum, item) => sum + parseFloat(item.kredit || 0), 0);
+            // Jika data kosong, coba cari sekali lagi dengan paksaan tipe data angka
+            let finalData = data;
+            if (data.length === 0) {
+                const { data: dataAlt } = await db.from('jurnal_umum')
+                    .select('kredit')
+                    .eq('kode_akun', 4101) 
+                    .gte('tanggal', `${from}T00:00:00`)
+                    .lte('tanggal', `${to}T23:59:59`);
+                finalData = dataAlt || [];
+            }
+
+            dataOmzet = finalData.reduce((sum, item) => sum + parseFloat(item.kredit || 0), 0);
             
             document.getElementById('display-omzet').innerText = "Rp " + dataOmzet.toLocaleString('id-ID');
             document.getElementById('result-area').style.display = 'block';
@@ -124,7 +139,12 @@
             
             calculateTax();
 
+            if (dataOmzet === 0) {
+                alert("Peringatan: Omzet ditemukan Rp 0. Pastikan sudah ada transaksi dengan kode akun 4101 di periode ini.");
+            }
+
         } catch (e) {
+            console.error(e);
             alert("Gagal memuat data: " + e.message);
         } finally {
             loader.style.display = 'none';
@@ -133,6 +153,7 @@
 
     function calculateTax() {
         const percent = parseFloat(document.getElementById('tax-percent').value || 0) / 100;
+        // Rumus sederhana: Total Kredit 4101 x Persen
         taxValue = Math.round(dataOmzet * percent);
         document.getElementById('display-tax').innerText = "Rp " + taxValue.toLocaleString('id-ID');
     }
@@ -144,15 +165,18 @@
         const to = document.getElementById('date-to').value;
         const ket = document.getElementById('keterangan').value || `Transit PPN ${from} s/d ${to}`;
 
-        if (!confirm(`Konfirmasi Generate Jurnal:\nPeriode: ${from} s/d ${to}\nNominal Pajak: Rp ${taxValue.toLocaleString()}\n\nSaldo Pendapatan (4101) akan berkurang.`)) return;
+        const konfirmasi = confirm(`Konfirmasi Transit Pajak:\n--------------------------\nOmzet Terdeteksi: Rp ${dataOmzet.toLocaleString()}\nPajak (${document.getElementById('tax-percent').value}%): Rp ${taxValue.toLocaleString()}\n\nSaldo 4101 akan dikurangi (Debit).\nSaldo 2102 akan bertambah (Kredit).\n\nLanjutkan?`);
+        
+        if (!konfirmasi) return;
 
         try {
-            const noBukti = `TAX-${Date.now().toString().slice(-6)}`;
-            
-            // Jurnal Penyesuaian: Debit Pendapatan (4101), Kredit Hutang Pajak (2102)
+            const noBukti = `TAX-ADJ-${Date.now().toString().slice(-6)}`;
+            const tglJurnal = new Date().toISOString(); // Mencatat di waktu sekarang
+
+            // Membuat Double Entry: Debit 4101 (Kurangi Omzet), Kredit 2102 (Tambah Hutang)
             const { error } = await db.from('jurnal_umum').insert([
                 { 
-                    tanggal: new Date().toISOString(), 
+                    tanggal: tglJurnal, 
                     no_bukti: noBukti, 
                     kode_akun: '4101', 
                     keterangan: ket, 
@@ -160,7 +184,7 @@
                     kredit: 0 
                 },
                 { 
-                    tanggal: new Date().toISOString(), 
+                    tanggal: tglJurnal, 
                     no_bukti: noBukti, 
                     kode_akun: '2102', 
                     keterangan: ket, 
@@ -171,11 +195,12 @@
 
             if (error) throw error;
 
-            alert("✅ Sukses! Jurnal Pajak telah ditambahkan ke laporan.");
-            location.reload();
+            alert("✅ Sukses! Jurnal Pajak telah berhasil digenerate.");
+            location.reload(); // Refresh halaman
 
         } catch (e) {
-            alert("Gagal generate jurnal: " + e.message);
+            console.error(e);
+            alert("Gagal menyimpan jurnal: " + e.message);
         }
     }
 </script>
