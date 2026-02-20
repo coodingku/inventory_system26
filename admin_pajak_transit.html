@@ -2,103 +2,180 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Transit Bill Pajak Manual</title>
+    <title>Transit Bill Pajak | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
-        h2 { color: var(--primary); margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 20px; }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; }
-        input:focus { border-color: var(--accent); }
-        .info-omzet { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: #555; border-left: 4px solid var(--primary); }
-        .btn-process { background: var(--primary); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 14px; }
-        .btn-process:hover { background: #1a252f; }
-        .status-msg { margin-top: 20px; padding: 10px; border-radius: 8px; display: none; text-align: center; font-size: 13px; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { color: var(--primary); margin: 0 0 10px 0; text-align: center; font-size: 22px; }
+        .divider { border: 0; border-top: 2px solid #eee; margin-bottom: 20px; }
+        
+        .filter-section { background: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #e0e0e0; margin-bottom: 20px; }
+        .grid-date { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        
+        label { display: block; font-size: 11px; font-weight: bold; color: #7f8c8d; margin-bottom: 5px; text-transform: uppercase; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--accent); box-shadow: 0 0 5px rgba(233, 30, 99, 0.2); }
+
+        .info-omzet { background: #fff; border: 2px solid #eee; padding: 15px; border-radius: 10px; margin-top: 15px; display: none; text-align: center; }
+        .val-omzet { font-size: 20px; font-weight: 800; color: var(--primary); display: block; margin-bottom: 15px; }
+        
+        .tax-input-box { display: flex; align-items: center; gap: 10px; justify-content: center; background: #fff5f7; padding: 10px; border-radius: 8px; border: 1px dashed var(--accent); }
+        .val-tax { font-size: 24px; font-weight: 900; color: var(--accent); display: block; margin-top: 10px; }
+
+        .btn { border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.3s; }
+        .btn-check { background: var(--primary); color: white; margin-bottom: 10px; }
+        .btn-check:hover { background: #1a252f; }
+        .btn-generate { background: var(--accent); color: white; display: none; }
+        .btn-generate:hover { background: #c2185b; transform: translateY(-2px); }
+        
+        .loading { font-size: 12px; color: var(--warning); font-style: italic; display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Input Transit Pajak</h2>
-    <p style="font-size: 12px; color: #888; margin-bottom: 20px;">Memindahkan nilai pendapatan ke akun Hutang Pajak (2102) secara manual.</p>
+    <h2>Pajak Transit</h2>
+    <p style="text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">Hitung & pindahkan PPN secara kolektif</p>
+    <hr class="divider">
 
-    <div class="input-group">
-        <label>Tanggal Jurnal</label>
-        <input type="date" id="tgl-jurnal">
+    <div class="filter-section">
+        <label>Filter Periode Penjualan</label>
+        <div class="grid-date">
+            <div>
+                <label style="font-size: 9px;">Dari Tanggal</label>
+                <input type="date" id="date-from">
+            </div>
+            <div>
+                <label style="font-size: 9px;">Sampai Tanggal</label>
+                <input type="date" id="date-to">
+            </div>
+        </div>
+        <button class="btn btn-check" onclick="fetchOmzet()">CEK TOTAL OMZET 🔍</button>
+        <div id="loader" class="loading">Menghitung saldo akun 4101...</div>
     </div>
 
-    <div class="input-group">
-        <label>Keterangan</label>
-        <input type="text" id="keterangan" placeholder="Contoh: Setoran PPN Januari">
+    <div id="result-area" class="info-omzet">
+        <label>Omzet Pendapatan (4101)</label>
+        <span id="display-omzet" class="val-omzet">Rp 0</span>
+
+        <div class="tax-input-box">
+            <div style="flex: 1;">
+                <label>Persen Pajak (%)</label>
+                <input type="number" id="tax-percent" value="11" oninput="calculateTax()">
+            </div>
+            <div style="flex: 2;">
+                <label>Nilai Pajak Terhitung</label>
+                <span id="display-tax" class="val-tax">Rp 0</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: left;">
+            <label>Keterangan Jurnal</label>
+            <input type="text" id="keterangan" placeholder="Contoh: PPN Penjualan Jan-Feb">
+        </div>
+
+        <button class="btn btn-generate" id="btn-save" onclick="generateJurnalPajak()" style="margin-top: 20px;">
+            GENERATE JURNAL SEKARANG ⚡
+        </button>
     </div>
-
-    <div class="input-group">
-        <label>Nominal Pajak (Rp)</label>
-        <input type="number" id="nominal-pajak" placeholder="Masukkan angka saja..." style="font-size: 18px; font-weight: bold; color: var(--accent);">
-    </div>
-
-    <button class="btn-process" onclick="saveTransitPajak()">GENERATE JURNAL PAJAK ⚡</button>
-
-    <div id="status" class="status-msg"></div>
 </div>
 
 <script>
-    // Konfigurasi diambil dari file Anda yang lain
+    // Inisialisasi db (Gunakan supabase-init.js jika ada)
     const URL_DB = 'https://uojhjskgugghwxtdsfvm.supabase.co';
     const KEY_DB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
     const db = window.supabase.createClient(URL_DB, KEY_DB);
 
+    let dataOmzet = 0;
+    let taxValue = 0;
+
     window.onload = () => {
-        document.getElementById('tgl-jurnal').value = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date-from').value = today;
+        document.getElementById('date-to').value = today;
     };
 
-    async function saveTransitPajak() {
-        const tgl = document.getElementById('tgl-jurnal').value;
-        const ket = document.getElementById('keterangan').value || "Transit Pajak Manual";
-        const nominal = parseFloat(document.getElementById('nominal-pajak').value || 0);
-        const statusDiv = document.getElementById('status');
+    async function fetchOmzet() {
+        const from = document.getElementById('date-from').value;
+        const to = document.getElementById('date-to').value;
+        const loader = document.getElementById('loader');
+        
+        if (!from || !to) return alert("Pilih rentang tanggal!");
 
-        if (nominal <= 0) return alert("Masukkan nominal pajak yang valid!");
+        loader.style.display = 'block';
+        
+        try {
+            // Mengambil saldo Kredit di akun 4101 pada periode terpilih
+            const { data, error } = await db.from('jurnal_umum')
+                .select('kredit')
+                .eq('kode_akun', '4101')
+                .gte('tanggal', from + 'T00:00:00')
+                .lte('tanggal', to + 'T23:59:59');
 
-        if (!confirm(`Konfirmasi Jurnal:\n- Debit: 4101 (Pendapatan)\n- Kredit: 2102 (Hutang Pajak)\nNominal: Rp ${nominal.toLocaleString()}\n\nLanjutkan?`)) return;
+            if (error) throw error;
+
+            dataOmzet = data.reduce((sum, item) => sum + parseFloat(item.kredit || 0), 0);
+            
+            document.getElementById('display-omzet').innerText = "Rp " + dataOmzet.toLocaleString('id-ID');
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('btn-save').style.display = 'block';
+            
+            calculateTax();
+
+        } catch (e) {
+            alert("Gagal memuat data: " + e.message);
+        } finally {
+            loader.style.display = 'none';
+        }
+    }
+
+    function calculateTax() {
+        const percent = parseFloat(document.getElementById('tax-percent').value || 0) / 100;
+        taxValue = Math.round(dataOmzet * percent);
+        document.getElementById('display-tax').innerText = "Rp " + taxValue.toLocaleString('id-ID');
+    }
+
+    async function generateJurnalPajak() {
+        if (taxValue <= 0) return alert("Nilai pajak tidak boleh 0!");
+
+        const from = document.getElementById('date-from').value;
+        const to = document.getElementById('date-to').value;
+        const ket = document.getElementById('keterangan').value || `Transit PPN ${from} s/d ${to}`;
+
+        if (!confirm(`Konfirmasi Generate Jurnal:\nPeriode: ${from} s/d ${to}\nNominal Pajak: Rp ${taxValue.toLocaleString()}\n\nSaldo Pendapatan (4101) akan berkurang.`)) return;
 
         try {
-            const noBukti = `TAX-MAN-${Date.now().toString().slice(-5)}`;
-            const tglISO = tgl + "T12:00:00Z";
-
+            const noBukti = `TAX-${Date.now().toString().slice(-6)}`;
+            
+            // Jurnal Penyesuaian: Debit Pendapatan (4101), Kredit Hutang Pajak (2102)
             const { error } = await db.from('jurnal_umum').insert([
                 { 
-                    tanggal: tglISO, 
+                    tanggal: new Date().toISOString(), 
                     no_bukti: noBukti, 
                     kode_akun: '4101', 
                     keterangan: ket, 
-                    debit: nominal, // Mengurangi Pendapatan
+                    debit: taxValue, 
                     kredit: 0 
                 },
                 { 
-                    tanggal: tglISO, 
+                    tanggal: new Date().toISOString(), 
                     no_bukti: noBukti, 
                     kode_akun: '2102', 
                     keterangan: ket, 
                     debit: 0, 
-                    kredit: nominal // Menambah Hutang Pajak
+                    kredit: taxValue 
                 }
             ]);
 
             if (error) throw error;
 
-            statusDiv.style.display = "block";
-            statusDiv.style.background = "#dcfce7";
-            statusDiv.style.color = "#16a34a";
-            statusDiv.innerText = "✅ Jurnal Berhasil Disimpan!";
-            
-            document.getElementById('nominal-pajak').value = "";
-            
+            alert("✅ Sukses! Jurnal Pajak telah ditambahkan ke laporan.");
+            location.reload();
+
         } catch (e) {
-            alert("Gagal: " + e.message);
+            alert("Gagal generate jurnal: " + e.message);
         }
     }
 </script>
