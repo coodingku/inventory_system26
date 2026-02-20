@@ -1,57 +1,90 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fix Jurnal Penjualan | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
-        main { flex: 1; margin-left: 250px; padding: 40px; }
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        
+        /* Sidebar */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 22px; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 10px; font-size: 14px; transition: 0.3s; }
+        nav a:hover { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); }
+        
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        
+        .summary-alert { 
+            display: none; 
+            background: #fff3cd; 
+            border-left: 6px solid var(--warning); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 25px; 
+        }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-fix { background: var(--accent); color: white; }
-        .btn-check { background: var(--primary); color: white; margin-bottom: 20px; }
-        .status-missing { color: var(--danger); font-weight: bold; background: #fee2e2; padding: 4px 8px; border-radius: 4px; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 12px; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-check { background: var(--primary); color: white; }
+        .btn-fix { background: var(--accent); color: white; margin-top: 15px; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .status-badge { background: #fee2e2; color: var(--danger); padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 11px; }
+        
+        .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <nav>
     <h2>Finex Pos</h2>
-    <a href="dashboard.html" style="color:white; text-decoration:none;">⬅ Kembali ke Dashboard</a>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="analisis-pembayaran.html">🔍 Audit Kas & Bank</a>
+    <a href="laporan-pembelian.html">📑 Laporan Pembelian</a>
 </nav>
 
 <main>
-    <h1>🔧 Rekonsiliasi & Fix Jurnal</h1>
-    <p>File ini mendeteksi transaksi penjualan yang <b>belum tercatat</b> di Jurnal Umum.</p>
+    <h1>🔧 Rekonsiliasi Jurnal Umum</h1>
+    <p style="color: #666;">Gunakan alat ini jika Saldo Bank (1102) atau Kas (1101) tidak sama dengan Laporan Penjualan.</p>
 
     <div class="card">
-        <button class="btn btn-check" onclick="jalankanAudit()">🔍 Mulai Audit Transaksi</button>
-        
-        <div id="summary-audit" style="margin-bottom: 20px; font-weight: bold; display: none;">
-            Ditemukan <span id="count-missing" style="color:var(--danger)">0</span> transaksi yang tidak sinkron.
-            <button id="btn-fix-all" class="btn btn-fix" style="display:none;" onclick="fixSemuaJurnal()">🔥 FIX SEMUA JURNAL SEKARANG</button>
+        <button class="btn btn-check" id="btn-audit" onclick="jalankanAudit()">
+            🔍 Mulai Audit Transaksi
+        </button>
+
+        <div id="summary-audit" class="summary-alert">
+            <h3 style="margin:0 0 10px 0; color: #856404;">⚠️ Hasil Audit Ditemukan!</h3>
+            <p style="margin: 5px 0;">Jumlah Transaksi Belum Terjurnal: <b id="count-missing">0</b></p>
+            <p style="margin: 5px 0;">Total Selisih Nominal: <b id="total-missing" style="font-size: 20px; color: var(--danger);">Rp 0</b></p>
+            
+            <button id="btn-fix-all" class="btn btn-fix" onclick="fixSemuaJurnal()">
+                🔥 FIX SEMUA JURNAL SEKARANG
+            </button>
         </div>
 
-        <table>
+        <table id="table-audit">
             <thead>
                 <tr>
                     <th>No. Faktur</th>
                     <th>Tanggal</th>
-                    <th>Metode</th>
-                    <th>Total Harga</th>
-                    <th>Status Jurnal</th>
+                    <th>Metode Bayar</th>
+                    <th>Total Transaksi</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody id="list-audit">
-                <tr><td colspan="5" align="center">Klik tombol audit untuk memulai...</td></tr>
+                <tr><td colspan="5" align="center" style="padding: 40px; color: #999;">Klik tombol di atas untuk memindai data penjualan.</td></tr>
             </tbody>
         </table>
     </div>
@@ -62,105 +95,124 @@
 
     async function jalankanAudit() {
         const tbody = document.getElementById('list-audit');
-        tbody.innerHTML = '<tr><td colspan="5" align="center">⏳ Membandingkan data Penjualan vs Jurnal...</td></tr>';
+        const btnAudit = document.getElementById('btn-audit');
+        
+        btnAudit.disabled = true;
+        btnAudit.innerHTML = '<div class="loading-spinner"></div> Memindai...';
+        tbody.innerHTML = '<tr><td colspan="5" align="center">⏳ Sedang mencocokkan data penjualan dengan jurnal umum...</td></tr>';
+        
         transaksiHilang = [];
 
         try {
-            // 1. Ambil data penjualan (Bulan Februari 2026)
+            // 1. Ambil data penjualan bulan Februari 2026
             const { data: penjualan, error: errP } = await db.from('penjualan')
                 .select('*')
                 .gte('created_at', '2026-02-01T00:00:00Z')
                 .lte('created_at', '2026-02-28T23:59:59Z');
 
-            // 2. Ambil semua no_bukti di Jurnal Umum
+            // 2. Ambil no_bukti dari Jurnal Umum agar bisa dibandingkan
             const { data: jurnal, error: errJ } = await db.from('jurnal_umum')
                 .select('no_bukti');
 
             if (errP || errJ) throw (errP || errJ);
 
+            // Buat Set unik untuk pencarian cepat
             const setJurnal = new Set(jurnal.map(j => j.no_bukti));
 
-            // 3. Filter transaksi yang ada di penjualan tapi GAK ADA di jurnal
+            // 3. Cari yang ada di Penjualan tapi tidak ada di Jurnal
             transaksiHilang = penjualan.filter(p => !setJurnal.has(p.no_faktur));
 
             renderTable();
         } catch (e) {
             alert("Audit Gagal: " + e.message);
+        } finally {
+            btnAudit.disabled = false;
+            btnAudit.innerHTML = '🔍 Mulai Audit Transaksi';
         }
     }
 
     function renderTable() {
         const tbody = document.getElementById('list-audit');
         const summary = document.getElementById('summary-audit');
-        const btnFix = document.getElementById('btn-fix-all');
-        
-        summary.style.display = 'block';
-        document.getElementById('count-missing').innerText = transaksiHilang.length;
+        let totalNominalHilang = 0;
 
         if (transaksiHilang.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" align="center" style="color:green; font-weight:bold;">✅ Semua transaksi sudah sinkron dengan Jurnal!</td></tr>';
-            btnFix.style.display = 'none';
+            summary.style.display = 'none';
+            tbody.innerHTML = '<tr><td colspan="5" align="center" style="padding:40px; color:var(--success); font-weight:bold;">✅ SEMUA BERES! Data penjualan sudah sinkron dengan jurnal umum.</td></tr>';
             return;
         }
 
-        btnFix.style.display = 'inline-block';
+        summary.style.display = 'block';
+        
         tbody.innerHTML = transaksiHilang.map(p => {
-            const nominal = p.total || p.total_harga || p.grand_total || 0;
+            // Cek berbagai kemungkinan nama kolom nominal
+            const nominal = parseFloat(p.total || p.total_harga || p.grand_total || 0);
+            totalNominalHilang += nominal;
+            
             return `
                 <tr>
-                    <td>${p.no_faktur}</td>
+                    <td><b>${p.no_faktur}</b></td>
                     <td>${new Date(p.created_at).toLocaleDateString('id-ID')}</td>
-                    <td>${p.metode_pembayaran}</td>
-                    <td>Rp ${parseFloat(nominal).toLocaleString()}</td>
-                    <td><span class="status-missing">TIDAK ADA DI JURNAL</span></td>
+                    <td>${p.metode_pembayaran || 'TUNAI'}</td>
+                    <td>Rp ${nominal.toLocaleString('id-ID')}</td>
+                    <td><span class="status-badge">BELUM TERJURNAL</span></td>
                 </tr>
             `;
         }).join('');
+
+        document.getElementById('count-missing').innerText = transaksiHilang.length + " Transaksi";
+        document.getElementById('total-missing').innerText = "Rp " + totalNominalHilang.toLocaleString('id-ID');
     }
 
     async function fixSemuaJurnal() {
-        if (!confirm(`Apakah Anda yakin ingin memasukkan ${transaksiHilang.length} transaksi ini ke Jurnal Umum secara otomatis?`)) return;
+        if (!confirm(`Sistem akan memasukkan ${transaksiHilang.length} data ke Jurnal Umum. Lanjutkan?`)) return;
 
-        const btn = document.getElementById('btn-fix-all');
-        btn.disabled = true;
-        btn.innerText = "⏳ Memproses...";
+        const btnFix = document.getElementById('btn-fix-all');
+        btnFix.disabled = true;
+        btnFix.innerText = "⏳ Sedang Menyuntikkan Data...";
 
         try {
-            let dataJurnalBaru = [];
+            let entriJurnal = [];
 
-            for (const p of transaksiHilang) {
+            transaksiHilang.forEach(p => {
                 const nominal = parseFloat(p.total || p.total_harga || p.grand_total || 0);
-                const tgl = p.created_at;
-                const faktur = p.no_faktur;
-                const metode = (p.metode_pembayaran || "").toUpperCase();
+                const metode = (p.metode_pembayaran || "TUNAI").toUpperCase();
                 
-                // Tentukan akun aset (1101 Tunai, 1102 Selain Tunai)
+                // Logika Akuntansi Finex Pos:
+                // Tunai masuk ke 1101, Selain itu (QRIS/Bank) masuk ke 1102
                 const akunAset = (metode === 'TUNAI') ? '1101' : '1102';
 
-                // Baris 1: Debit Kas/Bank (Aset bertambah)
-                dataJurnalBaru.push({
-                    tanggal: tgl, no_bukti: faktur, kode_akun: akunAset,
-                    keterangan: `Penjualan: ${metode} (${faktur})`, debit: nominal, kredit: 0
+                // DEBIT (Kas/Bank bertambah)
+                entriJurnal.push({
+                    tanggal: p.created_at,
+                    no_bukti: p.no_faktur,
+                    kode_akun: akunAset,
+                    keterangan: `Penjualan ${metode} (${p.no_faktur})`,
+                    debit: nominal,
+                    kredit: 0
                 });
 
-                // Baris 2: Kredit Pendapatan (Akun 4101 - Pendapatan Penjualan)
-                dataJurnalBaru.push({
-                    tanggal: tgl, no_bukti: faktur, kode_akun: '4101',
-                    keterangan: `Pendapatan Penjualan (${faktur})`, debit: 0, kredit: nominal
+                // KREDIT (Pendapatan bertambah)
+                entriJurnal.push({
+                    tanggal: p.created_at,
+                    no_bukti: p.no_faktur,
+                    kode_akun: '4101',
+                    keterangan: `Pendapatan Penjualan (${p.no_faktur})`,
+                    debit: 0,
+                    kredit: nominal
                 });
-            }
+            });
 
-            // Batch insert ke jurnal_umum
-            const { error } = await db.from('jurnal_umum').insert(dataJurnalBaru);
+            const { error } = await db.from('jurnal_umum').insert(entriJurnal);
             if (error) throw error;
 
-            alert("✅ BERHASIL! Selisih Rp 873.000 (atau nominal lainnya) telah diperbaiki di Jurnal Umum.");
+            alert("✅ REKONSILIASI BERHASIL! Jurnal Umum telah diperbarui.");
             location.reload();
 
         } catch (e) {
-            alert("Gagal Memperbaiki: " + e.message);
-            btn.disabled = false;
-            btn.innerText = "🔥 FIX SEMUA JURNAL SEKARANG";
+            alert("Gagal memperbarui jurnal: " + e.message);
+            btnFix.disabled = false;
+            btnFix.innerText = "🔥 FIX SEKARANG";
         }
     }
 </script>
