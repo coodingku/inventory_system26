@@ -8,7 +8,7 @@
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --blue: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
@@ -37,8 +37,20 @@
         .badge-tunai { background: #dcfce7; color: #16a34a; }
         .badge-tempo { background: #fee2e2; color: #dc2626; }
         
-        .btn-filter { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-export { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; transition: 0.2s; }
+        .btn-filter { background: var(--primary); color: white; padding: 10px 20px; }
+        .btn-pay { background: var(--success); color: white; }
+        .btn-print { background: var(--blue); color: white; }
+
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 15px; width: 400px; }
+        .modal-input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; }
+
+        @media print {
+            nav, .filter-bar, .no-print { display: none !important; }
+            main { margin-left: 0; width: 100%; padding: 0; }
+        }
     </style>
 </head>
 <body>
@@ -70,7 +82,7 @@
     </div>
 
     <div class="card">
-        <div class="filter-bar">
+        <div class="filter-bar no-print">
             <div class="input-group">
                 <label>Bulan</label>
                 <select id="filter-bulan">
@@ -94,7 +106,7 @@
                     <option value="TEMPO">Hanya Tempo</option>
                 </select>
             </div>
-            <button class="btn-filter" onclick="muatLaporan()">🔍 Cari Data</button>
+            <button class="btn btn-filter" onclick="muatLaporan()">🔍 Cari Data</button>
         </div>
 
         <table>
@@ -106,7 +118,7 @@
                     <th>Metode</th>
                     <th>Qty</th>
                     <th>Total</th>
-                    <th>Status</th>
+                    <th class="no-print">Aksi</th>
                 </tr>
             </thead>
             <tbody id="report-list">
@@ -116,8 +128,22 @@
     </div>
 </main>
 
+<div id="modalPay" class="modal">
+    <div class="modal-content">
+        <h3>Pelunasan Transaksi</h3>
+        <p id="pay-info" style="font-size: 14px; color: #666;"></p>
+        <label>Nominal Bayar:</label>
+        <input type="number" id="pay-amount" class="modal-input">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn" style="background:#ccc; flex:1" onclick="closeModal()">Batal</button>
+            <button class="btn btn-pay" style="flex:2" onclick="prosesBayar()">Konfirmasi Lunas</button>
+        </div>
+    </div>
+</div>
+
 <script>
     let dataLaporan = [];
+    let selectedPO = null;
 
     window.onload = () => {
         const d = new Date();
@@ -132,40 +158,27 @@
 
         const bulan = document.getElementById('filter-bulan').value;
         const tahun = document.getElementById('filter-tahun').value;
-        
-        // Perbaikan format tanggal agar kompatibel dengan PostgreSQL/Supabase
         const tglMulai = `${tahun}-${bulan}-01T00:00:00.000Z`;
         const lastDay = new Date(tahun, bulan, 0).getDate(); 
         const tglSelesai = `${tahun}-${bulan}-${lastDay}T23:59:59.999Z`;
 
         try {
-            // 1. Ambil data dari tabel pembelian dengan relasi produk
-            const { data, error } = await db
-                .from('pembelian')
-                .select(`
-                    *,
-                    produk:produk_id ( nama_barang )
-                `)
+            const { data, error } = await db.from('pembelian')
+                .select('*, produk:produk_id ( nama_barang )')
                 .gte('created_at', tglMulai)
                 .lte('created_at', tglSelesai)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
             dataLaporan = data || [];
-            console.log("Data diterima:", dataLaporan);
 
-            // 2. Hitung Saldo Hutang Global (Akun 2101)
-            const { data: jurnalHutang } = await db.from('jurnal_umum')
-                .select('debit, kredit')
-                .eq('kode_akun', '2101');
-                
+            const { data: jurnalHutang } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', '2101');
             const totalHutangGlobal = (jurnalHutang || []).reduce((s, i) => s + (parseFloat(i.kredit || 0) - parseFloat(i.debit || 0)), 0);
             document.getElementById('total-hutang').innerText = `Rp ${totalHutangGlobal.toLocaleString('id-ID')}`;
 
             renderData();
         } catch (err) {
-            console.error("Fetch Error:", err);
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding:20px;">Error: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Error: ${err.message}</td></tr>`;
         }
     }
 
@@ -174,39 +187,98 @@
         const statusFilter = document.getElementById('filter-status').value;
         let totalUang = 0, totalQty = 0;
 
-        // Filter data berdasarkan pilihan status (Tunai/Tempo)
         const filtered = dataLaporan.filter(item => {
             const metode = item.metode || 'TUNAI'; 
             return statusFilter === 'ALL' || metode === statusFilter;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:50px; color:#999;">Tidak ada data ditemukan untuk periode ini.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:50px;">Tidak ada data.</td></tr>';
         } else {
-            tbody.innerHTML = filtered.map(item => {
+            tbody.innerHTML = filtered.map((item, index) => {
                 totalUang += (parseFloat(item.total_harga) || 0);
                 totalQty += (parseFloat(item.qty) || 0);
-                
-                const tgl = new Date(item.created_at).toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: 'numeric'});
+                const tgl = new Date(item.created_at).toLocaleDateString('id-ID');
                 const metode = item.metode || 'TUNAI';
-                const namaBarang = item.produk ? item.produk.nama_barang : '<span style="color:red">Produk Dihapus</span>';
                 
                 return `
                     <tr>
                         <td>${tgl}</td>
-                        <td><b>${namaBarang}</b></td>
+                        <td><b>${item.produk?.nama_barang || 'Produk Dihapus'}</b></td>
                         <td>${item.supplier || '-'}</td>
                         <td><span class="badge ${metode === 'TUNAI' ? 'badge-tunai' : 'badge-tempo'}">${metode}</span></td>
                         <td>${item.qty} Pcs</td>
                         <td>Rp ${(item.total_harga || 0).toLocaleString('id-ID')}</td>
-                        <td>${metode === 'TUNAI' ? 'Lunas' : '<b>Hutang</b>'}</td>
+                        <td class="no-print">
+                            <button class="btn btn-print" onclick="printNota(${index})">🖨️</button>
+                            ${metode === 'TEMPO' ? `<button class="btn btn-pay" onclick="openPayModal(${index})">💸</button>` : ''}
+                        </td>
                     </tr>
                 `;
             }).join('');
         }
-
         document.getElementById('total-pengeluaran').innerText = `Rp ${totalUang.toLocaleString('id-ID')}`;
         document.getElementById('total-item').innerText = `${totalQty} Pcs`;
+    }
+
+    function openPayModal(idx) {
+        selectedPO = dataLaporan[idx];
+        document.getElementById('pay-info').innerText = `Pelunasan kepada: ${selectedPO.supplier}`;
+        document.getElementById('pay-amount').value = selectedPO.total_harga;
+        document.getElementById('modalPay').style.display = 'block';
+    }
+
+    function closeModal() { document.getElementById('modalPay').style.display = 'none'; }
+
+    async function prosesBayar() {
+        const nominal = parseFloat(document.getElementById('pay-amount').value);
+        if(!confirm(`Konfirmasi pelunasan Rp ${nominal.toLocaleString()}?`)) return;
+
+        try {
+            const tgl = new Date().toISOString();
+            // Catat Jurnal (Debit Hutang, Kredit Kas)
+            await db.from('jurnal_umum').insert([
+                { tanggal: tgl, no_bukti: 'PAY-PO', kode_akun: '2101', keterangan: `Lunas PO: ${selectedPO.supplier}`, debit: nominal, kredit: 0 },
+                { tanggal: tgl, no_bukti: 'PAY-PO', kode_akun: '1101', keterangan: `Pelunasan PO ke ${selectedPO.supplier}`, debit: 0, kredit: nominal }
+            ]);
+
+            // Update status metode di tabel pembelian
+            await db.from('pembelian').update({ metode: 'TUNAI' }).eq('id', selectedPO.id);
+
+            alert("Pembayaran Berhasil!");
+            closeModal();
+            muatLaporan();
+        } catch (e) { alert(e.message); }
+    }
+
+    function printNota(idx) {
+        const item = dataLaporan[idx];
+        const win = window.open('', '', 'width=800,height=600');
+        win.document.write(`
+            <div style="font-family:sans-serif; padding:40px; border:1px solid #ddd;">
+                <h2 style="color:#e91e63">Finex Pos</h2>
+                <p><b>NOTA RINCIAN PEMBELIAN</b></p>
+                <hr>
+                <table width="100%">
+                    <tr><td>Tanggal</td><td>: ${new Date(item.created_at).toLocaleDateString()}</td></tr>
+                    <tr><td>Supplier</td><td>: ${item.supplier}</td></tr>
+                    <tr><td>Metode</td><td>: ${item.metode || 'TUNAI'}</td></tr>
+                </table>
+                <table width="100%" border="1" style="border-collapse:collapse; margin-top:20px;">
+                    <tr style="background:#eee"><th>Barang</th><th>Qty</th><th>Harga</th><th>Total</th></tr>
+                    <tr>
+                        <td>${item.produk?.nama_barang}</td>
+                        <td align="center">${item.qty}</td>
+                        <td align="right">Rp ${parseFloat(item.harga_beli).toLocaleString()}</td>
+                        <td align="right"><b>Rp ${parseFloat(item.total_harga).toLocaleString()}</b></td>
+                    </tr>
+                </table>
+                <p style="margin-top:30px; text-align:center;"><i>Dicetak melalui Finex Pos Management</i></p>
+            </div>
+        `);
+        win.document.close();
+        win.print();
+        win.close();
     }
 </script>
 </body>
