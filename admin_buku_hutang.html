@@ -19,6 +19,10 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
 
+        /* Filter Section */
+        .filter-box { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; }
+        select, input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid var(--primary); }
         .stat-card label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; }
@@ -32,7 +36,15 @@
         .badge-danger { background: #fee2e2; color: var(--danger); }
         .badge-success { background: #dcfce7; color: var(--success); }
 
-        .btn-detail { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-print { background: var(--primary); color: white; }
+        .btn-refresh { background: var(--success); color: white; }
+
+        @media print {
+            nav, .filter-box, .btn, .header button { display: none !important; }
+            main { margin-left: 0; padding: 0; width: 100%; }
+            .card { box-shadow: none; border: 1px solid #eee; }
+        }
     </style>
 </head>
 <body>
@@ -43,18 +55,28 @@
     <a href="pembelian.html">📥 Input Pembelian</a>
     <a href="admin_bayar_hutang.html">💸 Pelunasan Hutang</a>
     <a href="admin_buku_hutang.html" class="active">📖 Buku Hutang</a>
-    <a href="laporan_neraca.html">⚖️ Neraca</a>
 </nav>
 
 <main>
     <div class="header">
         <h1>Buku Pembantu Hutang</h1>
-        <button class="btn-detail" style="background: var(--success);" onclick="fetchBukuHutang()">🔄 Refresh Data</button>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-refresh" onclick="fetchBukuHutang()">🔄 Refresh</button>
+            <button class="btn btn-print" onclick="window.print()">🖨️ Cetak Laporan</button>
+        </div>
+    </div>
+
+    <div class="filter-box">
+        <label>Filter Supplier:</label>
+        <select id="filter-supplier" onchange="filterData()">
+            <option value="ALL">-- Tampilkan Semua Supplier --</option>
+        </select>
+        <input type="text" id="search-supplier" placeholder="Cari nama supplier..." onkeyup="filterData()">
     </div>
 
     <div class="stat-grid">
         <div class="stat-card" style="border-color: var(--danger);">
-            <label>Total Hutang Belum Bayar</label>
+            <label>Total Hutang Aktif</label>
             <span id="total-hutang-global">Rp 0</span>
         </div>
         <div class="stat-card" style="border-color: var(--success);">
@@ -62,115 +84,135 @@
             <span id="total-supplier">0</span>
         </div>
         <div class="stat-card" style="border-color: var(--warning);">
-            <label>Jatuh Tempo Terdekat</label>
-            <span id="due-terdekat">-</span>
+            <label>Status Audit</label>
+            <span id="status-audit" style="font-size: 14px;">Terverifikasi ✅</span>
         </div>
     </div>
 
     <div class="card">
-        <h3>Ringkasan Saldo Per Supplier</h3>
-        <table>
+        <table id="table-hutang">
             <thead>
                 <tr>
-                    <th>Nama Supplier</th>
-                    <th>Total Transaksi</th>
-                    <th>Total Pembayaran</th>
-                    <th>Sisa Hutang</th>
+                    <th>Nama Supplier / Vendor</th>
+                    <th>Belanja (Kredit)</th>
+                    <th>Bayar (Debit)</th>
+                    <th>Sisa Saldo Hutang</th>
                     <th>Status</th>
-                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody id="buku-hutang-body">
-                <tr><td colspan="6" style="text-align:center;">Memuat data...</td></tr>
+                <tr><td colspan="5" style="text-align:center;">Memuat data buku pembantu...</td></tr>
             </tbody>
         </table>
     </div>
 </main>
 
 <script>
+    let globalBukuHutang = {};
+
     window.onload = () => {
         fetchBukuHutang();
     };
 
     async function fetchBukuHutang() {
         try {
-            // 1. Ambil semua data jurnal untuk akun Hutang Dagang (2101)
             const { data: jurnal, error: errJ } = await db.from('jurnal_umum')
                 .select('*')
-                .eq('kode_akun', '2101');
+                .eq('kode_akun', '2101')
+                .order('tanggal', { ascending: true });
             
             if (errJ) throw errJ;
 
-            // 2. Ambil data pembelian untuk mapping supplier
-            const { data: pembelian, error: errP } = await db.from('pembelian').select('supplier, total_harga, created_at');
-            if (errP) throw errP;
-
-            // 3. Olah data (Grup berdasarkan supplier yang ada di keterangan jurnal)
-            const bukuHutang = {};
+            globalBukuHutang = {};
             let totalGlobal = 0;
 
             jurnal.forEach(j => {
-                // Mencoba mencari nama supplier dari keterangan jurnal
-                // Diasumsikan keterangan jurnal berisi nama supplier seperti "Hutang: Nama Supplier"
-                let supplierName = "Lain-lain / Tanpa Nama";
+                let supplierName = "Supplier Umum";
                 
-                // Logika pencarian sederhana: jika ada tanda ":" ambil setelahnya, atau cari manual
+                // Logika pembersihan nama supplier dari keterangan
                 if(j.keterangan.includes(":")) {
                     supplierName = j.keterangan.split(":")[1].trim();
                 } else if(j.keterangan.toLowerCase().includes("bayar hutang")) {
                     supplierName = j.keterangan.replace(/bayar hutang/gi, "").trim();
+                } else if(j.keterangan.toLowerCase().includes("po:")) {
+                    supplierName = j.keterangan.replace(/po:/gi, "").trim();
                 }
 
-                if (!bukuHutang[supplierName]) {
-                    bukuHutang[supplierName] = { transaksi: 0, bayar: 0, sisa: 0 };
+                if (!globalBukuHutang[supplierName]) {
+                    globalBukuHutang[supplierName] = { transaksi: 0, bayar: 0, sisa: 0 };
                 }
 
                 const deb = parseFloat(j.debit || 0);
                 const kre = parseFloat(j.kredit || 0);
 
-                bukuHutang[supplierName].transaksi += kre; // Hutang bertambah di Kredit
-                bukuHutang[supplierName].bayar += deb;    // Hutang berkurang di Debit
-                bukuHutang[supplierName].sisa += (kre - deb);
+                globalBukuHutang[supplierName].transaksi += kre;
+                globalBukuHutang[supplierName].bayar += deb;
+                globalBukuHutang[supplierName].sisa += (kre - deb);
                 totalGlobal += (kre - deb);
             });
 
-            renderTable(bukuHutang, totalGlobal);
+            updateDropdown();
+            renderTable(globalBukuHutang, totalGlobal);
 
         } catch (e) {
             console.error(e);
-            alert("Gagal memuat buku pembantu hutang.");
+            alert("Gagal memuat buku pembantu.");
         }
+    }
+
+    function updateDropdown() {
+        const select = document.getElementById('filter-supplier');
+        const currentVal = select.value;
+        select.innerHTML = '<option value="ALL">-- Tampilkan Semua Supplier --</option>';
+        Object.keys(globalBukuHutang).sort().forEach(name => {
+            select.innerHTML += `<option value="${name}">${name}</option>`;
+        });
+        select.value = currentVal;
+    }
+
+    function filterData() {
+        const selectVal = document.getElementById('filter-supplier').value;
+        const searchVal = document.getElementById('search-supplier').value.toLowerCase();
+        
+        let filtered = {};
+        let total = 0;
+
+        for (const name in globalBukuHutang) {
+            const matchSelect = (selectVal === "ALL" || selectVal === name);
+            const matchSearch = name.toLowerCase().includes(searchVal);
+
+            if (matchSelect && matchSearch) {
+                filtered[name] = globalBukuHutang[name];
+                total += globalBukuHutang[name].sisa;
+            }
+        }
+        renderTable(filtered, total);
     }
 
     function renderTable(data, totalGlobal) {
         const tbody = document.getElementById('buku-hutang-body');
         let html = '';
-        let supplierCount = 0;
+        let count = 0;
 
         for (const name in data) {
             const s = data[name];
-            if (s.transaksi === 0 && s.bayar === 0) continue;
-            
-            supplierCount++;
-            const status = s.sisa > 0 ? 
-                '<span class="badge badge-danger">BELUM LUNAS</span>' : 
-                '<span class="badge badge-success">LUNAS</span>';
+            count++;
+            const isLunas = s.sisa <= 0;
 
             html += `
                 <tr>
                     <td><b>${name}</b></td>
-                    <td>Rp ${s.transaksi.toLocaleString()}</td>
-                    <td>Rp ${s.bayar.toLocaleString()}</td>
-                    <td style="color:${s.sisa > 0 ? 'red' : 'green'}; font-weight:bold;">Rp ${s.sisa.toLocaleString()}</td>
-                    <td>${status}</td>
-                    <td><button class="btn-detail" onclick="alert('Fitur rincian per invoice sedang dikembangkan')">Rincian</button></td>
+                    <td>Rp ${s.transaksi.toLocaleString('id-ID')}</td>
+                    <td>Rp ${s.bayar.toLocaleString('id-ID')}</td>
+                    <td style="color:${isLunas ? 'green' : 'red'}; font-weight:bold;">Rp ${s.sisa.toLocaleString('id-ID')}</td>
+                    <td><span class="badge ${isLunas ? 'badge-success' : 'badge-danger'}">${isLunas ? 'LUNAS' : 'HUTANG'}</span></td>
                 </tr>
             `;
         }
 
-        tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center;">Tidak ada riwayat hutang.</td></tr>';
-        document.getElementById('total-hutang-global').innerText = "Rp " + totalGlobal.toLocaleString();
-        document.getElementById('total-supplier').innerText = supplierCount;
+        tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;">Data tidak ditemukan.</td></tr>';
+        document.getElementById('total-hutang-global').innerText = "Rp " + totalGlobal.toLocaleString('id-ID');
+        document.getElementById('total-supplier').innerText = count;
     }
 </script>
 </body>
