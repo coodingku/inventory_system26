@@ -3,107 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Pembelian & Hutang</title>
+    <title>Laporan Pro | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --blue: #3498db; }
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --blue: #3498db; --gold: #d4af37; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         
+        /* Sidebar */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; font-size: 14px; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
         main { flex: 1; margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         
-        .filter-bar { display: flex; gap: 10px; margin-bottom: 25px; align-items: flex-end; flex-wrap: wrap; }
+        /* Header & Stats */
+        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid var(--accent); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-card h3 { margin: 0; font-size: 12px; color: #888; text-transform: uppercase; }
+        .stat-card p { margin: 10px 0 0; font-size: 20px; font-weight: bold; color: var(--primary); }
+
+        /* Card & Filter */
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 25px; align-items: flex-end; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; background: #fdfdfd; }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
-        .stat-card { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .stat-card h3 { margin: 0; font-size: 13px; color: #666; }
-        .stat-card p { margin: 10px 0 0; font-size: 18px; font-weight: bold; color: var(--primary); }
-
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #eee; font-size: 12px; color: #555; text-transform: uppercase; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        /* Table Style */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 12px; color: #555; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 13px; color: #333; }
+        tr:hover { background: #fff9fa; }
         
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; }
+        /* Badges */
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .badge-tunai { background: #dcfce7; color: #16a34a; }
         .badge-tempo { background: #fee2e2; color: #dc2626; }
         .badge-transfer { background: #e0f2fe; color: #0284c7; }
-        
-        .btn { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-filter { background: var(--primary); color: white; padding: 10px 20px; }
-        .btn-pay { background: var(--success); color: white; }
-        .btn-print { background: var(--blue); color: white; }
-        .btn-delete { background: white; color: var(--danger); border: 1px solid #fee2e2; }
-        .btn-delete:hover { background: var(--danger); color: white; }
 
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 15px; width: 350px; }
+        /* Buttons */
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-filter { background: var(--primary); color: white; }
+        .btn-pdf { background: var(--danger); color: white; }
+        .btn-excel { background: var(--success); color: white; }
+        .btn-print-all { background: var(--blue); color: white; }
+        .btn:hover { opacity: 0.8; transform: translateY(-1px); }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); }
+        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 15px; width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+
+        /* Export Print Styles */
+        @media print {
+            nav, .filter-bar, .no-print, .btn, .stats-grid { display: none !important; }
+            main { margin-left: 0; width: 100%; padding: 0; }
+            .card { box-shadow: none; border: none; }
+        }
     </style>
 </head>
 <body>
 
-<nav>
+<nav class="no-print">
     <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pembelian.html">📥 Pembelian (PO)</a>
+    <a href="pembelian.html">📥 Input Pembelian</a>
     <a href="laporan-pembelian.html" class="active">📑 Laporan Pembelian</a>
     <a href="admin_buku_hutang.html">📖 Buku Hutang</a>
 </nav>
 
 <main>
-    <h1>Laporan Pembelian & Monitoring</h1>
-
-    <div class="stats-grid">
-        <div class="stat-card"><h3>Total Belanja Bulan Ini</h3><p id="total-pengeluaran">Rp 0</p></div>
-        <div class="stat-card" style="border-left-color: var(--danger);"><h3>Hutang Belum Lunas (2101)</h3><p id="total-hutang">Rp 0</p></div>
-        <div class="stat-card" style="border-left-color: var(--success);"><h3>Jumlah Item</h3><p id="total-item">0 Pcs</p></div>
+    <div class="header-area no-print">
+        <h1>Laporan Pembelian</h1>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-print-all" onclick="window.print()">🖨️ Print Global</button>
+            <button class="btn btn-pdf" onclick="exportPDFGlobal()">📄 Export PDF</button>
+            <button class="btn btn-excel" onclick="exportExcel()">📊 Excel</button>
+        </div>
     </div>
 
-    <div class="card">
-        <div class="filter-bar">
-            <div class="input-group"><label>Bulan</label><select id="filter-bulan">
+    <div class="stats-grid no-print">
+        <div class="stat-card"><h3>Total Belanja (Filter)</h3><p id="total-pengeluaran">Rp 0</p></div>
+        <div class="stat-card" style="border-left-color: var(--danger);"><h3>Saldo Hutang (Global)</h3><p id="total-hutang">Rp 0</p></div>
+        <div class="stat-card" style="border-left-color: var(--blue);"><h3>Item Terbeli</h3><p id="total-item">0 Pcs</p></div>
+    </div>
+
+    <div class="card" id="printable-area">
+        <div id="report-header" style="display:none; text-align:center; margin-bottom: 30px;">
+            <h1 style="color:#e91e63; margin:0;">FINEX POS</h1>
+            <p style="margin:5px 0; color:#555;">Laporan Rincian Pembelian & Hutang Dagang</p>
+            <div style="font-size: 12px; color:#888;" id="print-date"></div>
+            <hr style="border:1px solid #eee; margin:20px 0;">
+        </div>
+
+        <div class="filter-bar no-print">
+            <div class="input-group"><label>Bulan</label><select id="filter-bulan" onchange="muatLaporan()">
                 <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
                 <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
                 <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
                 <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
             </select></div>
-            <div class="input-group"><label>Tahun</label><input type="number" id="filter-tahun"></div>
-            <button class="btn btn-filter" onclick="muatLaporan()">🔍 Cari Data</button>
+            <div class="input-group"><label>Tahun</label><input type="number" id="filter-tahun" onchange="muatLaporan()"></div>
+            <div class="input-group"><label>Status</label><select id="filter-status" onchange="renderData()">
+                <option value="ALL">Semua Data</option>
+                <option value="LUNAS">Sudah Lunas</option>
+                <option value="HUTANG">Hutang (Tempo)</option>
+            </select></div>
+            <button class="btn btn-filter" onclick="muatLaporan()">🔄 Refresh</button>
         </div>
 
-        <table>
+        <table id="main-table">
             <thead>
                 <tr>
                     <th>Tanggal</th>
                     <th>Nama Barang</th>
                     <th>Supplier</th>
                     <th>Metode</th>
-                    <th>Total</th>
-                    <th style="text-align: center;">Aksi</th>
+                    <th>Qty</th>
+                    <th style="text-align: right;">Total</th>
+                    <th class="no-print" style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="report-list"></tbody>
         </table>
+
+        <div id="report-footer" style="display:none; margin-top:40px; text-align:right;">
+            <div style="display: inline-block; text-align: center;">
+                <p>Dicetak pada: <span id="footer-date"></span></p>
+                <br><br><br>
+                <p><b>( Admin Keuangan )</b></p>
+            </div>
+        </div>
     </div>
 </main>
 
 <div id="modalPay" class="modal">
     <div class="modal-content">
-        <h3>Pelunasan Hutang</h3>
-        <label style="font-size: 12px;">Akun Pembayaran:</label>
-        <select id="pay-bank" style="width: 100%; margin: 10px 0; padding: 10px; border-radius: 8px;"></select>
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn" style="background:#ccc; flex:1" onclick="closeModal()">Batal</button>
-            <button class="btn btn-pay" style="flex:2" onclick="prosesBayar()">Konfirmasi Bayar</button>
+        <h3 style="margin-top:0">Pelunasan Hutang</h3>
+        <p id="pay-info" style="font-size: 12px; color: #666;"></p>
+        <label>Pilih Akun Bank:</label>
+        <select id="pay-bank" class="modal-input" style="width:100%"></select>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn" style="background:#eee; flex:1" onclick="closeModal()">Batal</button>
+            <button class="btn btn-pay" style="flex:2" onclick="prosesBayar()">Konfirmasi</button>
         </div>
     </div>
 </div>
@@ -122,9 +168,7 @@
 
     async function loadBanks() {
         const { data } = await db.from('metode_pembayaran').select('*').eq('aktif', true);
-        if (data) {
-            document.getElementById('pay-bank').innerHTML = data.map(b => `<option value="${b.kode_akun}" data-name="${b.nama_metode}">${b.nama_metode}</option>`).join('');
-        }
+        if (data) document.getElementById('pay-bank').innerHTML = data.map(b => `<option value="${b.kode_akun}" data-name="${b.nama_metode}">${b.nama_metode}</option>`).join('');
     }
 
     async function muatLaporan() {
@@ -133,30 +177,36 @@
         const tglMulai = `${tahun}-${bulan}-01T00:00:00.000Z`;
         const tglSelesai = `${tahun}-${bulan}-${new Date(tahun, bulan, 0).getDate()}T23:59:59.999Z`;
 
-        const { data, error } = await db.from('pembelian').select('*, produk:produk_id(nama_barang)').gte('created_at', tglMulai).lte('created_at', tglSelesai).order('created_at', { ascending: false });
-        dataLaporan = data || [];
-        
-        // Ambil Saldo Hutang Global
-        const { data: jurnalHutang } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', '2101');
-        const totalHutangGlobal = (jurnalHutang || []).reduce((s, i) => s + (parseFloat(i.kredit || 0) - parseFloat(i.debit || 0)), 0);
-        document.getElementById('total-hutang').innerText = `Rp ${totalHutangGlobal.toLocaleString('id-ID')}`;
-        
-        renderData();
+        try {
+            const { data, error } = await db.from('pembelian').select('*, produk:produk_id(nama_barang)').gte('created_at', tglMulai).lte('created_at', tglSelesai).order('created_at', { ascending: false });
+            if (error) throw error;
+            dataLaporan = data || [];
+
+            const { data: jurnalHutang } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', '2101');
+            const totalHutangGlobal = (jurnalHutang || []).reduce((s, i) => s + (parseFloat(i.kredit || 0) - parseFloat(i.debit || 0)), 0);
+            document.getElementById('total-hutang').innerText = `Rp ${totalHutangGlobal.toLocaleString('id-ID')}`;
+            
+            renderData();
+        } catch (e) { console.error(e); }
     }
 
     function renderData() {
         const tbody = document.getElementById('report-list');
+        const fStatus = document.getElementById('filter-status').value;
         let totalUang = 0, totalQty = 0;
 
-        tbody.innerHTML = dataLaporan.map((item, index) => {
+        const filtered = dataLaporan.filter(i => {
+            const m = i.metode || 'TUNAI';
+            if (fStatus === 'LUNAS') return m !== 'TEMPO';
+            if (fStatus === 'HUTANG') return m === 'TEMPO';
+            return true;
+        });
+
+        tbody.innerHTML = filtered.map((item, index) => {
             totalUang += (parseFloat(item.total_harga) || 0);
             totalQty += (parseFloat(item.qty) || 0);
             const metode = item.metode || 'TUNAI';
-            
-            // Logika Badge Warna
-            let badgeClass = 'badge-tunai';
-            if(metode === 'TEMPO') badgeClass = 'badge-tempo';
-            else if(metode.toLowerCase().includes('transfer') || metode.toLowerCase().includes('bank')) badgeClass = 'badge-transfer';
+            let badgeClass = metode === 'TEMPO' ? 'badge-tempo' : (metode === 'TUNAI' ? 'badge-tunai' : 'badge-transfer');
 
             return `
                 <tr>
@@ -164,11 +214,11 @@
                     <td><b>${item.produk?.nama_barang || 'Dihapus'}</b></td>
                     <td>${item.supplier || '-'}</td>
                     <td><span class="badge ${badgeClass}">${metode}</span></td>
-                    <td>Rp ${parseFloat(item.total_harga).toLocaleString('id-ID')}</td>
-                    <td align="center">
-                        <button class="btn btn-print" onclick="printNota(${index})">🖨️</button>
-                        ${metode === 'TEMPO' ? `<button class="btn btn-pay" onclick="openPayModal(${index})">💸</button>` : ''}
-                        <button class="btn btn-delete" onclick="hapusTransaksi(${index})">🗑️</button>
+                    <td>${item.qty}</td>
+                    <td align="right">Rp ${parseFloat(item.total_harga).toLocaleString('id-ID')}</td>
+                    <td class="no-print" align="center">
+                        <button class="btn btn-print" onclick="printNotaDetail(${index})" title="Cetak Nota">🖨️</button>
+                        ${metode === 'TEMPO' ? `<button class="btn btn-pay" onclick="openPayModal(${index})" title="Pelunasan">💸</button>` : ''}
                     </td>
                 </tr>
             `;
@@ -178,64 +228,64 @@
         document.getElementById('total-item').innerText = `${totalQty} Pcs`;
     }
 
-    function openPayModal(idx) {
-        selectedPO = dataLaporan[idx];
-        document.getElementById('modalPay').style.display = 'block';
+    // PDF EXPORT CUSTOM (SANGAT BAGUS)
+    function exportPDFGlobal() {
+        const header = document.getElementById('report-header');
+        const footer = document.getElementById('report-footer');
+        const dateSpan = document.getElementById('print-date');
+        const footDate = document.getElementById('footer-date');
+        
+        const now = new Date().toLocaleString('id-ID');
+        dateSpan.innerText = "Periode: " + document.getElementById('filter-bulan').options[document.getElementById('filter-bulan').selectedIndex].text + " " + document.getElementById('filter-tahun').value;
+        footDate.innerText = now;
+
+        header.style.display = 'block';
+        footer.style.display = 'block';
+
+        const element = document.getElementById('printable-area');
+        const opt = {
+            margin: [10, 10],
+            filename: `Laporan_Finex_${Date.now()}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            header.style.display = 'none';
+            footer.style.display = 'none';
+        });
     }
 
+    function exportExcel() {
+        let csv = "Tanggal,Barang,Supplier,Metode,Qty,Total\n";
+        dataLaporan.forEach(i => {
+            csv += `${new Date(i.created_at).toLocaleDateString()},${i.produk?.nama_barang},${i.supplier},${i.metode},${i.qty},${i.total_harga}\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `Laporan_Finex_${Date.now()}.csv`);
+        a.click();
+    }
+
+    // Modal Pelunasan Logic
+    function openPayModal(idx) { selectedPO = dataLaporan[idx]; document.getElementById('modalPay').style.display = 'block'; }
     function closeModal() { document.getElementById('modalPay').style.display = 'none'; }
-
     async function prosesBayar() {
-        const bankSelect = document.getElementById('pay-bank');
-        const bankAkun = bankSelect.value;
-        const bankNama = bankSelect.options[bankSelect.selectedIndex].getAttribute('data-name');
-
+        const b = document.getElementById('pay-bank');
+        const akun = b.value;
+        const nama = b.options[b.selectedIndex].getAttribute('data-name');
         try {
-            const tgl = new Date().toISOString();
             const nominal = parseFloat(selectedPO.total_harga);
-
-            // 1. Jurnal Pelunasan
             await db.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: 'PAY-OUT', kode_akun: '2101', keterangan: `Lunas: ${selectedPO.supplier}`, debit: nominal, kredit: 0 },
-                { tanggal: tgl, no_bukti: 'PAY-OUT', kode_akun: bankAkun, keterangan: `Bayar via ${bankNama}`, debit: 0, kredit: nominal }
+                { tanggal: new Date().toISOString(), no_bukti: 'PAY', kode_akun: '2101', keterangan: `Lunas: ${selectedPO.supplier}`, debit: nominal, kredit: 0 },
+                { tanggal: new Date().toISOString(), no_bukti: 'PAY', kode_akun: akun, keterangan: `Bayar via ${nama}`, debit: 0, kredit: nominal }
             ]);
-
-            // 2. Update Metode di Tabel Pembelian (Agar tidak Tunai terus)
-            await db.from('pembelian').update({ metode: bankNama.toUpperCase() }).eq('id', selectedPO.id);
-
-            alert("Pelunasan Berhasil!");
-            closeModal();
-            muatLaporan();
+            await db.from('pembelian').update({ metode: nama.toUpperCase() }).eq('id', selectedPO.id);
+            alert("Lunas!"); closeModal(); muatLaporan();
         } catch (e) { alert(e.message); }
-    }
-
-    async function hapusTransaksi(idx) {
-        const item = dataLaporan[idx];
-        if(!confirm(`Hapus transaksi ${item.produk?.nama_barang}?\nStok dan Jurnal tidak akan berubah otomatis, pastikan Anda melakukan penyesuaian manual.`)) return;
-
-        try {
-            const { error } = await db.from('pembelian').delete().eq('id', item.id);
-            if(error) throw error;
-            alert("Data pembelian terhapus dari laporan.");
-            muatLaporan();
-        } catch (e) { alert(e.message); }
-    }
-
-    function printNota(idx) {
-        const item = dataLaporan[idx];
-        const win = window.open('', '', 'width=800,height=600');
-        win.document.write(`
-            <div style="font-family:sans-serif; padding:40px; border:2px solid #333;">
-                <h2>Finex Pos - NOTA PEMBELIAN</h2><hr>
-                <p>Supplier: ${item.supplier}<br>Tanggal: ${new Date(item.created_at).toLocaleDateString()}</p>
-                <table width="100%" border="1" style="border-collapse:collapse;">
-                    <tr style="background:#eee"><th>Item</th><th>Qty</th><th>Harga</th><th>Total</th></tr>
-                    <tr><td>${item.produk?.nama_barang}</td><td align="center">${item.qty}</td><td align="right">${parseFloat(item.harga_beli).toLocaleString()}</td><td align="right">${parseFloat(item.total_harga).toLocaleString()}</td></tr>
-                </table>
-                <p>Metode Pembayaran: <b>${item.metode || 'TUNAI'}</b></p>
-            </div>
-        `);
-        win.document.close(); win.print(); win.close();
     }
 </script>
 </body>
