@@ -111,42 +111,45 @@
         }
     }
 
-    async function fixJurnalAkurat() {
-        if (!confirm("Pastikan Anda sudah menjalankan SQL DELETE di Supabase. Lanjutkan?")) return;
+   async function fixJurnalAkurat() {
+    const btn = document.getElementById('btn-fix');
+    btn.disabled = true;
+    btn.innerText = "⏳ Sinkronisasi Ulang...";
 
-        const btn = document.getElementById('btn-fix');
-        btn.disabled = true;
-        btn.innerText = "⏳ Sedang Menyuntikkan Data ke Jurnal...";
+    let batch = [];
 
-        let batch = [];
+    for (let item of finalizedEntries) {
+        const s = item.header;
+        const mtd = (s.metode_pembayaran || "TUNAI").toUpperCase();
+        const akunUang = (mtd.includes('QRIS') || mtd.includes('BANK') || mtd.includes('TRANSFER')) ? '1102' : '1101';
 
-        for (let item of finalizedEntries) {
-            const s = item.header;
-            const mtd = (s.metode_pembayaran || "TUNAI").toUpperCase();
-            const akunUang = (mtd.includes('QRIS') || mtd.includes('BANK') || mtd.includes('TRANSFER')) ? '1102' : '1101';
+        // --- JURNAL PENDAPATAN (Hanya Menambah Saldo) ---
+        // Debit: Kas/Bank (Uang Masuk)
+        batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: akunUang, keterangan: `Pendapatan Penjualan`, debit: item.jual, kredit: 0 });
+        // Kredit: Pendapatan (Penjualan Diakui)
+        batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '4101', keterangan: `Pendapatan Penjualan`, debit: 0, kredit: item.jual });
 
-            // --- JURNAL PENDAPATAN ---
-            batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: akunUang, keterangan: `Penjualan ${mtd}`, debit: item.jual, kredit: 0 });
-            batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '4101', keterangan: `Pendapatan Penjualan`, debit: 0, kredit: item.jual });
-
-            // --- JURNAL HPP ---
-            if (item.hpp > 0) {
-                batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '5101', keterangan: `Beban HPP`, debit: item.hpp, kredit: 0 });
-                batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '1103', keterangan: `Potong Modal Produk`, debit: 0, kredit: item.hpp });
-            }
-        }
-
-        // Kirim ke database
-        const { error } = await db.from('jurnal_umum').insert(batch);
-
-        if (!error) {
-            alert("✅ SINKRONISASI SELESAI!\nSaldo Kas/Bank (1101/1102) bertambah.\nModal Produk (1103) berkurang sesuai harga beli database.");
-            location.reload();
-        } else {
-            alert("Gagal: " + error.message);
-            btn.disabled = false;
+        // --- JURNAL HPP (Hanya Memotong Stok 1103) ---
+        if (item.hpp > 0) {
+            // Debit: Beban HPP (Biaya bertambah)
+            batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '5101', keterangan: `Beban HPP`, debit: item.hpp, kredit: 0 });
+            // Kredit: STOK/MODAL PRODUK (Bukan Bank!)
+            batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '1103', keterangan: `Potong Stok Modal`, debit: 0, kredit: item.hpp });
         }
     }
+
+    // Sebelum Insert, Hapus semua jurnal invoice terkait agar tidak double/triple
+    const allInvoices = finalizedEntries.map(x => x.header.no_invoice);
+    await db.from('jurnal_umum').delete().in('no_bukti', allInvoices);
+
+    // Masukkan data yang sudah bersih
+    const { error } = await db.from('jurnal_umum').insert(batch);
+
+    if (!error) {
+        alert("✅ REKONSILIASI BERHASIL!\n\nKas/Bank HANYA bertambah (Debit).\nStok 1103 HANYA berkurang (Kredit).");
+        location.reload();
+    }
+}
 </script>
 </body>
 </html>
