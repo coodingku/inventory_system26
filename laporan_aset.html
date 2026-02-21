@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Laporan Aset Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
+        
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
+        nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+        
+        main { flex: 1; padding: 30px; overflow-y: auto; box-sizing: border-box; }
+        
+        /* Filter Section */
+        .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 11px; font-weight: bold; color: #666; }
+        .filter-group input, .filter-group select { padding: 8px; border-radius: 6px; border: 1px solid #ddd; font-size: 13px; }
+        
+        .btn-group { display: flex; gap: 8px; }
+        .btn { padding: 9px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 5px; color: white; transition: 0.2s; }
+        .btn-filter { background: var(--accent); }
+        .btn-print { background: #555; }
+        .btn-excel { background: #1f7244; }
+        .btn-pdf { background: #b33939; }
+        .btn-delete { background: var(--danger); padding: 4px 8px; font-size: 10px; }
+
+        .card-summary { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid var(--success); display: inline-block; min-width: 250px; }
+        
+        .table-card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 12px; color: #555; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        @media print {
+            nav, .filter-card, .btn-delete, .btn-group { display: none !important; }
+            main { padding: 0; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="aset.html">🚚 Catat Aset Tetap</a>
+    <a href="laporan_aset.html" class="active">📑 Laporan Aset</a>
+    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
+</nav>
+
+<main>
+    <div style="margin-bottom: 20px;">
+        <h1 style="margin:0; font-size: 22px;">Laporan Inventaris Pro</h1>
+        <p style="color:#888; font-size: 13px;">Kelola dan Filter Data Harta Tetap BeautyBloom</p>
+    </div>
+
+    <div class="filter-card">
+        <div class="filter-group">
+            <label>Mulai Tanggal</label>
+            <input type="date" id="f-start">
+        </div>
+        <div class="filter-group">
+            <label>Sampai Tanggal</label>
+            <input type="date" id="f-end">
+        </div>
+        <div class="filter-group">
+            <label>Akun Jurnal</label>
+            <select id="f-akun">
+                <option value="ALL">Semua Akun Aset</option>
+                <option value="1301">1301 - Inventaris Peralatan</option>
+                <option value="1302">1302 - Kendaraan</option>
+                <option value="1303">1303 - Bangunan</option>
+                <option value="1304">1304 - Tanah</option>
+            </select>
+        </div>
+        <button class="btn btn-filter" onclick="fetchDataAset()">🔍 Filter</button>
+        <div class="btn-group">
+            <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
+            <button class="btn btn-excel" onclick="exportExcel()">📊 Excel</button>
+            <button class="btn btn-pdf" onclick="exportPDF()">📕 PDF</button>
+        </div>
+    </div>
+
+    <div class="card-summary">
+        <h4 style="margin:0; color:#888; font-size: 12px;">Total Nilai Perolehan (Terfilter)</h4>
+        <h2 id="total-nilai" style="margin:5px 0 0 0; color:var(--success);">Rp 0</h2>
+    </div>
+
+    <div class="table-card">
+        <table id="table-aset">
+            <thead>
+                <tr>
+                    <th>Tanggal Beli</th>
+                    <th>Kode Akun</th>
+                    <th>Nama Item Aset</th>
+                    <th>Nilai Perolehan</th>
+                    <th class="btn-delete">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="aset-list">
+                <tr><td colspan="5" style="text-align:center;">Klik filter untuk memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    let currentData = [];
+
+    window.onload = () => {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('f-end').value = today;
+        // Default start date 1 bulan lalu
+        const lastMonth = new Date();
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
+        document.getElementById('f-start').value = lastMonth.toISOString().split('T')[0];
+        fetchDataAset();
+    };
+
+    async function fetchDataAset() {
+        const start = document.getElementById('f-start').value;
+        const end = document.getElementById('f-end').value;
+        const akun = document.getElementById('f-akun').value;
+
+        let query = db.from('aset_tetap').select('*')
+            .gte('tanggal_beli', start)
+            .lte('tanggal_beli', end);
+
+        if (akun !== 'ALL') {
+            query = query.eq('kode_akun', akun);
+        }
+
+        const { data, error } = await query.order('tanggal_beli', { ascending: false });
+
+        if (error) return alert("Gagal memuat data: " + error.message);
+        
+        currentData = data;
+        renderTable(data);
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('aset-list');
+        let total = 0;
+        let html = '';
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Data tidak ditemukan untuk periode/kategori ini.</td></tr>';
+            document.getElementById('total-nilai').innerText = 'Rp 0';
+            return;
+        }
+
+        data.forEach(item => {
+            const hrg = parseFloat(item.harga_perolehan);
+            total += hrg;
+            html += `
+                <tr>
+                    <td>${item.tanggal_beli}</td>
+                    <td><code>${item.kode_akun}</code></td>
+                    <td><b>${item.nama_aset}</b></td>
+                    <td style="font-weight:bold;">Rp ${hrg.toLocaleString('id-ID')}</td>
+                    <td class="btn-delete">
+                        <button class="btn btn-delete" onclick="hapusAset(${item.id}, '${item.nama_aset}')">🗑️ Hapus</button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+        document.getElementById('total-nilai').innerText = 'Rp ' + total.toLocaleString('id-ID');
+    }
+
+    async function hapusAset(id, nama) {
+        if(!confirm(`⚠️ PERINGATAN!\n\nHapus aset "${nama}"?\nSistem juga akan menghapus jurnal akuntansi terkait aset ini.`)) return;
+
+        try {
+            // Hapus Jurnal terkait (berdasarkan pencetakan keterangan yang berisi nama aset)
+            await db.from('jurnal_umum').delete().ilike('keterangan', `%${nama}%`);
+            // Hapus Data Aset
+            await db.from('aset_tetap').delete().eq('id', id);
+
+            alert("Data Aset dan Jurnal dihapus.");
+            fetchDataAset();
+        } catch (e) { alert("Error: " + e.message); }
+    }
+
+    function exportExcel() {
+        if(currentData.length === 0) return alert("Tidak ada data untuk diekspor");
+        const ws = XLSX.utils.json_to_sheet(currentData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Laporan Aset");
+        XLSX.writeFile(wb, `Aset_BeautyBloom_${Date.now()}.xlsx`);
+    }
+
+    function exportPDF() {
+        if(currentData.length === 0) return alert("Tidak ada data untuk diekspor");
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16);
+        doc.text("LAPORAN DAFTAR ASET TETAP", 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Periode: ${document.getElementById('f-start').value} s/d ${document.getElementById('f-end').value}`, 14, 22);
+        doc.text(`Toko: BeautyBloom`, 14, 27);
+
+        const rows = currentData.map(item => [
+            item.tanggal_beli,
+            item.kode_akun,
+            item.nama_aset,
+            `Rp ${parseFloat(item.harga_perolehan).toLocaleString('id-ID')}`
+        ]);
+
+        doc.autoTable({
+            head: [['Tanggal', 'Kode Akun', 'Nama Item Aset', 'Harga Perolehan']],
+            body: rows,
+            startY: 35,
+            theme: 'striped',
+            headStyles: { fillColor: [44, 62, 80] }
+        });
+
+        doc.save(`Laporan_Aset_${Date.now()}.pdf`);
+    }
+</script>
+</body>
+</html>
