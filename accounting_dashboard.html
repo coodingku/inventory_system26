@@ -2,76 +2,130 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Accounting Center</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="supabase-init.js"></script>
+
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        /* Sidebar Khusus Accounting */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; }
-        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 13px; }
+        /* SIDEBAR KHUSUS ACCOUNTING */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; overflow-y: auto; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 18px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 10px 12px; display: block; border-radius: 8px; margin-bottom: 4px; font-size: 13px; transition: 0.3s; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
-        nav a.back { background: #34495e; margin-bottom: 20px; color: white; }
-        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; font-weight: bold; }
+        .nav-section { font-size: 10px; color: #888; margin: 15px 0 5px 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        .back-btn { background: #34495e; margin-bottom: 20px; font-weight: bold; color: white; }
 
-        main { flex: 1; margin-left: 250px; padding: 40px; }
-        .grid-menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-        .menu-card { background: white; padding: 25px; border-radius: 15px; text-align: center; text-decoration: none; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: 0.3s; border-bottom: 4px solid var(--accent); }
-        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-        .menu-card i { font-size: 40px; color: var(--accent); margin-bottom: 15px; }
-        .menu-card h4 { margin: 0; font-size: 16px; }
-        .menu-card p { font-size: 12px; color: #888; margin-top: 8px; }
+        /* MAIN CONTENT */
+        main { flex: 1; padding: 40px; overflow-y: auto; }
+        .header-title { margin-bottom: 30px; }
+        .header-title h1 { margin: 0; font-size: 26px; color: var(--primary); }
+        .header-title p { color: #7f8c8d; margin-top: 5px; }
+
+        /* GRID MENU CARD */
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        .menu-card { 
+            background: white; padding: 25px; border-radius: 15px; text-align: center; 
+            text-decoration: none; color: var(--primary); transition: 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03); border-bottom: 4px solid #ddd;
+        }
+        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); border-bottom-color: var(--accent); }
+        .menu-card i { font-size: 35px; color: var(--accent); margin-bottom: 15px; display: block; }
+        .menu-card span { font-weight: bold; font-size: 15px; display: block; }
+        .menu-card small { color: #888; font-size: 11px; margin-top: 5px; display: block; }
+
+        /* SCROLLBAR SIDEBAR */
+        nav::-webkit-scrollbar { width: 5px; }
+        nav::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2>Accounting</h2>
-    <a href="index.html" class="back"><i class="fas fa-arrow-left"></i> Kembali ke Dashboard</a>
+    <h2>ACCOUNTING</h2>
+    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Kembali ke Dashboard</a>
     
-    <div class="nav-section">Jurnal & Transaksi</div>
-    <a href="catat_jurnal.html"><i class="fas fa-pen-nib"></i> Input Jurnal</a>
+    <div class="nav-section">Biaya & Aset</div>
+    <a href="catat_beban.html"><i class="fas fa-minus-circle"></i> Biaya</a>
+    <a href="input_aset.html"><i class="fas fa-plus-circle"></i> Aset</a>
+    <a href="laporan-pengeluaran.html"><i class="fas fa-wallet"></i> Laporan Biaya</a>
+    <a href="laporan_aset.html"><i class="fas fa-wallet"></i> Laporan Aset</a>
+    
+    <div class="nav-section">Accounting</div>
+    <a href="akun_jurnal.html"><i class="fas fa-book-open"></i> Akun Jurnal</a>
+    <a href="catat_jurnal.html"><i class="fas fa-pen-nib"></i> Jurnal</a>
     <a href="jurnal.html"><i class="fas fa-book"></i> Audit Jurnal</a>
-    <a href="transaksi_jurnal.html"><i class="fas fa-list"></i> Lap. Transaksi</a>
-
-    <div class="nav-section">Laporan Keuangan</div>
-    <a href="laporan_neraca.html"><i class="fas fa-balance-scale-left"></i> Neraca</a>
-    <a href="laba_rugi.html"><i class="fas fa-chart-line"></i> Laba Rugi</a>
-    
-    <div class="nav-section">Audit & Penutupan</div>
+    <a href="transaksi_jurnal.html"><i class="fas fa-list-alt"></i> Lap. Transaksi</a>
+    <a href="laporan_neraca.html"><i class="fas fa-balance-scale-left"></i> Lap. Neraca</a>
+    <a href="laba_rugi.html"><i class="fas fa-chart-line"></i> Lap. Laba Rugi</a>
     <a href="audit.html"><i class="fas fa-search"></i> Audit HPP</a>
+    <a href="audit_rekosilisasi.html"><i class="fas fa-sync-alt"></i> Rekonsiliasi Omzet</a>
+    <a href="admin_pajak_transit.html"><i class="fas fa-file-invoice-dollar"></i> Audit Pajak</a>
     <a href="tutup_buku.html"><i class="fas fa-lock"></i> Tutup Buku</a>
 </nav>
 
 <main>
-    <h1>Pusat Akuntansi BeautyBloom</h1>
-    <p style="color: #666; margin-bottom: 30px;">Kelola pembukuan, jurnal, dan laporan keuangan perusahaan Anda di sini.</p>
+    <div class="header-title">
+        <h1>Pusat Keuangan BeautyBloom</h1>
+        <p>Manajemen Biaya, Aset, Jurnal, dan Laporan Keuangan Akhir Periode.</p>
+    </div>
 
-    <div class="grid-menu">
+    <div class="grid-container">
+        <a href="catat_beban.html" class="menu-card">
+            <i class="fas fa-minus-circle"></i>
+            <span>Catat Biaya</span>
+            <small>Input pengeluaran harian</small>
+        </a>
+        <a href="input_aset.html" class="menu-card">
+            <i class="fas fa-plus-circle"></i>
+            <span>Input Aset</span>
+            <small>Catat inventaris baru</small>
+        </a>
+
         <a href="catat_jurnal.html" class="menu-card">
             <i class="fas fa-pen-nib"></i>
-            <h4>Input Jurnal</h4>
-            <p>Catat transaksi manual</p>
+            <span>Input Jurnal</span>
+            <small>Pencatatan manual akun</small>
         </a>
+        <a href="jurnal.html" class="menu-card">
+            <i class="fas fa-book"></i>
+            <span>Audit Jurnal</span>
+            <small>Cek semua riwayat jurnal</small>
+        </a>
+
         <a href="laporan_neraca.html" class="menu-card">
             <i class="fas fa-balance-scale-left"></i>
-            <h4>Neraca</h4>
-            <p>Posisi Aset & Kewajiban</p>
+            <span>Laporan Neraca</span>
+            <small>Pantau posisi Aktiva & Pasiva</small>
         </a>
         <a href="laba_rugi.html" class="menu-card">
             <i class="fas fa-chart-line"></i>
-            <h4>Laba Rugi</h4>
-            <p>Pantau keuntungan real-time</p>
+            <span>Laba Rugi</span>
+            <small>Cek performa keuntungan</small>
         </a>
-        <a href="audit_rekosilisasi.html" class="menu-card">
-            <i class="fas fa-sync-alt"></i>
-            <h4>Rekonsiliasi</h4>
-            <p>Cocokkan Omzet & Stok</p>
+
+        <a href="audit.html" class="menu-card">
+            <i class="fas fa-search"></i>
+            <span>Audit HPP</span>
+            <small>Validasi harga beli produk</small>
+        </a>
+        <a href="tutup_buku.html" class="menu-card" style="border-bottom-color: #e67e22;">
+            <i class="fas fa-lock" style="color: #e67e22;"></i>
+            <span>Tutup Buku</span>
+            <small>Proses akhir bulan/tahun</small>
         </a>
     </div>
 </main>
+
+<script>
+    // Memastikan session aktif
+    const session = JSON.parse(localStorage.getItem('finex_session'));
+    if (!session) window.location.replace('login.html');
+</script>
 
 </body>
 </html>
