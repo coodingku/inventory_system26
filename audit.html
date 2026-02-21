@@ -16,16 +16,15 @@
         .btn-audit { background: var(--primary); }
         .btn-fix { background: var(--success); width: 100%; margin-top: 20px; font-size: 16px; }
         .btn:disabled { background: #ccc; cursor: not-allowed; }
-        .loading { color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>🎯 Rekonsiliasi Jurnal & HPP Akurat</h2>
-    <p>Data HPP dihitung berdasarkan <b>Harga Beli</b> asli di database produk.</p>
+    <h2>🎯 Rekonsiliasi Khusus HPP (Akun 1103)</h2>
+    <p>Hanya memperbaiki sisi HPP. <b>Tidak menyentuh saldo Kas Utama (1101) atau Bank (1102).</b></p>
     
-    <button class="btn btn-audit" id="btn-scan" onclick="runAuditAkurat()">🔍 1. Scan & Hitung HPP Akurat</button>
+    <button class="btn btn-audit" id="btn-scan" onclick="runAuditAkurat()">🔍 1. Scan & Hitung HPP Dari Database</button>
     
     <div id="result-area" style="display:none; margin-top: 20px;">
         <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #c8e6c9;">
@@ -37,15 +36,14 @@
                 <tr>
                     <th>Tanggal</th>
                     <th>No. Invoice</th>
-                    <th>Total Jual (Kas/Bank)</th>
+                    <th>Total Jual (Info)</th>
                     <th>Total Modal (HPP -> 1103)</th>
-                    <th>Estimasi Laba</th>
                 </tr>
             </thead>
             <tbody id="list-data"></tbody>
         </table>
 
-        <button class="btn btn-fix" id="btn-fix" onclick="fixJurnalAkurat()">🔥 2. SINKRONKAN KE JURNAL SEKARANG</button>
+        <button class="btn btn-fix" id="btn-fix" onclick="fixJurnalHPPOnly()">🔥 2. SINKRONKAN HPP KE AKUN 1103</button>
     </div>
 </div>
 
@@ -62,14 +60,11 @@
         let html = '';
 
         try {
-            // 1. Ambil Penjualan
             const { data: sales, error: errS } = await db.from('penjualan').select('*').gte('created_at', '2026-01-01');
             if (errS) throw errS;
 
             for (let s of sales) {
                 let totalHPPNota = 0;
-                
-                // 2. Ambil Detail Penjualan & Harga Beli Produk
                 const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', s.id);
                 
                 if (details) {
@@ -82,21 +77,17 @@
                 }
 
                 const jual = parseFloat(s.grand_total || s.total || 0);
-                const laba = jual - totalHPPNota;
 
                 html += `<tr>
                     <td>${new Date(s.created_at).toLocaleDateString()}</td>
                     <td><b>${s.no_invoice}</b></td>
                     <td>Rp ${jual.toLocaleString()}</td>
-                    <td style="color:var(--danger)">Rp ${totalHPPNota.toLocaleString()}</td>
-                    <td style="color:var(--success)">Rp ${laba.toLocaleString()}</td>
+                    <td style="color:var(--danger); font-weight:bold;">Rp ${totalHPPNota.toLocaleString()}</td>
                 </tr>`;
 
-                // Simpan data untuk proses sinkronisasi
                 finalizedEntries.push({
                     header: s,
-                    hpp: totalHPPNota,
-                    jual: jual
+                    hpp: totalHPPNota
                 });
             }
 
@@ -107,49 +98,66 @@
             alert("Error: " + e.message);
         } finally {
             btnScan.disabled = false;
-            btnScan.innerHTML = "🔍 1. Scan & Hitung HPP Akurat";
+            btnScan.innerHTML = "🔍 1. Scan & Hitung HPP Dari Database";
         }
     }
 
-   async function fixJurnalAkurat() {
-    const btn = document.getElementById('btn-fix');
-    btn.disabled = true;
-    btn.innerText = "⏳ Sinkronisasi Ulang...";
+    async function fixJurnalHPPOnly() {
+        const btn = document.getElementById('btn-fix');
+        btn.disabled = true;
+        btn.innerText = "⏳ Memproses Sinkronisasi Stok...";
 
-    let batch = [];
+        let batch = [];
+        const allInvoices = finalizedEntries.map(x => x.header.no_invoice);
 
-    for (let item of finalizedEntries) {
-        const s = item.header;
-        const mtd = (s.metode_pembayaran || "TUNAI").toUpperCase();
-        const akunUang = (mtd.includes('QRIS') || mtd.includes('BANK') || mtd.includes('TRANSFER')) ? '1102' : '1101';
+        // LANGKAH PENTING: Hanya hapus jurnal HPP lama (5101 & 1103) agar tidak double
+        // Jangan hapus no_bukti secara keseluruhan karena akan menghapus Pendapatan (1101/1102)
+        try {
+            const { error: delError } = await db.from('jurnal_umum')
+                .delete()
+                .in('no_bukti', allInvoices)
+                .in('kode_akun', ['5101', '1103']); // Hanya hapus akun HPP dan Stok
 
-        // --- JURNAL PENDAPATAN (Hanya Menambah Saldo) ---
-        // Debit: Kas/Bank (Uang Masuk)
-        batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: akunUang, keterangan: `Pendapatan Penjualan`, debit: item.jual, kredit: 0 });
-        // Kredit: Pendapatan (Penjualan Diakui)
-        batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '4101', keterangan: `Pendapatan Penjualan`, debit: 0, kredit: item.jual });
+            if (delError) throw delError;
 
-        // --- JURNAL HPP (Hanya Memotong Stok 1103) ---
-        if (item.hpp > 0) {
-            // Debit: Beban HPP (Biaya bertambah)
-            batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '5101', keterangan: `Beban HPP`, debit: item.hpp, kredit: 0 });
-            // Kredit: STOK/MODAL PRODUK (Bukan Bank!)
-            batch.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '1103', keterangan: `Potong Stok Modal`, debit: 0, kredit: item.hpp });
+            for (let item of finalizedEntries) {
+                const s = item.header;
+                if (item.hpp > 0) {
+                    // Debit: Beban HPP (5101)
+                    batch.push({ 
+                        tanggal: s.created_at, 
+                        no_bukti: s.no_invoice, 
+                        kode_akun: '5101', 
+                        keterangan: `HPP Penjualan - ${s.no_invoice}`, 
+                        debit: item.hpp, 
+                        kredit: 0 
+                    });
+                    // Kredit: Modal Produk / Stok (1103) -> INI YANG BERKURANG
+                    batch.push({ 
+                        tanggal: s.created_at, 
+                        no_bukti: s.no_invoice, 
+                        kode_akun: '1103', 
+                        keterangan: `Potong Stok Modal - ${s.no_invoice}`, 
+                        debit: 0, 
+                        kredit: item.hpp 
+                    });
+                }
+            }
+
+            if (batch.length > 0) {
+                const { error: insError } = await db.from('jurnal_umum').insert(batch);
+                if (insError) throw insError;
+            }
+
+            alert("✅ REKONSILIASI HPP BERHASIL!\n\n1. Akun 1103 Berhasil Berkurang.\n2. Saldo Kas/Bank (1101/1102) TIDAK BERUBAH.");
+            location.reload();
+
+        } catch (err) {
+            alert("Terjadi Kesalahan: " + err.message);
+            btn.disabled = false;
+            btn.innerText = "🔥 2. SINKRONKAN KE JURNAL SEKARANG";
         }
     }
-
-    // Sebelum Insert, Hapus semua jurnal invoice terkait agar tidak double/triple
-    const allInvoices = finalizedEntries.map(x => x.header.no_invoice);
-    await db.from('jurnal_umum').delete().in('no_bukti', allInvoices);
-
-    // Masukkan data yang sudah bersih
-    const { error } = await db.from('jurnal_umum').insert(batch);
-
-    if (!error) {
-        alert("✅ REKONSILIASI BERHASIL!\n\nKas/Bank HANYA bertambah (Debit).\nStok 1103 HANYA berkurang (Kredit).");
-        location.reload();
-    }
-}
 </script>
 </body>
 </html>
