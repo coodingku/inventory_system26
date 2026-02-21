@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Finex Pos | Audit Clean & Fix</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1100px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-audit { background: var(--primary); }
+        .btn-fix { background: var(--success); width: 100%; margin-top: 20px; font-size: 16px; }
+        .status-red { color: var(--danger); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🧹 Audit & Sinkronisasi Ulang Jurnal</h2>
+    <p>Pastikan Anda sudah menjalankan <b>SQL Delete</b> di Supabase sebelum klik Fix.</p>
+    
+    <button class="btn btn-audit" onclick="runAudit()">🔍 1. Scan Transaksi Penjualan</button>
+    
+    <div id="result-area" style="display:none; margin-top: 20px;">
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            Ditemukan: <b id="count">0</b> Nota Penjualan yang perlu disinkronkan.
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>No. Invoice</th>
+                    <th>Total Jual (Kas/Bank)</th>
+                    <th>Total Modal (HPP ke 1103)</th>
+                </tr>
+            </thead>
+            <tbody id="list-data"></tbody>
+        </table>
+
+        <button class="btn btn-fix" id="btn-fix" onclick="fixSemuaJurnal()">🔥 2. SINKRONKAN SEKARANG</button>
+    </div>
+</div>
+
+<script>
+    let dataPenjualan = [];
+
+    async function runAudit() {
+        const list = document.getElementById('list-data');
+        // Ambil data penjualan dan detailnya untuk hitung HPP
+        const { data: sales } = await db.from('penjualan').select('*').gte('created_at', '2026-01-01');
+        
+        dataPenjualan = sales;
+        let html = '';
+        
+        for (let s of sales) {
+            // Kita asumsikan HPP 50% sesuai pembicaraan sebelumnya jika detail tidak ditemukan
+            // Namun idealnya hitung dari detail produk
+            const nominalJual = parseFloat(s.grand_total || s.total || 0);
+            const estimasiHPP = nominalJual * 0.5; // Ganti dengan logika harga beli jika perlu
+
+            html += `<tr>
+                <td>${new Date(s.created_at).toLocaleDateString()}</td>
+                <td><b>${s.no_invoice}</b></td>
+                <td>Rp ${nominalJual.toLocaleString()}</td>
+                <td>Rp ${estimasiHPP.toLocaleString()}</td>
+            </tr>`;
+        }
+
+        document.getElementById('list-data').innerHTML = html;
+        document.getElementById('count').innerText = sales.length;
+        document.getElementById('result-area').style.display = 'block';
+    }
+
+    async function fixSemuaJurnal() {
+        const btn = document.getElementById('btn-fix');
+        btn.disabled = true;
+        btn.innerText = "⏳ Sedang Memproses...";
+
+        let batchEntries = [];
+
+        for (let s of dataPenjualan) {
+            const jual = parseFloat(s.grand_total || s.total || 0);
+            const hpp = jual * 0.5; // Menggunakan 50% omzet sesuai permintaan Anda sebelumnya
+            const mtd = (s.metode_pembayaran || "TUNAI").toUpperCase();
+            const akunUang = (mtd.includes('QRIS') || mtd.includes('BANK')) ? '1102' : '1101';
+
+            // 1. Jurnal Pendapatan (Kas/Bank bertambah)
+            batchEntries.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: akunUang, keterangan: `Penjualan ${mtd}`, debit: jual, kredit: 0 });
+            batchEntries.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '4101', keterangan: `Pendapatan Penjualan`, debit: 0, kredit: jual });
+
+            // 2. Jurnal HPP (Modal Produk 1103 Berkurang)
+            batchEntries.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '5101', keterangan: `Beban HPP`, debit: hpp, kredit: 0 });
+            batchEntries.push({ tanggal: s.created_at, no_bukti: s.no_invoice, kode_akun: '1103', keterangan: `Pengurangan Modal Produk`, debit: 0, kredit: hpp });
+        }
+
+        // Simpan semua secara batch
+        const { error } = await db.from('jurnal_umum').insert(batchEntries);
+
+        if (!error) {
+            alert("✅ BERHASIL! Saldo Kas/Bank bertambah sesuai penjualan, dan Saldo 1103 berkurang 50% (HPP).");
+            location.reload();
+        } else {
+            alert("Gagal: " + error.message);
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
