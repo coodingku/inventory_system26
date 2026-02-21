@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>BeautyBloom | Input Aset Tetap</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: var(--primary); }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn-submit { background: var(--accent); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 16px; }
+        .btn-submit:hover { opacity: 0.9; transform: translateY(-2px); }
+        .note { font-size: 12px; color: #666; margin-top: 10px; background: #fff3f3; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2 style="color: var(--primary); text-align: center;">🚚 Input Pembelian Aset Tetap</h2>
+    <p style="text-align: center; color: #888; font-size: 13px;">Gunakan form ini untuk mencatat Inventaris, Kendaraan, atau Bangunan.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+    <div class="form-group">
+        <label>Tanggal Pembelian</label>
+        <input type="date" id="tgl_aset">
+    </div>
+
+    <div class="form-group">
+        <label>Pilih Jenis Aset</label>
+        <select id="kode_aset">
+            <option value="1301">Inventaris Peralatan (AC, PC, Rak)</option>
+            <option value="1302">Kendaraan Operasional</option>
+            <option value="1303">Bangunan / Renovasi</option>
+            <option value="1304">Tanah</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Nama / Keterangan Barang</label>
+        <input type="text" id="nama_aset" placeholder="Contoh: Laptop Kasir ASUS">
+    </div>
+
+    <div class="form-group">
+        <label>Harga Perolehan (Rupiah)</label>
+        <input type="number" id="harga_aset" placeholder="0">
+    </div>
+
+    <div class="form-group">
+        <label>Sumber Dana (Bayar Pakai)</label>
+        <select id="sumber_dana">
+            <option value="1102">Bank / QRIS (1102)</option>
+            <option value="1101">Kas Utama / Tunai (1101)</option>
+            <option value="3101">Modal Pribadi / Modal Disetor (3101)</option>
+        </select>
+    </div>
+
+    <button class="btn-submit" onclick="simpanAset()">💾 Simpan Aset Ke Jurnal</button>
+    
+    <div class="note">
+        <b>Info Akuntansi:</b> Aset Tetap akan menambah nilai kekayaan di Neraca dan tidak akan langsung mengurangi Laba Rugi Anda.
+    </div>
+</div>
+
+<script>
+    // Set tanggal hari ini secara otomatis
+    document.getElementById('tgl_aset').value = new Date().toISOString().split('T')[0];
+
+    async function simpanAset() {
+        const tgl = document.getElementById('tgl_aset').value;
+        const kodeAset = document.getElementById('kode_aset');
+        const namaAset = document.getElementById('nama_aset').value;
+        const harga = parseFloat(document.getElementById('harga_aset').value);
+        const sumber = document.getElementById('sumber_dana');
+        
+        if (!namaAset || !harga) {
+            alert("Harap isi nama barang dan harganya!");
+            return;
+        }
+
+        const noBukti = "AST-" + Date.now().toString().slice(-6);
+
+        // Menyiapkan Jurnal Double Entry
+        const entries = [
+            {
+                tanggal: tgl,
+                no_bukti: noBukti,
+                kode_akun: kodeAset.value,
+                keterangan: "Beli Aset: " + namaAset,
+                debit: harga,
+                kredit: 0
+            },
+            {
+                tanggal: tgl,
+                no_bukti: noBukti,
+                kode_akun: sumber.value,
+                keterangan: "Pembayaran Aset: " + namaAset,
+                debit: 0,
+                kredit: harga
+            }
+        ];
+
+        const { error } = await db.from('jurnal_umum').insert(entries);
+
+        if (!error) {
+            alert("✅ Aset Berhasil Dicatat!\n" + namaAset + " telah masuk ke Jurnal Umum.");
+            location.reload();
+        } else {
+            alert("Gagal: " + error.message);
+        }
+    }
+</script>
+
+</body>
+</html>
