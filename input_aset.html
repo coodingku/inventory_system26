@@ -2,147 +2,151 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Manajemen Aset</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Catat Aset Tetap</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
         /* SIDEBAR STYLE */
-        .sidebar { width: 250px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; box-sizing: border-box; }
-        .sidebar h2 { font-size: 18px; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
-        .sidebar a { display: block; color: #ecf0f1; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; }
-        .sidebar a:hover { background: var(--accent); }
-        .sidebar a i { margin-right: 10px; }
-
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
+        nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+        
         /* MAIN CONTENT */
-        .main-content { flex: 1; padding: 40px; box-sizing: border-box; }
-        .container { display: grid; grid-template-columns: 400px 1fr; gap: 30px; }
+        main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        h2 { color: var(--primary); text-align: center; margin-bottom: 5px; }
+        .sub-title { text-align: center; color: #888; font-size: 13px; margin-bottom: 25px; }
         
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+        label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
+        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; }
         
-        .btn-submit { background: var(--accent); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-save { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-save:hover { opacity: 0.9; }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 8px; overflow: hidden; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 13px; border-bottom: 2px solid #eee; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        .info-shift { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
+        .btn-logout { background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <h2><i class="fas fa-gem"></i> BeautyBloom</h2>
-    <a href="dashboard.html"><i class="fas fa-home"></i> Dashboard</a>
-    <a href="audit_rekosilisasi.html"><i class="fas fa-sync-alt"></i> Rekonsiliasi HPP</a>
-    <a href="input_aset.html" style="background:var(--accent)"><i class="fas fa-truck-loading"></i> Manajemen Aset</a>
-    <a href="laporan_neraca.html"><i class="fas fa-balance-scale-left"></i> Laporan Neraca</a>
-</div>
-
-<div class="main-content">
-    <div class="container">
-        <div class="card">
-            <h3><i class="fas fa-plus-circle"></i> Tambah Aset Baru</h3>
-            <div class="form-group">
-                <label>Tanggal Beli</label>
-                <input type="date" id="tgl_aset">
-            </div>
-            <div class="form-group">
-                <label>Kategori Aset</label>
-                <select id="kode_aset">
-                    <option value="1301">1301 - Inventaris Peralatan</option>
-                    <option value="1302">1302 - Kendaraan Operasional</option>
-                    <option value="1303">1303 - Bangunan/Renovasi</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Nama Barang</label>
-                <input type="text" id="nama_aset" placeholder="Misal: AC Samsung 1PK">
-            </div>
-            <div class="form-group">
-                <label>Harga Perolehan</label>
-                <input type="number" id="harga_aset" placeholder="0">
-            </div>
-            <div class="form-group">
-                <label>Bayar Pakai</label>
-                <select id="sumber_dana">
-                    <option value="1102">Bank / QRIS (1102)</option>
-                    <option value="1101">Kas Utama (1101)</option>
-                </select>
-            </div>
-            <button class="btn-submit" onclick="simpanAset()">💾 Simpan Ke Database</button>
-        </div>
-
-        <div class="card">
-            <h3><i class="fas fa-list"></i> Daftar Aset Terdaftar</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Tgl Beli</th>
-                        <th>Nama Aset</th>
-                        <th>Kategori</th>
-                        <th>Harga</th>
-                    </tr>
-                </thead>
-                <tbody id="tabel-aset-body">
-                    </tbody>
-            </table>
-        </div>
+<nav>
+    <h2 id="store-name-display">Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="pos.html">🛒 Kasir POS</a>
+    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
+    <a href="aset.html" class="active">🚚 Catat Aset Tetap</a>
+    
+    <div class="user-info">
+        <small>AKSES:</small> <b id="display-user-nav">...</b>
     </div>
-</div>
+    <div class="btn-logout" onclick="logout()">🚪 Keluar</div>
+</nav>
+
+<main>
+    <div class="card">
+        <h2 id="title-store">BeautyBloom</h2>
+        <div class="sub-title">Input Inventaris & Aset Tetap</div>
+        <div id="status-info" class="info-shift">Menghubungkan ke Database...</div>
+        
+        <label>Tanggal Pembelian:</label>
+        <input type="date" id="ast-tanggal">
+
+        <label>Kategori Aset:</label>
+        <select id="ast-kategori">
+            <option value="1301">1301 - Inventaris Peralatan Toko</option>
+            <option value="1302">1302 - Kendaraan Operasional</option>
+            <option value="1303">1303 - Bangunan / Renovasi</option>
+            <option value="1304">1304 - Tanah</option>
+        </select>
+
+        <label>Nama Barang / Aset:</label>
+        <input type="text" id="ast-nama" placeholder="Contoh: AC Sharp 1PK - Toko Depan">
+
+        <label>Harga Perolehan (Rp):</label>
+        <input type="number" id="ast-jumlah" placeholder="0">
+
+        <label>Sumber Dana (Bayar Pakai):</label>
+        <select id="ast-sumber">
+            <option value="1102">Bank / QRIS (1102)</option>
+            <option value="1101">Kas Utama (1101)</option>
+            <option value="3101">Modal Pribadi (3101)</option>
+        </select>
+
+        <button id="btn-submit" class="btn-save" onclick="simpanAset()">💾 SIMPAN ASET</button>
+    </div>
+</main>
 
 <script>
-    document.getElementById('tgl_aset').value = new Date().toISOString().split('T')[0];
+    const session = JSON.parse(localStorage.getItem('finex_session'));
 
-    async function loadAset() {
-        const { data, error } = await db.from('aset_tetap').select('*').order('tanggal_beli', { ascending: false });
-        if (data) {
-            let html = '';
-            data.forEach(a => {
-                html += `<tr>
-                    <td>${a.tanggal_beli}</td>
-                    <td><b>${a.nama_aset}</b></td>
-                    <td>${a.kode_akun}</td>
-                    <td>Rp ${parseFloat(a.harga_perolehan).toLocaleString()}</td>
-                </tr>`;
-            });
-            document.getElementById('tabel-aset-body').innerHTML = html;
-        }
-    }
+    window.onload = () => {
+        document.getElementById('ast-tanggal').value = new Date().toISOString().split('T')[0];
+        document.getElementById('title-store').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+        document.getElementById('display-user-nav').innerText = session ? session.username : "Admin";
+        document.getElementById('status-info').innerHTML = "✅ Database Terkoneksi";
+    };
 
     async function simpanAset() {
-        const tgl = document.getElementById('tgl_aset').value;
-        const kodeAset = document.getElementById('kode_aset').value;
-        const nama = document.getElementById('nama_aset').value;
-        const harga = parseFloat(document.getElementById('harga_aset').value);
-        const sumber = document.getElementById('sumber_dana').value;
+        const tgl = document.getElementById('ast-tanggal').value;
+        const kodeAset = document.getElementById('ast-kategori').value;
+        const namaAset = document.getElementById('ast-nama').value;
+        const jumlah = parseFloat(document.getElementById('ast-jumlah').value);
+        const sumberDana = document.getElementById('ast-sumber').value;
 
-        if(!nama || !harga) return alert("Isi data dengan lengkap!");
+        if(!namaAset || !jumlah || !tgl) return alert("Harap lengkapi semua data!");
 
-        // 1. Simpan ke Tabel Khusus Aset
-        const { error: errAset } = await db.from('aset_tetap').insert([{
-            tanggal_beli: tgl, kode_akun: kodeAset, nama_aset: nama, harga_perolehan: harga
-        }]);
+        const btn = document.getElementById('btn-submit');
+        btn.disabled = true;
+        btn.innerText = "⏳ Menyimpan...";
 
-        // 2. Simpan ke Jurnal Umum (Double Entry)
-        const noBukti = "AST-" + Date.now().toString().slice(-4);
-        const entries = [
-            { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeAset, keterangan: "Beli: "+nama, debit: harga, kredit: 0 },
-            { tanggal: tgl, no_bukti: noBukti, kode_akun: sumber, keterangan: "Bayar: "+nama, debit: 0, kredit: harga }
-        ];
-        const { error: errJurnal } = await db.from('jurnal_umum').insert(entries);
+        const noBukti = 'AST-' + Date.now();
+        const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
 
-        if(!errAset && !errJurnal) {
-            alert("Aset & Jurnal Berhasil Disimpan!");
-            loadAset();
+        try {
+            // 1. Simpan ke tabel aset_tetap (Pendataan)
+            const { error: err1 } = await db.from('aset_tetap').insert([{ 
+                tanggal_beli: tgl, 
+                kode_akun: kodeAset, 
+                nama_aset: namaAset, 
+                harga_perolehan: jumlah 
+            }]);
+            if (err1) throw err1;
+
+            // 2. Simpan ke Jurnal Umum (Akuntansi)
+            // Debit: Aset (13xx), Kredit: Kas/Bank (11xx)
+            const dataJurnal = [
+                { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeAset, keterangan: `Beli Aset: ${namaAset}`, debit: jumlah, kredit: 0 },
+                { tanggal: tglFix, no_bukti: noBukti, kode_akun: sumberDana, keterangan: `Pembelian Aset: ${namaAset}`, debit: 0, kredit: jumlah }
+            ];
+            
+            const { error: err2 } = await db.from('jurnal_umum').insert(dataJurnal);
+            if (err2) throw err2;
+
+            alert("✅ Berhasil! Aset telah dicatat di Inventaris dan Jurnal Umum.");
+            location.reload();
+
+        } catch (e) {
+            alert("Gagal menyimpan data: " + e.message);
+            btn.disabled = false;
+            btn.innerText = "💾 SIMPAN ASET";
         }
     }
 
-    loadAset(); // Load data saat halaman dibuka
+    function logout() { 
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear();
+            localStorage.clear(); 
+            window.location.replace('login.html'); 
+        }
+    }
 </script>
 </body>
 </html>
