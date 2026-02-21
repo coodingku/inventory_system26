@@ -112,7 +112,7 @@
 
     function renderTabel(data) {
         document.getElementById('produk-list').innerHTML = data.map(p => {
-            const stokToko = p.stok_toko || 0;
+            const stokToko = p.stok_sekarang || 0;
             const stokGudang = p.stok_gudang || 0;
             const totalStok = stokToko + stokGudang;
 
@@ -146,13 +146,13 @@
         if (isNaN(qty) || qty <= 0) return alert("Jumlah tidak valid!");
 
         const produk = allProducts.find(p => p.id === id);
-        const fieldUpdate = lokasi === 'toko' ? 'stok_toko' : 'stok_gudang';
+        const fieldUpdate = lokasi === 'toko' ? 'stok_sekarang' : 'stok_gudang';
         const stokLama = produk[fieldUpdate] || 0;
         const stokBaru = tipe === 'masuk' ? stokLama + qty : stokLama - qty;
 
         if (stokBaru < 0) return alert("Stok di " + lokasi + " tidak cukup!");
 
-        const totalBaru = (lokasi === 'toko' ? stokBaru + (produk.stok_gudang || 0) : stokBaru + (produk.stok_toko || 0));
+        const totalBaru = (lokasi === 'toko' ? stokBaru + (produk.stok_gudang || 0) : stokBaru + (produk.stok_sekarang || 0));
 
         const { error } = await db.from('produk').update({ 
             [fieldUpdate]: stokBaru,
@@ -178,9 +178,9 @@
             "Nama Barang": p.nama_barang,
             "Harga Beli": p.harga_beli,
             "Harga Jual": p.harga_jual,
-            "Stok Toko": p.stok_toko || 0,
+            "Stok Toko": p.stok_sekarang || 0,
             "Stok Gudang": p.stok_gudang || 0,
-            "Total Stok": (p.stok_toko || 0) + (p.stok_gudang || 0)
+            "Total Stok": (p.stok_sekarang || 0) + (p.stok_gudang || 0)
         }));
         const ws = XLSX.utils.json_to_sheet(dataMap);
         const wb = XLSX.utils.book_new();
@@ -189,7 +189,7 @@
     }
 
     function downloadTemplate() {
-        const header = [["ID", "Nama Barang", "Tambah_Stok_Toko", "Tambah_Stok_Gudang"]];
+        const header = [["ID", "Nama Barang", "Tambah_stok_sekarang", "Tambah_Stok_Gudang"]];
         const rows = allProducts.map(p => [p.id, p.nama_barang, 0, 0]);
         const ws = XLSX.utils.aoa_to_sheet(header.concat(rows));
         const wb = XLSX.utils.book_new();
@@ -207,13 +207,13 @@
             const json = XLSX.utils.sheet_to_json(sheet);
 
             for (const item of json) {
-                if (item.ID && (item.Tambah_Stok_Toko || item.Tambah_Stok_Gudang)) {
+                if (item.ID && (item.Tambah_stok_sekarang || item.Tambah_Stok_Gudang)) {
                     const p = allProducts.find(x => x.id == item.ID);
                     if (p) {
-                        const newToko = (p.stok_toko || 0) + (parseInt(item.Tambah_Stok_Toko) || 0);
+                        const newToko = (p.stok_sekarang || 0) + (parseInt(item.Tambah_stok_sekarang) || 0);
                         const newGudang = (p.stok_gudang || 0) + (parseInt(item.Tambah_Stok_Gudang) || 0);
                         await db.from('produk').update({ 
-                            stok_toko: newToko, 
+                            stok_sekarang: newToko, 
                             stok_gudang: newGudang,
                             stok_sekarang: newToko + newGudang 
                         }).eq('id', item.ID);
