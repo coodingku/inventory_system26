@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>BeautyBloom | Laporan Pajak Terpadu</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; }
+        
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 18px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; font-size: 13px; }
+        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        
+        .tax-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .section-title { border-bottom: 2px solid #eee; padding-bottom: 12px; margin-bottom: 20px; color: var(--primary); font-size: 16px; display: flex; align-items: center; gap: 10px; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+        .val { font-weight: bold; font-family: 'Consolas', monospace; }
+        .highlight { color: #e67e22; font-size: 16px; }
+
+        .summary-banner { background: var(--primary); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        
+        @media print {
+            nav { display: none; }
+            main { margin-left: 0; padding: 0; }
+            .tax-card { box-shadow: none; border: 1px solid #eee; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>FINEX ACCOUNTING</h2>
+    <a href="accounting_dashboard.html"><i class="fas fa-arrow-left"></i> Kembali</a>
+</nav>
+
+<main>
+    <div class="header">
+        <h1>Rekapitulasi Pajak (SPT & PB1)</h1>
+        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold;">
+            <i class="fas fa-print"></i> Cetak Laporan
+        </button>
+    </div>
+
+    <div class="summary-banner">
+        <div>
+            <p style="margin:0; font-size: 12px; opacity: 0.8;">Total Saldo Utang Pajak (Akun 2102)</p>
+            <h2 id="total-2102" style="margin:5px 0 0 0; font-size: 28px;">Rp 0</h2>
+        </div>
+        <i class="fas fa-file-invoice-dollar" style="font-size: 40px; opacity: 0.3;"></i>
+    </div>
+
+    <div class="grid">
+        <div class="tax-card">
+            <h3 class="section-title"><i class="fas fa-user-tie"></i> PPh 21 (Gaji Staff)</h3>
+            <div class="data-row"><span>Total Beban Gaji (6103)</span> <span class="val" id="val-gaji">Rp 0</span></div>
+            <div class="data-row"><span>Estimasi Potongan Pajak</span> <span class="val highlight" id="val-tax-gaji">Rp 0</span></div>
+            <small style="color: #888;">*Data diambil dari transaksi akun 6103 vs 2102</small>
+        </div>
+
+        <div class="tax-card">
+            <h3 class="section-title"><i class="fas fa-store"></i> PPh Final UMKM (0.5%)</h3>
+            <div class="data-row"><span>Total Omzet Bruto (DPP)</span> <span class="val" id="val-omzet">Rp 0</span></div>
+            <div class="data-row"><span>Kewajiban Pajak Pusat</span> <span class="val highlight" id="val-pph-umkm">Rp 0</span></div>
+            <small style="color: #888;">*Tarif 0.5% sesuai peraturan UMKM terbaru</small>
+        </div>
+
+        <div class="tax-card" style="grid-column: span 2;">
+            <h3 class="section-title"><i class="fas fa-boxes"></i> Lampiran Harta / Aset (SPT Tahunan)</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div>
+                    <p style="font-size: 12px; color: #888; margin-bottom: 5px;">Inventaris (1301)</p>
+                    <span class="val" id="val-1301">Rp 0</span>
+                </div>
+                <div>
+                    <p style="font-size: 12px; color: #888; margin-bottom: 5px;">Kendaraan (1302)</p>
+                    <span class="val" id="val-1302">Rp 0</span>
+                </div>
+                <div>
+                    <p style="font-size: 12px; color: #888; margin-bottom: 5px;">Total Nilai Perolehan</p>
+                    <span class="val highlight" id="val-total-aset">Rp 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.onload = async () => {
+        try {
+            const { data: jurnal, error } = await db.from('jurnal_umum').select('kode_akun, debit, kredit');
+            if (error) throw error;
+
+            let stats = {
+                utangPajak: 0, // Akun 2102
+                gaji: 0,       // Akun 6103
+                omzet: 0,      // Akun 4xxx
+                a1301: 0,      // Aset 1301
+                a1302: 0       // Aset 1302
+            };
+
+            jurnal.forEach(j => {
+                const k = j.kode_akun.toString();
+                const d = parseFloat(j.debit || 0);
+                const kr = parseFloat(j.kredit || 0);
+
+                if (k === '2102') stats.utangPajak += (kr - d); // Saldo Normal Kredit
+                if (k === '6103') stats.gaji += (d - kr);       // Saldo Normal Debit
+                if (k.startsWith('4')) stats.omzet += (kr - d); // Saldo Normal Kredit
+                if (k === '1301') stats.a1301 += (d - kr);      // Saldo Normal Debit
+                if (k === '1302') stats.a1302 += (d - kr);      // Saldo Normal Debit
+            });
+
+            const f = (v) => "Rp " + Math.round(v).toLocaleString('id-ID');
+
+            // Update UI
+            document.getElementById('total-2102').innerText = f(stats.utangPajak);
+            document.getElementById('val-gaji').innerText = f(stats.gaji);
+            document.getElementById('val-tax-gaji').innerText = f(stats.utangPajak); // Estimasi sisa utang pajak
+            document.getElementById('val-omzet').innerText = f(stats.omzet);
+            document.getElementById('val-pph-umkm').innerText = f(stats.omzet * 0.005);
+            
+            document.getElementById('val-1301').innerText = f(stats.a1301);
+            document.getElementById('val-1302').innerText = f(stats.a1302);
+            document.getElementById('val-total-aset').innerText = f(stats.a1301 + stats.a1302);
+
+        } catch (e) {
+            console.error("Gagal memuat data pajak:", e);
+        }
+    };
+</script>
+</body>
+</html>
