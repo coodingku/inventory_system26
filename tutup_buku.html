@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Penutup Tahun</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
+        
+        /* SIDEBAR STYLE */
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; z-index: 100; display: flex; flex-direction: column; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+
+        /* MAIN CONTENT */
+        main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
+        .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+        
+        .icon-box { font-size: 50px; color: var(--accent); margin-bottom: 20px; }
+        h2 { color: var(--primary); margin-bottom: 10px; }
+        .description { color: #666; font-size: 14px; margin-bottom: 30px; line-height: 1.6; }
+
+        .summary-box { background: #f8f9fa; border: 1px solid #eee; padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 15px; }
+        .val-profit { color: var(--success); font-weight: bold; }
+        .val-loss { color: var(--danger); font-weight: bold; }
+
+        .btn-closing { width: 100%; padding: 18px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
+        .btn-closing:hover { background: #1a252f; transform: translateY(-2px); }
+        .btn-closing:disabled { background: #ccc; cursor: not-allowed; }
+
+        .warning-text { font-size: 12px; color: #e67e22; margin-top: 20px; font-style: italic; }
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2 id="store-name-display">Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
+    <a href="laba_rugi.html">📈 Laba Rugi</a>
+    <a href="tutup_buku.html" class="active">🔒 Tutup Buku</a>
+    
+    <div class="user-info">
+        <small>AKSES:</small> <b id="display-user-nav">...</b>
+    </div>
+</nav>
+
+<main>
+    <div class="card">
+        <div class="icon-box">🔐</div>
+        <h2>Tutup Buku Akhir</h2>
+        <p class="description">Proses ini akan memindahkan Laba Bersih tahun berjalan ke dalam <b>Modal Pemilik (3101)</b> dan menyiapkan saldo untuk periode baru.</p>
+
+        <div class="summary-box">
+            <div class="summary-item">
+                <span>Total Pendapatan:</span>
+                <span id="txt-pendapatan">Rp 0</span>
+            </div>
+            <div class="summary-item">
+                <span>Total Beban:</span>
+                <span id="txt-beban">Rp 0</span>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #ddd;">
+            <div class="summary-item" style="font-weight:bold; font-size: 17px; margin-top: 10px;">
+                <span>Laba Bersih:</span>
+                <span id="txt-laba">Rp 0</span>
+            </div>
+        </div>
+
+        <button id="btn-run" class="btn-closing" onclick="prosesTutupBuku()">🚀 Jalankan Tutup Buku</button>
+        <p class="warning-text">Pastikan semua transaksi tahun ini sudah benar sebelum melanjutkan.</p>
+    </div>
+</main>
+
+<script>
+    const session = JSON.parse(localStorage.getItem('finex_session'));
+    let currentLaba = 0;
+
+    window.onload = async () => {
+        document.getElementById('display-user-nav').innerText = session ? session.username : "Admin";
+        document.getElementById('store-name-display').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+        await hitungLabaTahunBerjalan();
+    };
+
+    async function hitungLabaTahunBerjalan() {
+        const year = new Date().getFullYear();
+        try {
+            const { data: jurnal } = await db.from('jurnal_umum')
+                .select('kode_akun, debit, kredit')
+                .gte('tanggal', `${year}-01-01T00:00:00`);
+
+            let totalP = 0, totalB = 0;
+
+            jurnal.forEach(j => {
+                const k = j.kode_akun.toString();
+                const d = parseFloat(j.debit || 0);
+                const kr = parseFloat(j.kredit || 0);
+
+                if (k.startsWith('4')) totalP += (kr - d);
+                if (k.startsWith('5') || k.startsWith('6')) totalB += (d - kr);
+            });
+
+            currentLaba = totalP - totalB;
+            const f = (v) => "Rp " + Math.round(v).toLocaleString('id-ID');
+
+            document.getElementById('txt-pendapatan').innerText = f(totalP);
+            document.getElementById('txt-beban').innerText = f(totalB);
+            document.getElementById('txt-laba').innerText = f(currentLaba);
+            document.getElementById('txt-laba').className = currentLaba >= 0 ? "val-profit" : "val-loss";
+
+            if (currentLaba === 0) document.getElementById('btn-run').disabled = true;
+
+        } catch (e) { console.error(e); }
+    }
+
+    async function prosesTutupBuku() {
+        if (!confirm("Apakah Anda yakin ingin melakukan Tutup Buku? Laba akan dipindahkan ke Modal dan jurnal penutup akan dibuat.")) return;
+
+        const btn = document.getElementById('btn-run');
+        btn.disabled = true;
+        btn.innerText = "⏳ Memproses...";
+
+        const year = new Date().getFullYear();
+        const tglTutup = `${year}-12-31T23:59:59`;
+        const noBukti = `CLO-${year}`;
+
+        try {
+            // Jurnal Penutup: Memindahkan Laba ke Modal (3101)
+            // Jika Laba (+), maka Modal di Kredit. Jika Rugi (-), Modal di Debit.
+            const entries = [
+                {
+                    tanggal: tglTutup,
+                    no_bukti: noBukti,
+                    kode_akun: '3101', // Akun Modal
+                    keterangan: `Penutupan Laba Tahun Berjalan ${year}`,
+                    debit: currentLaba < 0 ? Math.abs(currentLaba) : 0,
+                    kredit: currentLaba > 0 ? currentLaba : 0
+                }
+                // Catatan: Akun pendapatan/beban secara teknis di-nol-kan di laporan, 
+                // namun di database tetap ada sebagai riwayat.
+            ];
+
+            const { error } = await db.from('jurnal_umum').insert(entries);
+            if (error) throw error;
+
+            alert("✅ Tutup Buku Berhasil! Laba telah dipindahkan ke Modal Pemilik.");
+            window.location.href = 'laporan_neraca.html';
+
+        } catch (e) {
+            alert("Gagal: " + e.message);
+            btn.disabled = false;
+            btn.innerText = "🚀 Jalankan Tutup Buku";
+        }
+    }
+</script>
+</body>
+</html>
