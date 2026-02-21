@@ -3,40 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Laporan Laba Rugi</title>
+    <title>Finex Pos | Laporan Laba Rugi Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; overflow: hidden; }
         
-        nav { width: 250px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; z-index: 100; }
-        nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 10px; display: block; border-radius: 8px; font-size: 14px; margin-bottom: 5px; }
-        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+        /* SIDEBAR STYLE */
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; z-index: 100; display: flex; flex-direction: column; }
+        nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; font-size: 14px; margin-bottom: 5px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        main { flex: 1; padding: 30px; overflow-y: auto; box-sizing: border-box; width: calc(100% - 250px); }
+        /* MAIN CONTENT */
+        main { flex: 1; padding: 30px; overflow-y: auto; box-sizing: border-box; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         
-        .toolbar { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; align-items: flex-end; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .toolbar input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+        .toolbar { display: flex; gap: 15px; background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; align-items: flex-end; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .toolbar input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
         
-        .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: 0.3s; }
         .btn-filter { background: var(--accent); color: white; }
         .btn-export { background: var(--success); color: white; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 
-        .report-card { background: var(--white); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 30px; max-width: 800px; margin: auto; }
+        .report-card { background: var(--white); border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 40px; max-width: 850px; margin: auto; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        td { padding: 12px 8px; font-size: 15px; }
-        .indent { padding-left: 30px; color: #7f8c8d; }
+        td { padding: 14px 10px; font-size: 15px; color: #333; }
+        .indent { padding-left: 35px; color: #636e72; font-size: 14px; }
         
-        .row-group { font-weight: bold; color: var(--primary); border-top: 2px solid #eee; }
-        .row-total { font-weight: bold; background: #f8f9fa; border-top: 2px solid #2c3e50; border-bottom: 2px solid #2c3e50; font-size: 18px; }
-        .text-right { text-align: right; font-family: 'Courier New', monospace; }
+        .row-group { font-weight: bold; color: var(--primary); border-top: 2px solid #f1f2f6; background: #fafafa; }
+        .row-total { font-weight: bold; background: #f8f9fa; border-top: 2px solid #2c3e50; border-bottom: 2px solid #2c3e50; font-size: 19px; }
+        .text-right { text-align: right; font-family: 'Consolas', monospace; font-weight: 600; }
         .val-red { color: var(--danger); }
         .val-green { color: var(--success); }
 
@@ -45,7 +47,8 @@
         @media print {
             nav, .toolbar, .btn, .user-info { display: none !important; }
             main { padding: 0; margin: 0; width: 100%; }
-            .report-card { box-shadow: none; border: none; max-width: 100%; }
+            body { background: white; }
+            .report-card { box-shadow: none; border: none; max-width: 100%; padding: 0; }
         }
     </style>
 </head>
@@ -54,22 +57,20 @@
 <nav>
     <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Masuk Kasir</a>
-    <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
-    <a href="laba_rugi.html" style="background: var(--accent); color:white;">📈 Laba Rugi</a>
+    <a href="aset.html">🚚 Catat Aset Tetap</a>
+    <a href="laporan_aset.html">📑 Laporan Aset</a>
     <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
-    <a href="akun_jurnal.html">🏦 Daftar Akun</a>
-    <a href="catat_jurnal.html">📖 Jurnal Umum</a>
-
+    <a href="laba_rugi.html" class="active">📈 Laba Rugi</a>
+    
     <div class="user-info">
         <small>AKSES:</small> <b id="display-user-nav">...</b>
     </div>
-    <a href="#" onclick="logout()" style="color:var(--danger); font-size: 12px; padding: 5px; text-align: center; display: block; text-decoration: none;">🚪 Keluar</a>
+    <a href="#" onclick="logout()" style="color:#ff7675; font-size: 12px; text-align: center; text-decoration: none; padding: 10px;">🚪 Keluar</a>
 </nav>
 
 <main>
     <div class="header">
-        <h1>Laporan Laba Rugi</h1>
+        <h1>Analisis Laba Rugi</h1>
         <div style="display: flex; gap: 10px;">
             <button class="btn btn-export" onclick="exportExcel()">📥 Excel</button>
             <button class="btn" style="background:#95a5a6; color:white;" onclick="window.print()">🖨️ Cetak</button>
@@ -78,47 +79,48 @@
 
     <div class="toolbar">
         <div style="display:flex; flex-direction:column; gap:5px;">
-            <label style="font-size:11px; font-weight:bold;">Dari Tanggal:</label>
+            <label style="font-size:11px; font-weight:bold; color:#666;">Dari:</label>
             <input type="date" id="date-from">
         </div>
         <div style="display:flex; flex-direction:column; gap:5px;">
-            <label style="font-size:11px; font-weight:bold;">Sampai Tanggal:</label>
+            <label style="font-size:11px; font-weight:bold; color:#666;">Sampai:</label>
             <input type="date" id="date-to">
         </div>
-        <button class="btn btn-filter" onclick="fetchLabaRugi()">Proses Laporan</button>
+        <button class="btn btn-filter" onclick="fetchLabaRugi()">🔍 Proses Laporan</button>
     </div>
 
     <div class="report-card">
-        <div style="text-align:center; margin-bottom:30px;">
-            <h2 id="report-title">FINEX POS</h2>
-            <p style="margin:5px 0; color:gray;" id="period-text">Periode: --</p>
+        <div style="text-align:center; margin-bottom:40px;">
+            <h2 id="report-title" style="margin:0; font-size: 26px; color: var(--primary);">FINEX POS</h2>
+            <div style="width: 50px; height: 3px; background: var(--accent); margin: 10px auto;"></div>
+            <p style="margin:5px 0; color:gray; font-weight: 500;" id="period-text">Periode: --</p>
         </div>
 
         <table id="table-laba-rugi">
             <tr class="row-group">
-                <td>PENDAPATAN OPERASIONAL</td>
+                <td>PENDAPATAN</td>
                 <td></td>
             </tr>
             <tbody id="list-pendapatan"></tbody>
             <tr>
-                <td style="font-weight:bold;">Total Pendapatan</td>
-                <td class="text-right val-green" id="total-pendapatan" style="border-top:1px solid #ccc; font-weight:bold;">Rp 0</td>
+                <td style="font-weight:bold; padding-top: 20px;">TOTAL PENDAPATAN (A)</td>
+                <td class="text-right val-green" id="total-pendapatan" style="border-top:1px solid #ccc; font-weight:bold; padding-top: 20px;">Rp 0</td>
             </tr>
 
-            <tr style="height: 20px;"></tr>
+            <tr style="height: 30px;"></tr>
             <tr class="row-group">
-                <td>BEBAN OPERASIONAL</td>
+                <td>BEBAN & BIAYA</td>
                 <td></td>
             </tr>
             <tbody id="list-beban"></tbody>
             <tr>
-                <td style="font-weight:bold;">Total Beban</td>
-                <td class="text-right val-red" id="total-beban" style="border-top:1px solid #ccc; font-weight:bold;">(Rp 0)</td>
+                <td style="font-weight:bold; padding-top: 20px;">TOTAL BEBAN (B)</td>
+                <td class="text-right val-red" id="total-beban" style="border-top:1px solid #ccc; font-weight:bold; padding-top: 20px;">(Rp 0)</td>
             </tr>
 
-            <tr style="height: 40px;"></tr>
+            <tr style="height: 50px;"></tr>
             <tr class="row-total">
-                <td>LABA (RUGI) BERSIH</td>
+                <td>LABA / RUGI BERSIH (A - B)</td>
                 <td class="text-right" id="laba-bersih">Rp 0</td>
             </tr>
         </table>
@@ -126,94 +128,90 @@
 </main>
 
 <script>
-// Variabel 'db' disediakan secara dinamis oleh supabase-init.js
+    const session = JSON.parse(localStorage.getItem('finex_session'));
 
-window.onload = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const lastDay = now.toISOString().split('T')[0];
-    document.getElementById('date-from').value = firstDay;
-    document.getElementById('date-to').value = lastDay;
-    document.getElementById('report-title').innerText = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
-    fetchLabaRugi();
-};
+    window.onload = () => {
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const lastDay = now.toISOString().split('T')[0];
+        document.getElementById('date-from').value = firstDay;
+        document.getElementById('date-to').value = lastDay;
+        document.getElementById('report-title').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+        document.getElementById('display-user-nav').innerText = session ? session.username : "Admin";
+        fetchLabaRugi();
+    };
 
-async function fetchLabaRugi() {
-    const from = document.getElementById('date-from').value;
-    const to = document.getElementById('date-to').value;
-    
-    document.getElementById('period-text').innerText = `Periode: ${from} s/d ${to}`;
+    async function fetchLabaRugi() {
+        const from = document.getElementById('date-from').value;
+        const to = document.getElementById('date-to').value;
+        document.getElementById('period-text').innerText = `Periode: ${new Date(from).toLocaleDateString('id-ID')} s/d ${new Date(to).toLocaleDateString('id-ID')}`;
 
-    try {
-        // Ambil data jurnal dari database pelanggan aktif
-        const { data: jurnal, error } = await db.from('jurnal_umum')
-            .select('*, akun(nama_akun)')
-            .gte('tanggal', from + 'T00:00:00')
-            .lte('tanggal', to + 'T23:59:59');
+        try {
+            const { data: jurnal, error } = await db.from('jurnal_umum')
+                .select('*, akun(nama_akun)')
+                .gte('tanggal', from + 'T00:00:00')
+                .lte('tanggal', to + 'T23:59:59');
 
-        if (error) throw error;
+            if (error) throw error;
 
-        let pendapatan = {}, beban = {};
-        let totalP = 0, totalB = 0;
+            let pendapatan = {}, beban = {};
+            let totalP = 0, totalB = 0;
 
-        (jurnal || []).forEach(j => {
-            const k = j.kode_akun.toString();
-            const d = parseFloat(j.debit || 0);
-            const kr = parseFloat(j.kredit || 0);
-            const nama = j.akun?.nama_akun || 'Akun Tidak Terdaftar (' + k + ')';
+            (jurnal || []).forEach(j => {
+                const k = j.kode_akun.toString();
+                const d = parseFloat(j.debit || 0);
+                const kr = parseFloat(j.kredit || 0);
+                const nama = j.akun?.nama_akun || `Lain-lain (${k})`;
 
-            // Pendapatan (Kode 4xxx) -> Normal Kredit (Saldo = Kredit - Debit)
-            if (k.startsWith('4')) {
-                const val = (kr - d);
-                pendapatan[nama] = (pendapatan[nama] || 0) + val;
-                totalP += val;
-            }
-            // Beban (Kode 5xxx atau 6xxx) -> Normal Debit (Saldo = Debit - Kredit)
-            if (k.startsWith('5') || k.startsWith('6')) {
-                const val = (d - kr);
-                beban[nama] = (beban[nama] || 0) + val;
-                totalB += val;
-            }
-        });
+                // Pendapatan (Kode 4xxx)
+                if (k.startsWith('4')) {
+                    const val = (kr - d);
+                    pendapatan[nama] = (pendapatan[nama] || 0) + val;
+                    totalP += val;
+                }
+                // Beban (Kode 5xxx atau 6xxx)
+                if (k.startsWith('5') || k.startsWith('6')) {
+                    const val = (d - kr);
+                    beban[nama] = (beban[nama] || 0) + val;
+                    totalB += val;
+                }
+            });
 
-        const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
+            const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
 
-        // Render Pendapatan
-        document.getElementById('list-pendapatan').innerHTML = Object.keys(pendapatan).map(key => 
-            `<tr><td class="indent">${key}</td><td class="text-right">${f(pendapatan[key])}</td></tr>`
-        ).join('') || '<tr><td class="indent">Tidak ada pendapatan tercatat</td><td class="text-right">Rp 0</td></tr>';
+            document.getElementById('list-pendapatan').innerHTML = Object.keys(pendapatan).length ? 
+                Object.keys(pendapatan).map(key => `<tr><td class="indent">${key}</td><td class="text-right">${f(pendapatan[key])}</td></tr>`).join('') :
+                '<tr><td class="indent">Tidak ada pendapatan</td><td class="text-right">Rp 0</td></tr>';
 
-        // Render Beban
-        document.getElementById('list-beban').innerHTML = Object.keys(beban).map(key => 
-            `<tr><td class="indent">${key}</td><td class="text-right">${f(beban[key])}</td></tr>`
-        ).join('') || '<tr><td class="indent">Tidak ada beban tercatat</td><td class="text-right">Rp 0</td></tr>';
+            document.getElementById('list-beban').innerHTML = Object.keys(beban).length ? 
+                Object.keys(beban).map(key => `<tr><td class="indent">${key}</td><td class="text-right">${f(beban[key])}</td></tr>`).join('') :
+                '<tr><td class="indent">Tidak ada biaya</td><td class="text-right">Rp 0</td></tr>';
 
-        document.getElementById('total-pendapatan').innerText = f(totalP);
-        document.getElementById('total-beban').innerText = "(" + f(totalB) + ")";
-        
-        const bersih = totalP - totalB;
-        const lbElement = document.getElementById('laba-bersih');
-        lbElement.innerText = f(bersih);
-        lbElement.className = "text-right " + (bersih >= 0 ? "val-green" : "val-red");
+            document.getElementById('total-pendapatan').innerText = f(totalP);
+            document.getElementById('total-beban').innerText = "(" + f(totalB) + ")";
+            
+            const bersih = totalP - totalB;
+            const lbElement = document.getElementById('laba-bersih');
+            lbElement.innerText = (bersih < 0 ? "-" : "") + f(Math.abs(bersih));
+            lbElement.className = "text-right " + (bersih >= 0 ? "val-green" : "val-red");
 
-    } catch (e) { 
-        console.error("Gagal memuat Laba Rugi:", e.message); 
+        } catch (e) { 
+            console.error("Gagal:", e.message); 
+        }
     }
-}
 
-function exportExcel() {
-    const table = document.getElementById("table-laba-rugi");
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Laba Rugi" });
-    XLSX.writeFile(wb, `Laba_Rugi_${sessionStorage.getItem('NAMA_TOKO')}_${document.getElementById('date-from').value}.xlsx`);
-}
-
-function logout() {
-    if(confirm("Keluar dari sistem?")) {
-        sessionStorage.clear();
-        localStorage.clear();
-        window.location.replace('login.html');
+    function exportExcel() {
+        const table = document.getElementById("table-laba-rugi");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laba Rugi" });
+        XLSX.writeFile(wb, `Laba_Rugi_BeautyBloom_${document.getElementById('date-from').value}.xlsx`);
     }
-}
+
+    function logout() {
+        if(confirm("Keluar dari sistem?")) {
+            sessionStorage.clear(); localStorage.clear();
+            window.location.replace('login.html');
+        }
+    }
 </script>
 </body>
 </html>
