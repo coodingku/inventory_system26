@@ -210,9 +210,9 @@
 
   async function deepFix(noInvoice, penjualanId, isQuiet = false) {
     try {
-        // 1. Ambil data transaksi
-        const { data: header } = await db.from('penjualan').select('*').eq('id', penjualanId).single();
+        // 1. Ambil detail transaksi untuk hitung HPP
         const { data: details } = await db.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
+        const { data: header } = await db.from('penjualan').select('tanggal').eq('id', penjualanId).single();
         
         // 2. Hitung Nilai HPP
         let calculatedHPP = 0;
@@ -221,44 +221,45 @@
             if (p && p.harga_beli) calculatedHPP += (parseFloat(p.harga_beli) * item.qty);
         }
 
-        // 3. CEK APAKAH JURNAL PENDAPATAN SUDAH ADA?
-        const { data: existingJurnal } = await db.from('jurnal_umum')
-            .select('*')
-            .eq('no_bukti', noInvoice);
+        // 3. CEK APAKAH JURNAL HPP SUDAH ADA? (Agar tidak double potong stok)
+        const { data: cekHPP } = await db.from('jurnal_umum')
+            .select('id')
+            .eq('no_bukti', noInvoice)
+            .eq('kode_akun', '5101'); // 5101 adalah kode Beban HPP
 
-        // Cari apakah sudah ada akun 1101 atau 1102 di jurnal tersebut
-        const hasCashEntry = existingJurnal.some(j => j.kode_akun === '1101' || j.kode_akun === '1102');
-        const hasHPPEntry = existingJurnal.some(j => j.kode_akun === '5101');
-
-        let newEntries = [];
-
-        // JIKA PENDAPATAN BELUM ADA, BARU MASUKKAN (Agar Kas/Bank bertambah sekali saja)
-        if (!hasCashEntry) {
-            const mtd = (header.metode_pembayaran || "").toLowerCase();
-            const akunDebit = (mtd.includes('qris') || mtd.includes('bank')) ? '1102' : '1101';
-            
-            newEntries.push(
-                { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: akunDebit, keterangan: `Pendapatan - ${noInvoice}`, debit: Math.round(header.grand_total), kredit: 0 },
-                { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: '4101', keterangan: `Pendapatan - ${noInvoice}`, debit: 0, kredit: Math.round(header.grand_total) }
-            );
+        if (cekHPP && cekHPP.length > 0) {
+            if (!isQuiet) alert(`HPP untuk ${noInvoice} sudah ada. Tidak ada perubahan pada Kas maupun Stok.`);
+            return;
         }
 
-        // JIKA HPP BELUM ADA ATAU MAU DI-FIX (Hanya potong 1103)
-        if (!hasHPPEntry && calculatedHPP > 0) {
-            newEntries.push(
-                { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: '5101', keterangan: `HPP - ${noInvoice}`, debit: Math.round(calculatedHPP), kredit: 0 },
-                // DISINI KUNCI NYA: Hanya mengurangi 1103 (Modal Produk), tidak menyentuh 1101/1102
-                { tanggal: header.tanggal, no_bukti: noInvoice, kode_akun: '1103', keterangan: `Potong Stok Modal - ${noInvoice}`, debit: 0, kredit: Math.round(calculatedHPP) }
-            );
-        }
+        // 4. HANYA INPUT JURNAL HPP (POTONG 1103)
+        // Kita tidak menghapus jurnal pendapatan yang sudah ada
+        if (calculatedHPP > 0) {
+            const hppEntries = [
+                { 
+                    tanggal: header.tanggal, 
+                    no_bukti: noInvoice, 
+                    kode_akun: '5101', 
+                    keterangan: `HPP Penjualan - ${noInvoice}`, 
+                    debit: Math.round(calculatedHPP), 
+                    kredit: 0 
+                },
+                { 
+                    tanggal: header.tanggal, 
+                    no_bukti: noInvoice, 
+                    kode_akun: '1103', // KUNCI: Akun Modal Produk yang berkurang
+                    keterangan: `Pengurangan Stok Modal - ${noInvoice}`, 
+                    debit: 0, 
+                    kredit: Math.round(calculatedHPP) 
+                }
+            ];
 
-        // 4. Eksekusi Insert jika ada data baru
-        if (newEntries.length > 0) {
-            await db.from('jurnal_umum').insert(newEntries);
+            const { error } = await db.from('jurnal_umum').insert(hppEntries);
+            if (error) throw error;
         }
         
         if (!isQuiet) {
-            alert(`Selesai! Hanya menyinkronkan data yang kurang untuk ${noInvoice}`);
+            alert(`Berhasil! Stok (1103) berkurang, Saldo Kas/Bank TIDAK BERUBAH.`);
             runAudit();
         }
     } catch (e) {
