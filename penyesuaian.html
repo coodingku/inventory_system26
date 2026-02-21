@@ -3,31 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Inventori Stok</title>
+    <title>Finex Pos | Penyesuaian Stok Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="supabase-init.js"></script>
 
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
-        .toolbar { margin-bottom: 20px; }
-        .search-box { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
-        .card-table { background: var(--white); padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 13px; text-transform: uppercase; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .input-stok { width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 6px; text-align: center; font-weight: bold; }
-        .badge { padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+        
+        main { flex: 1; margin-left: 250px; padding: 30px; box-sizing: border-box; width: calc(100% - 250px); }
+        
+        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .search-box { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; min-width: 250px; }
+        
+        .btn-group { display: flex; gap: 8px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; color: white; display: flex; align-items: center; gap: 5px; }
+        .btn-excel { background: #1f7244; }
+        .btn-template { background: #7f8c8d; }
+        .btn-import { background: #f39c12; position: relative; }
+        
+        .card-table { background: var(--white); padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 12px; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .input-stok { width: 60px; padding: 5px; border: 1px solid #ddd; border-radius: 4px; text-align: center; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .bg-low { background: #fff3e0; color: #e67e22; }
+        .bg-total { background: #e8f4fd; color: #2980b9; }
+        
         .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; font-size: 13px; }
         .logout-btn { background: var(--danger); color: white; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; }
-        button.action-btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: bold; }
+        
+        .action-btn { padding: 5px 10px; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; }
         .btn-in { background: var(--success); }
         .btn-out { background: var(--danger); }
     </style>
@@ -37,26 +51,40 @@
 <nav>
     <h2 id="store-name-display">Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="laporan-penjualan.html">📑 Penjualan</a>
-    <a href="laporan-stok.html">📋 Riwayat Stok</a>
     <a href="penyesuaian.html" class="active">🔄 Stok In/Out</a>
+    <a href="laporan-stok.html">📋 Riwayat Stok</a>
     <a href="produk.html">📦 Data Produk</a>
     <div class="user-info"><small>LOGIN:</small><br><b id="display-user-nav">Memuat...</b></div>
     <div class="logout-btn" onclick="logout()">🚪 Keluar</div>
 </nav>
 
 <main>
-    <h1>Penyesuaian Stok</h1>
+    <h1>Manajemen & Penyesuaian Stok</h1>
+    
     <div class="toolbar">
-        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama barang..." onkeyup="filterTabel()">
+        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama atau kode barang..." onkeyup="filterTabel()">
+        
+        <div class="btn-group">
+            <button class="btn btn-template" onclick="downloadTemplate()">📄 Template</button>
+            <button class="btn btn-excel" onclick="exportToExcel()">📊 Export</button>
+            <label class="btn btn-import">
+                📥 Import <input type="file" id="importFile" hidden accept=".xlsx, .xls" onchange="importExcel(event)">
+            </label>
+        </div>
     </div>
+
     <div class="card-table">
         <table>
             <thead>
                 <tr>
                     <th>Nama Barang</th>
-                    <th>Stok Saat Ini</th>
+                    <th>Harga Beli</th>
+                    <th>Harga Jual</th>
+                    <th>Toko</th>
+                    <th>Gudang</th>
+                    <th>Total Stok</th>
                     <th>Input Qty</th>
+                    <th>Lokasi</th>
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
@@ -66,17 +94,15 @@
 </main>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let allProducts = [];
     const sessionData = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = () => {
-        // Nama user dan toko otomatis terupdate via supabase-init.js
+        document.getElementById('display-user-nav').innerText = sessionData ? sessionData.username : "Admin";
         loadProduk();
     };
 
     async function loadProduk() {
-        // Menggunakan 'db' pelanggan
         const { data, error } = await db.from('produk').select('*').order('nama_barang');
         if (!error) { 
             allProducts = data; 
@@ -85,57 +111,119 @@
     }
 
     function renderTabel(data) {
-        document.getElementById('produk-list').innerHTML = data.map(p => `
-            <tr>
-                <td><b>${p.nama_barang}</b></td>
-                <td><span class="badge ${p.stok_sekarang < 10 ? 'bg-low' : ''}">${p.stok_sekarang}</span></td>
-                <td><input type="number" id="adj-${p.id}" class="input-stok" placeholder="0"></td>
-                <td style="text-align: center;">
-                    <button onclick="updateStok('${p.id}', 'masuk')" class="action-btn btn-in" title="Tambah Stok">+</button>
-                    <button onclick="updateStok('${p.id}', 'keluar')" class="action-btn btn-out" title="Kurangi Stok">-</button>
-                </td>
-            </tr>
-        `).join('');
+        document.getElementById('produk-list').innerHTML = data.map(p => {
+            const stokToko = p.stok_toko || 0;
+            const stokGudang = p.stok_gudang || 0;
+            const totalStok = stokToko + stokGudang;
+
+            return `
+                <tr>
+                    <td><b>${p.nama_barang}</b></td>
+                    <td>Rp ${parseFloat(p.harga_beli || 0).toLocaleString()}</td>
+                    <td>Rp ${parseFloat(p.harga_jual || 0).toLocaleString()}</td>
+                    <td><span class="badge">${stokToko}</span></td>
+                    <td><span class="badge">${stokGudang}</span></td>
+                    <td><span class="badge bg-total">${totalStok}</span></td>
+                    <td><input type="number" id="adj-${p.id}" class="input-stok" placeholder="0"></td>
+                    <td>
+                        <select id="loc-${p.id}" style="padding:5px; border-radius:4px; border:1px solid #ddd;">
+                            <option value="toko">Toko</option>
+                            <option value="gudang">Gudang</option>
+                        </select>
+                    </td>
+                    <td style="text-align: center;">
+                        <button onclick="updateStok('${p.id}', 'masuk')" class="action-btn btn-in">+</button>
+                        <button onclick="updateStok('${p.id}', 'keluar')" class="action-btn btn-out">-</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     async function updateStok(id, tipe) {
-        const input = document.getElementById(`adj-${id}`);
-        const qty = parseInt(input.value);
+        const qty = parseInt(document.getElementById(`adj-${id}`).value);
+        const lokasi = document.getElementById(`loc-${id}`).value;
         if (isNaN(qty) || qty <= 0) return alert("Jumlah tidak valid!");
 
         const produk = allProducts.find(p => p.id === id);
-        const stokBaru = tipe === 'masuk' ? produk.stok_sekarang + qty : produk.stok_sekarang - qty;
-        if (stokBaru < 0) return alert("Stok tidak cukup!");
+        const fieldUpdate = lokasi === 'toko' ? 'stok_toko' : 'stok_gudang';
+        const stokLama = produk[fieldUpdate] || 0;
+        const stokBaru = tipe === 'masuk' ? stokLama + qty : stokLama - qty;
 
-        try {
-            // 1. Update Produk di DB Pelanggan
-            await db.from('produk').update({ stok_sekarang: stokBaru }).eq('id', id);
+        if (stokBaru < 0) return alert("Stok di " + lokasi + " tidak cukup!");
 
-            // 2. Insert Riwayat Stok
-            const payload = {
-                id_produk: id,
-                tipe: tipe.toUpperCase(), 
+        const totalBaru = (lokasi === 'toko' ? stokBaru + (produk.stok_gudang || 0) : stokBaru + (produk.stok_toko || 0));
+
+        const { error } = await db.from('produk').update({ 
+            [fieldUpdate]: stokBaru,
+            stok_sekarang: totalBaru // Kolom utama sinkronisasi
+        }).eq('id', id);
+
+        if (!error) {
+            await db.from('riwayat_stok').insert([{
+                produk_id: id,
+                tipe: tipe.toUpperCase(),
                 jumlah: qty,
-                admin_nama: sessionData.username || 'Admin',
-                keterangan: 'Update Manual',
-                stok_akhir: stokBaru
-            };
-
-            let { error: errLog } = await db.from('riwayat_stok').insert([payload]);
-            
-            // Fallback jika nama kolom di DB pelanggan berbeda
-            if (errLog && errLog.message.includes("column")) {
-                delete payload.id_produk;
-                payload.produk_id = id;
-                await db.from('riwayat_stok').insert([payload]);
-            }
-
-            alert("Stok berhasil diperbarui!");
-            input.value = '';
+                keterangan: `Adj Manual (${lokasi.toUpperCase()})`,
+                stok_akhir: totalBaru,
+                admin_nama: sessionData.username
+            }]);
+            alert("Berhasil!");
             loadProduk();
-        } catch (e) { 
-            alert("Gagal memperbarui stok: " + e.message); 
         }
+    }
+
+    function exportToExcel() {
+        const dataMap = allProducts.map(p => ({
+            "Nama Barang": p.nama_barang,
+            "Harga Beli": p.harga_beli,
+            "Harga Jual": p.harga_jual,
+            "Stok Toko": p.stok_toko || 0,
+            "Stok Gudang": p.stok_gudang || 0,
+            "Total Stok": (p.stok_toko || 0) + (p.stok_gudang || 0)
+        }));
+        const ws = XLSX.utils.json_to_sheet(dataMap);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Stok");
+        XLSX.writeFile(wb, "Data_Stok_Finex.xlsx");
+    }
+
+    function downloadTemplate() {
+        const header = [["ID", "Nama Barang", "Tambah_Stok_Toko", "Tambah_Stok_Gudang"]];
+        const rows = allProducts.map(p => [p.id, p.nama_barang, 0, 0]);
+        const ws = XLSX.utils.aoa_to_sheet(header.concat(rows));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template_Import");
+        XLSX.writeFile(wb, "Template_Update_Stok.xlsx");
+    }
+
+    function importExcel(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet);
+
+            for (const item of json) {
+                if (item.ID && (item.Tambah_Stok_Toko || item.Tambah_Stok_Gudang)) {
+                    const p = allProducts.find(x => x.id == item.ID);
+                    if (p) {
+                        const newToko = (p.stok_toko || 0) + (parseInt(item.Tambah_Stok_Toko) || 0);
+                        const newGudang = (p.stok_gudang || 0) + (parseInt(item.Tambah_Stok_Gudang) || 0);
+                        await db.from('produk').update({ 
+                            stok_toko: newToko, 
+                            stok_gudang: newGudang,
+                            stok_sekarang: newToko + newGudang 
+                        }).eq('id', item.ID);
+                    }
+                }
+            }
+            alert("Import selesai!");
+            loadProduk();
+        };
+        reader.readAsArrayBuffer(file);
     }
 
     function filterTabel() {
@@ -143,12 +231,8 @@
         renderTabel(allProducts.filter(p => p.nama_barang.toLowerCase().includes(val)));
     }
 
-    function logout() { 
-        if(confirm("Keluar dari sistem?")) {
-            sessionStorage.clear();
-            localStorage.clear();
-            window.location.replace('login.html'); 
-        }
+    function logout() {
+        if(confirm("Keluar?")) { localStorage.clear(); window.location.replace('login.html'); }
     }
 </script>
 </body>
