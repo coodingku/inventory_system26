@@ -121,47 +121,58 @@
         }).join('');
     }
 
-    async function updateStok(id, tipe) {
-        const inputVal = document.getElementById(`adj-${id}`).value;
-        const lokasi = document.getElementById(`loc-${id}`).value;
-        const qty = Number(inputVal);
+async function updateStok(id, tipe) {
+    const inputVal = document.getElementById(`adj-${id}`).value;
+    const lokasi = document.getElementById(`loc-${id}`).value;
+    const qty = Number(inputVal);
 
-        if (!inputVal || qty <= 0) return alert("Masukkan jumlah angka yang benar!");
+    if (!inputVal || qty <= 0) return alert("Masukkan jumlah angka yang benar!");
 
-        const produk = allProducts.find(p => p.id === id);
-        let sToko = Number(produk.stok_sekarang || 0);
-        let sGudang = Number(produk.stok_gudang || 0);
+    const produk = allProducts.find(p => p.id === id);
+    let sToko = Number(produk.stok_sekarang || 0); // stok_sekarang sebagai stok Toko
+    let sGudang = Number(produk.stok_gudang || 0);
 
-        if (lokasi === 'toko') {
-            sToko = (tipe === 'masuk') ? sToko + qty : sToko - qty;
-        } else {
-            sGudang = (tipe === 'masuk') ? sGudang + qty : sGudang - qty;
-        }
-
-        if (sToko < 0 || sGudang < 0) return alert("Stok tidak boleh minus!");
-
-        try {
-            const { error } = await db.from('produk').update({ 
-                stok_sekarang: sToko, // Kolom Toko
-                stok_gudang: sGudang
-            }).eq('id', id);
-
-            if (error) throw error;
-
-            await db.from('riwayat_stok').insert([{
-                produk_id: id,
-                tipe: tipe.toUpperCase(),
-                jumlah: qty,
-                keterangan: `Adj Manual (${lokasi.toUpperCase()})`,
-                stok_akhir: sToko + sGudang,
-                admin_nama: sessionData.username
-            }]);
-
-            alert("Stok diperbarui!");
-            loadProduk();
-        } catch (e) { alert("Error: " + e.message); }
+    // Hitung stok baru berdasarkan lokasi yang dipilih
+    if (lokasi === 'toko') {
+        sToko = (tipe === 'masuk') ? sToko + qty : sToko - qty;
+    } else {
+        sGudang = (tipe === 'masuk') ? sGudang + qty : sGudang - qty;
     }
 
+    if (sToko < 0 || sGudang < 0) return alert("Stok tidak boleh minus!");
+
+    const totalBaru = sToko + sGudang;
+
+    try {
+        // 1. Update Tabel Produk
+        const { error: errProduk } = await db.from('produk').update({ 
+            stok_sekarang: sToko, 
+            stok_gudang: sGudang
+        }).eq('id', id);
+
+        if (errProduk) throw errProduk;
+
+        // 2. Insert Riwayat Stok (Nama kolom sudah disesuaikan dengan gambar)
+        const { error: errLog } = await db.from('riwayat_stok').insert([{
+            id_produk: id,          // Sesuai gambar: id_produk [uuid]
+            tipe: tipe.toUpperCase(),// Sesuai gambar: tipe [text]
+            jumlah: qty,            // Sesuai gambar: jumlah [int4]
+            keterangan: `Manual ${lokasi.toUpperCase()}`, // Sesuai gambar: keterangan [text]
+            admin_nama: sessionData?.username || 'Admin', // Sesuai gambar: admin_nama [text]
+            stok_akhir: totalBaru   // Sesuai gambar: stok_akhir [int4]
+        }]);
+
+        if (errLog) throw errLog;
+
+        alert(`Berhasil! Stok ${lokasi} diperbarui.`);
+        document.getElementById(`adj-${id}`).value = ''; 
+        loadProduk();
+
+    } catch (e) {
+        console.error("Detail Error:", e);
+        alert("Gagal: " + e.message);
+    }
+}
     function exportToExcel() {
         const data = allProducts.map(p => ({
             "Nama": p.nama_barang,
