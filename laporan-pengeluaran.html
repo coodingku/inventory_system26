@@ -120,40 +120,40 @@
             fetchExpenses();
         };
 
-        async function fetchExpenses() {
-            const filterMonth = document.getElementById('filter-bulan').value;
-            if(!filterMonth) return;
+      async function fetchExpenses() {
+    const filterMonth = document.getElementById('filter-bulan').value;
+    if(!filterMonth) return;
 
-            const [year, month] = filterMonth.split('-');
-            const start = `${filterMonth}-01T00:00:00.000Z`;
-            const end = `${year}-${month}-${new Date(year, month, 0).getDate()}T23:59:59.999Z`;
+    const [year, month] = filterMonth.split('-');
+    const start = `${filterMonth}-01T00:00:00.000Z`;
+    const end = `${year}-${month}-${new Date(year, month, 0).getDate()}T23:59:59.999Z`;
 
-            // Query gabungan (Join ke Jurnal Umum untuk dapat Sumber Dana)
-            const { data, error } = await db
-                .from('jurnal_umum')
-                .select('*, akun(nama_akun)')
-                .gte('tanggal', start)
-                .lte('tanggal', end)
-                .not('no_bukti', 'ilike', 'INV-%') // Bukan Invoice Jual
-                .order('tanggal', { ascending: false });
+    // Query ke jurnal_umum
+    const { data, error } = await db
+        .from('jurnal_umum')
+        .select('*, akun(nama_akun)')
+        .gte('tanggal', start)
+        .lte('tanggal', end)
+        .not('no_bukti', 'ilike', 'INV-%') // Abaikan transaksi penjualan
+        .order('tanggal', { ascending: false });
 
-            if (error) return console.error(error);
+    if (error) return console.error(error);
 
-            // Filter hanya Jurnal yang berkategori pengeluaran (ada pasangannya)
-            // Di sini kita ambil data yang menduduki posisi DEBIT (Akun Beban)
-            const expenseData = data.filter(j => j.debit > 0 && (j.kode_akun.startsWith('5') || j.kode_akun.startsWith('6')));
-            
-            // Kita cari akun KREDIT-nya (Sumber Dana) untuk setiap nomor bukti
-            currentData = expenseData.map(exp => {
-                const kreditPair = data.find(k => k.no_bukti === exp.no_bukti && k.kredit > 0);
-                return {
-                    ...exp,
-                    sumber_dana: kreditPair ? kreditPair.akun.nama_akun : 'Tidak Diketahui'
-                };
-            });
+    // UPGRADE FILTER: Hanya ambil akun kepala 6 (Beban Operasional)
+    // Kita hapus startsWith('5') agar HPP tidak masuk ke laporan ini
+    const expenseData = data.filter(j => j.debit > 0 && j.kode_akun.startsWith('6'));
+    
+    // Cari pasangan Kreditnya (Sumber Dana/Metode Bayar)
+    currentData = expenseData.map(exp => {
+        const kreditPair = data.find(k => k.no_bukti === exp.no_bukti && k.kredit > 0);
+        return {
+            ...exp,
+            sumber_dana: kreditPair ? kreditPair.akun.nama_akun : 'Tidak Diketahui'
+        };
+    });
 
-            renderTable(currentData);
-        }
+    renderTable(currentData);
+}
 
         function renderTable(data) {
             const tbody = document.getElementById('expense-table-body');
