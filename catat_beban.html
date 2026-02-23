@@ -144,48 +144,58 @@
         }
     }
 
-    async function simpanPengeluaran() {
-        const tgl = document.getElementById('exp-tanggal').value;
-        const kodeBeban = document.getElementById('exp-kategori').value;
-        const kodeSumber = document.getElementById('exp-sumber-dana').value;
-        const ket = document.getElementById('exp-ket').value;
-        const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
-        
-        if(!kodeBeban || !kodeSumber || !jumlah || !tgl) return alert("Lengkapi data dan pilih Metode Bayar!");
+  async function simpanPengeluaran() {
+    const tgl = document.getElementById('exp-tanggal').value;
+    const kodeBeban = document.getElementById('exp-kategori').value;
+    const kodeSumber = document.getElementById('exp-sumber-dana').value;
+    const ket = document.getElementById('exp-ket').value;
+    const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
+    
+    if(!kodeBeban || !kodeSumber || !jumlah || !tgl) return alert("Lengkapi data!");
 
-        const noBukti = 'EXP-' + Date.now().toString().slice(-8);
-        const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
+    const noBukti = 'EXP-' + Date.now().toString().slice(-8);
+    const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
 
-        try {
-            // 1. Catat ke tabel pengeluaran
-            // Pastikan tipe kolom 'kasir_id' di Supabase sudah 'text' bukan 'uuid'
-            const namaBeban = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text.split(' - ')[1];
-            const { error: err1 } = await db.from('pengeluaran').insert([{ 
-                tanggal: tglFix, 
-                kategori: namaBeban, 
-                keterangan: ket, 
-                jumlah: jumlah, 
-                kasir_id: String(session.username) // Mengatasi error UUID
-            }]);
-            if (err1) throw err1;
+    try {
+        // AMBIL ID UUID DARI SESSION (Bukan Username)
+        // Pastikan saat login, Allberto menyimpan 'id' dari tabel auth/user ke localStorage
+        const userIdUUID = session.id; 
 
-            // 2. Jurnal Umum (D: Beban, K: Pilihan Sumber Dana)
-            const dataJurnal = [
-                { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: ket, debit: jumlah, kredit: 0 },
-                { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: ket, debit: 0, kredit: jumlah }
-            ];
-            const { error: err2 } = await db.from('jurnal_umum').insert(dataJurnal);
-            if (err2) throw err2;
-
-            siapkanNota(noBukti, tgl, namaBeban, ket, jumlah);
-            alert("✅ Sukses! Saldo " + kodeSumber + " otomatis terpotong.");
-            window.print();
-            location.reload();
-
-        } catch (e) {
-            alert("Gagal menyimpan: " + e.message);
+        if (!userIdUUID) {
+            throw new Error("ID Kasir tidak ditemukan dalam sesi. Silakan logout dan login kembali.");
         }
+
+        const namaBeban = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text.split(' - ')[1];
+        
+        // 1. Simpan ke tabel pengeluaran
+        const { error: err1 } = await db.from('pengeluaran').insert([{ 
+            tanggal: tglFix, 
+            kategori: namaBeban, 
+            keterangan: ket, 
+            jumlah: jumlah,
+            kasir_id: userIdUUID // SEKARANG MENGIRIM UUID (Misal: a0eebc99-...)
+        }]);
+        
+        if (err1) throw err1;
+
+        // 2. Jurnal Umum
+        const { error: err2 } = await db.from('jurnal_umum').insert([
+            { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: ket, debit: jumlah, kredit: 0 },
+            { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: ket, debit: 0, kredit: jumlah }
+        ]);
+        
+        if (err2) throw err2;
+
+        alert("✅ Berhasil disimpan!");
+        siapkanNota(noBukti, tgl, namaBeban, ket, jumlah);
+        window.print();
+        location.reload();
+
+    } catch (e) {
+        alert("Gagal menyimpan: " + e.message);
+        console.error("Detail Error:", e);
     }
+}
 
     function siapkanNota(bukti, tgl, kat, ket, total) {
         document.getElementById('print-area').innerHTML = `
