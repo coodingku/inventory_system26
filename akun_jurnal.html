@@ -151,9 +151,10 @@
 
     window.onload = () => { loadData(); };
 
+  // GANTI BAGIAN LOOPING loadData() ANDA DENGAN KODE INI
+
     async function loadData() {
         try {
-            // Mengambil data dari database pelanggan yang aktif
             const [resAkun, resJurnal] = await Promise.all([
                 db.from('akun').select('*').order('kode_akun'),
                 db.from('jurnal_umum').select('kode_akun, debit, kredit')
@@ -169,18 +170,19 @@
             let totalEkuitas = 0;
 
             tbody.innerHTML = akunList.map(acc => {
+                // Murni ambil transaksi dari Jurnal Umum
                 const trx = jurnalList.filter(j => String(j.kode_akun) === String(acc.kode_akun));
                 
                 const sumDebit = trx.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
                 const sumKredit = trx.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
                 
                 let saldoBerjalan = 0;
-                const saldoAwal = Number(acc.saldo) || 0;
 
+                // LOGIKA: Saldo Berjalan HANYA dihitung dari mutasi Jurnal Umum
                 if (acc.posisi_normal === 'Debit') {
-                    saldoBerjalan = (saldoAwal + sumDebit) - sumKredit;
+                    saldoBerjalan = sumDebit - sumKredit;
                 } else {
-                    saldoBerjalan = (saldoAwal + sumKredit) - sumDebit;
+                    saldoBerjalan = sumKredit - sumDebit;
                 }
 
                 if (acc.kategori === 'Aset') totalAset += saldoBerjalan;
@@ -210,7 +212,6 @@
             showStatus("Sinkronisasi gagal: " + err.message, "var(--danger)");
         }
     }
-
     async function saveAccount() {
         const kode = document.getElementById('kode_akun').value.trim();
         const nama = document.getElementById('nama_akun').value.trim();
