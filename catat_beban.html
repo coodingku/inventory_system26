@@ -144,7 +144,7 @@
         }
     }
 
-  async function simpanPengeluaran() {
+async function simpanPengeluaran() {
     const tgl = document.getElementById('exp-tanggal').value;
     const kodeBeban = document.getElementById('exp-kategori').value;
     const kodeSumber = document.getElementById('exp-sumber-dana').value;
@@ -157,28 +157,35 @@
     const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
 
     try {
-        // AMBIL ID UUID DARI SESSION (Bukan Username)
-        // Pastikan saat login, Allberto menyimpan 'id' dari tabel auth/user ke localStorage
-        const userIdUUID = session.id; 
+        // --- LANGKAH PENTING: Cari UUID Kasir berdasarkan username ---
+        // Kita cari ID (UUID) dari tabel kasir_log atau tabel user Anda
+        // Saya asumsikan Anda mencari dari kasir_log karena ada shift-nya
+        const { data: shiftData, error: shiftError } = await db
+            .from('kasir_log')
+            .select('id')
+            .eq('kasir_nama', session.username)
+            .eq('status', 'Open')
+            .maybeSingle();
 
-        if (!userIdUUID) {
-            throw new Error("ID Kasir tidak ditemukan dalam sesi. Silakan logout dan login kembali.");
+        if (shiftError || !shiftData) {
+            throw new Error("Gagal mendapatkan ID Shift. Pastikan Shift sudah dibuka!");
         }
 
+        const realUUID = shiftData.id; // Ini adalah UUID yang diminta database
         const namaBeban = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text.split(' - ')[1];
         
-        // 1. Simpan ke tabel pengeluaran
+        // 1. Simpan ke tabel pengeluaran menggunakan UUID yang baru didapat
         const { error: err1 } = await db.from('pengeluaran').insert([{ 
             tanggal: tglFix, 
             kategori: namaBeban, 
             keterangan: ket, 
             jumlah: jumlah,
-            kasir_id: userIdUUID // SEKARANG MENGIRIM UUID (Misal: a0eebc99-...)
+            kasir_id: realUUID // Sekarang isinya UUID, bukan lagi teks "admin1"
         }]);
         
         if (err1) throw err1;
 
-        // 2. Jurnal Umum
+        // 2. Jurnal Umum (D: Beban, K: Kas/Bank)
         const { error: err2 } = await db.from('jurnal_umum').insert([
             { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: ket, debit: jumlah, kredit: 0 },
             { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: ket, debit: 0, kredit: jumlah }
@@ -186,7 +193,7 @@
         
         if (err2) throw err2;
 
-        alert("✅ Berhasil disimpan!");
+        alert("✅ Berhasil! Pengeluaran & Jurnal tersimpan otomatis.");
         siapkanNota(noBukti, tgl, namaBeban, ket, jumlah);
         window.print();
         location.reload();
@@ -196,7 +203,6 @@
         console.error("Detail Error:", e);
     }
 }
-
     function siapkanNota(bukti, tgl, kat, ket, total) {
         document.getElementById('print-area').innerHTML = `
             <div style="text-align:center; border-bottom:1px solid #000; padding-bottom:5px;">
