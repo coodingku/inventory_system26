@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Kas & Bank Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
     <style>
@@ -23,21 +21,25 @@
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1100px; }
         th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
         
-        .status-badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .badge-cat { padding: 2px 6px; border-radius: 4px; font-size: 9px; text-transform: uppercase; font-weight: bold; background: #dfe6e9; color: #2d3436; }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .bg-match { background: #e8f5e9; color: #2e7d32; }
         .bg-mismatch { background: #ffebee; color: #c62828; }
         
-        .btn-group-action { display: flex; gap: 5px; justify-content: center; }
-        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
         .btn-pdf { background: #c0392b; }
         .btn-excel { background: #1f7244; }
         .btn-sync { background: var(--success); }
         .btn-refresh { background: var(--accent); }
         .btn-adj { background: #7f8c8d; }
+        .btn-star { background: #f39c12; }
+        
+        .btn-group-action { display: flex; gap: 5px; }
+        code { background: #f1f2f6; padding: 2px 5px; border-radius: 4px; color: #e84393; }
     </style>
 </head>
 <body>
@@ -53,17 +55,14 @@
 
 <main>
     <div class="header-flex">
-        <h1>Buku Kas & Bank</h1>
+        <div>
+            <h1 style="margin:0">Buku Kas & Akun</h1>
+            <small style="color:#888">Monitoring Transaksi & Sinkronisasi Saldo Terpusat</small>
+        </div>
         <div style="display: flex; gap: 10px;">
-            <button class="btn-action btn-pdf" onclick="exportPDF()">
-                <i class="fas fa-file-pdf"></i> PDF
-            </button>
-            <button class="btn-action btn-excel" onclick="exportExcel()">
-                <i class="fas fa-file-excel"></i> Excel
-            </button>
-            <button class="btn-action btn-refresh" onclick="loadData()">
-                <i class="fas fa-sync"></i> Refresh
-            </button>
+            <button class="btn-action btn-pdf" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+            <button class="btn-action btn-excel" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+            <button class="btn-action btn-refresh" onclick="loadData()"><i class="fas fa-sync"></i> Refresh</button>
         </div>
     </div>
 
@@ -72,7 +71,9 @@
             <thead>
                 <tr>
                     <th>Kode</th>
-                    <th>Nama Akun</th>
+                    <th>Nama Akun & Kategori</th>
+                    <th>Debit (Masuk)</th>
+                    <th>Kredit (Keluar)</th>
                     <th>Saldo Sistem</th>
                     <th>Saldo Real</th>
                     <th>Selisih</th>
@@ -80,16 +81,21 @@
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
-            <tbody id="akun-list"></tbody>
+            <tbody id="akun-list">
+                <tr><td colspan="9" style="text-align:center">Menarik data dari server...</td></tr>
+            </tbody>
         </table>
     </div>
 </main>
 
 <script>
-    let currentDataRaw = []; // Untuk olah data
+    let currentDataRaw = [];
+
+    window.onload = loadData;
 
     async function loadData() {
         try {
+            // Ambil SEMUA akun (Aset, Hutang, dll)
             const { data: akunData, error: errAkun } = await db.from('akun').select('*').order('kode_akun');
             if (errAkun) throw errAkun;
 
@@ -101,211 +107,156 @@
             currentDataRaw = [];
 
             akunData.forEach(a => {
-                const mutasi = jurnalData.filter(j => j.kode_akun === a.kode_akun);
-                const totalDebit = mutasi.reduce((acc, curr) => acc + Number(curr.debit || 0), 0);
-                const totalKredit = mutasi.reduce((acc, curr) => acc + Number(curr.kredit || 0), 0);
+                const mutasi = jurnalData.filter(j => String(j.kode_akun) === String(a.kode_akun));
+                
+                const totalDebit = mutasi.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
+                const totalKredit = mutasi.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
                 
                 let saldoSistem = (a.posisi_normal === 'Debit') ? (totalDebit - totalKredit) : (totalKredit - totalDebit);
                 const saldoReal = Number(a.saldo || 0);
                 const selisih = saldoSistem - saldoReal;
-                const isMatch = selisih === 0;
+                const isMatch = Math.abs(selisih) < 0.1;
 
-                // Simpan untuk export
                 currentDataRaw.push({
                     kode: a.kode_akun,
                     nama: a.nama_akun,
+                    kategori: a.kategori,
+                    debit: totalDebit,
+                    kredit: totalKredit,
                     sistem: saldoSistem,
                     real: saldoReal,
                     selisih: selisih,
                     status: isMatch ? "Sesuai" : "Selisih"
                 });
 
-               // Ganti blok tombol Anda dengan ini
-tbody.innerHTML += `
-    <tr>
-        <td><code>${a.kode_akun}</code></td>
-        <td><b>${a.nama_akun}</b></td>
-        <td style="font-weight:bold; color:var(--accent)">Rp ${saldoSistem.toLocaleString('id-ID')}</td>
-        <td style="font-weight:bold; color:#555">Rp ${saldoReal.toLocaleString('id-ID')}</td>
-        <td style="color: ${isMatch ? '#27ae60' : '#e74c3c'}">Rp ${selisih.toLocaleString('id-ID')}</td>
-        <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
-        <td>
-            <div class="btn-group-action">
-                <button class="btn-action" style="background:#f39c12;" onclick="setSaldoAwal('${a.kode_akun}', '${a.nama_akun}')" title="Set Saldo Awal">
-                    <i class="fas fa-star"></i>
-                </button>
-                
-                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Realitas Fisik">
-                    <i class="fas fa-edit"></i>
-                </button>
-
-                ${!isMatch ? `
-                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Jurnal Otomatis">
-                    <i class="fas fa-magic"></i>
-                </button>` : ''}
-            </div>
-        </td>
-    </tr>
-`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><code>${a.kode_akun}</code></td>
+                        <td>
+                            <b>${a.nama_akun}</b><br>
+                            <span class="badge-cat">${a.kategori}</span>
+                        </td>
+                        <td style="color:var(--success)">Rp ${totalDebit.toLocaleString('id-ID')}</td>
+                        <td style="color:var(--danger)">Rp ${totalKredit.toLocaleString('id-ID')}</td>
+                        <td style="font-weight:bold; color:var(--accent)">Rp ${saldoSistem.toLocaleString('id-ID')}</td>
+                        <td style="font-weight:bold; color:#555">Rp ${saldoReal.toLocaleString('id-ID')}</td>
+                        <td style="color: ${isMatch ? 'var(--success)' : 'var(--danger)'}">
+                            ${selisih !== 0 ? 'Rp ' + selisih.toLocaleString('id-ID') : '-'}
+                        </td>
+                        <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
+                        <td>
+                            <div class="btn-group-action">
+                                <button class="btn-action btn-star" onclick="setSaldoAwal('${a.kode_akun}', '${a.nama_akun}')" title="Set Saldo Awal">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Realitas Fisik">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                ${!isMatch ? `
+                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Jurnal Otomatis">
+                                    <i class="fas fa-magic"></i>
+                                </button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
             });
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('akun-list').innerHTML = `<tr><td colspan="9" style="text-align:center; color:red">Gagal memuat data: ${e.message}</td></tr>`;
+        }
     }
-    // TAMBAHKAN FUNGSI INI DI DALAM <script> kas_bank.html ANDA
 
-async function setSaldoAwal(kode, nama) {
-    const nominal = prompt(`Masukkan Saldo Awal Real untuk ${nama}:`, "0");
-    if (nominal === null || nominal === "") return;
+    async function setSaldoAwal(kode, nama) {
+        const nominal = prompt(`Masukkan Saldo Awal Real untuk ${nama}:`, "0");
+        if (nominal === null || nominal === "") return;
 
-    const noBukti = "OPN-" + Date.now().toString().slice(-6);
-    const nominalNum = Number(nominal);
+        const noBukti = "OPN-" + Date.now().toString().slice(-6);
+        const nominalNum = Number(nominal);
 
-    try {
-        // 1. Update kolom saldo real di tabel 'akun'
-        await db.from('akun').update({ saldo: nominalNum }).eq('kode_akun', kode);
+        try {
+            await db.from('akun').update({ saldo: nominalNum }).eq('kode_akun', kode);
+            const { error } = await db.from('jurnal_umum').insert([
+                { tanggal: new Date().toISOString(), kode_akun: kode, keterangan: "Saldo Awal " + nama, no_bukti: noBukti, debit: nominalNum, kredit: 0 },
+                { tanggal: new Date().toISOString(), kode_akun: '3101', keterangan: "Modal Awal " + nama, no_bukti: noBukti, debit: 0, kredit: nominalNum }
+            ]);
 
-        // 2. Buat Jurnal Ganda (Sangat Penting untuk Neraca)
-        // Baris A: Menambah saldo di akun Kas/Bank (DEBIT)
-        // Baris B: Menambah di akun Modal/Opening Balance (KREDIT) -> biasanya kode akun kepala 3
-        const { error } = await db.from('jurnal_umum').insert([
-            {
-                tanggal: new Date().toISOString(),
-                kode_akun: kode,
-                keterangan: "Saldo Awal " + nama,
-                no_bukti: noBukti,
-                debit: nominalNum,
-                kredit: 0
-            },
-            {
-                tanggal: new Date().toISOString(),
-                kode_akun: '3101', // Sesuaikan dengan kode akun Modal/Ekuitas Anda
-                keterangan: "Modal Awal (Opening Balance) " + nama,
-                no_bukti: noBukti,
-                debit: 0,
-                kredit: nominalNum
+            if (!error) {
+                alert(`Saldo Awal ${nama} dan Jurnal Modal berhasil dicatat!`);
+                loadData();
             }
-        ]);
-
-        if (!error) {
-            alert(`Saldo Awal ${nama} dan Jurnal Modal berhasil dicatat!`);
-            loadData();
-        }
-    } catch (e) {
-        alert("Gagal: " + e.message);
+        } catch (e) { alert("Gagal: " + e.message); }
     }
-}
-  async function updateSaldoFisik(kode, valSistem) {
-    const input = prompt("Masukkan jumlah uang tunai/saldo bank saat ini (Fisik):", valSistem);
-    if (input === null || input === "") return;
-    
-    const saldoFisikBaru = Number(input);
-    const selisih = saldoFisikBaru - valSistem; // Hitung selisihnya
 
-    try {
-        // 1. Update angka fisik di tabel 'akun'
-        const { error: errAkun } = await db.from('akun').update({ saldo: saldoFisikBaru }).eq('kode_akun', kode);
-        if (errAkun) throw errAkun;
+    async function updateSaldoFisik(kode, valSistem) {
+        const input = prompt("Masukkan jumlah saldo riil saat ini:", valSistem);
+        if (input === null || input === "") return;
+        
+        const saldoFisikBaru = Number(input);
+        const selisih = saldoFisikBaru - valSistem;
 
-        // 2. Jika ada selisih, buat jurnal penyesuaian otomatis
-        if (selisih !== 0) {
-            const noBukti = "ADJ-" + Date.now().toString().slice(-6);
-            
-            // Logika: Jika saldo fisik bertambah (selisih +), maka akun didebit. Jika berkurang, dikredit.
-            await db.from('jurnal_umum').insert([{
+        try {
+            const { error: errAkun } = await db.from('akun').update({ saldo: saldoFisikBaru }).eq('kode_akun', kode);
+            if (errAkun) throw errAkun;
+
+            if (selisih !== 0) {
+                const noBukti = "ADJ-" + Date.now().toString().slice(-6);
+                await db.from('jurnal_umum').insert([{
+                    tanggal: new Date().toISOString(),
+                    kode_akun: kode,
+                    keterangan: "Penyesuaian Saldo (Update Fisik)",
+                    no_bukti: noBukti,
+                    debit: selisih > 0 ? Math.abs(selisih) : 0,
+                    kredit: selisih < 0 ? Math.abs(selisih) : 0
+                }]);
+                alert("Saldo fisik diperbarui & Jurnal penyesuaian dicatat.");
+            } else {
+                alert("Saldo fisik diperbarui.");
+            }
+            loadData();
+        } catch (e) { alert("Gagal: " + e.message); }
+    }
+
+    async function autoJurnal(kode, selisih) {
+        if(selisih === 0) return alert("Saldo sudah sinkron!");
+        if(!confirm(`Sinkronkan Saldo Sistem agar sama dengan Saldo Real?`)) return;
+
+        const nominalAdjustment = Math.abs(selisih);
+        const isDebit = selisih < 0; 
+
+        try {
+            const { error } = await db.from('jurnal_umum').insert([{
                 tanggal: new Date().toISOString(),
                 kode_akun: kode,
-                keterangan: "Penyesuaian Saldo (Update Fisik)",
-                no_bukti: noBukti,
-                debit: selisih > 0 ? Math.abs(selisih) : 0,
-                kredit: selisih < 0 ? Math.abs(selisih) : 0
+                keterangan: "Sinkronisasi Saldo Fisik",
+                no_bukti: "SYNC-" + Date.now().toString().slice(-6),
+                debit: isDebit ? nominalAdjustment : 0,
+                kredit: !isDebit ? nominalAdjustment : 0
             }]);
-            
-            alert("Saldo fisik diperbarui & Jurnal penyesuaian telah dicatat.");
-        } else {
-            alert("Saldo fisik diperbarui.");
-        }
-        
-        loadData();
-    } catch (e) {
-        alert("Gagal sinkronisasi: " + e.message);
+
+            if (!error) {
+                alert("✅ Sinkronisasi Berhasil.");
+                loadData();
+            }
+        } catch (e) { alert("Gagal: " + e.message); }
     }
-}
- async function autoJurnal(kode, selisih) {
-    // Ingat: 'selisih' di sini adalah (Saldo Sistem - Saldo Real)
-    // Jika selisih adalah 50.000, artinya Sistem KEBANYAKAN 50rb.
-    // Jika selisih adalah -50.000, artinya Sistem KURANG 50rb.
 
-    if(selisih === 0) return alert("Saldo sudah sinkron!");
-
-    if(!confirm(`Buat jurnal penyesuaian untuk menyamakan sistem dengan fisik?`)) return;
-
-    const nominalAdjustment = Math.abs(selisih);
-    const isDebit = selisih < 0; // Jika sistem kurang, kita DEBIT supaya nambah
-
-    try {
-        const { error } = await db.from('jurnal_umum').insert([{
-            tanggal: new Date().toISOString(),
-            kode_akun: kode,
-            keterangan: "Sinkronisasi Saldo Fisik",
-            no_bukti: "SYNC-" + Date.now().toString().slice(-6),
-            // Jika selisih negatif (sistem kurang), masukkan ke DEBIT
-            debit: isDebit ? nominalAdjustment : 0,
-            // Jika selisih positif (sistem kebanyakan), masukkan ke KREDIT
-            kredit: !isDebit ? nominalAdjustment : 0
-        }]);
-
-        if (!error) {
-            alert("✅ Sinkronisasi Berhasil. Saldo Sistem sekarang sama dengan Saldo Real.");
-            loadData();
-        }
-    } catch (e) {
-        alert("Gagal: " + e.message);
-    }
-}
     function exportExcel() {
-        if (currentDataRaw.length === 0) return alert("Data kosong");
-        const ws = XLSX.utils.json_to_sheet(currentDataRaw.map(d => ({
-            "Kode": d.kode,
-            "Nama Akun": d.nama,
-            "Saldo Sistem": d.sistem,
-            "Saldo Real": d.real,
-            "Selisih": d.selisih,
-            "Status": d.status
-        })));
+        if (currentDataRaw.length === 0) return;
+        const ws = XLSX.utils.json_to_sheet(currentDataRaw);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "KasBank");
-        XLSX.writeFile(wb, `Laporan_Kas_${new Date().getTime()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "BukuKas");
+        XLSX.writeFile(wb, `KasBank_Finex_${Date.now()}.xlsx`);
     }
 
     function exportPDF() {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        doc.setFontSize(16);
-        doc.text("Laporan Kas & Bank - Finex Pos", 14, 20);
-        doc.setFontSize(10);
-        doc.text(`Tanggal: ${new Date().toLocaleString('id-ID')}`, 14, 28);
-
-        const tableBody = currentDataRaw.map(d => [
-            d.kode, 
-            d.nama, 
-            `Rp ${d.sistem.toLocaleString('id-ID')}`, 
-            `Rp ${d.real.toLocaleString('id-ID')}`, 
-            `Rp ${d.selisih.toLocaleString('id-ID')}`, 
-            d.status
-        ]);
-
-        doc.autoTable({
-            startY: 35,
-            head: [['Kode', 'Nama Akun', 'Saldo Sistem', 'Saldo Real', 'Selisih', 'Status']],
-            body: tableBody,
-            theme: 'grid',
-            headStyles: { fillColor: [44, 62, 80] }
-        });
-
-        doc.save(`Laporan_Kas_${new Date().getTime()}.pdf`);
+        const doc = new jsPDF('l', 'mm', 'a4');
+        doc.text("Laporan Kas & Bank - Finex Pos", 14, 15);
+        const body = currentDataRaw.map(d => [d.kode, d.nama, d.kategori, d.debit.toLocaleString('id-ID'), d.kredit.toLocaleString('id-ID'), d.sistem.toLocaleString('id-ID'), d.real.toLocaleString('id-ID'), d.status]);
+        doc.autoTable({ startY: 22, head: [['Kode', 'Nama', 'Kat', 'Debit', 'Kredit', 'Sistem', 'Real', 'Status']], body: body, theme: 'grid', styles: { fontSize: 8 } });
+        doc.save(`Laporan_Kas_${Date.now()}.pdf`);
     }
-
-    window.onload = loadData;
 </script>
 </body>
 </html>
