@@ -284,38 +284,37 @@ function exportPDF() {
 
     const tableBody = currentDataRaw.map(d => {
         const sistem = Number(d.sistem || 0);
+        const kode = String(d.kode || d.kode_akun || "");
+        const kategori = String(d.kategori || "");
         
-        // Akumulasi Kas & Bank (1101, 1102)
-        if (d.kode === '1101' || d.kode === '1102') totalKasBank += sistem;
+        // A. Akumulasi Kas & Bank (1101, 1102)
+        if (kode === '1101' || kode === '1102') totalKasBank += sistem;
         
-        // Akumulasi Persediaan (1103)
-        if (d.kode === '1103') totalPersediaan += sistem;
+        // B. Akumulasi Persediaan (1103)
+        if (kode === '1103') totalPersediaan += sistem;
 
-        // Akumulasi Penjualan (4101)
-        if (d.kode.startsWith('4')) totalPenjualan += sistem;
+        // C. Akumulasi Penjualan (Semua Kepala 4)
+        if (kode.startsWith('4')) totalPenjualan += sistem;
 
-        // Akumulasi HPP (5101 atau mutasi kredit 1103)
-        if (d.kode === '5101') totalHPP += sistem;
-        
-        // Akumulasi Hutang (2xxx)
-        if (d.kode.startsWith('2')) totalHutang += sistem;
-
-        // Akumulasi Ekuitas (3xxx)
-        if (d.kode.startsWith('3')) totalEkuitas += sistem;
-
-      // D. HPP & Beban (Kepala 5)
+        // D. Akumulasi HPP (Khusus 5101)
         if (kode === '5101') {
             totalHPP += sistem;
         } 
+        // E. Beban Operasional (Kepala 5 selain 5101 atau Kategori Beban)
         else if (kode.startsWith('5') || kategori.toLowerCase().includes('beban')) {
-            // Ini akan menangkap semua akun kepala 5 (5201, 5301, dll) 
-            // ATAU akun yang kategorinya mengandung kata "Beban"
             totalBebanLain += sistem;
         }
+        
+        // F. Akumulasi Hutang (Kepala 2)
+        if (kode.startsWith('2')) totalHutang += sistem;
+
+        // G. Akumulasi Ekuitas (Kepala 3)
+        if (kode.startsWith('3')) totalEkuitas += sistem;
+
         return [
-            d.kode, 
-            d.nama, 
-            d.kategori, 
+            kode, 
+            d.nama || d.nama_akun, 
+            kategori, 
             `Rp ${(d.debit || 0).toLocaleString('id-ID')}`, 
             `Rp ${(d.kredit || 0).toLocaleString('id-ID')}`, 
             `Rp ${sistem.toLocaleString('id-ID')}`, 
@@ -339,12 +338,11 @@ function exportPDF() {
         }
     });
 
-    // --- 4. EXECUTIVE SUMMARY BOX (PENYANDINGAN LABA) ---
+    // --- 4. EXECUTIVE SUMMARY BOX ---
     const finalY = doc.lastAutoTable.finalY + 10;
     const labaKotor = totalPenjualan - totalHPP;
     const labaBersih = labaKotor - totalBebanLain;
     
-    // Background Gray Box
     doc.setFillColor(245, 247, 250);
     doc.roundedRect(14, finalY, 269, 55, 3, 3, 'F');
     
@@ -362,15 +360,15 @@ function exportPDF() {
     doc.text(`Stok Persediaan  : Rp ${totalPersediaan.toLocaleString('id-ID')}`, 20, finalY + 34);
     doc.text(`Total Hutang     : Rp ${totalHutang.toLocaleString('id-ID')}`, 20, finalY + 40);
 
-    // KOLOM 2: ANALISIS LABA (Sandingkan Penjualan & HPP)
+    // KOLOM 2: ANALISIS LABA KOTOR
     doc.setFont(undefined, 'bold'); doc.text("ANALISIS LABA KOTOR", 110, finalY + 20);
     doc.setFont(undefined, 'normal');
     doc.text(`Pendapatan Jual  : Rp ${totalPenjualan.toLocaleString('id-ID')}`, 110, finalY + 28);
-    doc.setTextColor(192, 57, 43); // Merah untuk pengurang
+    doc.setTextColor(192, 57, 43);
     doc.text(`Total HPP        : (Rp ${totalHPP.toLocaleString('id-ID')})`, 110, finalY + 34);
     doc.line(110, finalY + 36, 160, finalY + 36);
     doc.setFont(undefined, 'bold'); 
-    doc.setTextColor(39, 174, 96); // Hijau untuk laba
+    doc.setTextColor(39, 174, 96);
     doc.text(`LABA KOTOR       : Rp ${labaKotor.toLocaleString('id-ID')}`, 110, finalY + 42);
 
     // KOLOM 3: MODAL & NET PROFIT
@@ -386,13 +384,11 @@ function exportPDF() {
     doc.text(`LABA BERSIH`, 200, finalY + 43);
     doc.text(`Rp ${labaBersih.toLocaleString('id-ID')}`, 200, finalY + 49);
 
-    // Footer Signature Space
     doc.setFontSize(8);
     doc.setFont(undefined, 'italic');
     doc.setTextColor(150);
     doc.text(`* Dokumen ini dihasilkan secara digital oleh Finex Pos. Segala data berdasarkan input jurnal harian.`, 14, finalY + 62);
 
-    // --- 5. SAVE ---
     doc.save(`Finex_Laporan_Lengkap_${now.getTime()}.pdf`);
 }
 </script>
