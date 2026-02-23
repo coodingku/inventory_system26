@@ -250,13 +250,102 @@
     }
 
     function exportPDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('l', 'mm', 'a4');
-        doc.text("Laporan Kas & Bank - Finex Pos", 14, 15);
-        const body = currentDataRaw.map(d => [d.kode, d.nama, d.kategori, d.debit.toLocaleString('id-ID'), d.kredit.toLocaleString('id-ID'), d.sistem.toLocaleString('id-ID'), d.real.toLocaleString('id-ID'), d.status]);
-        doc.autoTable({ startY: 22, head: [['Kode', 'Nama', 'Kat', 'Debit', 'Kredit', 'Sistem', 'Real', 'Status']], body: body, theme: 'grid', styles: { fontSize: 8 } });
-        doc.save(`Laporan_Kas_${Date.now()}.pdf`);
-    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape agar kolom muat banyak
+
+    // 1. Header Laporan
+    doc.setFontSize(18);
+    doc.text("LAPORAN KEUANGAN KAS & BANK - FINEX POS", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 22);
+
+    // 2. Hitung Total untuk Ringkasan Bawah
+    let grandTotalDebit = 0;
+    let grandTotalKredit = 0;
+    let totalHPP = 0;
+    let totalEkuitas = 0;
+    let totalKasBankSistem = 0;
+
+    const tableBody = currentDataRaw.map(d => {
+        grandTotalDebit += d.debit;
+        grandTotalKredit += d.kredit;
+        
+        // Hitung HPP (asumsi kode akun beban pokok adalah 5101 atau kategori Beban)
+        if (d.kode === '1103' || d.kategori === 'Beban' || d.kode === '5101') {
+            totalHPP += d.keluar || 0; 
+        }
+
+        // Hitung Ekuitas Berjalan (Kepala 3)
+        if (d.kategori === 'Ekuitas' || d.kode.startsWith('3')) {
+            totalEkuitas += d.sistem;
+        }
+
+        // Hitung Total Kas & Bank (Kepala 11)
+        if (d.kode.startsWith('11')) {
+            totalKasBankSistem += d.sistem;
+        }
+
+        return [
+            d.kode, 
+            d.nama, 
+            d.kategori, 
+            `Rp ${d.debit.toLocaleString('id-ID')}`, 
+            `Rp ${d.kredit.toLocaleString('id-ID')}`, 
+            `Rp ${d.sistem.toLocaleString('id-ID')}`, 
+            `Rp ${d.real.toLocaleString('id-ID')}`, 
+            d.status
+        ];
+    });
+
+    // 3. Render Tabel Utama
+    doc.autoTable({
+        startY: 30,
+        head: [['Kode', 'Nama Akun', 'Kategori', 'Debit (Masuk)', 'Kredit (Keluar)', 'Sistem', 'Real', 'Status']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [44, 62, 80], fontSize: 9 },
+        styles: { fontSize: 8 },
+        columnStyles: {
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+            5: { halign: 'right' },
+            6: { halign: 'right' }
+        }
+    });
+
+    // 4. Tambahkan Ringkasan Total di Bawah Tabel
+    const finalY = doc.lastAutoTable.finalY + 10;
+    
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text("RINGKASAN KEUANGAN:", 14, finalY);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    
+    const summaryX = 14;
+    const valueX = 80;
+    
+    doc.text("Total Debit (Seluruh Masuk)", summaryX, finalY + 7);
+    doc.text(`: Rp ${grandTotalDebit.toLocaleString('id-ID')}`, valueX, finalY + 7);
+
+    doc.text("Total Kredit (Seluruh Keluar)", summaryX, finalY + 14);
+    doc.text(`: Rp ${grandTotalKredit.toLocaleString('id-ID')}`, valueX, finalY + 14);
+
+    doc.text("Total HPP (Beban Pokok Terpakai)", summaryX, finalY + 21);
+    doc.text(`: Rp ${totalHPP.toLocaleString('id-ID')}`, valueX, finalY + 21);
+
+    doc.setFont(undefined, 'bold');
+    doc.text("TOTAL EKUITAS/MODAL BERJALAN", summaryX, finalY + 28);
+    doc.text(`: Rp ${totalEkuitas.toLocaleString('id-ID')}`, valueX, finalY + 28);
+
+    doc.setTextColor(41, 128, 185); // Warna Biru untuk Kas
+    doc.text("TOTAL SALDO KAS & BANK (SISTEM)", summaryX, finalY + 35);
+    doc.text(`: Rp ${totalKasBankSistem.toLocaleString('id-ID')}`, valueX, finalY + 35);
+
+    // 5. Simpan PDF
+    doc.save(`Laporan_Keuangan_Finex_${Date.now()}.pdf`);
+}
 </script>
 </body>
 </html>
