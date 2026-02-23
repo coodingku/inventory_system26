@@ -160,36 +160,75 @@ async function setSaldoAwal(kode, nama) {
     const nominalNum = Number(nominal);
 
     try {
-        // 1. Update kolom saldo di tabel 'akun' (Saldo Real)
+        // 1. Update kolom saldo real di tabel 'akun'
         await db.from('akun').update({ saldo: nominalNum }).eq('kode_akun', kode);
 
-        // 2. Buat Jurnal agar Saldo Sistem sinkron (D: Kas/Bank, K: Modal/Opening Balance)
-        // Gunakan akun Modal (biasanya kepala 3) sebagai pasangannya
-        const { error } = await db.from('jurnal_umum').insert([{
-            tanggal: new Date().toISOString(),
-            kode_akun: kode,
-            keterangan: "Saldo Awal " + nama,
-            no_bukti: noBukti,
-            debit: nominalNum,
-            kredit: 0
-        }]);
+        // 2. Buat Jurnal Ganda (Sangat Penting untuk Neraca)
+        // Baris A: Menambah saldo di akun Kas/Bank (DEBIT)
+        // Baris B: Menambah di akun Modal/Opening Balance (KREDIT) -> biasanya kode akun kepala 3
+        const { error } = await db.from('jurnal_umum').insert([
+            {
+                tanggal: new Date().toISOString(),
+                kode_akun: kode,
+                keterangan: "Saldo Awal " + nama,
+                no_bukti: noBukti,
+                debit: nominalNum,
+                kredit: 0
+            },
+            {
+                tanggal: new Date().toISOString(),
+                kode_akun: '3101', // Sesuaikan dengan kode akun Modal/Ekuitas Anda
+                keterangan: "Modal Awal (Opening Balance) " + nama,
+                no_bukti: noBukti,
+                debit: 0,
+                kredit: nominalNum
+            }
+        ]);
 
         if (!error) {
-            alert(`Saldo Awal ${nama} berhasil diset sebesar Rp ${nominalNum.toLocaleString()}`);
+            alert(`Saldo Awal ${nama} dan Jurnal Modal berhasil dicatat!`);
             loadData();
         }
     } catch (e) {
         alert("Gagal: " + e.message);
     }
 }
+  async function updateSaldoFisik(kode, valSistem) {
+    const input = prompt("Masukkan jumlah uang tunai/saldo bank saat ini (Fisik):", valSistem);
+    if (input === null || input === "") return;
+    
+    const saldoFisikBaru = Number(input);
+    const selisih = saldoFisikBaru - valSistem; // Hitung selisihnya
 
-    async function updateSaldoFisik(kode, valSistem) {
-        const input = prompt("Masukkan jumlah uang tunai/saldo bank saat ini:", valSistem);
-        if (input === null || input === "") return;
-        const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
-        if (!error) loadData();
+    try {
+        // 1. Update angka fisik di tabel 'akun'
+        const { error: errAkun } = await db.from('akun').update({ saldo: saldoFisikBaru }).eq('kode_akun', kode);
+        if (errAkun) throw errAkun;
+
+        // 2. Jika ada selisih, buat jurnal penyesuaian otomatis
+        if (selisih !== 0) {
+            const noBukti = "ADJ-" + Date.now().toString().slice(-6);
+            
+            // Logika: Jika saldo fisik bertambah (selisih +), maka akun didebit. Jika berkurang, dikredit.
+            await db.from('jurnal_umum').insert([{
+                tanggal: new Date().toISOString(),
+                kode_akun: kode,
+                keterangan: "Penyesuaian Saldo (Update Fisik)",
+                no_bukti: noBukti,
+                debit: selisih > 0 ? Math.abs(selisih) : 0,
+                kredit: selisih < 0 ? Math.abs(selisih) : 0
+            }]);
+            
+            alert("Saldo fisik diperbarui & Jurnal penyesuaian telah dicatat.");
+        } else {
+            alert("Saldo fisik diperbarui.");
+        }
+        
+        loadData();
+    } catch (e) {
+        alert("Gagal sinkronisasi: " + e.message);
     }
-
+}
     async function autoJurnal(kode, selisih) {
         if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
         const isDebit = selisih < 0;
