@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Kas & Bank</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        
+        /* SIDEBAR */
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; }
+        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+        .nav-bottom { margin-top: auto; border-top: 1px solid #444; padding-top: 10px; }
+
+        /* MAIN */
+        main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        
+        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 12px; color: #666; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        .status-match { color: var(--success); font-weight: bold; }
+        .status-mismatch { color: var(--danger); font-weight: bold; }
+        
+        .btn-sync { background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .btn-add { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <div class="menu-items">
+        <a href="index.html"><i class="fas fa-chart-pie"></i> Dashboard</a>
+        <a href="kas_bank.html" class="active"><i class="fas fa-university"></i> Kas & Bank</a>
+        <a href="penyesuaian.html"><i class="fas fa-sync"></i> Stok In/Out</a>
+        <a href="produk.html"><i class="fas fa-box"></i> Produk</a>
+    </div>
+    <div class="nav-bottom">
+        <a href="#" onclick="logout()" style="color: var(--danger);"><i class="fas fa-sign-out-alt"></i> Keluar</a>
+    </div>
+</nav>
+
+<main>
+    <div class="header-flex">
+        <h1>Manajemen Kas & Bank</h1>
+        <button class="btn-add" onclick="tambahAkun()"><i class="fas fa-plus"></i> Akun Baru</button>
+    </div>
+
+    <div class="card-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Kode</th>
+                    <th>Nama Akun</th>
+                    <th>Saldo Jurnal (Sistem)</th>
+                    <th>Saldo Fisik (Bank/Kas)</th>
+                    <th>Selisih</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="akun-list">
+                </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    window.onload = loadAkun;
+
+    async function loadAkun() {
+        const { data, error } = await db.from('akun_keuangan').select('*').order('kode_akun');
+        if (error) return console.error(error);
+
+        const tbody = document.getElementById('akun-list');
+        tbody.innerHTML = data.map(akun => {
+            const selisih = Number(akun.saldo_jurnal) - Number(akun.saldo_fisik);
+            const statusClass = selisih === 0 ? 'status-match' : 'status-mismatch';
+            const statusText = selisih === 0 ? 'Cocok' : 'Selisih';
+
+            return `
+                <tr>
+                    <td>${akun.kode_akun}</td>
+                    <td><b>${akun.nama_akun}</b></td>
+                    <td>Rp ${Number(akun.saldo_jurnal).toLocaleString()}</td>
+                    <td>Rp ${Number(akun.saldo_fisik).toLocaleString()}</td>
+                    <td class="${statusClass}">Rp ${selisih.toLocaleString()}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                    <td style="text-align: center;">
+                        <button class="btn-sync" onclick="rekonsiliasi('${akun.kode_akun}', ${akun.saldo_jurnal})">
+                            <i class="fas fa-check-circle"></i> Sinkron
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function rekonsiliasi(kode, saldoSistem) {
+        const fisik = prompt("Masukkan saldo fisik saat ini (berdasarkan mutasi bank/kas):", saldoSistem);
+        if (fisik === null) return;
+
+        const { error } = await db.from('akun_keuangan')
+            .update({ saldo_fisik: Number(fisik) })
+            .eq('kode_akun', kode);
+
+        if (!error) {
+            alert("Saldo fisik diperbarui!");
+            loadAkun();
+        }
+    }
+
+    async function tambahAkun() {
+        const kode = prompt("Kode Akun (Contoh: 1101):");
+        const nama = prompt("Nama Akun (Contoh: Bank BCA):");
+        if (!kode || !nama) return;
+
+        const { error } = await db.from('akun_keuangan').insert([{
+            kode_akun: kode,
+            nama_akun: nama,
+            saldo_jurnal: 0,
+            saldo_fisik: 0
+        }]);
+
+        if (!error) loadAkun();
+    }
+</script>
+</body>
+</html>
