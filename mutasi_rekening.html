@@ -303,9 +303,15 @@ function exportPDF() {
         // Akumulasi Ekuitas (3xxx)
         if (d.kode.startsWith('3')) totalEkuitas += sistem;
 
-        // Beban Lain (5xxx selain HPP)
-        if (d.kode.startsWith('5') && d.kode !== '5101') totalBebanLain += sistem;
-
+      // D. HPP & Beban (Kepala 5)
+        if (kode === '5101') {
+            totalHPP += sistem;
+        } 
+        else if (kode.startsWith('5') || kategori.toLowerCase().includes('beban')) {
+            // Ini akan menangkap semua akun kepala 5 (5201, 5301, dll) 
+            // ATAU akun yang kategorinya mengandung kata "Beban"
+            totalBebanLain += sistem;
+        }
         return [
             d.kode, 
             d.nama, 
