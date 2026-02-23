@@ -8,36 +8,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
     <style>
-        :root { 
-            --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; 
-            --white: #ffffff; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12;
-        }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
-        
-        /* SIDEBAR */
-        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; }
-        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
+        nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
-
-        /* MAIN */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        
-        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 11px; color: #666; text-transform: uppercase; }
-        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-
-        .status-badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .status-badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .bg-match { background: #e8f5e9; color: #2e7d32; }
         .bg-mismatch { background: #ffebee; color: #c62828; }
-        
-        .btn-sync { background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-        .btn-add { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        
-        .val-jurnal { font-weight: bold; color: var(--accent); }
-        .val-fisik { font-weight: bold; color: #555; }
+        .btn-sync { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -45,20 +31,16 @@
 <nav>
     <h2>Finex Pos</h2>
     <div class="menu-items">
-        <a href="index.html"><i class="fas fa-chart-pie"></i> Dashboard</a>
+        <a href="dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a>
         <a href="kas_bank.html" class="active"><i class="fas fa-university"></i> Kas & Bank</a>
         <a href="mutasi_kas.html"><i class="fas fa-exchange-alt"></i> Jurnal Umum</a>
-        <a href="penyesuaian.html"><i class="fas fa-sync"></i> Penyesuaian Stok</a>
     </div>
 </nav>
 
 <main>
     <div class="header-flex">
-        <div>
-            <h1>Kas & Saldo Bank</h1>
-            <p style="color: #666; margin-top: -10px;">Pantau kesesuaian saldo sistem dengan mutasi asli.</p>
-        </div>
-        <button class="btn-add" onclick="tambahAkun()"><i class="fas fa-plus"></i> Tambah Akun Baru</button>
+        <h1>Kas & Saldo Bank</h1>
+        <button class="btn-sync" style="background: var(--success);" onclick="loadData()"><i class="fas fa-sync"></i> Refresh</button>
     </div>
 
     <div class="card-table">
@@ -67,107 +49,79 @@
                 <tr>
                     <th>Kode Akun</th>
                     <th>Nama Akun</th>
-                    <th>Saldo Jurnal (Sistem)</th>
-                    <th>Saldo Fisik (Real)</th>
+                    <th>Kategori</th>
+                    <th>Saldo Sistem (Jurnal)</th>
+                    <th>Saldo Real (Fisik)</th>
                     <th>Selisih</th>
                     <th>Status</th>
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="akun-list">
-                <tr><td colspan="7" style="text-align: center;">Mengsinkronisasi data...</td></tr>
+                <tr><td colspan="8" style="text-align: center;">Memuat data...</td></tr>
             </tbody>
         </table>
     </div>
 </main>
 
 <script>
-    window.onload = loadData;
-
     async function loadData() {
         try {
-            // 1. Ambil data akun_keuangan
-            const { data: akunData, error: errAkun } = await db.from('akun_keuangan').select('*').order('kode_akun');
+            // Ambil data dari tabel 'akun'
+            const { data: akunData, error: errAkun } = await db.from('akun').select('*').order('kode_akun');
             if (errAkun) throw errAkun;
 
-            // 2. Ambil data jurnal_umum untuk hitung saldo real-time
+            // Ambil data mutasi dari 'jurnal_umum'
             const { data: jurnalData, error: errJurnal } = await db.from('jurnal_umum').select('kode_akun, debit, kredit');
             if (errJurnal) throw errJurnal;
 
             const tbody = document.getElementById('akun-list');
             tbody.innerHTML = '';
 
-            akunData.forEach(akun => {
-                // Hitung Saldo Jurnal: Total Debit - Total Kredit dari tabel jurnal_umum
-                const mutasi = jurnalData.filter(j => j.kode_akun === akun.kode_akun);
+            akunData.forEach(a => {
+                // Hitung Saldo Sistem berdasarkan posisi normal
+                const mutasi = jurnalData.filter(j => j.kode_akun === a.kode_akun);
                 const totalDebit = mutasi.reduce((acc, curr) => acc + Number(curr.debit || 0), 0);
                 const totalKredit = mutasi.reduce((acc, curr) => acc + Number(curr.kredit || 0), 0);
-                const saldoSistem = totalDebit - totalKredit;
-
-                const saldoFisik = Number(akun.saldo_fisik || 0);
-                const selisih = saldoSistem - saldoFisik;
                 
-                const statusClass = selisih === 0 ? 'bg-match' : 'bg-mismatch';
-                const statusText = selisih === 0 ? 'Sesuai' : 'Ada Selisih';
+                // Logika Saldo: Jika Debit Posisi Normal, maka D-K. Jika Kredit, maka K-D.
+                let saldoSistem = (a.posisi_normal === 'Debit') ? (totalDebit - totalKredit) : (totalKredit - totalDebit);
+                
+                const saldoReal = Number(a.saldo || 0); // Kolom 'saldo' di tabel akun
+                const selisih = saldoSistem - saldoReal;
+                const matches = selisih === 0;
 
                 tbody.innerHTML += `
                     <tr>
-                        <td><code>${akun.kode_akun}</code></td>
-                        <td><b>${akun.nama_akun}</b></td>
-                        <td class="val-jurnal">Rp ${saldoSistem.toLocaleString('id-ID')}</td>
-                        <td class="val-fisik">Rp ${saldoFisik.toLocaleString('id-ID')}</td>
-                        <td style="color: ${selisih === 0 ? '#27ae60' : '#e74c3c'}">
-                            Rp ${selisih.toLocaleString('id-ID')}
-                        </td>
-                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td><code>${a.kode_akun}</code></td>
+                        <td><b>${a.nama_akun}</b></td>
+                        <td><small>${a.kategori || '-'}</small></td>
+                        <td style="font-weight:bold; color:var(--accent)">Rp ${saldoSistem.toLocaleString('id-ID')}</td>
+                        <td style="font-weight:bold; color:#555">Rp ${saldoReal.toLocaleString('id-ID')}</td>
+                        <td style="color: ${matches ? '#27ae60' : '#e74c3c'}">Rp ${selisih.toLocaleString('id-ID')}</td>
+                        <td><span class="status-badge ${matches ? 'bg-match' : 'bg-mismatch'}">${matches ? 'Sesuai' : 'Selisih'}</span></td>
                         <td style="text-align: center;">
-                            <button class="btn-sync" onclick="updateSaldoFisik('${akun.kode_akun}', ${saldoSistem})" title="Update Saldo Fisik">
-                                <i class="fas fa-edit"></i> Penyesuaian
+                            <button class="btn-sync" onclick="updateSaldoReal('${a.kode_akun}', ${saldoSistem})">
+                                <i class="fas fa-edit"></i> Adj Fisik
                             </button>
                         </td>
                     </tr>
                 `;
             });
-
         } catch (e) {
-            console.error(e);
-            alert("Gagal memuat data: " + e.message);
+            alert("Error: " + e.message);
         }
     }
 
-    async function updateSaldoFisik(kode, currentJurnal) {
-        const input = prompt("Masukkan Saldo Fisik (Real) berdasarkan Mutasi Bank/Uang di Kasir:", currentJurnal);
+    async function updateSaldoReal(kode, valSistem) {
+        const input = prompt("Masukkan saldo fisik asli (real):", valSistem);
         if (input === null) return;
-
-        const { error } = await db.from('akun_keuangan')
-            .update({ saldo_fisik: Number(input) })
-            .eq('kode_akun', kode);
-
-        if (!error) {
-            loadData();
-        } else {
-            alert("Gagal update saldo fisik!");
-        }
+        
+        const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
+        if (!error) loadData();
     }
 
-    async function tambahAkun() {
-        const kode = prompt("Masukkan Kode Akun (Contoh: 1101):");
-        if (!kode) return;
-        const nama = prompt("Nama Akun (Contoh: Bank Mandiri):");
-        if (!nama) return;
-
-        const { error } = await db.from('akun_keuangan').insert([{
-            kode_akun: kode,
-            nama_akun: nama,
-            saldo_fisik: 0
-        }]);
-
-        if (!error) {
-            loadData();
-        } else {
-            alert("Gagal menambah akun. Pastikan kode unik!");
-        }
-    }
+    window.onload = loadData;
 </script>
 </body>
 </html>
