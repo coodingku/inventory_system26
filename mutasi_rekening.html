@@ -229,26 +229,38 @@ async function setSaldoAwal(kode, nama) {
         alert("Gagal sinkronisasi: " + e.message);
     }
 }
-    async function autoJurnal(kode, selisih) {
-        if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
-        const isDebit = selisih < 0;
-        const nominal = Math.abs(selisih);
+ async function autoJurnal(kode, selisih) {
+    // Ingat: 'selisih' di sini adalah (Saldo Sistem - Saldo Real)
+    // Jika selisih adalah 50.000, artinya Sistem KEBANYAKAN 50rb.
+    // Jika selisih adalah -50.000, artinya Sistem KURANG 50rb.
 
+    if(selisih === 0) return alert("Saldo sudah sinkron!");
+
+    if(!confirm(`Buat jurnal penyesuaian untuk menyamakan sistem dengan fisik?`)) return;
+
+    const nominalAdjustment = Math.abs(selisih);
+    const isDebit = selisih < 0; // Jika sistem kurang, kita DEBIT supaya nambah
+
+    try {
         const { error } = await db.from('jurnal_umum').insert([{
             tanggal: new Date().toISOString(),
             kode_akun: kode,
-            keterangan: "Penyesuaian Saldo Otomatis",
-            no_bukti: "ADJ-" + Date.now().toString().slice(-6),
-            debit: isDebit ? nominal : 0,
-            kredit: isDebit ? 0 : nominal
+            keterangan: "Sinkronisasi Saldo Fisik",
+            no_bukti: "SYNC-" + Date.now().toString().slice(-6),
+            // Jika selisih negatif (sistem kurang), masukkan ke DEBIT
+            debit: isDebit ? nominalAdjustment : 0,
+            // Jika selisih positif (sistem kebanyakan), masukkan ke KREDIT
+            kredit: !isDebit ? nominalAdjustment : 0
         }]);
 
         if (!error) {
-            alert("Berhasil! Saldo Jurnal kini sinkron.");
+            alert("✅ Sinkronisasi Berhasil. Saldo Sistem sekarang sama dengan Saldo Real.");
             loadData();
         }
+    } catch (e) {
+        alert("Gagal: " + e.message);
     }
-
+}
     function exportExcel() {
         if (currentDataRaw.length === 0) return alert("Data kosong");
         const ws = XLSX.utils.json_to_sheet(currentDataRaw.map(d => ({
