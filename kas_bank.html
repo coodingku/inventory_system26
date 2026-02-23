@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Kas & Bank</title>
+    <title>Finex Pos | Kas & Bank Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
@@ -17,13 +17,17 @@
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         .status-badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .bg-match { background: #e8f5e9; color: #2e7d32; }
         .bg-mismatch { background: #ffebee; color: #c62828; }
-        .btn-sync { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .btn-group-action { display: flex; gap: 5px; justify-content: center; }
+        .btn-action { border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; color: white; transition: 0.2s; }
+        .btn-adj { background: #7f8c8d; }
+        .btn-sync { background: var(--success); }
+        .btn-action:hover { opacity: 0.8; transform: translateY(-1px); }
     </style>
 </head>
 <body>
@@ -39,27 +43,26 @@
 
 <main>
     <div class="header-flex">
-        <h1>Kas & Saldo Bank</h1>
-        <button class="btn-sync" style="background: var(--success);" onclick="loadData()"><i class="fas fa-sync"></i> Refresh</button>
+        <h1>Buku Kas & Bank</h1>
+        <button class="btn-action btn-sync" style="padding: 10px 20px; font-size: 14px;" onclick="loadData()">
+            <i class="fas fa-sync"></i> Refresh Data
+        </button>
     </div>
 
     <div class="card-table">
         <table>
             <thead>
                 <tr>
-                    <th>Kode Akun</th>
+                    <th>Kode</th>
                     <th>Nama Akun</th>
-                    <th>Kategori</th>
-                    <th>Saldo Sistem (Jurnal)</th>
-                    <th>Saldo Real (Fisik)</th>
+                    <th>Saldo Sistem</th>
+                    <th>Saldo Real</th>
                     <th>Selisih</th>
                     <th>Status</th>
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
-            <tbody id="akun-list">
-                <tr><td colspan="8" style="text-align: center;">Memuat data...</td></tr>
-            </tbody>
+            <tbody id="akun-list"></tbody>
         </table>
     </div>
 </main>
@@ -67,11 +70,9 @@
 <script>
     async function loadData() {
         try {
-            // Ambil data dari tabel 'akun'
             const { data: akunData, error: errAkun } = await db.from('akun').select('*').order('kode_akun');
             if (errAkun) throw errAkun;
 
-            // Ambil data mutasi dari 'jurnal_umum'
             const { data: jurnalData, error: errJurnal } = await db.from('jurnal_umum').select('kode_akun, debit, kredit');
             if (errJurnal) throw errJurnal;
 
@@ -79,46 +80,72 @@
             tbody.innerHTML = '';
 
             akunData.forEach(a => {
-                // Hitung Saldo Sistem berdasarkan posisi normal
                 const mutasi = jurnalData.filter(j => j.kode_akun === a.kode_akun);
                 const totalDebit = mutasi.reduce((acc, curr) => acc + Number(curr.debit || 0), 0);
                 const totalKredit = mutasi.reduce((acc, curr) => acc + Number(curr.kredit || 0), 0);
                 
-                // Logika Saldo: Jika Debit Posisi Normal, maka D-K. Jika Kredit, maka K-D.
                 let saldoSistem = (a.posisi_normal === 'Debit') ? (totalDebit - totalKredit) : (totalKredit - totalDebit);
-                
-                const saldoReal = Number(a.saldo || 0); // Kolom 'saldo' di tabel akun
+                const saldoReal = Number(a.saldo || 0);
                 const selisih = saldoSistem - saldoReal;
-                const matches = selisih === 0;
+                const isMatch = selisih === 0;
 
                 tbody.innerHTML += `
                     <tr>
                         <td><code>${a.kode_akun}</code></td>
                         <td><b>${a.nama_akun}</b></td>
-                        <td><small>${a.kategori || '-'}</small></td>
                         <td style="font-weight:bold; color:var(--accent)">Rp ${saldoSistem.toLocaleString('id-ID')}</td>
                         <td style="font-weight:bold; color:#555">Rp ${saldoReal.toLocaleString('id-ID')}</td>
-                        <td style="color: ${matches ? '#27ae60' : '#e74c3c'}">Rp ${selisih.toLocaleString('id-ID')}</td>
-                        <td><span class="status-badge ${matches ? 'bg-match' : 'bg-mismatch'}">${matches ? 'Sesuai' : 'Selisih'}</span></td>
-                        <td style="text-align: center;">
-                            <button class="btn-sync" onclick="updateSaldoReal('${a.kode_akun}', ${saldoSistem})">
-                                <i class="fas fa-edit"></i> Adj Fisik
-                            </button>
+                        <td style="color: ${isMatch ? '#27ae60' : '#e74c3c'}">Rp ${selisih.toLocaleString('id-ID')}</td>
+                        <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
+                        <td>
+                            <div class="btn-group-action">
+                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Angka Fisik">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                ${!isMatch ? `
+                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Buat Jurnal Penyesuaian">
+                                    <i class="fas fa-magic"></i> Sinkron Jurnal
+                                </button>` : ''}
+                            </div>
                         </td>
                     </tr>
                 `;
             });
-        } catch (e) {
-            alert("Error: " + e.message);
-        }
+        } catch (e) { console.error(e); }
     }
 
-    async function updateSaldoReal(kode, valSistem) {
-        const input = prompt("Masukkan saldo fisik asli (real):", valSistem);
-        if (input === null) return;
-        
+    // Fungsi 1: Hanya update angka saldo fisik di tabel 'akun'
+    async function updateSaldoFisik(kode, valSistem) {
+        const input = prompt("Berapa saldo uang fisik sebenarnya di laci/bank saat ini?", valSistem);
+        if (input === null || input === "") return;
         const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
         if (!error) loadData();
+    }
+
+    // Fungsi 2: Membuat baris baru di jurnal_umum agar saldo sistem mengejar saldo fisik
+    async function autoJurnal(kode, selisih) {
+        if(!confirm(`Sistem akan membuat jurnal penyesuaian otomatis untuk akun ${kode}. Lanjutkan?`)) return;
+
+        // Jika selisih positif (Sistem > Fisik) -> Kurangi saldo (Kredit)
+        // Jika selisih negatif (Sistem < Fisik) -> Tambah saldo (Debit)
+        const isDebit = selisih < 0;
+        const nominal = Math.abs(selisih);
+
+        const { error } = await db.from('jurnal_umum').insert([{
+            tanggal: new Date().toISOString(),
+            kode_akun: kode,
+            keterangan: "Penyesuaian Saldo Otomatis",
+            no_bukti: "ADJ-" + Date.now().toString().slice(-6),
+            debit: isDebit ? nominal : 0,
+            kredit: isDebit ? 0 : nominal
+        }]);
+
+        if (!error) {
+            alert("Jurnal penyesuaian berhasil dibuat. Saldo sistem sekarang sinkron!");
+            loadData();
+        } else {
+            alert("Gagal membuat jurnal: " + error.message);
+        }
     }
 
     window.onload = loadData;
