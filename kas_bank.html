@@ -152,12 +152,18 @@
         if (!error) loadData();
     }
 
-    async function autoJurnal(kode, selisih) {
-        if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
-        const isDebit = selisih < 0;
-        const nominal = Math.abs(selisih);
+async function autoJurnal(kode, selisih) {
+    if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
+    
+    // 1. Tentukan arah penyesuaian
+    // Jika selisih < 0 (Sistem lebih kecil dari Real), maka sistem harus di-DEBIT (ditambah)
+    // Jika selisih > 0 (Sistem lebih besar dari Real), maka sistem harus di-KREDIT (dikurangi)
+    const isDebit = selisih < 0; 
+    const nominal = Math.abs(selisih);
 
-        const { error } = await db.from('jurnal_umum').insert([{
+    try {
+        // A. MASUKKAN KE JURNAL (Mengubah Saldo Sistem)
+        const { error: errJurnal } = await db.from('jurnal_umum').insert([{
             tanggal: new Date().toISOString(),
             kode_akun: kode,
             keterangan: "Penyesuaian Saldo Otomatis",
@@ -166,12 +172,37 @@
             kredit: isDebit ? 0 : nominal
         }]);
 
-        if (!error) {
-            alert("Berhasil! Saldo Jurnal kini sinkron.");
-            loadData();
-        }
-    }
+        if (errJurnal) throw errJurnal;
 
+        // B. UPDATE TABEL AKUN (Mengubah Saldo Real agar ikut sinkron)
+        // Kita ambil saldo sistem terbaru setelah penyesuaian tadi
+        // Karena tujuannya sinkron, maka Saldo Real harus menjadi sama dengan Saldo Sistem
+        
+        // Pertama, ambil data akun untuk cek posisi normal
+        const { data: acc } = await db.from('akun').select('posisi_normal').eq('kode_akun', kode).single();
+        
+        // Kedua, hitung total saldo terbaru dari jurnal
+        const { data: mutasi } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', kode);
+        const totalD = mutasi.reduce((a, b) => a + (Number(b.debit) || 0), 0);
+        const totalK = mutasi.reduce((a, b) => a + (Number(b.kredit) || 0), 0);
+        
+        const saldoTerbaru = (acc.posisi_normal === 'Debit') ? (totalD - totalK) : (totalK - totalD);
+
+        // Ketiga, Update kolom saldo real di tabel akun
+        const { error: errAkun } = await db.from('akun')
+            .update({ saldo: saldoTerbaru })
+            .eq('kode_akun', kode);
+
+        if (errAkun) throw errAkun;
+
+        alert("✅ Berhasil! Saldo Sistem & Saldo Real sekarang sinkron.");
+        loadData(); // Refresh tampilan tabel
+
+    } catch (e) {
+        alert("Gagal Sinkronisasi: " + e.message);
+        console.error(e);
+    }
+}
     function exportExcel() {
         if (currentDataRaw.length === 0) return alert("Data kosong");
         const ws = XLSX.utils.json_to_sheet(currentDataRaw.map(d => ({
