@@ -249,102 +249,125 @@
         XLSX.writeFile(wb, `KasBank_Finex_${Date.now()}.xlsx`);
     }
 
-    function exportPDF() {
+   function exportPDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape agar kolom muat banyak
+    const doc = new jsPDF('l', 'mm', 'a4'); // Format Landscape
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    // 1. Header Laporan
-    doc.setFontSize(18);
-    doc.text("LAPORAN KEUANGAN KAS & BANK - FINEX POS", 14, 15);
+    // --- 1. HEADER DESIGN ---
+    doc.setFillColor(44, 62, 80); // Warna Biru Gelap (Primary)
+    doc.rect(0, 0, 297, 40, 'F'); 
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont(undefined, 'bold');
+    doc.text("FINEX POS", 14, 18);
+    
     doc.setFontSize(10);
-    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 22);
+    doc.setFont(undefined, 'normal');
+    doc.text("Sistem Manajemen Kas & Inventaris Pintar", 14, 25);
+    doc.text(`Dicetak pada: ${dateStr} | ${timeStr}`, 14, 32);
 
-    // 2. Hitung Total untuk Ringkasan Bawah
-    let grandTotalDebit = 0;
-    let grandTotalKredit = 0;
-    let totalHPP = 0;
-    let totalEkuitas = 0;
-    let totalKasBankSistem = 0;
+    doc.setFontSize(14);
+    doc.text("LAPORAN NERACA & ARUS KAS", 283, 25, { align: 'right' });
+
+    // --- 2. LOGIKA PERHITUNGAN TOTAL ---
+    let totalDebit = 0, totalKredit = 0, totalHPP = 0, totalEkuitas = 0, totalAsetLancar = 0, totalBeban = 0;
 
     const tableBody = currentDataRaw.map(d => {
-        grandTotalDebit += d.debit;
-        grandTotalKredit += d.kredit;
+        totalDebit += (d.debit || 0);
+        totalKredit += (d.kredit || 0);
         
-        // Hitung HPP (asumsi kode akun beban pokok adalah 5101 atau kategori Beban)
-        if (d.kode === '1103' || d.kategori === 'Beban' || d.kode === '5101') {
-            totalHPP += d.keluar || 0; 
-        }
+        // HPP: Akun 5101 atau Kredit dari 1103
+        if (d.kode === '5101') totalHPP += d.sistem;
+        if (d.kode === '1103') totalHPP = d.kredit; // Mengambil nilai barang keluar
 
-        // Hitung Ekuitas Berjalan (Kepala 3)
-        if (d.kategori === 'Ekuitas' || d.kode.startsWith('3')) {
-            totalEkuitas += d.sistem;
-        }
+        // Ekuitas: Kepala 3
+        if (d.kode.startsWith('3')) totalEkuitas += d.sistem;
 
-        // Hitung Total Kas & Bank (Kepala 11)
-        if (d.kode.startsWith('11')) {
-            totalKasBankSistem += d.sistem;
-        }
+        // Aset Lancar: Kas & Bank (1101, 1102)
+        if (d.kode === '1101' || d.kode === '1102') totalAsetLancar += d.sistem;
+        
+        // Beban Lainnya: Selain HPP di kepala 5
+        if (d.kode.startsWith('5') && d.kode !== '5101') totalBeban += d.sistem;
 
         return [
             d.kode, 
             d.nama, 
             d.kategori, 
-            `Rp ${d.debit.toLocaleString('id-ID')}`, 
-            `Rp ${d.kredit.toLocaleString('id-ID')}`, 
-            `Rp ${d.sistem.toLocaleString('id-ID')}`, 
-            `Rp ${d.real.toLocaleString('id-ID')}`, 
+            d.debit.toLocaleString('id-ID'), 
+            d.kredit.toLocaleString('id-ID'), 
+            d.sistem.toLocaleString('id-ID'), 
             d.status
         ];
     });
 
-    // 3. Render Tabel Utama
+    // --- 3. TABEL UTAMA ---
     doc.autoTable({
-        startY: 30,
-        head: [['Kode', 'Nama Akun', 'Kategori', 'Debit (Masuk)', 'Kredit (Keluar)', 'Sistem', 'Real', 'Status']],
+        startY: 45,
+        head: [['Kode', 'Nama Akun', 'Kategori', 'Debit (Rp)', 'Kredit (Rp)', 'Saldo Sistem (Rp)', 'Status']],
         body: tableBody,
-        theme: 'grid',
-        headStyles: { fillColor: [44, 62, 80], fontSize: 9 },
-        styles: { fontSize: 8 },
+        theme: 'striped', // Membuat baris selang-seling warna
+        headStyles: { fillColor: [52, 152, 219], fontSize: 10, halign: 'center' },
+        styles: { fontSize: 9, cellPadding: 3 },
         columnStyles: {
             3: { halign: 'right' },
             4: { halign: 'right' },
-            5: { halign: 'right' },
-            6: { halign: 'right' }
+            5: { halign: 'right', fontStyle: 'bold' },
+            6: { halign: 'center' }
+        },
+        didDrawPage: function (data) {
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Halaman ${doc.internal.getNumberOfPages()}`, 283, 205, { align: 'right' });
         }
     });
 
-    // 4. Tambahkan Ringkasan Total di Bawah Tabel
+    // --- 4. FOOTER SUMMARY BOX ---
     const finalY = doc.lastAutoTable.finalY + 10;
     
+    // Kotak Background Ringkasan
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(14, finalY, 269, 45, 3, 3, 'F');
+    
+    doc.setTextColor(44, 62, 80);
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.text("RINGKASAN KEUANGAN:", 14, finalY);
+    doc.text("RINGKASAN EKSEKUTIF", 20, finalY + 10);
     
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     
-    const summaryX = 14;
-    const valueX = 80;
+    // Kolom Kiri
+    doc.text(`Total Kas & Bank (Aset Lancar)`, 20, finalY + 20);
+    doc.text(`: Rp ${totalAsetLancar.toLocaleString('id-ID')}`, 85, finalY + 20);
     
-    doc.text("Total Debit (Seluruh Masuk)", summaryX, finalY + 7);
-    doc.text(`: Rp ${grandTotalDebit.toLocaleString('id-ID')}`, valueX, finalY + 7);
-
-    doc.text("Total Kredit (Seluruh Keluar)", summaryX, finalY + 14);
-    doc.text(`: Rp ${grandTotalKredit.toLocaleString('id-ID')}`, valueX, finalY + 14);
-
-    doc.text("Total HPP (Beban Pokok Terpakai)", summaryX, finalY + 21);
-    doc.text(`: Rp ${totalHPP.toLocaleString('id-ID')}`, valueX, finalY + 21);
-
+    doc.text(`Total Beban Pokok (HPP)`, 20, finalY + 28);
+    doc.text(`: Rp ${totalHPP.toLocaleString('id-ID')}`, 85, finalY + 28);
+    
+    // Kolom Kanan
+    doc.text(`Total Operasional (Beban Lain)`, 150, finalY + 20);
+    doc.text(`: Rp ${totalBeban.toLocaleString('id-ID')}`, 220, finalY + 20);
+    
     doc.setFont(undefined, 'bold');
-    doc.text("TOTAL EKUITAS/MODAL BERJALAN", summaryX, finalY + 28);
-    doc.text(`: Rp ${totalEkuitas.toLocaleString('id-ID')}`, valueX, finalY + 28);
+    doc.setTextColor(39, 174, 96); // Warna Hijau
+    doc.text(`TOTAL EKUITAS BERJALAN`, 150, finalY + 28);
+    doc.text(`: Rp ${totalEkuitas.toLocaleString('id-ID')}`, 220, finalY + 28);
 
-    doc.setTextColor(41, 128, 185); // Warna Biru untuk Kas
-    doc.text("TOTAL SALDO KAS & BANK (SISTEM)", summaryX, finalY + 35);
-    doc.text(`: Rp ${totalKasBankSistem.toLocaleString('id-ID')}`, valueX, finalY + 35);
+    // Garis Bawah Penutup
+    doc.setDrawColor(52, 152, 219);
+    doc.setLineWidth(1);
+    doc.line(14, finalY + 35, 283, finalY + 35);
 
-    // 5. Simpan PDF
-    doc.save(`Laporan_Keuangan_Finex_${Date.now()}.pdf`);
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("*Laporan ini dihasilkan secara otomatis oleh sistem Finex Pos dan merupakan dokumen sah operasional.", 14, finalY + 41);
+
+    // --- 5. DOWNLOAD PDF ---
+    doc.save(`Finex_Laporan_Pro_${now.getTime()}.pdf`);
 }
 </script>
 </body>
