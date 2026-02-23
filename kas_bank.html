@@ -16,14 +16,14 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
-        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
+        nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; }
+        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         
@@ -31,10 +31,13 @@
         .bg-match { background: #e8f5e9; color: #2e7d32; }
         .bg-mismatch { background: #ffebee; color: #c62828; }
         
-        .btn-action { border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px; }
+        .btn-group-action { display: flex; gap: 5px; justify-content: center; }
+        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
         .btn-pdf { background: #c0392b; }
         .btn-excel { background: #1f7244; }
         .btn-sync { background: var(--success); }
+        .btn-refresh { background: var(--accent); }
+        .btn-adj { background: #7f8c8d; }
     </style>
 </head>
 <body>
@@ -58,14 +61,14 @@
             <button class="btn-action btn-excel" onclick="exportExcel()">
                 <i class="fas fa-file-excel"></i> Excel
             </button>
-            <button class="btn-action btn-sync" onclick="loadData()">
+            <button class="btn-action btn-refresh" onclick="loadData()">
                 <i class="fas fa-sync"></i> Refresh
             </button>
         </div>
     </div>
 
     <div class="card-table">
-        <table id="table-data">
+        <table id="table-kas">
             <thead>
                 <tr>
                     <th>Kode</th>
@@ -74,6 +77,7 @@
                     <th>Saldo Real</th>
                     <th>Selisih</th>
                     <th>Status</th>
+                    <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody id="akun-list"></tbody>
@@ -82,7 +86,7 @@
 </main>
 
 <script>
-    let currentData = [];
+    let currentDataRaw = []; // Untuk olah data
 
     async function loadData() {
         try {
@@ -94,7 +98,7 @@
 
             const tbody = document.getElementById('akun-list');
             tbody.innerHTML = '';
-            currentData = [];
+            currentDataRaw = [];
 
             akunData.forEach(a => {
                 const mutasi = jurnalData.filter(j => j.kode_akun === a.kode_akun);
@@ -106,14 +110,15 @@
                 const selisih = saldoSistem - saldoReal;
                 const isMatch = selisih === 0;
 
-                currentData.push([
-                    a.kode_akun, 
-                    a.nama_akun, 
-                    `Rp ${saldoSistem.toLocaleString('id-ID')}`, 
-                    `Rp ${saldoReal.toLocaleString('id-ID')}`, 
-                    `Rp ${selisih.toLocaleString('id-ID')}`, 
-                    isMatch ? "Sesuai" : "Selisih"
-                ]);
+                // Simpan untuk export
+                currentDataRaw.push({
+                    kode: a.kode_akun,
+                    nama: a.nama_akun,
+                    sistem: saldoSistem,
+                    real: saldoReal,
+                    selisih: selisih,
+                    status: isMatch ? "Sesuai" : "Selisih"
+                });
 
                 tbody.innerHTML += `
                     <tr>
@@ -123,40 +128,92 @@
                         <td style="font-weight:bold; color:#555">Rp ${saldoReal.toLocaleString('id-ID')}</td>
                         <td style="color: ${isMatch ? '#27ae60' : '#e74c3c'}">Rp ${selisih.toLocaleString('id-ID')}</td>
                         <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
+                        <td>
+                            <div class="btn-group-action">
+                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Realitas Fisik">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                ${!isMatch ? `
+                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Jurnal Otomatis">
+                                    <i class="fas fa-magic"></i>
+                                </button>` : ''}
+                            </div>
+                        </td>
                     </tr>
                 `;
             });
         } catch (e) { console.error(e); }
     }
 
+    async function updateSaldoFisik(kode, valSistem) {
+        const input = prompt("Masukkan jumlah uang tunai/saldo bank saat ini:", valSistem);
+        if (input === null || input === "") return;
+        const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
+        if (!error) loadData();
+    }
+
+    async function autoJurnal(kode, selisih) {
+        if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
+        const isDebit = selisih < 0;
+        const nominal = Math.abs(selisih);
+
+        const { error } = await db.from('jurnal_umum').insert([{
+            tanggal: new Date().toISOString(),
+            kode_akun: kode,
+            keterangan: "Penyesuaian Saldo Otomatis",
+            no_bukti: "ADJ-" + Date.now().toString().slice(-6),
+            debit: isDebit ? nominal : 0,
+            kredit: isDebit ? 0 : nominal
+        }]);
+
+        if (!error) {
+            alert("Berhasil! Saldo Jurnal kini sinkron.");
+            loadData();
+        }
+    }
+
+    function exportExcel() {
+        if (currentDataRaw.length === 0) return alert("Data kosong");
+        const ws = XLSX.utils.json_to_sheet(currentDataRaw.map(d => ({
+            "Kode": d.kode,
+            "Nama Akun": d.nama,
+            "Saldo Sistem": d.sistem,
+            "Saldo Real": d.real,
+            "Selisih": d.selisih,
+            "Status": d.status
+        })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "KasBank");
+        XLSX.writeFile(wb, `Laporan_Kas_${new Date().getTime()}.xlsx`);
+    }
+
     function exportPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
-        doc.setFontSize(18);
-        doc.text("Laporan Saldo Kas & Bank", 14, 22);
-        doc.setFontSize(11);
-        doc.setTextColor(100);
-        doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 30);
+        doc.setFontSize(16);
+        doc.text("Laporan Kas & Bank - Finex Pos", 14, 20);
+        doc.setFontSize(10);
+        doc.text(`Tanggal: ${new Date().toLocaleString('id-ID')}`, 14, 28);
+
+        const tableBody = currentDataRaw.map(d => [
+            d.kode, 
+            d.nama, 
+            `Rp ${d.sistem.toLocaleString('id-ID')}`, 
+            `Rp ${d.real.toLocaleString('id-ID')}`, 
+            `Rp ${d.selisih.toLocaleString('id-ID')}`, 
+            d.status
+        ]);
 
         doc.autoTable({
             startY: 35,
             head: [['Kode', 'Nama Akun', 'Saldo Sistem', 'Saldo Real', 'Selisih', 'Status']],
-            body: currentData,
+            body: tableBody,
             theme: 'grid',
-            headStyles: { fillColor: [44, 62, 80] },
-            styles: { fontSize: 9 }
+            headStyles: { fillColor: [44, 62, 80] }
         });
 
-        doc.save(`Laporan_Kas_Bank_${Date.now()}.pdf`);
-    }
-
-    function exportExcel() {
-        const wb = XLSX.utils.book_new();
-        const wsData = [["Kode", "Nama Akun", "Saldo Sistem", "Saldo Real", "Selisih", "Status"], ...currentData];
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        XLSX.utils.book_append_sheet(wb, ws, "KasBank");
-        XLSX.writeFile(wb, `Laporan_Kas_Bank_${Date.now()}.xlsx`);
+        doc.save(`Laporan_Kas_${new Date().getTime()}.pdf`);
     }
 
     window.onload = loadData;
