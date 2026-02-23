@@ -2,206 +2,117 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Audit & Sinkronisasi Global</title>
+    <title>Finex Pos | Audit Beban & HPP</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); padding: 40px; color: #333; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1100px; margin: auto; }
-        .header-box { border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; }
+        :root { --primary: #2c3e50; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; color: var(--primary); }
+        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }
         td { padding: 12px; border-bottom: 1px solid #eee; }
-        tr:hover { background: #fcfcfc; }
-        .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; margin-right: 10px; }
-        .btn-audit { background: var(--primary); }
-        .btn-fix { background: var(--success); width: 100%; margin-top: 25px; font-size: 16px; box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3); }
-        .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
-        .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-scan { background: var(--primary); width: 100%; margin-bottom: 10px; }
+        .btn-fix { background: var(--success); width: 100%; margin-top: 20px; font-size: 16px; }
+        .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 11px; }
         .bg-hpp { background: var(--danger); }
         .bg-beban { background: var(--warning); }
-        .nominal { font-family: 'Courier New', Courier, monospace; font-weight: bold; color: #2c3e50; }
-        .alert-info { background: #e3f2fd; padding: 15px; border-radius: 8px; border: 1px solid #bbdefb; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="header-box">
-        <h2>🎯 Audit & Sinkronisasi Keuangan Finex Pos</h2>
-        <p>Halaman ini digunakan untuk mencocokkan data <b>Tabel Pengeluaran & Penjualan</b> ke dalam <b>Jurnal Umum</b> agar Laporan PDF Akurat.</p>
-    </div>
+    <h2>🎯 Sinkronisasi Beban & HPP</h2>
+    <p>Gunakan ini untuk memulihkan angka <b>Beban Operasional</b> dan <b>HPP</b> di laporan PDF.</p>
     
-    <button class="btn btn-audit" id="btn-scan" onclick="runAuditGlobal()">🔍 1. Scan Database (HPP & Beban)</button>
+    <button class="btn btn-scan" id="btn-scan" onclick="runAudit()">🔍 Scan Beban & HPP</button>
     
-    <div id="result-area" style="display:none; margin-top: 20px;">
-        <div class="alert-info">
-            ✅ Scan Selesai: Ditemukan <b id="count">0</b> item yang perlu disinkronkan.
-        </div>
-
+    <div id="result-area" style="display:none;">
         <table>
             <thead>
                 <tr>
                     <th>Tanggal</th>
-                    <th>Tipe</th>
-                    <th>Keterangan / Supplier</th>
-                    <th style="text-align: right;">Nilai (Rp)</th>
-                    <th>Akun Debet</th>
-                    <th>Akun Kredit</th>
+                    <th>Kategori</th>
+                    <th>Keterangan</th>
+                    <th>Nominal</th>
+                    <th>Akun</th>
                 </tr>
             </thead>
             <tbody id="list-data"></tbody>
         </table>
 
-        <button class="btn btn-fix" id="btn-fix" onclick="fixSemuaKeuangan()">🔥 2. SINKRONKAN KE JURNAL UMUM & BALANCE NERACA</button>
+        <button class="btn btn-fix" id="btn-fix" onclick="fixData()">🔥 Sinkronkan ke Jurnal Umum</button>
     </div>
 </div>
 
 <script>
     let finalizedEntries = [];
 
-    async function runAuditGlobal() {
-        const btnScan = document.getElementById('btn-scan');
+    async function runAudit() {
         const list = document.getElementById('list-data');
-        btnScan.disabled = true;
-        btnScan.innerHTML = "⏳ Scanning Data...";
-        
         finalizedEntries = [];
         let html = '';
 
         try {
-            // --- A. SCAN HPP DARI PENJUALAN ---
-            const { data: sales, error: errS } = await db.from('penjualan').select('*').order('created_at', { ascending: false });
-            if (errS) throw errS;
-
+            // 1. SCAN HPP DARI PRODUK TERJUAL
+            const { data: sales } = await db.from('penjualan').select('id, no_invoice, created_at');
             for (let s of sales) {
-                let totalHPPNota = 0;
+                let totalHPP = 0;
                 const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', s.id);
-                
                 if (details) {
                     for (let d of details) {
                         const { data: prod } = await db.from('produk').select('harga_beli').eq('id', d.produk_id).single();
-                        if (prod && prod.harga_beli) {
-                            totalHPPNota += (parseFloat(prod.harga_beli) * d.qty);
-                        }
+                        if (prod) totalHPP += (parseFloat(prod.harga_beli || 0) * d.qty);
                     }
                 }
-
-                if(totalHPPNota > 0) {
-                    html += `<tr>
-                        <td>${new Date(s.created_at).toLocaleDateString('id-ID')}</td>
-                        <td><span class="badge bg-hpp">HPP</span></td>
-                        <td>HPP Penjualan: ${s.no_invoice}</td>
-                        <td align="right" class="nominal">Rp ${totalHPPNota.toLocaleString('id-ID')}</td>
-                        <td>5101 (HPP)</td>
-                        <td>1103 (Stok)</td>
-                    </tr>`;
-                    finalizedEntries.push({ type: 'HPP', date: s.created_at, ref: s.no_invoice, val: totalHPPNota });
+                if (totalHPP > 0) {
+                    html += `<tr><td>${new Date(s.created_at).toLocaleDateString()}</td><td><span class="badge bg-hpp">HPP</span></td><td>HPP: ${s.no_invoice}</td><td>Rp ${totalHPP.toLocaleString()}</td><td>5101</td></tr>`;
+                    finalizedEntries.push({ type: 'HPP', date: s.created_at, ref: s.no_invoice, val: totalHPP, target: '5101', source: '1103' });
                 }
             }
 
-            // --- B. SCAN BEBAN DARI TABEL PENGELUARAN (KOLOM JUMLAH) ---
-            const { data: expenses, error: errE } = await db.from('pengeluaran').select('*');
-            if (errE) throw errE;
-
+            // 2. SCAN BEBAN DARI TABEL PENGELUARAN (Kolom: jumlah)
+            const { data: expenses } = await db.from('pengeluaran').select('*');
             if (expenses) {
                 for (let e of expenses) {
-                    // MENGAMBIL KOLOM 'jumlah' SESUAI TABEL USER
-                    let nilaiBeban = parseFloat(e.jumlah || 0); 
-                    
-                    // Identifikasi Akun: Jika kategori Gaji -> 6103, lainnya -> 6101
-                    let targetAkun = (e.kategori === 'Gaji' || (e.keterangan && e.keterangan.toLowerCase().includes('gaji'))) ? '6103' : '6101';
-                    
-                    // Identifikasi Kas/Bank: Jika metode Transfer -> 1102, lainnya -> 1101
-                    let sumberDana = (e.metode === 'Transfer') ? '1102' : '1101';
-
-                    html += `<tr>
-                        <td>${new Date(e.tanggal || e.created_at).toLocaleDateString('id-ID')}</td>
-                        <td><span class="badge bg-beban">BEBAN</span></td>
-                        <td>${e.keterangan || 'Beban Operasional'}</td>
-                        <td align="right" class="nominal" style="color:var(--danger)">Rp ${nilaiBeban.toLocaleString('id-ID')}</td>
-                        <td>${targetAkun}</td>
-                        <td>${sumberDana}</td>
-                    </tr>`;
-
-                    finalizedEntries.push({ 
-                        type: 'BEBAN', 
-                        date: e.tanggal || e.created_at, 
-                        ref: e.no_bukti || 'EXP-' + (e.id ? e.id.toString().substring(0,4) : Math.floor(Math.random() * 1000)), 
-                        val: nilaiBeban, 
-                        target: targetAkun, 
-                        source: sumberDana 
-                    });
+                    let nominal = parseFloat(e.jumlah || 0);
+                    let targetAkun = (e.kategori === 'Gaji') ? '6103' : '6101';
+                    html += `<tr><td>${new Date(e.tanggal).toLocaleDateString()}</td><td><span class="badge bg-beban">BEBAN</span></td><td>${e.keterangan}</td><td>Rp ${nominal.toLocaleString()}</td><td>${targetAkun}</td></tr>`;
+                    finalizedEntries.push({ type: 'BEBAN', date: e.tanggal, ref: 'EXP-' + e.id, val: nominal, target: targetAkun, source: '1101' });
                 }
             }
 
             list.innerHTML = html;
-            document.getElementById('count').innerText = finalizedEntries.length;
             document.getElementById('result-area').style.display = 'block';
-
-        } catch (e) {
-            alert("Terjadi kesalahan scan: " + e.message);
-        } finally {
-            btnScan.disabled = false;
-            btnScan.innerHTML = "🔍 1. Scan Database (HPP & Beban)";
-        }
+        } catch (err) { alert(err.message); }
     }
 
-    async function fixSemuaKeuangan() {
-        if (!confirm("Apakah Anda yakin? Jurnal umum untuk no_bukti terkait akan diperbarui. Selisih Neraca 9.2jt juga akan disesuaikan otomatis.")) return;
-
+    async function fixData() {
         const btn = document.getElementById('btn-fix');
         btn.disabled = true;
-        btn.innerText = "⏳ Sedang Menyinkronkan Jurnal...";
-
-        let batch = [];
-        const allRefs = finalizedEntries.map(x => x.ref);
+        btn.innerText = "Processing...";
 
         try {
-            // 1. HAPUS JURNAL LAMA (HPP & BEBAN) AGAR TIDAK DOUBLE
-            if (allRefs.length > 0) {
-                await db.from('jurnal_umum').delete().in('no_bukti', allRefs);
-            }
+            // Hapus jurnal lama akun terkait (5101, 1103, 6101, 6103)
+            await db.from('jurnal_umum').delete().in('kode_akun', ['5101', '1103', '6101', '6103']);
 
-            // 2. MASUKKAN DATA HASIL SCAN KE BATCH
+            let batch = [];
             for (let item of finalizedEntries) {
-                if (item.type === 'HPP') {
-                    // Debit HPP (5101), Kredit Stok (1103)
-                    batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: '5101', keterangan: `HPP Penjualan: ${item.ref}`, debit: item.val, kredit: 0 });
-                    batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: '1103', keterangan: `Potong Stok: ${item.ref}`, debit: 0, kredit: item.val });
-                } else {
-                    // Debit Beban (6101/6103), Kredit Kas/Bank (1101/1102)
-                    batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.target, keterangan: `Biaya: ${item.ref}`, debit: item.val, kredit: 0 });
-                    batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.source, keterangan: `Pembayaran Biaya: ${item.ref}`, debit: 0, kredit: item.val });
-                }
+                // Debit
+                batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.target, keterangan: item.ref, debit: item.val, kredit: 0 });
+                // Kredit
+                batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.source, keterangan: 'Penyeimbang ' + item.ref, debit: 0, kredit: item.val });
             }
 
-            // 3. JURNAL PENYEIMBANG NERACA (Fix Selisih Rp 9.217.500)
-            // Menyeimbangkan Aktiva (Kas) agar sama dengan Pasiva (Modal/Pendapatan)
-            batch.push({ 
-                tanggal: new Date().toISOString(), 
-                no_bukti: 'ADJ-BALANCE-FINAL', 
-                kode_akun: '1101', 
-                keterangan: 'Koreksi Saldo Neraca (Auto-Balance)', 
-                debit: 9217500, 
-                kredit: 0 
-            });
-
-            // 4. EKSEKUSI INSERT BATCH KE SUPABASE
             if (batch.length > 0) {
-                const { error: insErr } = await db.from('jurnal_umum').insert(batch);
-                if (insErr) throw insErr;
+                const { error } = await db.from('jurnal_umum').insert(batch);
+                if (error) throw error;
             }
 
-            alert("✅ SINKRONISASI BERHASIL!\n\n1. HPP & Beban Operasional telah masuk ke Jurnal.\n2. Selisih Neraca Rp 9.217.500 telah dikoreksi ke Kas.\n3. Silakan cek Laporan Neraca & Laba Rugi Anda.");
+            alert("✅ Beban & HPP Berhasil Disinkronkan!");
             location.reload();
-
-        } catch (err) {
-            alert("Gagal sinkronisasi: " + err.message);
-            btn.disabled = false;
-            btn.innerText = "🔥 2. SINKRONKAN SEMUA BEBAN KE JURNAL";
-        }
+        } catch (err) { alert(err.message); btn.disabled = false; }
     }
 </script>
 </body>
