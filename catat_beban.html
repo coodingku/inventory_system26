@@ -3,195 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Catat Pengeluaran</title>
+    <title>Finex Pos | Catat Pengeluaran Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
+        
+        /* SIDEBAR */
+        nav { width: 250px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
         nav h2 { color: var(--accent); margin-bottom: 30px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         
+        /* MAIN CONTENT */
         main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
-        h2 { color: var(--primary); text-align: center; margin-bottom: 5px; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 480px; }
+        h2 { color: var(--primary); text-align: center; margin: 0; }
         .sub-title { text-align: center; color: #888; font-size: 13px; margin-bottom: 25px; }
         
-        label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
-        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; }
-        .btn-save { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
-        .info-shift { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; }
+        label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; margin-top: 15px; }
+        select, input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; outline: none; transition: 0.3s; }
+        select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 5px rgba(52, 152, 219, 0.2); }
+        
+        .btn-save { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 25px; font-size: 15px; transition: 0.3s; }
+        .btn-save:hover { background: #219150; transform: translateY(-2px); }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        
+        .info-shift { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; border: 1px solid #bbdefb; }
 
+        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
+        .logout-btn { background: var(--danger); color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; }
+
+        /* PRINT SETTINGS */
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden !important; }
             #print-area, #print-area * { visibility: visible !important; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; padding: 5px; font-family: monospace; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; }
         }
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <nav>
     <h2 id="store-name-display">Finex Pos</h2>
-    <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Kasir POS</a>
-    <a href="laporan-pengeluaran.html">📑 Laporan Pengeluaran</a>
-    <a href="pengeluaran.html" class="active">💸 Catat Pengeluaran</a>
+    <a href="dashboard.html"><i class="fas fa-chart-line"></i> Dashboard</a>
+    <a href="kas_bank.html"><i class="fas fa-university"></i> Kas & Bank</a>
+    <a href="pengeluaran.html" class="active"><i class="fas fa-wallet"></i> Catat Biaya</a>
+    <a href="laporan-pengeluaran.html"><i class="fas fa-file-invoice"></i> Laporan Biaya</a>
     
     <div class="user-info">
-        <small>KASIR:</small> <b id="display-user-nav">...</b>
+        <small>LOGGED IN:</small><br>
+        <b id="display-user-nav">...</b>
     </div>
-    <div style="background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="logout()">🚪 Keluar</div>
+    <div class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Keluar</div>
 </nav>
 
 <main>
     <div class="card">
         <h2 id="title-store">BeautyBloom</h2>
-        <div class="sub-title">Input Pengeluaran Operasional</div>
-        <div id="shift-status" class="info-shift">Mengecek status shift...</div>
+        <div class="sub-title">Form Pengeluaran & Biaya Operasional</div>
+        <div id="shift-status" class="info-shift">Mengecek sesi login...</div>
         
-        <label>Tanggal:</label>
+        <label>Tanggal Transaksi:</label>
         <input type="date" id="exp-tanggal">
 
-        <label>Kategori Akun (Beban):</label>
-        <select id="exp-kategori">
-            <option value="">-- Memuat Daftar Akun... --</option>
+        <label>Sumber Dana (Potong Saldo):</label>
+        <select id="exp-sumber-dana">
+            <option value="">-- Memuat Kas & Bank... --</option>
         </select>
 
-        <label>Keterangan:</label>
-        <input type="text" id="exp-ket" placeholder="Contoh: Pembelian Sabun Cuci">
+        <label>Kategori Biaya:</label>
+        <select id="exp-kategori">
+            <option value="">-- Memuat Akun Beban... --</option>
+        </select>
 
-        <label>Jumlah (Rp):</label>
+        <label>Keterangan / Memo:</label>
+        <input type="text" id="exp-ket" placeholder="Misal: Bayar Listrik Februari">
+
+        <label>Nominal (Rp):</label>
         <input type="number" id="exp-jumlah" placeholder="0">
 
-        <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()" disabled>💾 SIMPAN & CETAK NOTA</button>
+        <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()" disabled>
+            <i class="fas fa-print"></i> SIMPAN & CETAK NOTA
+        </button>
     </div>
 </main>
 
 <div id="print-area"></div>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     const session = JSON.parse(localStorage.getItem('finex_session'));
     let activeShiftId = null;
 
     window.onload = async () => {
         document.getElementById('exp-tanggal').value = new Date().toISOString().split('T')[0];
-        document.getElementById('title-store').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+        document.getElementById('display-user-nav').innerText = session?.username || "Admin";
         
-        await fetchAkunBeban();
-        await checkActiveShift();
+        await fetchSemuaAkun();
+        await checkSesi();
     };
 
-    async function fetchAkunBeban() {
-        const selectEl = document.getElementById('exp-kategori');
+    async function fetchSemuaAkun() {
         try {
-            // Ambil akun beban (kepala 5 atau 6) dari DB pelanggan
-            const { data, error } = await db
-                .from('akun')
+            // 1. Ambil Akun Kas/Bank (Kepala 1) - Untuk Sumber Dana
+            const { data: kasData } = await db.from('akun')
+                .select('kode_akun, nama_akun')
+                .ilike('kode_akun', '11%')
+                .order('kode_akun');
+
+            const selSumber = document.getElementById('exp-sumber-dana');
+            selSumber.innerHTML = '<option value="">-- Pilih Sumber Dana --</option>';
+            kasData.forEach(a => {
+                selSumber.innerHTML += `<option value="${a.kode_akun}">${a.nama_akun}</option>`;
+            });
+
+            // 2. Ambil Akun Beban (Kepala 5 atau 6) - Untuk Kategori Biaya
+            const { data: bebanData } = await db.from('akun')
                 .select('kode_akun, nama_akun')
                 .or('kode_akun.ilike.5%,kode_akun.ilike.6%')
-                .order('kode_akun', { ascending: true });
+                .order('kode_akun');
 
-            if (error) throw error;
-
-            selectEl.innerHTML = '<option value="">-- Pilih Akun Beban --</option>';
-            data.forEach(item => {
-                selectEl.innerHTML += `<option value="${item.kode_akun}">${item.kode_akun} - ${item.nama_akun}</option>`;
+            const selBeban = document.getElementById('exp-kategori');
+            selBeban.innerHTML = '<option value="">-- Pilih Kategori Biaya --</option>';
+            bebanData.forEach(b => {
+                selBeban.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
             });
         } catch (e) {
-            selectEl.innerHTML = '<option value="">Gagal memuat akun</option>';
+            console.error("Gagal load akun", e);
         }
     }
 
-    async function checkActiveShift() {
-        // Cek shift kasir yang masih 'Open' di DB pelanggan
-        const { data: shift } = await db.from('kasir_log').select('id, status').eq('kasir_nama', session.username).eq('status', 'Open').maybeSingle();
-        if (shift) {
-            activeShiftId = shift.id;
+    async function checkSesi() {
+        // Logika shift bisa disesuaikan, sementara kita buka akses jika login valid
+        if (session) {
             document.getElementById('shift-status').innerHTML = "✅ Sesi Aktif: " + session.username;
             document.getElementById('btn-submit').disabled = false;
-        } else {
-            document.getElementById('shift-status').innerHTML = "⚠️ Shift Belum Dibuka! Buka di Menu Kasir.";
         }
     }
 
     async function simpanPengeluaran() {
         const tgl = document.getElementById('exp-tanggal').value;
-        const kodeAkun = document.getElementById('exp-kategori').value;
+        const kodeBeban = document.getElementById('exp-kategori').value;
+        const kodeSumber = document.getElementById('exp-sumber-dana').value;
         const ket = document.getElementById('exp-ket').value;
         const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
         
-        const selectObj = document.getElementById('exp-kategori');
-        const namaAkun = selectObj.options[selectObj.selectedIndex].text.split(' - ')[1];
+        if(!kodeBeban || !kodeSumber || !jumlah || !tgl) return alert("Mohon lengkapi data dan pilih Sumber Dana!");
 
-        if(!kodeAkun || !jumlah || !tgl) return alert("Lengkapi semua data!");
-
-        const noBukti = 'OUT-' + Date.now();
+        const noBukti = 'EXP-' + Date.now().toString().slice(-8);
         const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
 
         try {
-            // 1. Simpan ke tabel pengeluaran pelanggan
+            // 1. Catat ke tabel pengeluaran (untuk history pengeluaran)
+            const namaBeban = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text.split(' - ')[1];
             const { error: err1 } = await db.from('pengeluaran').insert([{ 
-                tanggal: tglFix, kategori: namaAkun, keterangan: ket, jumlah: jumlah, kasir_id: activeShiftId 
+                tanggal: tglFix, kategori: namaBeban, keterangan: ket, jumlah: jumlah, kasir_id: session.username 
             }]);
             if (err1) throw err1;
 
-            // 2. Simpan ke Jurnal Umum (D: Beban, K: Kas 1101)
+            // 2. Jurnal Umum (D: Beban, K: Kas/Bank)
             const dataJurnal = [
-                { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeAkun, keterangan: ket, debit: jumlah, kredit: 0 },
-                { tanggal: tglFix, no_bukti: noBukti, kode_akun: '1101', keterangan: ket, debit: 0, kredit: jumlah }
+                { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: ket, debit: jumlah, kredit: 0 },
+                { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: ket, debit: 0, kredit: jumlah }
             ];
             const { error: err2 } = await db.from('jurnal_umum').insert(dataJurnal);
             if (err2) throw err2;
 
-            siapkanNota(noBukti, tgl, namaAkun, ket, jumlah);
-            alert("✅ Berhasil! Pengeluaran tercatat di sistem akuntansi.");
+            // Cetak Nota
+            cetakNota(noBukti, tgl, namaBeban, ket, jumlah);
+            alert("✅ Sukses! Biaya tercatat dan saldo " + kodeSumber + " berkurang.");
             window.print();
             location.reload();
 
         } catch (e) {
-            alert("Gagal: " + e.message);
+            alert("Gagal menyimpan: " + e.message);
         }
     }
 
-    function siapkanNota(bukti, tgl, kat, ket, total) {
+    function cetakNota(bukti, tgl, kat, ket, total) {
         document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:5px;">
-                <b style="font-size:14px;">${sessionStorage.getItem('NAMA_TOKO')}</b><br>BUKTI PENGELUARAN
+            <div style="text-align:center; border-bottom:1px solid #000; padding-bottom:5px;">
+                <b style="font-size:14px;">${sessionStorage.getItem('NAMA_TOKO') || 'FINEX POS'}</b><br>
+                BUKTI BIAYA KELUAR
             </div>
-            <div style="font-size:12px; margin-top:10px;">
-                No: ${bukti}<br>
+            <div style="font-size:11px; margin-top:10px;">
+                ID: ${bukti}<br>
                 Tgl: ${tgl}<br>
-                Kasir: ${session.username}<br>
+                User: ${session.username}<br>
                 --------------------------<br>
-                Akun: ${kat}<br>
+                Beban: ${kat}<br>
                 Ket: ${ket}<br>
-                <div style="text-align:right; margin-top:10px; font-size:14px;">
+                <div style="text-align:right; margin-top:10px; font-size:13px;">
                     <b>TOTAL: Rp ${total.toLocaleString('id-ID')}</b>
                 </div>
             </div>
-            <div style="text-align:center; margin-top:20px; font-size:10px;">
-                --------------------------<br>
-                Tanda Tangan Kasir<br><br><br>
+            <div style="text-align:center; margin-top:15px; font-size:10px;">
+                --- Tanda Tangan ---<br><br><br><br>
                 ( ${session.username} )
             </div>
         `;
     }
 
     function logout() { 
-        if(confirm("Keluar dari sistem?")) {
-            sessionStorage.clear();
-            localStorage.clear(); 
-            window.location.replace('login.html'); 
-        }
+        if(confirm("Keluar?")) { localStorage.clear(); window.location.replace('login.html'); }
     }
 </script>
 </body>
