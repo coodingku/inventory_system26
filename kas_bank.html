@@ -5,39 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Kas & Bank Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        
+        /* Sidebar */
         nav { width: 250px; background: var(--primary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; display: flex; flex-direction: column; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         
+        /* Main Area */
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; }
-        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         
-        .status-badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .badge-cat { padding: 2px 6px; border-radius: 4px; font-size: 9px; text-transform: uppercase; font-weight: bold; background: #dfe6e9; color: #2d3436; }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .bg-match { background: #e8f5e9; color: #2e7d32; }
         .bg-mismatch { background: #ffebee; color: #c62828; }
         
-        .btn-group-action { display: flex; gap: 5px; justify-content: center; }
-        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
         .btn-pdf { background: #c0392b; }
         .btn-excel { background: #1f7244; }
         .btn-sync { background: var(--success); }
         .btn-refresh { background: var(--accent); }
         .btn-adj { background: #7f8c8d; }
+        
+        .btn-group-action { display: flex; gap: 5px; }
+        code { background: #f1f2f6; padding: 2px 5px; border-radius: 4px; color: #e84393; }
     </style>
 </head>
 <body>
@@ -46,24 +51,23 @@
     <h2>Finex Pos</h2>
     <div class="menu-items">
         <a href="dashboard.html"><i class="fas fa-chart-pie"></i> Dashboard</a>
+        <a href="pos.html"><i class="fas fa-cash-register"></i> Kasir</a>
         <a href="kas_bank.html" class="active"><i class="fas fa-university"></i> Kas & Bank</a>
-        <a href="mutasi_kas.html"><i class="fas fa-exchange-alt"></i> Jurnal Umum</a>
+        <a href="akun_jurnal.html"><i class="fas fa-list"></i> Daftar Akun</a>
+        <a href="jurnal.html"><i class="fas fa-exchange-alt"></i> Jurnal Umum</a>
     </div>
 </nav>
 
 <main>
     <div class="header-flex">
-        <h1>Buku Kas & Bank</h1>
+        <div>
+            <h1 style="margin:0">Buku Kas & Akun</h1>
+            <small style="color:#888">Monitoring Transaksi & Sinkronisasi Saldo Terpusat</small>
+        </div>
         <div style="display: flex; gap: 10px;">
-            <button class="btn-action btn-pdf" onclick="exportPDF()">
-                <i class="fas fa-file-pdf"></i> PDF
-            </button>
-            <button class="btn-action btn-excel" onclick="exportExcel()">
-                <i class="fas fa-file-excel"></i> Excel
-            </button>
-            <button class="btn-action btn-refresh" onclick="loadData()">
-                <i class="fas fa-sync"></i> Refresh
-            </button>
+            <button class="btn-action btn-pdf" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+            <button class="btn-action btn-excel" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+            <button class="btn-action btn-refresh" onclick="loadData()"><i class="fas fa-sync"></i> Refresh</button>
         </div>
     </div>
 
@@ -72,7 +76,9 @@
             <thead>
                 <tr>
                     <th>Kode</th>
-                    <th>Nama Akun</th>
+                    <th>Nama Akun & Kategori</th>
+                    <th>Debit (Masuk)</th>
+                    <th>Kredit (Keluar)</th>
                     <th>Saldo Sistem</th>
                     <th>Saldo Real</th>
                     <th>Selisih</th>
@@ -80,16 +86,21 @@
                     <th style="text-align: center;">Aksi</th>
                 </tr>
             </thead>
-            <tbody id="akun-list"></tbody>
+            <tbody id="akun-list">
+                <tr><td colspan="9" style="text-align:center">Menarik data dari server...</td></tr>
+            </tbody>
         </table>
     </div>
 </main>
 
 <script>
-    let currentDataRaw = []; // Untuk olah data
+    let currentDataRaw = [];
+
+    window.onload = loadData;
 
     async function loadData() {
         try {
+            // Mengambil SEMUA akun tanpa filter 11% agar Hutang Pajak dll muncul
             const { data: akunData, error: errAkun } = await db.from('akun').select('*').order('kode_akun');
             if (errAkun) throw errAkun;
 
@@ -101,19 +112,26 @@
             currentDataRaw = [];
 
             akunData.forEach(a => {
-                const mutasi = jurnalData.filter(j => j.kode_akun === a.kode_akun);
-                const totalDebit = mutasi.reduce((acc, curr) => acc + Number(curr.debit || 0), 0);
-                const totalKredit = mutasi.reduce((acc, curr) => acc + Number(curr.kredit || 0), 0);
+                const mutasi = jurnalData.filter(j => String(j.kode_akun) === String(a.kode_akun));
                 
+                // Hitung Total Debit & Kredit dari Jurnal
+                const totalDebit = mutasi.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
+                const totalKredit = mutasi.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
+                
+                // Hitung Saldo Sistem
                 let saldoSistem = (a.posisi_normal === 'Debit') ? (totalDebit - totalKredit) : (totalKredit - totalDebit);
+                
+                // Saldo Real dari tabel Akun
                 const saldoReal = Number(a.saldo || 0);
                 const selisih = saldoSistem - saldoReal;
-                const isMatch = selisih === 0;
+                const isMatch = Math.abs(selisih) < 0.1; // Gunakan toleransi desimal
 
-                // Simpan untuk export
                 currentDataRaw.push({
                     kode: a.kode_akun,
                     nama: a.nama_akun,
+                    kategori: a.kategori,
+                    debit: totalDebit,
+                    kredit: totalKredit,
                     sistem: saldoSistem,
                     real: saldoReal,
                     selisih: selisih,
@@ -123,18 +141,25 @@
                 tbody.innerHTML += `
                     <tr>
                         <td><code>${a.kode_akun}</code></td>
-                        <td><b>${a.nama_akun}</b></td>
+                        <td>
+                            <b>${a.nama_akun}</b><br>
+                            <span class="badge-cat">${a.kategori}</span>
+                        </td>
+                        <td style="color:var(--success)">Rp ${totalDebit.toLocaleString('id-ID')}</td>
+                        <td style="color:var(--danger)">Rp ${totalKredit.toLocaleString('id-ID')}</td>
                         <td style="font-weight:bold; color:var(--accent)">Rp ${saldoSistem.toLocaleString('id-ID')}</td>
                         <td style="font-weight:bold; color:#555">Rp ${saldoReal.toLocaleString('id-ID')}</td>
-                        <td style="color: ${isMatch ? '#27ae60' : '#e74c3c'}">Rp ${selisih.toLocaleString('id-ID')}</td>
+                        <td style="color: ${isMatch ? 'var(--success)' : 'var(--danger)'}">
+                            ${selisih !== 0 ? 'Rp ' + selisih.toLocaleString('id-ID') : '-'}
+                        </td>
                         <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
                         <td>
                             <div class="btn-group-action">
-                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Realitas Fisik">
-                                    <i class="fas fa-edit"></i>
+                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Koreksi Saldo Real">
+                                    <i class="fas fa-pen"></i>
                                 </button>
                                 ${!isMatch ? `
-                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Jurnal Otomatis">
+                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Sistem ke Real">
                                     <i class="fas fa-magic"></i>
                                 </button>` : ''}
                             </div>
@@ -142,112 +167,74 @@
                     </tr>
                 `;
             });
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('akun-list').innerHTML = `<tr><td colspan="9" style="text-align:center; color:red">Gagal memuat data: ${e.message}</td></tr>`;
+        }
     }
 
     async function updateSaldoFisik(kode, valSistem) {
-        const input = prompt("Masukkan jumlah uang tunai/saldo bank saat ini:", valSistem);
+        const input = prompt(`Update Saldo Real untuk ${kode}:`, valSistem);
         if (input === null || input === "") return;
+        
         const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
-        if (!error) loadData();
+        if (!error) {
+            alert("✅ Saldo real diperbarui.");
+            loadData();
+        }
     }
 
-async function autoJurnal(kode, selisih) {
-    if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
-    
-    // 1. Tentukan arah penyesuaian
-    // Jika selisih < 0 (Sistem lebih kecil dari Real), maka sistem harus di-DEBIT (ditambah)
-    // Jika selisih > 0 (Sistem lebih besar dari Real), maka sistem harus di-KREDIT (dikurangi)
-    const isDebit = selisih < 0; 
-    const nominal = Math.abs(selisih);
-
-    try {
-        // A. MASUKKAN KE JURNAL (Mengubah Saldo Sistem)
-        const { error: errJurnal } = await db.from('jurnal_umum').insert([{
-            tanggal: new Date().toISOString(),
-            kode_akun: kode,
-            keterangan: "Penyesuaian Saldo Otomatis",
-            no_bukti: "ADJ-" + Date.now().toString().slice(-6),
-            debit: isDebit ? nominal : 0,
-            kredit: isDebit ? 0 : nominal
-        }]);
-
-        if (errJurnal) throw errJurnal;
-
-        // B. UPDATE TABEL AKUN (Mengubah Saldo Real agar ikut sinkron)
-        // Kita ambil saldo sistem terbaru setelah penyesuaian tadi
-        // Karena tujuannya sinkron, maka Saldo Real harus menjadi sama dengan Saldo Sistem
+    async function autoJurnal(kode, selisih) {
+        if(!confirm(`Buat jurnal penyesuaian agar Saldo Sistem sinkron dengan Saldo Real?`)) return;
         
-        // Pertama, ambil data akun untuk cek posisi normal
-        const { data: acc } = await db.from('akun').select('posisi_normal').eq('kode_akun', kode).single();
-        
-        // Kedua, hitung total saldo terbaru dari jurnal
-        const { data: mutasi } = await db.from('jurnal_umum').select('debit, kredit').eq('kode_akun', kode);
-        const totalD = mutasi.reduce((a, b) => a + (Number(b.debit) || 0), 0);
-        const totalK = mutasi.reduce((a, b) => a + (Number(b.kredit) || 0), 0);
-        
-        const saldoTerbaru = (acc.posisi_normal === 'Debit') ? (totalD - totalK) : (totalK - totalD);
+        const isDebit = selisih < 0; // Jika sistem lebih kecil, maka tambah (Debit)
+        const nominal = Math.abs(selisih);
 
-        // Ketiga, Update kolom saldo real di tabel akun
-        const { error: errAkun } = await db.from('akun')
-            .update({ saldo: saldoTerbaru })
-            .eq('kode_akun', kode);
+        try {
+            const { error } = await db.from('jurnal_umum').insert([{
+                tanggal: new Date().toISOString(),
+                kode_akun: kode,
+                keterangan: "Penyesuaian Saldo (Sinkronisasi Otomatis)",
+                no_bukti: "ADJ-" + Date.now().toString().slice(-6),
+                debit: isDebit ? nominal : 0,
+                kredit: isDebit ? 0 : nominal
+            }]);
 
-        if (errAkun) throw errAkun;
-
-        alert("✅ Berhasil! Saldo Sistem & Saldo Real sekarang sinkron.");
-        loadData(); // Refresh tampilan tabel
-
-    } catch (e) {
-        alert("Gagal Sinkronisasi: " + e.message);
-        console.error(e);
+            if (error) throw error;
+            alert("✅ Jurnal dibuat. Saldo Sistem kini sesuai.");
+            loadData();
+        } catch (e) { alert("Gagal: " + e.message); }
     }
-}
+
     function exportExcel() {
-        if (currentDataRaw.length === 0) return alert("Data kosong");
-        const ws = XLSX.utils.json_to_sheet(currentDataRaw.map(d => ({
-            "Kode": d.kode,
-            "Nama Akun": d.nama,
-            "Saldo Sistem": d.sistem,
-            "Saldo Real": d.real,
-            "Selisih": d.selisih,
-            "Status": d.status
-        })));
+        if (currentDataRaw.length === 0) return;
+        const ws = XLSX.utils.json_to_sheet(currentDataRaw);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "KasBank");
-        XLSX.writeFile(wb, `Laporan_Kas_${new Date().getTime()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "BukuKas");
+        XLSX.writeFile(wb, `KasBank_Finex_${Date.now()}.xlsx`);
     }
 
     function exportPDF() {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        const doc = new jsPDF('l', 'mm', 'a4');
+        doc.text("Laporan Kas & Bank - Finex Pos", 14, 15);
         
-        doc.setFontSize(16);
-        doc.text("Laporan Kas & Bank - Finex Pos", 14, 20);
-        doc.setFontSize(10);
-        doc.text(`Tanggal: ${new Date().toLocaleString('id-ID')}`, 14, 28);
-
-        const tableBody = currentDataRaw.map(d => [
-            d.kode, 
-            d.nama, 
-            `Rp ${d.sistem.toLocaleString('id-ID')}`, 
-            `Rp ${d.real.toLocaleString('id-ID')}`, 
-            `Rp ${d.selisih.toLocaleString('id-ID')}`, 
+        const body = currentDataRaw.map(d => [
+            d.kode, d.nama, d.kategori, 
+            d.debit.toLocaleString('id-ID'), d.kredit.toLocaleString('id-ID'), 
+            d.sistem.toLocaleString('id-ID'), d.real.toLocaleString('id-ID'), 
             d.status
         ]);
 
         doc.autoTable({
-            startY: 35,
-            head: [['Kode', 'Nama Akun', 'Saldo Sistem', 'Saldo Real', 'Selisih', 'Status']],
-            body: tableBody,
+            startY: 22,
+            head: [['Kode', 'Nama', 'Kat', 'Debit', 'Kredit', 'Sistem', 'Real', 'Status']],
+            body: body,
             theme: 'grid',
-            headStyles: { fillColor: [44, 62, 80] }
+            styles: { fontSize: 8 }
         });
-
-        doc.save(`Laporan_Kas_${new Date().getTime()}.pdf`);
+        doc.save(`Laporan_Kas_${Date.now()}.pdf`);
     }
-
-    window.onload = loadData;
 </script>
 </body>
 </html>
