@@ -2,19 +2,21 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Finex Pos | Audit Beban & HPP</title>
+    <title>Finex Pos | Audit Terpisah</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <style>
-        :root { --primary: #2c3e50; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 40px; }
+        :root { --primary: #2c3e50; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 40px; }
         .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        .grid-btn { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }
-        td { padding: 12px; border-bottom: 1px solid #eee; }
-        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
-        .btn-scan { background: var(--primary); width: 100%; margin-bottom: 10px; }
-        .btn-fix { background: var(--success); width: 100%; margin-top: 20px; font-size: 16px; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #f8f9fa; }
+        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-scan { background: var(--primary); width: 100%; }
+        .btn-hpp { background: var(--danger); }
+        .btn-beban { background: var(--warning); }
         .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 11px; }
         .bg-hpp { background: var(--danger); }
         .bg-beban { background: var(--warning); }
@@ -23,39 +25,44 @@
 <body>
 
 <div class="card">
-    <h2>🎯 Sinkronisasi Beban & HPP</h2>
-    <p>Gunakan ini untuk memulihkan angka <b>Beban Operasional</b> dan <b>HPP</b> di laporan PDF.</p>
+    <h2>🎯 Audit Keuangan Terpisah</h2>
+    <p>Pilih kategori yang ingin disinkronkan agar tidak mengganggu data yang sudah benar.</p>
     
-    <button class="btn btn-scan" id="btn-scan" onclick="runAudit()">🔍 Scan Beban & HPP</button>
+    <button class="btn btn-scan" id="btn-scan" onclick="runAudit()">🔍 1. Scan Data Database</button>
     
     <div id="result-area" style="display:none;">
+        <div class="grid-btn">
+            <button class="btn btn-hpp" onclick="fixHPPOnly()">🔥 Update HPP Saja (5101)</button>
+            <button class="btn btn-beban" onclick="fixBebanOnly()">⚡ Update Beban Saja (6101/6103)</button>
+        </div>
+
         <table>
             <thead>
                 <tr>
                     <th>Tanggal</th>
-                    <th>Kategori</th>
+                    <th>Tipe</th>
                     <th>Keterangan</th>
                     <th>Nominal</th>
-                    <th>Akun</th>
+                    <th>Sumber Dana</th>
                 </tr>
             </thead>
             <tbody id="list-data"></tbody>
         </table>
-
-        <button class="btn btn-fix" id="btn-fix" onclick="fixData()">🔥 Sinkronkan ke Jurnal Umum</button>
     </div>
 </div>
 
 <script>
-    let finalizedEntries = [];
+    let entriesHPP = [];
+    let entriesBeban = [];
 
     async function runAudit() {
         const list = document.getElementById('list-data');
-        finalizedEntries = [];
+        entriesHPP = [];
+        entriesBeban = [];
         let html = '';
 
         try {
-            // 1. SCAN HPP DARI PRODUK TERJUAL
+            // 1. SCAN HPP
             const { data: sales } = await db.from('penjualan').select('id, no_invoice, created_at');
             for (let s of sales) {
                 let totalHPP = 0;
@@ -67,19 +74,28 @@
                     }
                 }
                 if (totalHPP > 0) {
-                    html += `<tr><td>${new Date(s.created_at).toLocaleDateString()}</td><td><span class="badge bg-hpp">HPP</span></td><td>HPP: ${s.no_invoice}</td><td>Rp ${totalHPP.toLocaleString()}</td><td>5101</td></tr>`;
-                    finalizedEntries.push({ type: 'HPP', date: s.created_at, ref: s.no_invoice, val: totalHPP, target: '5101', source: '1103' });
+                    html += `<tr><td>${new Date(s.created_at).toLocaleDateString()}</td><td><span class="badge bg-hpp">HPP</span></td><td>${s.no_invoice}</td><td>Rp ${totalHPP.toLocaleString()}</td><td>Stok (1103)</td></tr>`;
+                    entriesHPP.push({ date: s.created_at, ref: s.no_invoice, val: totalHPP, target: '5101', source: '1103' });
                 }
             }
 
-            // 2. SCAN BEBAN DARI TABEL PENGELUARAN (Kolom: jumlah)
+            // 2. SCAN BEBAN
             const { data: expenses } = await db.from('pengeluaran').select('*');
             if (expenses) {
                 for (let e of expenses) {
                     let nominal = parseFloat(e.jumlah || 0);
-                    let targetAkun = (e.kategori === 'Gaji') ? '6103' : '6101';
-                    html += `<tr><td>${new Date(e.tanggal).toLocaleDateString()}</td><td><span class="badge bg-beban">BEBAN</span></td><td>${e.keterangan}</td><td>Rp ${nominal.toLocaleString()}</td><td>${targetAkun}</td></tr>`;
-                    finalizedEntries.push({ type: 'BEBAN', date: e.tanggal, ref: 'EXP-' + e.id, val: nominal, target: targetAkun, source: '1101' });
+                    let targetAkun = (e.kategori === 'Gaji' || e.keterangan.toLowerCase().includes('gaji')) ? '6103' : '6101';
+                    
+                    // Logika Akun Kredit (Sumber Dana)
+                    let sumberAkun = '1101'; // Default Kas
+                    let sumberNama = 'Kas (1101)';
+                    if (e.metode === 'Transfer' || e.metode === 'Bank') {
+                        sumberAkun = '1102';
+                        sumberNama = 'Bank (1102)';
+                    }
+
+                    html += `<tr><td>${new Date(e.tanggal).toLocaleDateString()}</td><td><span class="badge bg-beban">BEBAN</span></td><td>${e.keterangan}</td><td>Rp ${nominal.toLocaleString()}</td><td>${sumberNama}</td></tr>`;
+                    entriesBeban.push({ date: e.tanggal, ref: 'EXP-' + e.id, val: nominal, target: targetAkun, source: sumberAkun });
                 }
             }
 
@@ -88,31 +104,37 @@
         } catch (err) { alert(err.message); }
     }
 
-    async function fixData() {
-        const btn = document.getElementById('btn-fix');
-        btn.disabled = true;
-        btn.innerText = "Processing...";
+    async function fixHPPOnly() {
+        if (!confirm("Update HPP akan menghapus jurnal HPP lama. Lanjutkan?")) return;
+        await syncProcess(entriesHPP, ['5101', '1103']);
+    }
 
+    async function fixBebanOnly() {
+        if (!confirm("Update Beban akan menghapus jurnal Beban lama. Lanjutkan?")) return;
+        await syncProcess(entriesBeban, ['6101', '6103']);
+    }
+
+    async function syncProcess(dataArray, filterAkun) {
         try {
-            // Hapus jurnal lama akun terkait (5101, 1103, 6101, 6103)
-            await db.from('jurnal_umum').delete().in('kode_akun', ['5101', '1103', '6101', '6103']);
+            // Hapus jurnal lama hanya untuk akun yang dipilih agar tidak merusak data lain
+            const refs = dataArray.map(x => x.ref);
+            if (refs.length > 0) {
+                await db.from('jurnal_umum').delete().in('no_bukti', refs).in('kode_akun', filterAkun);
+            }
 
             let batch = [];
-            for (let item of finalizedEntries) {
-                // Debit
-                batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.target, keterangan: item.ref, debit: item.val, kredit: 0 });
-                // Kredit
-                batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.source, keterangan: 'Penyeimbang ' + item.ref, debit: 0, kredit: item.val });
+            for (let item of dataArray) {
+                batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.target, keterangan: 'Audit: ' + item.ref, debit: item.val, kredit: 0 });
+                batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.source, keterangan: 'Audit Penyeimbang', debit: 0, kredit: item.val });
             }
 
             if (batch.length > 0) {
                 const { error } = await db.from('jurnal_umum').insert(batch);
                 if (error) throw error;
+                alert("✅ Sinkronisasi Berhasil!");
+                location.reload();
             }
-
-            alert("✅ Beban & HPP Berhasil Disinkronkan!");
-            location.reload();
-        } catch (err) { alert(err.message); btn.disabled = false; }
+        } catch (err) { alert(err.message); }
     }
 </script>
 </body>
