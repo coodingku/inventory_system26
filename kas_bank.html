@@ -40,6 +40,7 @@
         .btn-sync { background: var(--success); }
         .btn-refresh { background: var(--accent); }
         .btn-adj { background: #7f8c8d; }
+        .btn-mutasi { background: #8e44ad; }
         
         .btn-group-action { display: flex; gap: 5px; }
         code { background: #f1f2f6; padding: 2px 5px; border-radius: 4px; color: #e84393; }
@@ -65,6 +66,7 @@
             <small style="color:#888">Monitoring Transaksi & Sinkronisasi Saldo Terpusat</small>
         </div>
         <div style="display: flex; gap: 10px;">
+            <button class="btn-action btn-mutasi" onclick="openMutasiModal()"><i class="fas fa-exchange-alt"></i> Mutasi Antar Akun</button>
             <button class="btn-action btn-pdf" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
             <button class="btn-action btn-excel" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
             <button class="btn-action btn-refresh" onclick="loadData()"><i class="fas fa-sync"></i> Refresh</button>
@@ -100,7 +102,6 @@
 
     async function loadData() {
         try {
-            // Mengambil SEMUA akun tanpa filter 11% agar Hutang Pajak dll muncul
             const { data: akunData, error: errAkun } = await db.from('akun').select('*').order('kode_akun');
             if (errAkun) throw errAkun;
 
@@ -113,18 +114,14 @@
 
             akunData.forEach(a => {
                 const mutasi = jurnalData.filter(j => String(j.kode_akun) === String(a.kode_akun));
-                
-                // Hitung Total Debit & Kredit dari Jurnal
                 const totalDebit = mutasi.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
                 const totalKredit = mutasi.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
                 
-                // Hitung Saldo Sistem
+                // Rumus saldo sesuai posisi normal
                 let saldoSistem = (a.posisi_normal === 'Debit') ? (totalDebit - totalKredit) : (totalKredit - totalDebit);
-                
-                // Saldo Real dari tabel Akun
                 const saldoReal = Number(a.saldo || 0);
                 const selisih = saldoSistem - saldoReal;
-                const isMatch = Math.abs(selisih) < 0.1; // Gunakan toleransi desimal
+                const isMatch = Math.abs(selisih) < 0.1;
 
                 currentDataRaw.push({
                     kode: a.kode_akun,
@@ -155,7 +152,7 @@
                         <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
                         <td>
                             <div class="btn-group-action">
-                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Koreksi Saldo Real">
+                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Saldo Real">
                                     <i class="fas fa-pen"></i>
                                 </button>
                                 ${!isMatch ? `
@@ -173,67 +170,80 @@
         }
     }
 
-    async function updateSaldoFisik(kode, valSistem) {
-        const input = prompt(`Update Saldo Real untuk ${kode}:`, valSistem);
-        if (input === null || input === "") return;
-        
-        const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
-        if (!error) {
-            alert("✅ Saldo real diperbarui.");
+    // FUNGSI MUTASI ANTAR AKUN (Tarik Tunai Bank ke Laci)
+    async function openMutasiModal() {
+        const dari = prompt("Masukkan Kode Akun SUMBER (Contoh: 1102 untuk Bank):", "1102");
+        if (!dari) return;
+        const ke = prompt("Masukkan Kode Akun TUJUAN (Contoh: 1101 untuk Kas Laci):", "1101");
+        if (!ke) return;
+        const jumlah = prompt("Masukkan Nominal yang dipindahkan (Rp):", "0");
+        if (!jumlah || isNaN(jumlah) || jumlah <= 0) return;
+        const ket = prompt("Keterangan Mutasi:", "Pindahan Dana / Tarik Tunai");
+
+        try {
+            const noBukti = "MUT-" + Date.now().toString().slice(-6);
+            const tgl = new Date().toISOString();
+
+            // Double Entry: 1 Masuk (Debet), 1 Keluar (Kredit)
+            const { error } = await db.from('jurnal_umum').insert([
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: ke, keterangan: ket, debit: Number(jumlah), kredit: 0 },
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: dari, keterangan: ket, debit: 0, kredit: Number(jumlah) }
+            ]);
+
+            if (error) throw error;
+            alert("✅ Mutasi Berhasil. Saldo berpindah.");
             loadData();
-        }
+        } catch (e) { alert("Gagal: " + e.message); }
+    }
+
+    async function updateSaldoFisik(kode, valSistem) {
+        const input = prompt(`Update Saldo Real/Fisik untuk ${kode}:`, valSistem);
+        if (input === null || input === "") return;
+        const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
+        if (!error) { alert("✅ Saldo fisik diperbarui."); loadData(); }
     }
 
     async function autoJurnal(kode, selisih) {
-        if(!confirm(`Buat jurnal penyesuaian agar Saldo Sistem sinkron dengan Saldo Real?`)) return;
+        if(!confirm(`Sinkronkan saldo sistem mengikuti saldo real?`)) return;
         
-        const isDebit = selisih < 0; // Jika sistem lebih kecil, maka tambah (Debit)
+        const akun = currentDataRaw.find(a => a.kode === kode);
         const nominal = Math.abs(selisih);
+        let d = 0, k = 0;
+
+        // Logika Akuntansi: Aset (1xxx) bertambah di Debet, berkurang di Kredit
+        if (selisih < 0) { // Sistem < Real (Butuh Tambah)
+            if (akun.kategori === 'Aset') d = nominal; else k = nominal;
+        } else { // Sistem > Real (Butuh Kurang)
+            if (akun.kategori === 'Aset') k = nominal; else d = nominal;
+        }
 
         try {
-            const { error } = await db.from('jurnal_umum').insert([{
+            await db.from('jurnal_umum').insert([{
                 tanggal: new Date().toISOString(),
                 kode_akun: kode,
-                keterangan: "Penyesuaian Saldo (Sinkronisasi Otomatis)",
+                keterangan: "Penyesuaian Sinkronisasi Saldo",
                 no_bukti: "ADJ-" + Date.now().toString().slice(-6),
-                debit: isDebit ? nominal : 0,
-                kredit: isDebit ? 0 : nominal
+                debit: d, kredit: k
             }]);
-
-            if (error) throw error;
-            alert("✅ Jurnal dibuat. Saldo Sistem kini sesuai.");
+            alert("✅ Sinkronisasi Jurnal Berhasil.");
             loadData();
         } catch (e) { alert("Gagal: " + e.message); }
     }
 
     function exportExcel() {
-        if (currentDataRaw.length === 0) return;
         const ws = XLSX.utils.json_to_sheet(currentDataRaw);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "BukuKas");
-        XLSX.writeFile(wb, `KasBank_Finex_${Date.now()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "KasBank");
+        XLSX.writeFile(wb, `Finex_KasBank_${Date.now()}.xlsx`);
     }
 
     function exportPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('l', 'mm', 'a4');
         doc.text("Laporan Kas & Bank - Finex Pos", 14, 15);
-        
-        const body = currentDataRaw.map(d => [
-            d.kode, d.nama, d.kategori, 
-            d.debit.toLocaleString('id-ID'), d.kredit.toLocaleString('id-ID'), 
-            d.sistem.toLocaleString('id-ID'), d.real.toLocaleString('id-ID'), 
-            d.status
-        ]);
-
-        doc.autoTable({
-            startY: 22,
-            head: [['Kode', 'Nama', 'Kat', 'Debit', 'Kredit', 'Sistem', 'Real', 'Status']],
-            body: body,
-            theme: 'grid',
-            styles: { fontSize: 8 }
-        });
-        doc.save(`Laporan_Kas_${Date.now()}.pdf`);
+        const body = currentDataRaw.map(d => [d.kode, d.nama, d.kategori, d.debit.toLocaleString('id-ID'), d.kredit.toLocaleString('id-ID'), d.sistem.toLocaleString('id-ID'), d.real.toLocaleString('id-ID'), d.status]);
+        doc.autoTable({ startY: 22, head: [['Kode', 'Nama', 'Kat', 'Debit', 'Kredit', 'Sistem', 'Real', 'Status']], body: body });
+        doc.save(`Finex_Kas_${Date.now()}.pdf`);
     }
 </script>
 </body>
