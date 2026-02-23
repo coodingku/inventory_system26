@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finex Pos | Kas & Bank Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
     <style>
@@ -14,20 +15,23 @@
         nav h2 { color: var(--accent); text-align: center; margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
+        
         main { flex: 1; margin-left: 250px; padding: 40px; box-sizing: border-box; width: calc(100% - 250px); }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .card-table { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
         .status-badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .bg-match { background: #e8f5e9; color: #2e7d32; }
         .bg-mismatch { background: #ffebee; color: #c62828; }
+        
         .btn-group-action { display: flex; gap: 5px; justify-content: center; }
-        .btn-action { border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; color: white; transition: 0.2s; }
-        .btn-adj { background: #7f8c8d; }
+        .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn-excel { background: #1f7244; }
         .btn-sync { background: var(--success); }
-        .btn-action:hover { opacity: 0.8; transform: translateY(-1px); }
+        .btn-adj { background: #7f8c8d; }
     </style>
 </head>
 <body>
@@ -44,13 +48,18 @@
 <main>
     <div class="header-flex">
         <h1>Buku Kas & Bank</h1>
-        <button class="btn-action btn-sync" style="padding: 10px 20px; font-size: 14px;" onclick="loadData()">
-            <i class="fas fa-sync"></i> Refresh Data
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-action btn-excel" onclick="exportExcel()">
+                <i class="fas fa-file-excel"></i> Export Excel
+            </button>
+            <button class="btn-action btn-sync" onclick="loadData()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
     </div>
 
     <div class="card-table">
-        <table>
+        <table id="table-kas">
             <thead>
                 <tr>
                     <th>Kode</th>
@@ -68,6 +77,8 @@
 </main>
 
 <script>
+    let currentData = [];
+
     async function loadData() {
         try {
             const { data: akunData, error: errAkun } = await db.from('akun').select('*').order('kode_akun');
@@ -78,6 +89,7 @@
 
             const tbody = document.getElementById('akun-list');
             tbody.innerHTML = '';
+            currentData = [];
 
             akunData.forEach(a => {
                 const mutasi = jurnalData.filter(j => j.kode_akun === a.kode_akun);
@@ -89,6 +101,16 @@
                 const selisih = saldoSistem - saldoReal;
                 const isMatch = selisih === 0;
 
+                // Simpan data untuk kebutuhan export
+                currentData.push({
+                    "Kode": a.kode_akun,
+                    "Nama Akun": a.nama_akun,
+                    "Saldo Sistem": saldoSistem,
+                    "Saldo Real": saldoReal,
+                    "Selisih": selisih,
+                    "Status": isMatch ? "Sesuai" : "Selisih"
+                });
+
                 tbody.innerHTML += `
                     <tr>
                         <td><code>${a.kode_akun}</code></td>
@@ -99,12 +121,12 @@
                         <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
                         <td>
                             <div class="btn-group-action">
-                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Angka Fisik">
+                                <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Realitas Fisik">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 ${!isMatch ? `
-                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Buat Jurnal Penyesuaian">
-                                    <i class="fas fa-magic"></i> Sinkron Jurnal
+                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Jurnal Otomatis">
+                                    <i class="fas fa-magic"></i>
                                 </button>` : ''}
                             </div>
                         </td>
@@ -114,20 +136,15 @@
         } catch (e) { console.error(e); }
     }
 
-    // Fungsi 1: Hanya update angka saldo fisik di tabel 'akun'
     async function updateSaldoFisik(kode, valSistem) {
-        const input = prompt("Berapa saldo uang fisik sebenarnya di laci/bank saat ini?", valSistem);
+        const input = prompt("Masukkan jumlah uang tunai/saldo bank saat ini:", valSistem);
         if (input === null || input === "") return;
         const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
         if (!error) loadData();
     }
 
-    // Fungsi 2: Membuat baris baru di jurnal_umum agar saldo sistem mengejar saldo fisik
     async function autoJurnal(kode, selisih) {
-        if(!confirm(`Sistem akan membuat jurnal penyesuaian otomatis untuk akun ${kode}. Lanjutkan?`)) return;
-
-        // Jika selisih positif (Sistem > Fisik) -> Kurangi saldo (Kredit)
-        // Jika selisih negatif (Sistem < Fisik) -> Tambah saldo (Debit)
+        if(!confirm(`Buat jurnal penyesuaian otomatis untuk ${kode}?`)) return;
         const isDebit = selisih < 0;
         const nominal = Math.abs(selisih);
 
@@ -141,11 +158,17 @@
         }]);
 
         if (!error) {
-            alert("Jurnal penyesuaian berhasil dibuat. Saldo sistem sekarang sinkron!");
+            alert("Berhasil! Saldo Jurnal kini sinkron.");
             loadData();
-        } else {
-            alert("Gagal membuat jurnal: " + error.message);
         }
+    }
+
+    function exportExcel() {
+        if (currentData.length === 0) return alert("Tidak ada data untuk diexport");
+        const worksheet = XLSX.utils.json_to_sheet(currentData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Kas");
+        XLSX.writeFile(workbook, `Laporan_Kas_Bank_${new Date().toLocaleDateString('id-ID')}.xlsx`);
     }
 
     window.onload = loadData;
