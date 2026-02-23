@@ -89,21 +89,39 @@
                 }
             }
 
-            // --- B. SCAN BEBAN DARI TABEL PENGELUARAN ---
-            const { data: expenses } = await db.from('pengeluaran').select('*');
-            if (expenses) {
-                for (let e of expenses) {
-                    let akunTujuan = e.kategori === 'Gaji' ? '6103' : '6101';
-                    html += `<tr>
-                        <td>${new Date(e.tanggal).toLocaleDateString()}</td>
-                        <td><span class="badge bg-beban">BEBAN</span> ${e.no_bukti || 'EXP'}</td>
-                        <td>${e.keterangan}</td>
-                        <td>Rp ${parseFloat(e.nominal).toLocaleString()}</td>
-                        <td>${akunTujuan}</td>
-                    </tr>`;
-                    finalizedEntries.push({ type: 'BEBAN', date: e.tanggal, ref: e.no_bukti || 'EXP', val: e.nominal, target: akunTujuan, source: e.sumber_dana });
-                }
-            }
+           // --- B. SCAN BEBAN DARI TABEL PENGELUARAN ---
+const { data: expenses } = await db.from('pengeluaran').select('*');
+
+if (expenses && expenses.length > 0) {
+    for (let e of expenses) {
+        // Ambil nominal (Cek semua kemungkinan nama kolom: nominal, jumlah, atau total)
+        let nilaiBeban = parseFloat(e.nominal || e.jumlah || e.total || 0);
+        
+        // Tentukan akun tujuan (6103 untuk Gaji, 6101 untuk Operasional)
+        let targetAkun = (e.kategori === 'Gaji' || e.keterangan.toLowerCase().includes('gaji')) ? '6103' : '6101';
+        
+        // Tentukan sumber dana (Jika tidak ada kolom 'sumber_dana', default ke Kas 1101)
+        let sumberDana = e.sumber_dana || (e.metode === 'Transfer' ? '1102' : '1101');
+
+        html += `<tr>
+            <td>${new Date(e.tanggal || e.created_at).toLocaleDateString()}</td>
+            <td><span class="badge bg-beban">BEBAN</span> ${e.no_bukti || 'EXP'}</td>
+            <td>${e.keterangan || 'Tanpa Keterangan'}</td>
+            <td style="font-weight:bold; color:var(--danger)">Rp ${nilaiBeban.toLocaleString('id-ID')}</td>
+            <td>${targetAkun} <-> ${sumberDana}</td>
+        </tr>`;
+
+        // Masukkan ke array untuk proses FIX nanti
+        finalizedEntries.push({ 
+            type: 'BEBAN', 
+            date: e.tanggal || e.created_at, 
+            ref: e.no_bukti || 'EXP-' + Math.floor(Math.random() * 1000), 
+            val: nilaiBeban, 
+            target: targetAkun, 
+            source: sumberDana 
+        });
+    }
+}
 
             list.innerHTML = html;
             document.getElementById('count').innerText = finalizedEntries.length;
