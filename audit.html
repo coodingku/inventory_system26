@@ -55,87 +55,109 @@
     let entriesHPP = [];
     let entriesBeban = [];
 
-    async function runAudit() {
-        const list = document.getElementById('list-data');
-        entriesHPP = [];
-        entriesBeban = [];
-        let html = '';
+   async function runAudit() {
+    const list = document.getElementById('list-data');
+    entriesHPP = [];
+    entriesBeban = [];
+    let html = '';
 
-        try {
-            // 1. SCAN HPP
-            const { data: sales } = await db.from('penjualan').select('id, no_invoice, created_at');
-            for (let s of sales) {
-                let totalHPP = 0;
-                const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', s.id);
-                if (details) {
-                    for (let d of details) {
-                        const { data: prod } = await db.from('produk').select('harga_beli').eq('id', d.produk_id).single();
-                        if (prod) totalHPP += (parseFloat(prod.harga_beli || 0) * d.qty);
+    try {
+        // 1. SCAN HPP (Dinamis per Produk)
+        const { data: sales } = await db.from('penjualan').select('id, no_invoice, created_at');
+        for (let s of sales) {
+            const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', s.id);
+            if (details) {
+                for (let d of details) {
+                    // Ambil mapping akun dari database produk
+                    const { data: prod } = await db.from('produk')
+                        .select('harga_beli, akun_hpp, akun_persediaan')
+                        .eq('id', d.produk_id).single();
+
+                    if (prod && prod.akun_hpp && prod.akun_persediaan) {
+                        let valHPP = parseFloat(prod.harga_beli || 0) * d.qty;
+                        if (valHPP > 0) {
+                            html += `<tr><td>${new Date(s.created_at).toLocaleDateString()}</td><td><span class="badge bg-hpp">HPP</span></td><td>${s.no_invoice}</td><td>Rp ${valHPP.toLocaleString()}</td><td>Akun: ${prod.akun_persediaan}</td></tr>`;
+                            
+                            entriesHPP.push({ 
+                                date: s.created_at, 
+                                ref: s.no_invoice, 
+                                val: valHPP, 
+                                target: prod.akun_hpp, // Dinamis (ex: 5101)
+                                source: prod.akun_persediaan // Dinamis (ex: 1103)
+                            });
+                        }
                     }
                 }
-                if (totalHPP > 0) {
-                    html += `<tr><td>${new Date(s.created_at).toLocaleDateString()}</td><td><span class="badge bg-hpp">HPP</span></td><td>${s.no_invoice}</td><td>Rp ${totalHPP.toLocaleString()}</td><td>Stok (1103)</td></tr>`;
-                    entriesHPP.push({ date: s.created_at, ref: s.no_invoice, val: totalHPP, target: '5101', source: '1103' });
-                }
             }
+        }
 
-            // 2. SCAN BEBAN
-            const { data: expenses } = await db.from('pengeluaran').select('*');
-            if (expenses) {
-                for (let e of expenses) {
-                    let nominal = parseFloat(e.jumlah || 0);
-                    let targetAkun = (e.kategori === 'Gaji' || e.keterangan.toLowerCase().includes('gaji')) ? '6103' : '6101';
-                    
-                    // Logika Akun Kredit (Sumber Dana)
-                    let sumberAkun = '1101'; // Default Kas
-                    let sumberNama = 'Kas (1101)';
-                    if (e.metode === 'Transfer' || e.metode === 'Bank') {
-                        sumberAkun = '1102';
-                        sumberNama = 'Bank (1102)';
-                    }
+        // 2. SCAN BEBAN (Dinamis dari Pengeluaran & Metode)
+        const { data: expenses } = await db.from('pengeluaran').select('*');
+        if (expenses) {
+            for (let e of expenses) {
+                // Ambil kode akun sumber dana dari tabel metode_pembayaran
+                const { data: mtd } = await db.from('metode_pembayaran')
+                    .select('kode_akun, nama_metode')
+                    .eq('nama_metode', e.metode) // Menyesuaikan dengan kolom metode di pengeluaran
+                    .single();
 
-                    html += `<tr><td>${new Date(e.tanggal).toLocaleDateString()}</td><td><span class="badge bg-beban">BEBAN</span></td><td>${e.keterangan}</td><td>Rp ${nominal.toLocaleString()}</td><td>${sumberNama}</td></tr>`;
-                    entriesBeban.push({ date: e.tanggal, ref: 'EXP-' + e.id, val: nominal, target: targetAkun, source: sumberAkun });
-                }
+                let nominal = parseFloat(e.jumlah || 0);
+                let sumberAkun = mtd ? mtd.kode_akun : '1101'; // Fallback jika tidak ketemu
+                let sumberNama = mtd ? mtd.nama_metode : 'Tunai';
+                
+                // Akun Target Beban diambil dari kolom kode_akun_beban di tabel pengeluaran
+                // (Pastikan saat simpan pengeluaran, Anda sudah menyimpan kode_akun-nya)
+                let targetAkun = e.kode_akun_beban; 
+
+                html += `<tr><td>${new Date(e.tanggal).toLocaleDateString()}</td><td><span class="badge bg-beban">BEBAN</span></td><td>${e.keterangan}</td><td>Rp ${nominal.toLocaleString()}</td><td>${sumberNama} (${sumberAkun})</td></tr>`;
+                
+                entriesBeban.push({ 
+                    date: e.tanggal, 
+                    ref: 'EXP-' + e.id, 
+                    val: nominal, 
+                    target: targetAkun, 
+                    source: sumberAkun 
+                });
             }
+        }
 
-            list.innerHTML = html;
-            document.getElementById('result-area').style.display = 'block';
-        } catch (err) { alert(err.message); }
-    }
+        list.innerHTML = html;
+        document.getElementById('result-area').style.display = 'block';
+    } catch (err) { alert("Audit Error: " + err.message); }
+}
 
-    async function fixHPPOnly() {
-        if (!confirm("Update HPP akan menghapus jurnal HPP lama. Lanjutkan?")) return;
-        await syncProcess(entriesHPP, ['5101', '1103']);
-    }
+// Fungsi Sync yang disempurnakan (Tanpa Hardcode Filter Akun)
+async function syncProcess(dataArray) {
+    if (dataArray.length === 0) return alert("Tidak ada data untuk disinkronkan.");
+    
+    try {
+        const refs = dataArray.map(x => x.ref);
+        const targetAkuns = [...new Set(dataArray.map(x => x.target))];
+        const sourceAkuns = [...new Set(dataArray.map(x => x.source))];
 
-    async function fixBebanOnly() {
-        if (!confirm("Update Beban akan menghapus jurnal Beban lama. Lanjutkan?")) return;
-        await syncProcess(entriesBeban, ['6101', '6103']);
-    }
+        // Hapus jurnal lama berdasarkan No Bukti & Akun terkait saja
+        if (refs.length > 0) {
+            await db.from('jurnal_umum').delete()
+                .in('no_bukti', refs)
+                .in('kode_akun', [...targetAkuns, ...sourceAkuns]);
+        }
 
-    async function syncProcess(dataArray, filterAkun) {
-        try {
-            // Hapus jurnal lama hanya untuk akun yang dipilih agar tidak merusak data lain
-            const refs = dataArray.map(x => x.ref);
-            if (refs.length > 0) {
-                await db.from('jurnal_umum').delete().in('no_bukti', refs).in('kode_akun', filterAkun);
-            }
-
-            let batch = [];
-            for (let item of dataArray) {
+        let batch = [];
+        for (let item of dataArray) {
+            if (item.target && item.source) {
                 batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.target, keterangan: 'Audit: ' + item.ref, debit: item.val, kredit: 0 });
                 batch.push({ tanggal: item.date, no_bukti: item.ref, kode_akun: item.source, keterangan: 'Audit Penyeimbang', debit: 0, kredit: item.val });
             }
+        }
 
-            if (batch.length > 0) {
-                const { error } = await db.from('jurnal_umum').insert(batch);
-                if (error) throw error;
-                alert("✅ Sinkronisasi Berhasil!");
-                location.reload();
-            }
-        } catch (err) { alert(err.message); }
-    }
+        if (batch.length > 0) {
+            const { error } = await db.from('jurnal_umum').insert(batch);
+            if (error) throw error;
+            alert("✅ Sinkronisasi Berhasil!");
+            location.reload();
+        }
+    } catch (err) { alert(err.message); }
+}
 </script>
 </body>
 </html>
