@@ -133,133 +133,120 @@
         document.getElementById('date-to').value = today;
     };
 
-    async function runAudit() {
-        const from = document.getElementById('date-from').value;
-        const to = document.getElementById('date-to').value;
-        const tbody = document.getElementById('body-audit');
-        
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Sedang menganalisa data...</td></tr>';
-        mismatchList = [];
+   async function runAudit() {
+    const from = document.getElementById('date-from').value;
+    const to = document.getElementById('date-to').value;
+    const tbody = document.getElementById('body-audit');
+    
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Sedang menganalisa data...</td></tr>';
+    mismatchList = [];
 
-        try {
-            // 1. Ambil Penjualan
-            const { data: sales } = await db.from('penjualan')
-                .select('*')
-                .gte('tanggal', from + 'T00:00:00')
-                .lte('tanggal', to + 'T23:59:59')
-                .order('tanggal', { ascending: false });
-
-            // 2. Ambil Jurnal
-            const { data: journals } = await db.from('jurnal_umum')
-                .select('*')
-                .gte('tanggal', from + 'T00:00:00')
-                .lte('tanggal', to + 'T23:59:59');
-
-            let html = '';
-            let countOk = 0;
-
-            sales.forEach(s => {
-                const totalSales = Math.round(s.grand_total || 0);
-                
-                // Cek Jurnal Pendapatan (4101)
-                const revEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === '4101');
-                const totalInJurnal = revEntries.reduce((sum, j) => sum + Math.round(j.kredit || 0), 0);
-                
-                // Cek Jurnal HPP (5101)
-                const hppEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === '5101');
-                const hppCount = hppEntries.length;
-
-                const diff = totalSales - totalInJurnal;
-                const isMatch = (Math.abs(diff) < 2) && (hppCount > 0);
-
-                if (!isMatch) mismatchList.push({ inv: s.no_invoice, id: s.id });
-                else countOk++;
-
-                html += `
-                    <tr>
-                        <td><b>${s.no_invoice}</b><br><small>${new Date(s.tanggal).toLocaleString('id-ID')}</small></td>
-                        <td>Rp ${totalSales.toLocaleString()}</td>
-                        <td>Rp ${totalInJurnal.toLocaleString()}</td>
-                        <td>${hppCount > 0 ? '✅ Tercatat' : '❌ Kosong'}</td>
-                        <td style="color:${Math.abs(diff) > 0 ? 'var(--danger)' : 'inherit'}">Rp ${diff.toLocaleString()}</td>
-                        <td>
-                            <span class="badge ${isMatch ? 'badge-success' : 'badge-error'}">
-                                ${isMatch ? 'Sinkron' : 'Mismatch'}
-                            </span>
-                        </td>
-                        <td class="no-print">
-                            ${!isMatch ? `<button class="btn-small-fix" onclick="deepFix('${s.no_invoice}', '${s.id}')">Fix Jurnal</button>` : '✅'}
-                        </td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada transaksi ditemukan.</td></tr>';
-            
-            // Update Stats
-            document.getElementById('stat-total').innerText = sales.length;
-            document.getElementById('stat-mismatch').innerText = mismatchList.length;
-            document.getElementById('stat-ok').innerText = countOk;
-            document.getElementById('btnFixAll').style.display = mismatchList.length > 0 ? 'flex' : 'none';
-
-        } catch (err) {
-            console.error(err);
-            alert("Gagal melakukan audit data.");
-        }
-    }
-
-  async function deepFix(noInvoice, penjualanId, isQuiet = false) {
     try {
-        // 1. Ambil detail transaksi untuk hitung HPP
+        const { data: sales } = await db.from('penjualan').select('*').gte('tanggal', from + 'T00:00:00').lte('tanggal', to + 'T23:59:59').order('tanggal', { ascending: false });
+        const { data: journals } = await db.from('jurnal_umum').select('*').gte('tanggal', from + 'T00:00:00').lte('tanggal', to + 'T23:59:59');
+
+        let html = '';
+        let countOk = 0;
+
+        for (const s of sales) {
+            const totalSales = Math.round(s.grand_total || 0);
+            
+            // Ambil detail produk untuk tahu akun apa yang seharusnya ada
+            const { data: details } = await db.from('penjualan_detail').select('produk_id').eq('penjualan_id', s.id).limit(1);
+            let targetAkunPendapatan = '4101'; // Default
+            let targetAkunHPP = '5101'; // Default
+
+            if (details && details.length > 0) {
+                const { data: pInfo } = await db.from('produk').select('akun_pendapatan, akun_hpp').eq('id', details[0].produk_id).single();
+                if (pInfo) {
+                    targetAkunPendapatan = pInfo.akun_pendapatan || '4101';
+                    targetAkunHPP = pInfo.akun_hpp || '5101';
+                }
+            }
+            
+            // Cek Jurnal Pendapatan secara Dinamis
+            const revEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === targetAkunPendapatan);
+            const totalInJurnal = revEntries.reduce((sum, j) => sum + Math.round(j.kredit || 0), 0);
+            
+            // Cek Jurnal HPP secara Dinamis
+            const hppEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === targetAkunHPP);
+            const hppCount = hppEntries.length;
+
+            const diff = totalSales - totalInJurnal;
+            const isMatch = (Math.abs(diff) < 2) && (hppCount > 0);
+
+            if (!isMatch) mismatchList.push({ inv: s.no_invoice, id: s.id });
+            else countOk++;
+
+            html += `
+                <tr>
+                    <td><b>${s.no_invoice}</b><br><small>${new Date(s.tanggal).toLocaleString('id-ID')}</small></td>
+                    <td>Rp ${totalSales.toLocaleString()}</td>
+                    <td>Rp ${totalInJurnal.toLocaleString()}</td>
+                    <td>${hppCount > 0 ? '✅ Tercatat' : '❌ Kosong'}</td>
+                    <td style="color:${Math.abs(diff) > 0 ? 'var(--danger)' : 'inherit'}">Rp ${diff.toLocaleString()}</td>
+                    <td><span class="badge ${isMatch ? 'badge-success' : 'badge-error'}">${isMatch ? 'Sinkron' : 'Mismatch'}</span></td>
+                    <td class="no-print">${!isMatch ? `<button class="btn-small-fix" onclick="deepFix('${s.no_invoice}', '${s.id}')">Fix Jurnal</button>` : '✅'}</td>
+                </tr>`;
+        }
+        tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada transaksi ditemukan.</td></tr>';
+        
+        document.getElementById('stat-total').innerText = sales.length;
+        document.getElementById('stat-mismatch').innerText = mismatchList.length;
+        document.getElementById('stat-ok').innerText = countOk;
+        document.getElementById('btnFixAll').style.display = mismatchList.length > 0 ? 'flex' : 'none';
+
+    } catch (err) { alert("Gagal audit: " + err.message); }
+}
+
+async function deepFix(noInvoice, penjualanId, isQuiet = false) {
+    try {
         const { data: details } = await db.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
         const { data: header } = await db.from('penjualan').select('tanggal').eq('id', penjualanId).single();
         
-        // 2. Hitung Nilai HPP
-        let calculatedHPP = 0;
+        const hppEntries = [];
+
         for (const item of details) {
-            const { data: p } = await db.from('produk').select('harga_beli').eq('id', item.produk_id).single();
-            if (p && p.harga_beli) calculatedHPP += (parseFloat(p.harga_beli) * item.qty);
-        }
+            // Ambil info akun HPP & Persediaan dari produk secara DINAMIS
+            const { data: p } = await db.from('produk')
+                .select('harga_beli, akun_hpp, akun_persediaan')
+                .eq('id', item.produk_id).single();
 
-        // 3. CEK APAKAH JURNAL HPP SUDAH ADA? (Agar tidak double potong stok)
-        const { data: cekHPP } = await db.from('jurnal_umum')
-            .select('id')
-            .eq('no_bukti', noInvoice)
-            .eq('kode_akun', '5101'); // 5101 adalah kode Beban HPP
+            if (p && p.akun_hpp && p.akun_persediaan) {
+                const totalHppItem = (parseFloat(p.harga_beli || 0) * item.qty);
+                
+                if (totalHppItem > 0) {
+                    // Cek agar tidak double insert untuk item yang sama di invoice yang sama
+                    const { data: exist } = await db.from('jurnal_umum')
+                        .select('id').eq('no_bukti', noInvoice).eq('kode_akun', p.akun_hpp).maybeSingle();
 
-        if (cekHPP && cekHPP.length > 0) {
-            if (!isQuiet) alert(`HPP untuk ${noInvoice} sudah ada. Tidak ada perubahan pada Kas maupun Stok.`);
-            return;
-        }
-
-        // 4. HANYA INPUT JURNAL HPP (POTONG 1103)
-        // Kita tidak menghapus jurnal pendapatan yang sudah ada
-        if (calculatedHPP > 0) {
-            const hppEntries = [
-                { 
-                    tanggal: header.tanggal, 
-                    no_bukti: noInvoice, 
-                    kode_akun: '5101', 
-                    keterangan: `HPP Penjualan - ${noInvoice}`, 
-                    debit: Math.round(calculatedHPP), 
-                    kredit: 0 
-                },
-                { 
-                    tanggal: header.tanggal, 
-                    no_bukti: noInvoice, 
-                    kode_akun: '1103', // KUNCI: Akun Modal Produk yang berkurang
-                    keterangan: `Pengurangan Stok Modal - ${noInvoice}`, 
-                    debit: 0, 
-                    kredit: Math.round(calculatedHPP) 
+                    if (!exist) {
+                        hppEntries.push({ 
+                            tanggal: header.tanggal, 
+                            no_bukti: noInvoice, 
+                            kode_akun: String(p.akun_hpp), 
+                            keterangan: `Fix HPP - ${noInvoice}`, 
+                            debit: Math.round(totalHppItem), kredit: 0 
+                        });
+                        hppEntries.push({ 
+                            tanggal: header.tanggal, 
+                            no_bukti: noInvoice, 
+                            kode_akun: String(p.akun_persediaan), 
+                            keterangan: `Fix Stok Keluar - ${noInvoice}`, 
+                            debit: 0, kredit: Math.round(totalHppItem) 
+                        });
+                    }
                 }
-            ];
+            }
+        }
 
+        if (hppEntries.length > 0) {
             const { error } = await db.from('jurnal_umum').insert(hppEntries);
             if (error) throw error;
         }
         
         if (!isQuiet) {
-            alert(`Berhasil! Stok (1103) berkurang, Saldo Kas/Bank TIDAK BERUBAH.`);
+            alert(`Berhasil Memperbaiki Jurnal secara Dinamis!`);
             runAudit();
         }
     } catch (e) {
@@ -267,22 +254,6 @@
         if (!isQuiet) alert(`Gagal: ${e.message}`);
     }
 }
-    async function fixAllMismatches() {
-        if (!confirm(`Perbaiki ${mismatchList.length} transaksi sekaligus?`)) return;
-        
-        const btn = document.getElementById('btnFixAll');
-        btn.innerText = "Memproses...";
-        btn.disabled = true;
-
-        for (const item of mismatchList) {
-            await deepFix(item.inv, item.id, true);
-        }
-
-        alert("Semua jurnal berhasil disinkronkan!");
-        runAudit();
-        btn.disabled = false;
-        btn.innerText = "⚡ Perbaiki Semua";
-    }
 
     function exportToExcel() {
         const wb = XLSX.utils.table_to_book(document.getElementById("table-audit"));
