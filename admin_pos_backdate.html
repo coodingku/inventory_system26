@@ -260,34 +260,73 @@
             await db.from('produk').update({ stok: stokBaru }).eq('id', item.id);
         }
 
-        // 3. Siapkan Data Jurnal
-        const jurnalData = [
-            { tanggal: tglISO, no_bukti: inv, kode_akun: kodeAkunAset, keterangan: `Penerimaan POS (${method}) - ${inv}`, debit: state.total, kredit: 0 },
-            { tanggal: tglISO, no_bukti: inv, kode_akun: '4101', keterangan: `Pendapatan Penjualan BeautyBloom - ${inv}`, debit: 0, kredit: state.total }
-        ];
+       // 3. SIAPKAN ARRAY JURNAL
+        const jurnalData = [];
 
-        // 4. Tambahkan Jurnal HPP ke Array Jurnal (Hanya jika HPP > 0)
-        if (totalHPPGlobal > 0) {
-            jurnalData.push(
-                { tanggal: tglISO, no_bukti: inv, kode_akun: '5101', keterangan: `Beban HPP - ${inv}`, debit: totalHPPGlobal, kredit: 0 },
-                { tanggal: tglISO, no_bukti: inv, kode_akun: '1103', keterangan: `Persediaan Barang (Keluar) - ${inv}`, debit: 0, kredit: totalHPPGlobal }
-            );
+        // A. Jurnal Penerimaan Aset (Dinamis dari Metode Pembayaran)
+        // kodeAkunAset sudah Anda ambil sebelumnya dari tabel metode_pembayaran
+        jurnalData.push({ 
+            tanggal: tglISO, 
+            no_bukti: inv, 
+            kode_akun: String(kodeAkunAset), 
+            keterangan: `Penerimaan POS Backdate (${method}) - ${inv}`, 
+            debit: Math.round(state.total), 
+            kredit: 0 
+        });
+
+        // B. Jurnal Pendapatan, HPP, dan Stok (Dinamis per Item dari Tabel Produk)
+        for (const item of cart) {
+            // Kita ambil referensi akun langsung dari tabel produk
+            const { data: pInfo } = await db.from('produk')
+                .select('akun_pendapatan, akun_hpp, akun_persediaan, harga_beli')
+                .eq('id', item.id)
+                .single();
+            
+            if (pInfo) {
+                const hppSatuan = parseFloat(pInfo.harga_beli || 0);
+                const hppTotalItem = hppSatuan * item.qty;
+                const netSalesItem = (item.qty * item.harga) - ((item.qty * item.harga * (item.discountItem || 0)) / 100);
+
+                // Jurnal Pendapatan (Ganti '4101' jadi pInfo.akun_pendapatan)
+                if (pInfo.akun_pendapatan) {
+                    jurnalData.push({ 
+                        tanggal: tglISO, no_bukti: inv, 
+                        kode_akun: String(pInfo.akun_pendapatan), 
+                        keterangan: `Pendapatan Penjualan: ${item.nama_barang}`, 
+                        debit: 0, kredit: Math.round(netSalesItem) 
+                    });
+                }
+
+                // Jurnal HPP (Ganti '5101' jadi pInfo.akun_hpp)
+                if (pInfo.akun_hpp && hppTotalItem > 0) {
+                    jurnalData.push({ 
+                        tanggal: tglISO, no_bukti: inv, 
+                        kode_akun: String(pInfo.akun_hpp), 
+                        keterangan: `Beban HPP: ${item.nama_barang}`, 
+                        debit: Math.round(hppTotalItem), kredit: 0 
+                    });
+                }
+
+                // Jurnal Persediaan (Ganti '1103' jadi pInfo.akun_persediaan)
+                if (pInfo.akun_persediaan && hppTotalItem > 0) {
+                    jurnalData.push({ 
+                        tanggal: tglISO, no_bukti: inv, 
+                        kode_akun: String(pInfo.akun_persediaan), 
+                        keterangan: `Stok Keluar: ${item.nama_barang}`, 
+                        debit: 0, kredit: Math.round(hppTotalItem) 
+                    });
+                }
+            }
         }
 
-        // Simpan semua jurnal sekaligus
-        const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnalData);
-        if (errJurnal) throw errJurnal;
+        // 4. SIMPAN SEMUA JURNAL SEKALIGUS
+        if (jurnalData.length > 0) {
+            const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnalData);
+            if (errJurnal) throw errJurnal;
+        }
 
         alert("Transaksi Backdate Berhasil Disimpan!");
         location.reload();
-
-    } catch (e) { 
-        console.error("Detail Error:", e);
-        alert("Terjadi Kesalahan: " + e.message); 
-        btn.disabled = false;
-        btn.innerText = "SIMPAN TRANSAKSI LAMA";
-    }
-}
     function logout() {
         if(confirm("Keluar dari sistem?")) {
             sessionStorage.clear();
