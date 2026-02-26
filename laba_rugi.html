@@ -141,12 +141,13 @@
         fetchLabaRugi();
     };
 
-    async function fetchLabaRugi() {
+async function fetchLabaRugi() {
         const from = document.getElementById('date-from').value;
         const to = document.getElementById('date-to').value;
         document.getElementById('period-text').innerText = `Periode: ${new Date(from).toLocaleDateString('id-ID')} s/d ${new Date(to).toLocaleDateString('id-ID')}`;
 
         try {
+            // Mengambil data jurnal sekaligus join dengan nama akun dari tabel master akun
             const { data: jurnal, error } = await db.from('jurnal_umum')
                 .select('*, akun(nama_akun)')
                 .gte('tanggal', from + 'T00:00:00')
@@ -161,16 +162,19 @@
                 const k = j.kode_akun.toString();
                 const d = parseFloat(j.debit || 0);
                 const kr = parseFloat(j.kredit || 0);
-                const nama = j.akun?.nama_akun || `Lain-lain (${k})`;
+                const nama = j.akun?.nama_akun || `Akun ${k}`;
 
-                // Pendapatan (Kode 4xxx)
-                if (k.startsWith('4')) {
+                // 1. DINAMIS PENDAPATAN (Semua Akun Kepala 4 dan 8)
+                // Saldo Normal Kredit: (Kredit - Debit)
+                if (k.startsWith('4') || k.startsWith('8')) {
                     const val = (kr - d);
                     pendapatan[nama] = (pendapatan[nama] || 0) + val;
                     totalP += val;
                 }
-                // Beban (Kode 5xxx atau 6xxx)
-                if (k.startsWith('5') || k.startsWith('6')) {
+                
+                // 2. DINAMIS BEBAN (Semua Akun Kepala 5, 6, dan 9)
+                // Saldo Normal Debit: (Debit - Kredit)
+                else if (k.startsWith('5') || k.startsWith('6') || k.startsWith('9')) {
                     const val = (d - kr);
                     beban[nama] = (beban[nama] || 0) + val;
                     totalB += val;
@@ -179,27 +183,31 @@
 
             const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
 
-            document.getElementById('list-pendapatan').innerHTML = Object.keys(pendapatan).length ? 
-                Object.keys(pendapatan).map(key => `<tr><td class="indent">${key}</td><td class="text-right">${f(pendapatan[key])}</td></tr>`).join('') :
-                '<tr><td class="indent">Tidak ada pendapatan</td><td class="text-right">Rp 0</td></tr>';
+            // Render List Pendapatan secara Dinamis
+            const listP = Object.keys(pendapatan).map(key => 
+                `<tr><td class="indent">${key}</td><td class="text-right">${f(pendapatan[key])}</td></tr>`
+            ).join('');
+            document.getElementById('list-pendapatan').innerHTML = listP || '<tr><td class="indent">Tidak ada data</td><td class="text-right">Rp 0</td></tr>';
 
-            document.getElementById('list-beban').innerHTML = Object.keys(beban).length ? 
-                Object.keys(beban).map(key => `<tr><td class="indent">${key}</td><td class="text-right">${f(beban[key])}</td></tr>`).join('') :
-                '<tr><td class="indent">Tidak ada biaya</td><td class="text-right">Rp 0</td></tr>';
+            // Render List Beban secara Dinamis
+            const listB = Object.keys(beban).map(key => 
+                `<tr><td class="indent">${key}</td><td class="text-right">${f(beban[key])}</td></tr>`
+            ).join('');
+            document.getElementById('list-beban').innerHTML = listB || '<tr><td class="indent">Tidak ada data</td><td class="text-right">Rp 0</td></tr>';
 
+            // Update Total
             document.getElementById('total-pendapatan').innerText = f(totalP);
             document.getElementById('total-beban').innerText = "(" + f(totalB) + ")";
             
             const bersih = totalP - totalB;
             const lbElement = document.getElementById('laba-bersih');
-            lbElement.innerText = (bersih < 0 ? "-" : "") + f(Math.abs(bersih));
+            lbElement.innerText = (bersih < 0 ? "- " : "") + f(Math.abs(bersih));
             lbElement.className = "text-right " + (bersih >= 0 ? "val-green" : "val-red");
 
         } catch (e) { 
-            console.error("Gagal:", e.message); 
+            console.error("Gagal load Laba Rugi:", e.message); 
         }
     }
-
     function exportExcel() {
         const table = document.getElementById("table-laba-rugi");
         const wb = XLSX.utils.table_to_book(table, { sheet: "Laba Rugi" });
