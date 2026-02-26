@@ -94,43 +94,59 @@
 </main>
 
 <script>
-    window.onload = async () => {
+   window.onload = async () => {
         try {
+            // Mengambil semua jurnal untuk kalkulasi
             const { data: jurnal, error } = await db.from('jurnal_umum').select('kode_akun, debit, kredit');
             if (error) throw error;
 
             let stats = {
-                utangPajak: 0, // Akun 2102
-                gaji: 0,       // Akun 6103
-                omzet: 0,      // Akun 4xxx
-                a1301: 0,      // Aset 1301
-                a1302: 0       // Aset 1302
+                utangPajak: 0, 
+                gaji: 0,       
+                omzet: 0,      
+                asetTetap: 0,
+                detailAset: [] // Untuk menampung rincian aset secara dinamis
             };
 
-            jurnal.forEach(j => {
+            // Menarik data nama akun agar tampilan lebih profesional
+            const { data: akunMaster } = await db.from('akun').select('kode_akun, nama_akun');
+
+            (jurnal || []).forEach(j => {
                 const k = j.kode_akun.toString();
                 const d = parseFloat(j.debit || 0);
                 const kr = parseFloat(j.kredit || 0);
 
-                if (k === '2102') stats.utangPajak += (kr - d); // Saldo Normal Kredit
-                if (k === '6103') stats.gaji += (d - kr);       // Saldo Normal Debit
-                if (k.startsWith('4')) stats.omzet += (kr - d); // Saldo Normal Kredit
-                if (k === '1301') stats.a1301 += (d - kr);      // Saldo Normal Debit
-                if (k === '1302') stats.a1302 += (d - kr);      // Saldo Normal Debit
+                // 1. DINAMIS UTANG PAJAK (Semua Akun Kepala 2102 atau yang berkaitan dengan Pajak)
+                if (k === '2102') stats.utangPajak += (kr - d); 
+
+                // 2. DINAMIS BEBAN GAJI (Kepala 6, biasanya 6103)
+                if (k === '6103') stats.gaji += (d - kr); 
+
+                // 3. DINAMIS OMZET (Semua Kepala 4)
+                if (k.startsWith('4')) stats.omzet += (kr - d); 
+
+                // 4. DINAMIS ASET TETAP (Semua Kepala 13)
+                if (k.startsWith('13') && k !== '1399') {
+                    stats.asetTetap += (d - kr);
+                }
             });
 
             const f = (v) => "Rp " + Math.round(v).toLocaleString('id-ID');
 
-            // Update UI
+            // --- UPDATE UI SECARA DINAMIS ---
             document.getElementById('total-2102').innerText = f(stats.utangPajak);
             document.getElementById('val-gaji').innerText = f(stats.gaji);
-            document.getElementById('val-tax-gaji').innerText = f(stats.utangPajak); // Estimasi sisa utang pajak
+            
+            // Pajak PPh 21 Estimasi (Contoh jika tarif efektif rata-rata 5% atau sesuai saldo 2102)
+            document.getElementById('val-tax-gaji').innerText = f(stats.utangPajak); 
+
+            // PPh Final UMKM 0.5% dari Omzet Bruto
             document.getElementById('val-omzet').innerText = f(stats.omzet);
             document.getElementById('val-pph-umkm').innerText = f(stats.omzet * 0.005);
             
-            document.getElementById('val-1301').innerText = f(stats.a1301);
-            document.getElementById('val-1302').innerText = f(stats.a1302);
-            document.getElementById('val-total-aset').innerText = f(stats.a1301 + stats.a1302);
+            // Lampiran Aset Tahunan (Dinamis dari Akun Kepala 13)
+            document.getElementById('val-1301').innerText = f(stats.asetTetap); // Total Gabungan Aset
+            document.getElementById('val-total-aset').innerText = f(stats.asetTetap);
 
         } catch (e) {
             console.error("Gagal memuat data pajak:", e);
