@@ -12,13 +12,11 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --danger: #e74c3c; --success: #27ae60; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; overflow: hidden; }
         
-        /* SIDEBAR STYLE */
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; box-sizing: border-box; z-index: 100; display: flex; flex-direction: column; }
         nav h2 { color: var(--accent); text-align: center; font-size: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; font-size: 14px; margin-bottom: 5px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
 
-        /* MAIN CONTENT */
         main { flex: 1; padding: 30px; overflow-y: auto; box-sizing: border-box; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         
@@ -29,7 +27,6 @@
         .btn-filter { background: var(--accent); color: white; }
         .btn-print { background: #95a5a6; color: white; }
         .btn-export { background: #27ae60; color: white; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 
         .neraca-container { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
         .card { background: var(--white); border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 25px; }
@@ -53,7 +50,6 @@
         @media print {
             nav, .toolbar, .user-info, .header .btn-group { display: none !important; }
             main { padding: 0; width: 100%; }
-            .neraca-container { gap: 10px; }
             .card { box-shadow: none; border: 1px solid #eee; }
         }
     </style>
@@ -96,7 +92,7 @@
             <h3>AKTIVA (ASET)</h3>
             <table id="table-aktiva">
                 <tr class="group-title"><td colspan="2">Aset Lancar</td></tr>
-                <tr><td>Kas dan Bank (1101/1102)</td><td class="text-right" id="val-kas">Rp 0</td></tr>
+                <tr><td>Kas dan Bank (11xx / 7xxx)</td><td class="text-right" id="val-kas">Rp 0</td></tr>
                 <tr><td>Persediaan Barang (1103)</td><td class="text-right" id="val-stok">Rp 0</td></tr>
                 <tr><td>Piutang Pelanggan (1104)</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
                 
@@ -122,7 +118,7 @@
                 
                 <tr class="group-title"><td colspan="2">Modal</td></tr>
                 <tr><td>Modal Pemilik (31xx)</td><td class="text-right" id="val-modal">Rp 0</td></tr>
-                <tr><td>Laba Tahun Berjalan</td><td class="text-right" id="val-laba" style="color:var(--success);">Rp 0</td></tr>
+                <tr><td>Laba Tahun Berjalan (Net)</td><td class="text-right" id="val-laba" style="color:var(--success);">Rp 0</td></tr>
                 
                 <tr class="total-row">
                     <td>TOTAL PASIVA</td>
@@ -168,30 +164,45 @@
                 const d = parseFloat(j.debit || 0);
                 const kr = parseFloat(j.kredit || 0);
 
-                // AKTIVA (Normal Debit: Debit - Kredit)
-                if (k.startsWith('1101') || k.startsWith('1102')) acc.kas += (d - kr);
-                if (k.startsWith('1103')) acc.stok += (d - kr);
-                if (k.startsWith('1104')) acc.piutang += (d - kr);
-                
-                // ASET TETAP (13xx)
-                if (k === '1301') acc.alat += (d - kr);
-                if (k === '1302') acc.kendaraan += (d - kr);
-                if (k === '1303') acc.gedung += (d - kr);
-                if (k === '1399') acc.susut += (d - kr); // Saldo 1399 biasanya Kredit, jadi hasilnya akan negatif di sisi Debit
-                
-                // PASIVA (Normal Kredit: Kredit - Debit)
-                if (k.startsWith('2101')) acc.hutang += (kr - d);
-                if (k.startsWith('2102')) acc.pajak += (kr - d);
-                if (k.startsWith('3'))    acc.modal += (kr - d);
-                
-                // LABA RUGI (Pendapatan - Beban)
-                if (k.startsWith('4')) acc.laba += (kr - d);
-                if (k.startsWith('5') || k.startsWith('6')) acc.laba -= (d - kr);
+                // --- 1. LOGIKA AKTIVA (KATEGORI KEPALA 1 & 7) ---
+                if (k.startsWith('1') || k.startsWith('7')) {
+                    // Kas, Bank, QRIS (Kepala 1101, 1102 atau Bank lain kepala 7)
+                    if (k.startsWith('1101') || k.startsWith('1102') || k.startsWith('7')) {
+                        acc.kas += (d - kr);
+                    } 
+                    else if (k === '1103') { acc.stok += (d - kr); }
+                    else if (k === '1104') { acc.piutang += (d - kr); }
+                    else if (k === '1301') { acc.alat += (d - kr); }
+                    else if (k === '1302') { acc.kendaraan += (d - kr); }
+                    else if (k === '1303') { acc.gedung += (d - kr); }
+                    else if (k === '1399') { acc.susut += (d - kr); }
+                    else if (k.startsWith('1')) { acc.kas += (d-kr); } // Fallback aset lancar lain
+                }
+
+                // --- 2. LOGIKA KEWAJIBAN (KATEGORI KEPALA 2) ---
+                else if (k.startsWith('2')) {
+                    if (k === '2101') acc.hutang += (kr - d);
+                    else if (k === '2102') acc.pajak += (kr - d);
+                    else acc.hutang += (kr - d); // Hutang lainnya
+                }
+
+                // --- 3. LOGIKA MODAL (KATEGORI KEPALA 3) ---
+                else if (k.startsWith('3')) {
+                    acc.modal += (kr - d);
+                }
+
+                // --- 4. LOGIKA LABA RUGI (PENDAPATAN 4/8 VS BEBAN 5/6/9) ---
+                else if (k.startsWith('4') || k.startsWith('8')) {
+                    acc.laba += (kr - d); // Pendapatan menambah Laba
+                }
+                else if (k.startsWith('5') || k.startsWith('6') || k.startsWith('9')) {
+                    acc.laba -= (d - kr); // Beban mengurangi Laba
+                }
             });
 
             const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
 
-            // Update UI
+            // Render ke UI
             document.getElementById('val-kas').innerText = f(acc.kas);
             document.getElementById('val-stok').innerText = f(acc.stok);
             document.getElementById('val-piutang').innerText = f(acc.piutang);
@@ -199,7 +210,6 @@
             document.getElementById('val-kendaraan').innerText = f(acc.kendaraan);
             document.getElementById('val-gedung').innerText = f(acc.gedung);
             document.getElementById('val-susut').innerText = f(acc.susut);
-
             document.getElementById('val-hutang').innerText = f(acc.hutang);
             document.getElementById('val-pajak').innerText = f(acc.pajak);
             document.getElementById('val-modal').innerText = f(acc.modal);
@@ -212,6 +222,7 @@
             document.getElementById('total-pasiva').innerText = f(totalPasiva);
 
             const msgBox = document.getElementById('balance-msg');
+            // Toleransi selisih pembulatan Rp 10
             if (Math.abs(totalAktiva - totalPasiva) < 10) { 
                 msgBox.className = "balance-check is-balanced";
                 msgBox.innerText = "✅ STATUS: BALANCE (SEIMBANG)";
@@ -226,19 +237,19 @@
     }
 
     function exportToExcel() {
+        const wb = XLSX.utils.book_new();
         const table1 = document.getElementById("table-aktiva");
         const table2 = document.getElementById("table-pasiva");
-        const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.table_to_sheet(table1);
         XLSX.utils.sheet_add_dom(ws, table2, {origin: "D1"});
         XLSX.utils.book_append_sheet(wb, ws, "Neraca");
-        XLSX.writeFile(wb, `Neraca_BeautyBloom_${document.getElementById('filter-date').value}.xlsx`);
+        XLSX.writeFile(wb, `Neraca_Finex_${document.getElementById('filter-date').value}.xlsx`);
     }
 
     function logout() {
         if(confirm("Keluar dari sistem?")) {
-            sessionStorage.clear();
             localStorage.clear();
+            sessionStorage.clear();
             window.location.replace('login.html');
         }
     }
