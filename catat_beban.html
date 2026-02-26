@@ -3,43 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Catat Pengeluaran</title>
+    <title>Finex Pos | Buat Biaya</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
         /* SIDEBAR */
-        nav { width: 250px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; z-index: 100; }
-        nav h2 { color: var(--accent); text-align: center; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
+        nav { width: 250px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
+        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         
         /* MAIN CONTENT */
-        main { flex: 1; padding: 40px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 480px; }
-        h2 { color: var(--primary); text-align: center; margin: 0; }
-        .sub-title { text-align: center; color: #888; font-size: 13px; margin-bottom: 25px; }
+        main { flex: 1; padding: 30px; overflow-y: auto; }
+        .form-container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 900px; margin: auto; }
         
-        label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; margin-top: 15px; }
-        select, input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; outline: none; }
+        .form-header { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #f1f1f1; }
         
-        .btn-save { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 25px; font-size: 15px; }
-        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
-        
-        .info-shift { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 20px; text-align: center; border: 1px solid #bbdefb; }
+        .input-group { margin-bottom: 15px; }
+        label { font-size: 12px; font-weight: bold; color: #7f8c8d; display: block; margin-bottom: 5px; text-transform: uppercase; }
+        select, input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; outline: none; transition: 0.3s; }
+        select:focus, input:focus { border-color: var(--accent); }
 
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
+        /* TABLE INPUT (Jurnal.id Style) */
+        .table-input { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .table-input th { text-align: left; background: #f8f9fa; padding: 10px; font-size: 11px; color: #666; text-transform: uppercase; border-bottom: 2px solid #eee; }
+        .table-input td { padding: 10px; border-bottom: 1px solid #f1f1f1; }
 
-        /* PRINT SETTINGS */
+        .total-section { margin-top: 30px; display: flex; justify-content: flex-end; }
+        .total-box { background: #f8f9fa; padding: 20px; border-radius: 8px; width: 300px; text-align: right; }
+        .total-box h3 { margin: 10px 0 0 0; color: var(--primary); font-size: 24px; }
+
+        .btn-save { padding: 15px 40px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; float: right; margin-top: 20px; }
+        
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden !important; }
             #print-area, #print-area * { visibility: visible !important; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; font-family: monospace; font-size: 12px; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; }
         }
     </style>
 </head>
@@ -47,47 +52,82 @@
 
 <nav>
     <h2 id="store-name-display">Finex Pos</h2>
-    <a href="dashboard.html"><i class="fas fa-chart-line"></i> Dashboard</a>
-    <a href="pos.html"><i class="fas fa-shopping-cart"></i> Kasir POS</a>
-    <a href="kas_bank.html"><i class="fas fa-university"></i> Kas & Bank</a>
-    <a href="pengeluaran.html" class="active"><i class="fas fa-minus-circle"></i> Catat Biaya</a>
-    <a href="laporan-pengeluaran.html"><i class="fas fa-file-invoice"></i> Laporan Biaya</a>
-    
-    <div class="user-info">
-        <small>LOGGED IN:</small><br>
-        <b id="display-user-nav">...</b>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="kas_bank.html">⚖️ Kas & Bank</a>
+    <a href="pengeluaran.html" class="active">💸 Catat Biaya</a>
+    <a href="laporan-pengeluaran.html">📑 Laporan Biaya</a>
+    <div style="margin-top:auto; padding:15px; background:rgba(0,0,0,0.1); border-radius:8px;">
+        <small>User:</small> <b id="display-user-nav">...</b>
     </div>
-    <div style="background: #c0392b; color: white; text-align: center; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; margin-top: 5px;" onclick="logout()">🚪 KELUAR</div>
+    <a href="#" onclick="logout()" style="color:#ff7675;">🚪 Keluar</a>
 </nav>
 
 <main>
-    <div class="card">
-        <h2 id="title-store">BeautyBloom</h2>
-        <div class="sub-title">Input Pengeluaran Operasional</div>
-        <div id="shift-status" class="info-shift">Mengecek status login...</div>
+    <div class="form-container">
+        <h2 style="margin-top:0; color:var(--primary);">Buat Biaya Baru</h2>
         
-        <label>Tanggal Transaksi:</label>
-        <input type="date" id="exp-tanggal">
+        <div class="form-header">
+            <div>
+                <div class="input-group">
+                    <label>Bayar Dari (Sumber Dana)</label>
+                    <select id="exp-sumber-dana" onchange="checkBalance()">
+                        <option value="">-- Pilih Akun Kas/Bank --</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Penerima (Optional)</label>
+                    <input type="text" id="exp-penerima" placeholder="Nama Supplier / Pihak Ketiga">
+                </div>
+            </div>
+            
+            <div>
+                <div class="input-group">
+                    <label>Tanggal Transaksi</label>
+                    <input type="date" id="exp-tanggal">
+                </div>
+                <div class="input-group">
+                    <label>No. Transaksi</label>
+                    <input type="text" id="no-bukti-auto" disabled placeholder="Otomatis">
+                </div>
+            </div>
+        </div>
 
-        <label>Metode Pembayaran (Potong Saldo):</label>
-        <select id="exp-sumber-dana">
-            <option value="">-- Memuat Kas & Bank... --</option>
-        </select>
+        <table class="table-input">
+            <thead>
+                <tr>
+                    <th width="40%">Akun Biaya</th>
+                    <th width="40%">Deskripsi / Memo</th>
+                    <th width="20%" style="text-align: right;">Jumlah (Rp)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <select id="exp-kategori">
+                            <option value="">-- Pilih Akun Biaya --</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" id="exp-ket" placeholder="Keterangan pengeluaran...">
+                    </td>
+                    <td>
+                        <input type="number" id="exp-jumlah" style="text-align: right;" oninput="updateTotalDisplay()" placeholder="0">
+                    </td>
+                </tr>
+            </tbody>
+        </table>
 
-        <label>Kategori Akun (Beban):</label>
-        <select id="exp-kategori">
-            <option value="">-- Memuat Akun Beban... --</option>
-        </select>
+        <div class="total-section">
+            <div class="total-box">
+                <label>Total Pembayaran</label>
+                <h3 id="display-total-final">Rp 0</h3>
+            </div>
+        </div>
 
-        <label>Keterangan / Memo:</label>
-        <input type="text" id="exp-ket" placeholder="Misal: Bayar Listrik Toko">
-
-        <label>Jumlah (Rp):</label>
-        <input type="number" id="exp-jumlah" placeholder="0">
-
-        <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()" disabled>
-            <i class="fas fa-save"></i> SIMPAN & CETAK NOTA
+        <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()">
+            <i class="fas fa-check-circle"></i> BUAT TRANSAKSI BIAYA
         </button>
+        <div style="clear:both;"></div>
     </div>
 </main>
 
@@ -99,147 +139,63 @@
     window.onload = async () => {
         document.getElementById('exp-tanggal').value = new Date().toISOString().split('T')[0];
         document.getElementById('display-user-nav').innerText = session?.username || "Admin";
-        document.getElementById('title-store').innerText = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+        document.getElementById('no-bukti-auto').value = 'EXP-' + Date.now().toString().slice(-6);
         
         await fetchSemuaAkun();
-        await checkSesi();
     };
 
-  async function fetchSemuaAkun() {
-    try {
-        // 1. Ambil Sumber Dana dari tabel metode_pembayaran
-        // Menggunakan nama_metode untuk tampilan dan kode_akun untuk nilai transaksi
-        const { data: mtdData, error: errMtd } = await db
-            .from('metode_pembayaran')
-            .select('nama_metode, kode_akun')
-            .order('nama_metode');
+    async function fetchSemuaAkun() {
+        try {
+            // 1. Load Sumber Dana (Semua Kepala 11 - Kas & Bank)
+            const { data: dana } = await db.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '11%');
+            const selDana = document.getElementById('exp-sumber-dana');
+            dana.forEach(d => {
+                selDana.innerHTML += `<option value="${d.kode_akun}">${d.kode_akun} - ${d.nama_akun}</option>`;
+            });
 
-        if (errMtd) throw errMtd;
+            // 2. Load Akun Biaya (Kepala 5, 6, 8)
+            const { data: biaya } = await db.from('akun').select('kode_akun, nama_akun')
+                .or('kode_akun.ilike.5%,kode_akun.ilike.6%,kode_akun.ilike.8%')
+                .order('kode_akun');
+            const selBiaya = document.getElementById('exp-kategori');
+            biaya.forEach(b => {
+                selBiaya.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
+            });
+        } catch (e) { console.error(e); }
+    }
 
-        const selSumber = document.getElementById('exp-sumber-dana');
-        selSumber.innerHTML = '<option value="">-- Pilih Sumber Dana --</option>';
+    function updateTotalDisplay() {
+        const val = parseFloat(document.getElementById('exp-jumlah').value) || 0;
+        document.getElementById('display-total-final').innerText = "Rp " + val.toLocaleString('id-ID');
+    }
+
+    async function simpanPengeluaran() {
+        const tgl = document.getElementById('exp-tanggal').value;
+        const kodeBeban = document.getElementById('exp-kategori').value;
+        const kodeSumber = document.getElementById('exp-sumber-dana').value;
+        const ket = document.getElementById('exp-ket').value;
+        const penerima = document.getElementById('exp-penerima').value;
+        const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
         
-        mtdData.forEach(m => {
-            // value diisi kode_akun (1101, 7101, dll), teks diisi Nama Metode (Tunai, BNI, dll)
-            selSumber.innerHTML += `<option value="${m.kode_akun}">${m.nama_metode}</option>`;
-        });
+        if(!kodeBeban || !kodeSumber || !jumlah) return alert("Pilih Akun dan Isi Nominal!");
 
-        // 2. Ambil Akun Beban dari tabel akun (Kepala 5 atau 6)
-        const { data: bebanData, error: errBeban } = await db
-            .from('akun')
-            .select('kode_akun, nama_akun')
-            .or('kode_akun.ilike.5%,kode_akun.ilike.6%')
-            .order('kode_akun');
+        const noBukti = document.getElementById('no-bukti-auto').value;
+        const fullKet = penerima ? `[${penerima}] ${ket}` : ket;
 
-        if (errBeban) throw errBeban;
+        try {
+            // 1. Simpan ke Jurnal Umum (D: Beban, K: Kas/Bank)
+            const { error: errJurnal } = await db.from('jurnal_umum').insert([
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: fullKet, debit: jumlah, kredit: 0 },
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: fullKet, debit: 0, kredit: jumlah }
+            ]);
+            if (errJurnal) throw errJurnal;
 
-        const selBeban = document.getElementById('exp-kategori');
-        selBeban.innerHTML = '<option value="">-- Pilih Akun Beban --</option>';
-        bebanData.forEach(b => {
-            selBeban.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
-        });
-
-    } catch (e) {
-        console.error("Gagal load akun secara dinamis:", e.message);
-    }
-}
-    async function checkSesi() {
-        if (session) {
-            document.getElementById('shift-status').innerHTML = "✅ Sesi Aktif: " + session.username;
-            document.getElementById('btn-submit').disabled = false;
-        } else {
-            document.getElementById('shift-status').innerHTML = "⚠️ Sesi Berakhir! Silakan Login Ulang.";
-        }
+            alert("✅ Biaya Berhasil Dicatat!");
+            location.reload();
+        } catch (e) { alert("Gagal: " + e.message); }
     }
 
-async function simpanPengeluaran() {
-    const tgl = document.getElementById('exp-tanggal').value;
-    const kodeBeban = document.getElementById('exp-kategori').value;
-    const kodeSumber = document.getElementById('exp-sumber-dana').value;
-    const ket = document.getElementById('exp-ket').value;
-    const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
-    
-    if(!kodeBeban || !kodeSumber || !jumlah || !tgl) return alert("Lengkapi data!");
-
-    const noBukti = 'EXP-' + Date.now().toString().slice(-8);
-    const tglFix = `${tgl}T${new Date().toTimeString().split(' ')[0]}`;
-
-    try {
-        // --- LANGKAH PENTING: Cari UUID Kasir berdasarkan username ---
-        // Kita cari ID (UUID) dari tabel kasir_log atau tabel user Anda
-        // Saya asumsikan Anda mencari dari kasir_log karena ada shift-nya
-        const { data: shiftData, error: shiftError } = await db
-            .from('kasir_log')
-            .select('id')
-            .eq('kasir_nama', session.username)
-            .eq('status', 'Open')
-            .maybeSingle();
-
-        if (shiftError || !shiftData) {
-            throw new Error("Gagal mendapatkan ID Shift. Pastikan Shift sudah dibuka!");
-        }
-
-        const realUUID = shiftData.id; // Ini adalah UUID yang diminta database
-        const namaBeban = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text.split(' - ')[1];
-        
-        // 1. Simpan ke tabel pengeluaran menggunakan UUID yang baru didapat
-        const { error: err1 } = await db.from('pengeluaran').insert([{ 
-            tanggal: tglFix, 
-            kategori: namaBeban, 
-            keterangan: ket, 
-            jumlah: jumlah,
-            kasir_id: realUUID // Sekarang isinya UUID, bukan lagi teks "admin1"
-        }]);
-        
-        if (err1) throw err1;
-
-        // 2. Jurnal Umum (D: Beban, K: Kas/Bank)
-        const { error: err2 } = await db.from('jurnal_umum').insert([
-            { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: ket, debit: jumlah, kredit: 0 },
-            { tanggal: tglFix, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: ket, debit: 0, kredit: jumlah }
-        ]);
-        
-        if (err2) throw err2;
-
-        alert("✅ Berhasil! Pengeluaran & Jurnal tersimpan otomatis.");
-        siapkanNota(noBukti, tgl, namaBeban, ket, jumlah);
-        window.print();
-        location.reload();
-
-    } catch (e) {
-        alert("Gagal menyimpan: " + e.message);
-        console.error("Detail Error:", e);
-    }
-}
-    function siapkanNota(bukti, tgl, kat, ket, total) {
-        document.getElementById('print-area').innerHTML = `
-            <div style="text-align:center; border-bottom:1px solid #000; padding-bottom:5px;">
-                <b style="font-size:14px;">${sessionStorage.getItem('NAMA_TOKO') || 'FINEX POS'}</b><br>
-                NOTA BIAYA KELUAR
-            </div>
-            <div style="font-size:12px; margin-top:10px;">
-                ID: ${bukti}<br>
-                Tgl: ${tgl}<br>
-                Kasir: ${session.username}<br>
-                --------------------------<br>
-                Akun: ${kat}<br>
-                Ket: ${ket}<br>
-                <div style="text-align:right; margin-top:10px; font-size:14px;">
-                    <b>TOTAL: Rp ${total.toLocaleString('id-ID')}</b>
-                </div>
-            </div>
-            <div style="text-align:center; margin-top:20px; font-size:10px;">
-                --- Tanda Tangan ---<br><br><br>
-                ( ${session.username} )
-            </div>
-        `;
-    }
-
-    function logout() { 
-        if(confirm("Keluar dari sistem?")) {
-            localStorage.clear(); window.location.replace('login.html'); 
-        }
-    }
+    function logout() { localStorage.clear(); window.location.href = 'login.html'; }
 </script>
 </body>
 </html>
