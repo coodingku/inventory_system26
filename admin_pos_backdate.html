@@ -115,7 +115,7 @@
     </aside>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
+   // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let cart = [];
     let state = { sub: 0, modifier: 0, total: 0 };
     const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -130,7 +130,9 @@
     async function loadSettings() {
         const { data: mtd } = await db.from('metode_pembayaran').select('*');
         if (mtd) {
-            document.getElementById('payMethodSelect').innerHTML = mtd.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
+            document.getElementById('payMethodSelect').innerHTML = mtd.map(m => 
+                `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`
+            ).join('');
         }
     }
 
@@ -198,125 +200,88 @@
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString('id-ID');
     }
 
+    async function saveBackdate() {
+        if (cart.length === 0) return alert("Keranjang masih kosong!");
+        
+        const btn = document.getElementById('btnSave');
+        const tgl = document.getElementById('inputDate').value;
+        const mtdEl = document.getElementById('payMethodSelect');
+        const method = mtdEl.value;
+        const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
+        
+        const inv = `BKD-${Date.now().toString().slice(-6)}`;
+        const tglISO = tgl + "T12:00:00Z"; 
 
- 
- async function saveBackdate() {
-    if (cart.length === 0) return alert("Keranjang masih kosong!");
-    
-    const btn = document.getElementById('btnSave');
-    const tgl = document.getElementById('inputDate').value;
-    const mtdEl = document.getElementById('payMethodSelect');
-    const method = mtdEl.value;
-    const kodeAkunAset = mtdEl.options[mtdEl.selectedIndex].getAttribute('data-akun');
-    
-    const inv = `BKD-${Date.now().toString().slice(-6)}`;
-    const tglISO = tgl + "T12:00:00Z"; 
+        btn.disabled = true;
+        btn.innerText = "SEDANG MENYIMPAN...";
 
-    btn.disabled = true;
-    btn.innerText = "SEDANG MENYIMPAN...";
+        try {
+            // 1. Simpan Header Penjualan
+            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
+                no_invoice: inv, 
+                subtotal: state.sub, 
+                diskon: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
+                grand_total: state.total, 
+                metode_pembayaran: method,
+                created_at: tglISO 
+            }]).select().single();
 
-    try {
-        // 1. Simpan Header Penjualan
-        const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
-            no_invoice: inv, 
-            subtotal: state.sub, 
-            diskon: document.getElementById('modType').value === 'discount' ? state.modifier : 0, 
-            grand_total: state.total, 
-            metode_pembayaran: method,
-            created_at: tglISO 
-        }]).select().single();
+            if (errTrx) throw errTrx;
 
-        if (errTrx) throw errTrx;
+            const jurnalData = [];
+            const detailRows = [];
 
-        const jurnalData = [];
-        const detailRows = [];
-
-        // 2. Jurnal Penerimaan Aset (Dinamis dari Metode)
-        jurnalData.push({ 
-            tanggal: tglISO, 
-            no_bukti: inv, 
-            kode_akun: String(kodeAkunAset), 
-            keterangan: `Penerimaan POS Backdate (${method}) - ${inv}`, 
-            debit: Math.round(state.total), 
-            kredit: 0 
-        });
-
-        // 3. Proses Per Item (Detail, Stok, dan Jurnal Dinamis)
-        for (const item of cart) {
-            // Ambil info akun & info produk terbaru
-            const { data: pInfo, error: errP } = await db.from('produk')
-                .select('harga_beli, stok_sekarang, akun_pendapatan, akun_hpp, akun_persediaan')
-                .eq('id', item.id)
-                .single();
-            
-            if (errP || !pInfo) throw new Error(`Produk ${item.nama_barang} tidak ditemukan.`);
-
-            const hppSatuan = parseFloat(pInfo.harga_beli || 0);
-            const hppTotalItem = hppSatuan * item.qty;
-            const netSalesItem = (item.qty * item.harga); // Untuk backdate biasanya harga sudah nett di input
-
-            // A. Siapkan Detail Penjualan
-            detailRows.push({
-                penjualan_id: trx.id, 
-                produk_id: item.id, 
-                nama_barang: item.nama_barang, 
-                qty: item.qty, 
-                harga_satuan: item.harga, 
-                subtotal_item: netSalesItem 
+            // 2. Jurnal Penerimaan Aset
+            jurnalData.push({ 
+                tanggal: tglISO, no_bukti: inv, kode_akun: String(kodeAkunAset), 
+                keterangan: `Penerimaan POS Backdate (${method}) - ${inv}`, 
+                debit: Math.round(state.total), kredit: 0 
             });
 
-            // B. Jurnal Pendapatan (Dinamis)
-            if (pInfo.akun_pendapatan) {
-                jurnalData.push({ 
-                    tanggal: tglISO, no_bukti: inv, 
-                    kode_akun: String(pInfo.akun_pendapatan), 
-                    keterangan: `Penjualan Backdate: ${item.nama_barang}`, 
-                    debit: 0, kredit: Math.round(netSalesItem) 
-                });
+            // 3. Loop Detail & Jurnal Dinamis
+            for (const item of cart) {
+                const { data: pInfo } = await db.from('produk')
+                    .select('harga_beli, stok_sekarang, akun_pendapatan, akun_hpp, akun_persediaan')
+                    .eq('id', item.id).single();
+                
+                if (pInfo) {
+                    const hppTotal = (parseFloat(pInfo.harga_beli) || 0) * item.qty;
+                    
+                    detailRows.push({
+                        penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, 
+                        qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga 
+                    });
+
+                    if (pInfo.akun_pendapatan) {
+                        jurnalData.push({ 
+                            tanggal: tglISO, no_bukti: inv, kode_akun: String(pInfo.akun_pendapatan), 
+                            keterangan: `Penjualan Backdate: ${item.nama_barang}`, debit: 0, kredit: Math.round(item.qty * item.harga) 
+                        });
+                    }
+                    if (hppTotal > 0) {
+                        if (pInfo.akun_hpp) jurnalData.push({ tanggal: tglISO, no_bukti: inv, kode_akun: String(pInfo.akun_hpp), keterangan: `Beban HPP: ${item.nama_barang}`, debit: Math.round(hppTotal), kredit: 0 });
+                        if (pInfo.akun_persediaan) jurnalData.push({ tanggal: tglISO, no_bukti: inv, kode_akun: String(pInfo.akun_persediaan), keterangan: `Stok Keluar: ${item.nama_barang}`, debit: 0, kredit: Math.round(hppTotal) });
+                    }
+
+                    // Update Stok
+                    await db.from('produk').update({ stok_sekarang: (pInfo.stok_sekarang || 0) - item.qty }).eq('id', item.id);
+                }
             }
 
-            // C. Jurnal HPP & Stok (Dinamis)
-            if (hppTotalItem > 0) {
-                if (pInfo.akun_hpp) {
-                    jurnalData.push({ 
-                        tanggal: tglISO, no_bukti: inv, 
-                        kode_akun: String(pInfo.akun_hpp), 
-                        keterangan: `Beban HPP: ${item.nama_barang}`, 
-                        debit: Math.round(hppTotalItem), kredit: 0 
-                    });
-                }
-                if (pInfo.akun_persediaan) {
-                    jurnalData.push({ 
-                        tanggal: tglISO, no_bukti: inv, 
-                        kode_akun: String(pInfo.akun_persediaan), 
-                        keterangan: `Stok Keluar: ${item.nama_barang}`, 
-                        debit: 0, kredit: Math.round(hppTotalItem) 
-                    });
-                }
-            }
+            await db.from('penjualan_detail').insert(detailRows);
+            await db.from('jurnal_umum').insert(jurnalData);
 
-            // D. Update Stok Fisik
-            await db.from('produk').update({ 
-                stok_sekarang: (pInfo.stok_sekarang || 0) - item.qty 
-            }).eq('id', item.id);
+            alert("Transaksi Backdate Berhasil Disimpan!");
+            location.reload();
+
+        } catch (e) { 
+            console.error(e);
+            alert("Kesalahan: " + e.message); 
+            btn.disabled = false;
+            btn.innerText = "SIMPAN TRANSAKSI BACKDATE";
         }
-
-        // 4. Eksekusi Batch Simpan Detail & Jurnal
-        await db.from('penjualan_detail').insert(detailRows);
-        await db.from('jurnal_umum').insert(jurnalData);
-
-        alert("Transaksi Backdate Berhasil Disimpan!");
-        location.reload();
-
-    } catch (e) { 
-        console.error("Detail Error:", e);
-        alert("Terjadi Kesalahan: " + e.message); 
-        btn.disabled = false;
-        btn.innerText = "SIMPAN TRANSAKSI BACKDATE";
     }
 
-        alert("Transaksi Backdate Berhasil Disimpan!");
-        location.reload();
     function logout() {
         if(confirm("Keluar dari sistem?")) {
             sessionStorage.clear();
