@@ -141,6 +141,10 @@
         fetchLabaRugi();
     };
 
+// Tambahkan library ini di bagian <head> jika belum ada
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
 async function fetchLabaRugi() {
     const from = document.getElementById('date-from').value;
     const to = document.getElementById('date-to').value;
@@ -163,26 +167,19 @@ async function fetchLabaRugi() {
             const kr = parseFloat(j.kredit || 0);
             const nama = j.akun?.nama_akun || `Akun ${k}`;
 
-            // 1. PENDAPATAN (Kepala 4)
             if (k.startsWith('4')) {
-                const val = (kr - d); // Saldo Normal Kredit
+                const val = (kr - d);
                 pendapatan[nama] = (pendapatan[nama] || 0) + val;
                 totalP += val;
-            }
-            // 2. BEBAN POKOK PENDAPATAN / HPP (Kepala 5)
-            else if (k.startsWith('5')) {
-                const val = (d - kr); // Saldo Normal Debit
+            } else if (k.startsWith('5')) {
+                const val = (d - kr);
                 hpp[nama] = (hpp[nama] || 0) + val;
                 totalHPP += val;
-            }
-            // 3. BEBAN OPERASIONAL (Kepala 6)
-            else if (k.startsWith('6')) {
+            } else if (k.startsWith('6')) {
                 const val = (d - kr);
                 bebanOps[nama] = (bebanOps[nama] || 0) + val;
                 totalBO += val;
-            }
-            // 4. BEBAN LAIN-LAIN (Kepala 8 & 9)
-            else if (k.startsWith('8') || k.startsWith('9')) {
+            } else if (k.startsWith('8') || k.startsWith('9')) {
                 const val = (d - kr);
                 bebanLain[nama] = (bebanLain[nama] || 0) + val;
                 totalBL += val;
@@ -192,14 +189,12 @@ async function fetchLabaRugi() {
         const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
         const renderList = (obj) => Object.keys(obj).map(key => 
             `<tr><td class="indent">${key}</td><td class="text-right">${f(obj[key])}</td></tr>`
-        ).join('') || '<tr><td class="indent" style="font-style:italic; color:#ccc;">(Kosong)</td><td class="text-right">Rp 0</td></tr>';
+        ).join('') || '<tr><td class="indent" style="font-style:italic; color:#ccc;">(Tidak ada data)</td><td class="text-right">Rp 0</td></tr>';
 
-        // HITUNG TAHAPAN LABA
         const labaKotor = totalP - totalHPP;
         const labaOperasional = labaKotor - totalBO;
         const labaBersih = labaOperasional - totalBL;
 
-        // CONSTRUCT HTML (Mengikuti gaya Jurnal.id)
         let html = `
             <tr class="row-group"><td>PENDAPATAN</td><td></td></tr>
             ${renderList(pendapatan)}
@@ -211,7 +206,7 @@ async function fetchLabaRugi() {
             <tr style="background:#f1f2f6; font-weight:bold;"><td>TOTAL BEBAN POKOK PENDAPATAN</td><td class="text-right">${f(totalHPP)}</td></tr>
             
             <tr style="height:30px;"></tr>
-            <tr class="row-total" style="background: #e8f5e9;"><td>LABA KOTOR (GROSS PROFIT)</td><td class="text-right">${f(labaKotor)}</td></tr>
+            <tr class="row-total" style="background: #e8f5e9; border: 1px solid #27ae60;"><td>LABA KOTOR (GROSS PROFIT)</td><td class="text-right">${f(labaKotor)}</td></tr>
 
             <tr style="height:20px;"></tr>
             <tr class="row-group"><td>BEBAN OPERASIONAL</td><td></td></tr>
@@ -227,9 +222,9 @@ async function fetchLabaRugi() {
             <tr style="background:#f1f2f6; font-weight:bold;"><td>TOTAL BEBAN LAIN-LAIN</td><td class="text-right">${f(totalBL)}</td></tr>
 
             <tr style="height:50px;"></tr>
-            <tr class="row-total" style="font-size:22px; color:white; background:var(--primary);">
-                <td>LABA / RUGI BERSIH AKHIR</td>
-                <td class="text-right">${f(labaBersih)}</td>
+            <tr class="row-total" style="background: #2c3e50; color: #ffffff !important;">
+                <td style="color: #ffffff; padding: 20px;">LABA / RUGI BERSIH AKHIR</td>
+                <td class="text-right" style="color: #ffffff; padding: 20px; font-size: 24px;">${f(labaBersih)}</td>
             </tr>
         `;
 
@@ -238,6 +233,42 @@ async function fetchLabaRugi() {
     } catch (e) { 
         console.error("Gagal load Laba Rugi:", e.message); 
     }
+}
+
+function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const namaToko = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
+    const periode = document.getElementById('period-text').innerText;
+
+    doc.setFontSize(18);
+    doc.text(namaToko, 105, 15, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text("LAPORAN LABA RUGI", 105, 22, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(periode, 105, 28, { align: 'center' });
+
+    doc.autoTable({
+        html: '#table-laba-rugi',
+        startY: 35,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2 },
+        columnStyles: { 1: { halign: 'right' } },
+        didParseCell: function(data) {
+            // Memberikan style khusus pada PDF untuk baris total agar mirip dengan tampilan layar
+            if (data.row.raw.classList.contains('row-total')) {
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.fillColor = [44, 62, 80];
+                data.cell.styles.textColor = [255, 255, 255];
+            }
+            if (data.row.raw.classList.contains('row-group')) {
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.fillColor = [240, 240, 240];
+            }
+        }
+    });
+
+    doc.save(`Laba_Rugi_${namaToko}_${new Date().getTime()}.pdf`);
 }
     function exportExcel() {
         const table = document.getElementById("table-laba-rugi");
