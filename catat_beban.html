@@ -105,36 +105,42 @@
         await checkSesi();
     };
 
-    async function fetchSemuaAkun() {
-        try {
-            // 1. Ambil Akun Kas/Bank (Kepala 11) - Untuk Sumber Dana
-            const { data: kasData } = await db.from('akun')
-                .select('kode_akun, nama_akun')
-                .ilike('kode_akun', '11%')
-                .order('kode_akun');
+   async function fetchSemuaAkun() {
+    try {
+        // 1. Ambil Data dari Tabel metode_pembayaran (Untuk Sumber Dana)
+        // Kita ambil nama_metode dan kode_akun-nya
+        const { data: mtdData, error: errMtd } = await db
+            .from('metode_pembayaran')
+            .select('nama_metode, kode_akun')
+            .order('nama_metode');
 
-            const selSumber = document.getElementById('exp-sumber-dana');
-            selSumber.innerHTML = '<option value="">-- Pilih Sumber Dana --</option>';
-            kasData.forEach(a => {
-                selSumber.innerHTML += `<option value="${a.kode_akun}">${a.nama_akun}</option>`;
-            });
+        if (errMtd) throw errMtd;
 
-            // 2. Ambil Akun Beban (Kepala 5 atau 6) - Untuk Kategori
-            const { data: bebanData } = await db.from('akun')
-                .select('kode_akun, nama_akun')
-                .or('kode_akun.ilike.5%,kode_akun.ilike.6%')
-                .order('kode_akun');
+        const selSumber = document.getElementById('exp-sumber-dana');
+        selSumber.innerHTML = '<option value="">-- Pilih Sumber Dana --</option>';
+        
+        // Loop berdasarkan metode pembayaran yang tersedia di database
+        mtdData.forEach(m => {
+            // value diisi kode_akun (misal 1101), teks diisi nama metode (misal Tunai)
+            selSumber.innerHTML += `<option value="${m.kode_akun}">${m.nama_metode}</option>`;
+        });
 
-            const selBeban = document.getElementById('exp-kategori');
-            selBeban.innerHTML = '<option value="">-- Pilih Akun Beban --</option>';
-            bebanData.forEach(b => {
-                selBeban.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
-            });
-        } catch (e) {
-            console.error("Gagal load akun", e);
-        }
+        // 2. Ambil Akun Beban (Kepala 5 atau 6) - Untuk Jenis Beban
+        const { data: bebanData } = await db.from('akun')
+            .select('kode_akun, nama_akun')
+            .or('kode_akun.ilike.5%,kode_akun.ilike.6%')
+            .order('kode_akun');
+
+        const selBeban = document.getElementById('exp-jenis-beban');
+        selBeban.innerHTML = '<option value="">-- Pilih Jenis Beban --</option>';
+        bebanData.forEach(b => {
+            selBeban.innerHTML += `<option value="${b.kode_akun}">${b.nama_akun}</option>`;
+        });
+
+    } catch (err) {
+        console.error("Gagal mengambil data akun:", err.message);
     }
-
+}
     async function checkSesi() {
         if (session) {
             document.getElementById('shift-status').innerHTML = "✅ Sesi Aktif: " + session.username;
