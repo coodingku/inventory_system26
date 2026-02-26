@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Manajemen Supplier</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        
+        /* SIDEBAR */
+        nav { width: 250px; background: var(--primary); color: white; padding: 20px; position: fixed; height: 100vh; box-sizing: border-box; }
+        nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+
+        main { flex: 1; margin-left: 250px; padding: 40px; }
+
+        /* SUMMARY CARDS (Ala Jurnal.id) */
+        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid var(--accent); }
+        .stat-card h2 { margin: 5px 0; color: var(--primary); }
+        .stat-card small { color: #7f8c8d; text-transform: uppercase; font-size: 11px; font-weight: bold; }
+
+        /* FORM & TABLE */
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 12px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-add { background: var(--success); }
+        .btn-delete { background: var(--danger); padding: 5px 10px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="kas_bank.html">⚖️ Kas & Bank</a>
+    <a href="supplier.html" class="active">👥 Supplier</a>
+    <a href="pengeluaran.html">💸 Catat Biaya</a>
+</nav>
+
+<main>
+    <h1>Daftar Supplier (Pemasok)</h1>
+
+    <div class="summary-grid">
+        <div class="stat-card">
+            <small>Total Supplier</small>
+            <h2 id="count-supplier">0</h2>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--danger);">
+            <small>Total Hutang Belum Dibayar</small>
+            <h2 id="total-hutang">Rp 0</h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Tambah Supplier Baru</h3>
+        <div class="form-row">
+            <div>
+                <label>Nama Supplier / Perusahaan</label>
+                <input type="text" id="sup-nama" placeholder="Contoh: PT. Abadi Jaya">
+            </div>
+            <div>
+                <label>Kontak Person</label>
+                <input type="text" id="sup-kontak" placeholder="Nama PIC">
+            </div>
+            <div>
+                <label>No. Telepon / WA</label>
+                <input type="text" id="sup-telp" placeholder="0812...">
+            </div>
+        </div>
+        <div class="form-row">
+            <div>
+                <label>Email</label>
+                <input type="email" id="sup-email" placeholder="supplier@mail.com">
+            </div>
+            <div>
+                <label>Info Rekening (Bank & No. Rek)</label>
+                <input type="text" id="sup-rek" placeholder="BCA 12345678 a/n ...">
+            </div>
+            <div style="display: flex; align-items: flex-end;">
+                <button class="btn btn-add" onclick="tambahSupplier()" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Simpan Supplier
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nama Supplier</th>
+                    <th>Kontak & Telp</th>
+                    <th>Email</th>
+                    <th>Info Rekening</th>
+                    <th style="text-align: right;">Saldo Hutang</th>
+                    <th style="text-align: center;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="list-supplier">
+                </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    window.onload = fetchSuppliers;
+
+    async function fetchSuppliers() {
+        try {
+            const { data, error } = await db.from('suppliers').select('*').order('nama_supplier');
+            if (error) throw error;
+
+            const tbody = document.getElementById('list-supplier');
+            tbody.innerHTML = '';
+            
+            let totalH = 0;
+            data.forEach(s => {
+                totalH += parseFloat(s.saldo_hutang || 0);
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${s.nama_supplier}</b></td>
+                        <td>${s.kontak_person || '-'}<br><small>${s.no_telp || '-'}</small></td>
+                        <td>${s.email || '-'}</td>
+                        <td>${s.no_rekening || '-'}</td>
+                        <td style="text-align: right; font-weight: bold; color: ${s.saldo_hutang > 0 ? 'var(--danger)' : 'var(--success)'}">
+                            Rp ${parseFloat(s.saldo_hutang).toLocaleString('id-ID')}
+                        </td>
+                        <td style="text-align: center;">
+                            <button class="btn-delete" onclick="hapusSupplier('${s.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('count-supplier').innerText = data.length;
+            document.getElementById('total-hutang').innerText = "Rp " + totalH.toLocaleString('id-ID');
+
+        } catch (e) { console.error(e); }
+    }
+
+    async function tambahSupplier() {
+        const nama = document.getElementById('sup-nama').value;
+        if(!nama) return alert("Nama Supplier wajib diisi!");
+
+        const payload = {
+            nama_supplier: nama,
+            kontak_person: document.getElementById('sup-kontak').value,
+            no_telp: document.getElementById('sup-telp').value,
+            email: document.getElementById('sup-email').value,
+            no_rekening: document.getElementById('sup-rek').value,
+            saldo_hutang: 0
+        };
+
+        const { error } = await db.from('suppliers').insert([payload]);
+        if (error) alert(error.message);
+        else {
+            alert("Supplier berhasil ditambahkan!");
+            location.reload();
+        }
+    }
+
+    async function hapusSupplier(id) {
+        if(confirm("Hapus supplier ini? Data hutang akan hilang.")) {
+            await db.from('suppliers').delete().eq('id', id);
+            fetchSuppliers();
+        }
+    }
+</script>
+</body>
+</html>
