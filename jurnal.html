@@ -201,60 +201,92 @@
 
 async function deepFix(noInvoice, penjualanId, isQuiet = false) {
     try {
-        const { data: details } = await db.from('penjualan_detail').select('produk_id, qty').eq('penjualan_id', penjualanId);
-        const { data: header } = await db.from('penjualan').select('tanggal').eq('id', penjualanId).single();
+        // 1. Ambil Data Penjualan
+        const { data: s } = await db.from('penjualan').select('*').eq('id', penjualanId).single();
+        const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', penjualanId);
         
-        const hppEntries = [];
+        if (!s || !details) return;
 
+        // 2. CARI AKUN PAJAK DINAMIS (Cari akun kepala 2 yang mengandung kata 'Pajak')
+        const { data: akunPajakList } = await db.from('akun')
+            .select('kode_akun')
+            .ilike('nama_akun', '%pajak%')
+            .eq('kategori', 'Kewajiban')
+            .limit(1);
+        
+        // Jika tidak ketemu, fallback ke 2102 atau berikan peringatan
+        const akunPajakDinamis = (akunPajakList && akunPajakList.length > 0) 
+            ? String(akunPajakList[0].kode_akun) 
+            : '2102'; 
+
+        // 3. Bersihkan Jurnal Lama agar tidak double/pincang
+        await db.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
+
+        let batch = [];
+        const grandTotal = Math.round(s.grand_total || 0);
+        const subTotal = Math.round(s.total_harga || 0);
+        const nilaiPajak = grandTotal - subTotal; 
+
+        // --- A. JURNAL PENDAPATAN & KAS ---
+        // Cari akun Kas/Bank dari metode pembayaran pelanggan
+        const { data: mtd } = await db.from('metode_pembayaran').select('kode_akun').eq('nama_metode', s.metode_pembayaran).maybeSingle();
+        const akunDebit = mtd ? String(mtd.kode_akun) : '1101';
+
+        batch.push({ 
+            tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: akunDebit, 
+            keterangan: `Penjualan ${noInvoice}`, debit: grandTotal, kredit: 0 
+        });
+
+        // Cari akun pendapatan dari produk (Dinamis)
+        const { data: pFirst } = await db.from('produk').select('akun_pendapatan').eq('id', details[0].produk_id).single();
+        const akunPendapatan = pFirst?.akun_pendapatan ? String(pFirst.akun_pendapatan) : '4102';
+
+        batch.push({ 
+            tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: akunPendapatan, 
+            keterangan: `Pendapatan ${noInvoice}`, debit: 0, kredit: subTotal 
+        });
+
+        // KREDIT: Pajak (Menggunakan Akun Pajak Dinamis milik Pelanggan)
+        if (nilaiPajak > 0) {
+            batch.push({ 
+                tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: akunPajakDinamis, 
+                keterangan: `Pajak/Layanan ${noInvoice}`, debit: 0, kredit: nilaiPajak 
+            });
+        }
+
+        // --- B. JURNAL HPP (DINAMIS PER PRODUK) ---
         for (const item of details) {
-            // Ambil info akun HPP & Persediaan dari produk secara DINAMIS
-            const { data: p } = await db.from('produk')
-                .select('harga_beli, akun_hpp, akun_persediaan')
-                .eq('id', item.produk_id).single();
-
-            if (p && p.akun_hpp && p.akun_persediaan) {
-                const totalHppItem = (parseFloat(p.harga_beli || 0) * item.qty);
-                
-                if (totalHppItem > 0) {
-                    // Cek agar tidak double insert untuk item yang sama di invoice yang sama
-                    const { data: exist } = await db.from('jurnal_umum')
-                        .select('id').eq('no_bukti', noInvoice).eq('kode_akun', p.akun_hpp).maybeSingle();
-
-                    if (!exist) {
-                        hppEntries.push({ 
-                            tanggal: header.tanggal, 
-                            no_bukti: noInvoice, 
-                            kode_akun: String(p.akun_hpp), 
-                            keterangan: `Fix HPP - ${noInvoice}`, 
-                            debit: Math.round(totalHppItem), kredit: 0 
-                        });
-                        hppEntries.push({ 
-                            tanggal: header.tanggal, 
-                            no_bukti: noInvoice, 
-                            kode_akun: String(p.akun_persediaan), 
-                            keterangan: `Fix Stok Keluar - ${noInvoice}`, 
-                            debit: 0, kredit: Math.round(totalHppItem) 
-                        });
-                    }
+            const { data: prod } = await db.from('produk').select('harga_beli, akun_hpp, akun_persediaan').eq('id', item.produk_id).single();
+            if (prod && prod.akun_hpp && prod.akun_persediaan) {
+                const nilaiHPP = Math.round(parseFloat(prod.harga_beli || 0) * item.qty);
+                if (nilaiHPP > 0) {
+                    batch.push({ 
+                        tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(prod.akun_hpp), 
+                        keterangan: `HPP: ${noInvoice}`, debit: nilaiHPP, kredit: 0 
+                    });
+                    batch.push({ 
+                        tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(prod.akun_persediaan), 
+                        keterangan: `Persediaan Keluar: ${noInvoice}`, debit: 0, kredit: nilaiHPP 
+                    });
                 }
             }
         }
 
-        if (hppEntries.length > 0) {
-            const { error } = await db.from('jurnal_umum').insert(hppEntries);
+        // 4. Eksekusi Insert ke Database
+        if (batch.length > 0) {
+            const { error } = await db.from('jurnal_umum').insert(batch);
             if (error) throw error;
         }
         
         if (!isQuiet) {
-            alert(`Berhasil Memperbaiki Jurnal secara Dinamis!`);
+            alert(`✅ Sinkronisasi Berhasil!\nAkun Pajak yang digunakan: ${akunPajakDinamis}`);
             runAudit();
         }
     } catch (e) {
         console.error(e);
-        if (!isQuiet) alert(`Gagal: ${e.message}`);
+        if (!isQuiet) alert(`Gagal Fix: ${e.message}`);
     }
 }
-
     function exportToExcel() {
         const wb = XLSX.utils.table_to_book(document.getElementById("table-audit"));
         XLSX.writeFile(wb, `Audit_Jurnal_HPP_${new Date().toLocaleDateString()}.xlsx`);
