@@ -200,7 +200,7 @@
 
 
  
-  async function saveBackdate() {
+ async function saveBackdate() {
     if (cart.length === 0) return alert("Keranjang masih kosong!");
     
     const btn = document.getElementById('btnSave');
@@ -211,9 +211,6 @@
     
     const inv = `BKD-${Date.now().toString().slice(-6)}`;
     const tglISO = tgl + "T12:00:00Z"; 
-
-    // DEKLARASI AWAL
-    let totalHPPGlobal = 0; 
 
     btn.disabled = true;
     btn.innerText = "SEDANG MENYIMPAN...";
@@ -231,40 +228,10 @@
 
         if (errTrx) throw errTrx;
 
-        // 2. Simpan Detail & Hitung HPP & Kurangi Stok
-        for (const item of cart) {
-            // Ambil data produk terbaru (HPP & Stok)
-            const { data: p, error: errGetP } = await db.from('produk')
-                .select('harga_beli, stok_sekarang')
-                .eq('id', item.id)
-                .single();
-            
-            if (errGetP) throw new Error(`Gagal ambil data produk: ${item.nama_barang}`);
-
-            const hppSatuan = p.harga_beli || 0;
-            totalHPPGlobal += (hppSatuan * item.qty); // Menambah ke total global
-
-            // Simpan Detail
-            const { error: errDet } = await db.from('penjualan_detail').insert({
-                penjualan_id: trx.id, 
-                produk_id: item.id, 
-                nama_barang: item.nama_barang, 
-                qty: item.qty, 
-                harga_satuan: item.harga, 
-                subtotal_item: item.qty * item.harga 
-            });
-            if (errDet) throw errDet;
-
-            // UPDATE STOK MANUAL
-            const stokBaru = (p.stok || 0) - item.qty;
-            await db.from('produk').update({ stok: stokBaru }).eq('id', item.id);
-        }
-
-       // 3. SIAPKAN ARRAY JURNAL
         const jurnalData = [];
+        const detailRows = [];
 
-        // A. Jurnal Penerimaan Aset (Dinamis dari Metode Pembayaran)
-        // kodeAkunAset sudah Anda ambil sebelumnya dari tabel metode_pembayaran
+        // 2. Jurnal Penerimaan Aset (Dinamis dari Metode)
         jurnalData.push({ 
             tanggal: tglISO, 
             no_bukti: inv, 
@@ -274,31 +241,43 @@
             kredit: 0 
         });
 
-        // B. Jurnal Pendapatan, HPP, dan Stok (Dinamis per Item dari Tabel Produk)
+        // 3. Proses Per Item (Detail, Stok, dan Jurnal Dinamis)
         for (const item of cart) {
-            // Kita ambil referensi akun langsung dari tabel produk
-            const { data: pInfo } = await db.from('produk')
-                .select('akun_pendapatan, akun_hpp, akun_persediaan, harga_beli')
+            // Ambil info akun & info produk terbaru
+            const { data: pInfo, error: errP } = await db.from('produk')
+                .select('harga_beli, stok_sekarang, akun_pendapatan, akun_hpp, akun_persediaan')
                 .eq('id', item.id)
                 .single();
             
-            if (pInfo) {
-                const hppSatuan = parseFloat(pInfo.harga_beli || 0);
-                const hppTotalItem = hppSatuan * item.qty;
-                const netSalesItem = (item.qty * item.harga) - ((item.qty * item.harga * (item.discountItem || 0)) / 100);
+            if (errP || !pInfo) throw new Error(`Produk ${item.nama_barang} tidak ditemukan.`);
 
-                // Jurnal Pendapatan (Ganti '4101' jadi pInfo.akun_pendapatan)
-                if (pInfo.akun_pendapatan) {
-                    jurnalData.push({ 
-                        tanggal: tglISO, no_bukti: inv, 
-                        kode_akun: String(pInfo.akun_pendapatan), 
-                        keterangan: `Pendapatan Penjualan: ${item.nama_barang}`, 
-                        debit: 0, kredit: Math.round(netSalesItem) 
-                    });
-                }
+            const hppSatuan = parseFloat(pInfo.harga_beli || 0);
+            const hppTotalItem = hppSatuan * item.qty;
+            const netSalesItem = (item.qty * item.harga); // Untuk backdate biasanya harga sudah nett di input
 
-                // Jurnal HPP (Ganti '5101' jadi pInfo.akun_hpp)
-                if (pInfo.akun_hpp && hppTotalItem > 0) {
+            // A. Siapkan Detail Penjualan
+            detailRows.push({
+                penjualan_id: trx.id, 
+                produk_id: item.id, 
+                nama_barang: item.nama_barang, 
+                qty: item.qty, 
+                harga_satuan: item.harga, 
+                subtotal_item: netSalesItem 
+            });
+
+            // B. Jurnal Pendapatan (Dinamis)
+            if (pInfo.akun_pendapatan) {
+                jurnalData.push({ 
+                    tanggal: tglISO, no_bukti: inv, 
+                    kode_akun: String(pInfo.akun_pendapatan), 
+                    keterangan: `Penjualan Backdate: ${item.nama_barang}`, 
+                    debit: 0, kredit: Math.round(netSalesItem) 
+                });
+            }
+
+            // C. Jurnal HPP & Stok (Dinamis)
+            if (hppTotalItem > 0) {
+                if (pInfo.akun_hpp) {
                     jurnalData.push({ 
                         tanggal: tglISO, no_bukti: inv, 
                         kode_akun: String(pInfo.akun_hpp), 
@@ -306,9 +285,7 @@
                         debit: Math.round(hppTotalItem), kredit: 0 
                     });
                 }
-
-                // Jurnal Persediaan (Ganti '1103' jadi pInfo.akun_persediaan)
-                if (pInfo.akun_persediaan && hppTotalItem > 0) {
+                if (pInfo.akun_persediaan) {
                     jurnalData.push({ 
                         tanggal: tglISO, no_bukti: inv, 
                         kode_akun: String(pInfo.akun_persediaan), 
@@ -317,14 +294,27 @@
                     });
                 }
             }
+
+            // D. Update Stok Fisik
+            await db.from('produk').update({ 
+                stok_sekarang: (pInfo.stok_sekarang || 0) - item.qty 
+            }).eq('id', item.id);
         }
 
-        // 4. SIMPAN SEMUA JURNAL SEKALIGUS
-        if (jurnalData.length > 0) {
-            const { error: errJurnal } = await db.from('jurnal_umum').insert(jurnalData);
-            if (errJurnal) throw errJurnal;
-        }
+        // 4. Eksekusi Batch Simpan Detail & Jurnal
+        await db.from('penjualan_detail').insert(detailRows);
+        await db.from('jurnal_umum').insert(jurnalData);
 
+        alert("Transaksi Backdate Berhasil Disimpan!");
+        location.reload();
+
+    } catch (e) { 
+        console.error("Detail Error:", e);
+        alert("Terjadi Kesalahan: " + e.message); 
+        btn.disabled = false;
+        btn.innerText = "SIMPAN TRANSAKSI BACKDATE";
+    }
+}
         alert("Transaksi Backdate Berhasil Disimpan!");
         location.reload();
     function logout() {
