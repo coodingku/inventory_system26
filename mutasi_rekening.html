@@ -197,27 +197,17 @@ function exportPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'mm', 'a4'); 
     const now = new Date();
-    const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
-    // --- 1. HEADER (Navy) ---
+    
+    // --- 1. HEADER ---
     doc.setFillColor(44, 62, 80); 
     doc.rect(0, 0, 297, 40, 'F'); 
-    
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont(undefined, 'bold');
+    doc.setFontSize(22); doc.setFont(undefined, 'bold');
     doc.text("FINEX POS", 14, 18);
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text("Sistem Manajemen Keuangan & Bisnis", 14, 25);
-    doc.text(`Laporan per Tanggal: ${dateStr} | ${timeStr}`, 14, 32);
+    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+    doc.text(`Laporan Konsolidasi Keuangan | Dicetak: ${now.toLocaleString('id-ID')}`, 14, 30);
 
-    doc.setFontSize(14);
-    doc.text("RINGKASAN NERACA & LABA RUGI", 283, 25, { align: 'right' });
-
-    // --- 2. LOGIKA AKUMULASI DATA (METODE SCRAPING TABEL) ---
+    // --- 2. LOGIKA AKUMULASI DATA HYBRID ---
     let totalKasBank = 0;
     let totalPersediaan = 0;
     let totalPenjualan = 0;
@@ -226,117 +216,99 @@ function exportPDF() {
     let totalHutang = 0;
     let totalBebanLain = 0;
 
-    // Ambil semua baris dari tbody
     const tableRows = document.querySelectorAll("#akun-list tr");
     const tableBodyData = [];
 
-    tableRows.forEach(row => {
-        const cols = row.querySelectorAll("td");
-        if (cols.length >= 8) {
-            const kode = cols[0].innerText.trim();
-            const namaKategori = cols[1].innerText.toLowerCase();
-            
-            // Bersihkan format Rupiah ke angka murni
-            const getVal = (idx) => {
-                let val = cols[idx].innerText.replace(/[^0-9,-]/g, "").replace(",", ".");
-                return parseFloat(val) || 0;
-            };
+    // Fungsi pembersih angka agar tidak Rp 0
+    const cleanNum = (val) => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        let clean = val.replace(/Rp/g, '').replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.');
+        return parseFloat(clean) || 0;
+    };
 
-            const debit = getVal(2);
-            const kredit = getVal(3);
-            const sistem = getVal(4);
-            const real = getVal(5);
+    // CEK: Jika Tabel di layar kosong (Biasanya di Master), gunakan currentDataRaw
+    if (tableRows.length <= 1 && currentDataRaw.length > 0) {
+        // --- JALUR MASTER (Ambil dari Variabel) ---
+        currentDataRaw.forEach(d => {
+            const sistem = Number(d.sistem || 0);
+            const kode = String(d.kode || "");
+            const nama = String(d.nama || "").toLowerCase();
 
-            // Klasifikasi Akumulasi berdasarkan KODE (Starts With)
             if (kode.startsWith('11') && kode !== '1103') totalKasBank += sistem;
             if (kode === '1103') totalPersediaan += sistem;
             if (kode.startsWith('2')) totalHutang += sistem;
             if (kode.startsWith('3')) totalEkuitas += sistem;
             if (kode.startsWith('4')) totalPenjualan += sistem;
             if (kode === '5101') totalHPP += sistem;
-            else if (kode.startsWith('5') || kode.startsWith('6') || namaKategori.includes('beban')) {
-                totalBebanLain += sistem;
+            else if (kode.startsWith('5') || kode.startsWith('6')) totalBebanLain += sistem;
+
+            tableBodyData.push([kode, d.nama, d.kategori || "", "-", "-", `Rp ${sistem.toLocaleString('id-ID')}`, d.status || "-"]);
+        });
+    } else {
+        // --- JALUR PELANGGAN (Ambil dari Layar) ---
+        tableRows.forEach(row => {
+            const cols = row.querySelectorAll("td");
+            if (cols.length >= 6) {
+                const kode = cols[0].innerText.trim();
+                const nama = cols[1].innerText.toLowerCase();
+                const sistem = cleanNum(cols[4].innerText); // Kolom Saldo Sistem
+
+                if (kode.startsWith('11') && kode !== '1103') totalKasBank += sistem;
+                if (kode === '1103') totalPersediaan += sistem;
+                if (kode.startsWith('2')) totalHutang += sistem;
+                if (kode.startsWith('3')) totalEkuitas += sistem;
+                if (kode.startsWith('4')) totalPenjualan += sistem;
+                if (kode === '5101') totalHPP += sistem;
+                else if (kode.startsWith('5') || kode.startsWith('6')) totalBebanLain += sistem;
+
+                tableBodyData.push([
+                    kode, 
+                    cols[1].innerText.split("\n")[0].trim(), 
+                    cols[1].innerText.split("\n")[1] || "", 
+                    cols[2].innerText, 
+                    cols[3].innerText, 
+                    cols[4].innerText, 
+                    cols[7]?.innerText || "-"
+                ]);
             }
+        });
+    }
 
-            // Data untuk tabel PDF
-            tableBodyData.push([
-                kode,
-                cols[1].innerText.split("\n")[0].trim(),
-                cols[1].innerText.split("\n")[1]?.trim() || "",
-                cols[2].innerText,
-                cols[3].innerText,
-                cols[4].innerText,
-                cols[7].innerText
-            ]);
-        }
-    });
-
-    // --- 3. TABEL UTAMA ---
+    // --- 3. RENDER TABEL ---
     doc.autoTable({
         startY: 45,
-        head: [['Kode', 'Nama Akun', 'Kategori', 'Debit', 'Kredit', 'Saldo Sistem', 'Status']],
+        head: [['Kode', 'Nama Akun', 'Kategori', 'Masuk', 'Keluar', 'Saldo', 'Status']],
         body: tableBodyData,
         theme: 'striped',
-        headStyles: { fillColor: [52, 152, 219], fontSize: 10, halign: 'center' },
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        columnStyles: {
-            3: { halign: 'right' },
-            4: { halign: 'right' },
-            5: { halign: 'right', fontStyle: 'bold' },
-            6: { halign: 'center' }
-        }
+        headStyles: { fillColor: [52, 152, 219] },
+        styles: { fontSize: 8 }
     });
 
-    // --- 4. EXECUTIVE SUMMARY BOX ---
+    // --- 4. EXECUTIVE SUMMARY BOX (PENERANGAN TOTAL) ---
     const finalY = doc.lastAutoTable.finalY + 10;
     const labaKotor = totalPenjualan - totalHPP;
     const labaBersih = labaKotor - totalBebanLain;
     
     doc.setFillColor(245, 247, 250);
-    doc.roundedRect(14, finalY, 269, 55, 3, 3, 'F');
-    
+    doc.roundedRect(14, finalY, 269, 50, 3, 3, 'F');
     doc.setTextColor(44, 62, 80);
-    doc.setFontSize(11);
+    doc.setFontSize(10); doc.setFont(undefined, 'bold');
+    doc.text("RINGKASAN EKSEKUTIF KEUANGAN", 20, finalY + 10);
+    
+    doc.setFontSize(9); doc.setFont(undefined, 'normal');
+    doc.text(`Kas & Bank       : Rp ${Math.round(totalKasBank).toLocaleString('id-ID')}`, 20, finalY + 20);
+    doc.text(`Pendapatan Jual  : Rp ${Math.round(totalPenjualan).toLocaleString('id-ID')}`, 110, finalY + 20);
+    doc.text(`Modal / Ekuitas  : Rp ${Math.round(totalEkuitas).toLocaleString('id-ID')}`, 200, finalY + 20);
+    doc.text(`Stok Persediaan  : Rp ${Math.round(totalPersediaan).toLocaleString('id-ID')}`, 20, finalY + 28);
+    doc.text(`Total HPP        : Rp ${Math.round(totalHPP).toLocaleString('id-ID')}`, 110, finalY + 28);
+    doc.text(`Hutang Lancar    : Rp ${Math.round(totalHutang).toLocaleString('id-ID')}`, 200, finalY + 28);
+
     doc.setFont(undefined, 'bold');
-    doc.text("IKHTISAR KEUANGAN (EXECUTIVE SUMMARY)", 20, finalY + 10);
-    
-    doc.setFontSize(9);
-    
-    // KOLOM 1: ASET
-    doc.setFont(undefined, 'bold'); doc.text("POSISI ASET (HARTA)", 20, finalY + 20);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Kas & Bank       : Rp ${totalKasBank.toLocaleString('id-ID')}`, 20, finalY + 28);
-    doc.text(`Stok Persediaan  : Rp ${totalPersediaan.toLocaleString('id-ID')}`, 20, finalY + 34);
-    doc.text(`Hutang (Kewajiban): Rp ${totalHutang.toLocaleString('id-ID')}`, 20, finalY + 40);
-
-    // KOLOM 2: LABA KOTOR
-    doc.setFont(undefined, 'bold'); doc.text("ANALISIS LABA KOTOR", 110, finalY + 20);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Pendapatan Jual  : Rp ${totalPenjualan.toLocaleString('id-ID')}`, 110, finalY + 28);
-    doc.setTextColor(192, 57, 43); 
-    doc.text(`Total HPP        : (Rp ${totalHPP.toLocaleString('id-ID')})`, 110, finalY + 34);
-    doc.line(110, finalY + 36, 160, finalY + 36);
-    doc.setFont(undefined, 'bold'); 
-    doc.setTextColor(39, 174, 96); 
-    doc.text(`LABA KOTOR       : Rp ${labaKotor.toLocaleString('id-ID')}`, 110, finalY + 42);
-
-    // KOLOM 3: LABA BERSIH
-    doc.setTextColor(44, 62, 80);
-    doc.setFont(undefined, 'bold'); doc.text("MODAL & EKUITAS", 200, finalY + 20);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Modal / Ekuitas  : Rp ${totalEkuitas.toLocaleString('id-ID')}`, 200, finalY + 28);
-    doc.text(`Beban Ops        : Rp ${totalBebanLain.toLocaleString('id-ID')}`, 200, finalY + 34);
-    
-    doc.setFontSize(11);
     doc.setTextColor(41, 128, 185); 
-    doc.setFont(undefined, 'bold');
-    doc.text(`LABA BERSIH`, 200, finalY + 43);
-    doc.text(`Rp ${labaBersih.toLocaleString('id-ID')}`, 200, finalY + 49);
+    doc.text(`LABA BERSIH      : Rp ${Math.round(labaBersih).toLocaleString('id-ID')}`, 110, finalY + 38);
 
-    doc.setFontSize(8); doc.setFont(undefined, 'italic'); doc.setTextColor(150);
-    doc.text(`* Dokumen ini dihasilkan secara digital oleh Finex Pos.`, 14, finalY + 62);
-
-    doc.save(`Finex_Laporan_Lengkap_${now.getTime()}.pdf`);
+    doc.save(`Laporan_Finex_Universal_${now.getTime()}.pdf`);
 }
 </script>
 </body>
