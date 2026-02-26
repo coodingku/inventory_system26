@@ -260,16 +260,29 @@
         renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q) || (p.kode_barang && p.kode_barang.includes(q))));
     }
 
-    // Fungsi Excel tetap berjalan menggunakan format database baru
-    function downloadTemplate() {
-        const template = [{"Kode Barang": "1001", "Nama Produk": "Serum", "Kategori ID": "isi-id-uuid", "Gudang ID": "isi-id-uuid", "Harga Beli": 7000, "Harga Jual": 10000, "Stok": 20}];
+  function downloadTemplate() {
+        // Menambahkan kolom mapping akun ke dalam template
+        const template = [{
+            "Kode Barang": "1001", 
+            "Nama Produk": "Serum Glowing", 
+            "Kategori ID": "isi-id-uuid", 
+            "Gudang ID": "isi-id-uuid", 
+            "Harga Beli": 70000, 
+            "Harga Jual": 100000, 
+            "Stok": 50,
+            "Akun Pendapatan": "4101", // Contoh: Pendapatan Penjualan
+            "Akun HPP": "5101",        // Contoh: Harga Pokok Penjualan
+            "Akun Persediaan": "1103"  // Contoh: Persediaan Barang Dagang
+        }];
+        
         const ws = XLSX.utils.json_to_sheet(template);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Produk");
-        XLSX.writeFile(wb, "Template_Produk_UUID.xlsx");
+        XLSX.writeFile(wb, "Template_Produk_Akuntansi.xlsx");
     }
 
     function exportExcel() {
+        // Export data lengkap termasuk kolom akun untuk backup
         const ws = XLSX.utils.json_to_sheet(masterData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Database_Produk");
@@ -295,6 +308,7 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
+                // Mapping data dari Excel ke kolom Database Supabase
                 const cleanedData = json.map(item => ({
                     kode_barang: (item["Kode Barang"] || "").toString(),
                     nama_barang: (item["Nama Produk"] || "").toString().trim(),
@@ -303,7 +317,11 @@
                     stok_sekarang: parseInt(item.Stok || 0),
                     stok_gudang: parseInt(item.Stok || 0),
                     kategori_id: item["Kategori ID"],
-                    gudang_id: item["Gudang ID"]
+                    gudang_id: item["Gudang ID"],
+                    // KOLOM AKUNTANSI DINAMIS
+                    akun_pendapatan: (item["Akun Pendapatan"] || "4101").toString(),
+                    akun_hpp: (item["Akun HPP"] || "5101").toString(),
+                    akun_persediaan: (item["Akun Persediaan"] || "1103").toString()
                 })).filter(item => item.nama_barang !== "");
 
                 const totalData = cleanedData.length;
@@ -311,7 +329,9 @@
                 
                 for (let i = 0; i < totalData; i += batchSize) {
                     const batch = cleanedData.slice(i, i + batchSize);
-                    const { error } = await db.from('produk').upsert(batch, { onConflict: 'nama_barang' });
+                    
+                    // Upsert berdasarkan nama_barang atau kode_barang agar tidak duplikat
+                    const { error } = await db.from('produk').upsert(batch, { onConflict: 'kode_barang' });
                     if (error) throw error;
 
                     const percentage = Math.round((Math.min(i + batchSize, totalData) / totalData) * 100);
