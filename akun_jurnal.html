@@ -5,45 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manajemen Akun | Finex Pos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script src="supabase-init.js"></script>
 
     <style>
         :root { 
-            --primary: #2c3e50; 
-            --accent: #3498db; 
-            --bg: #f4f7f6; 
-            --success: #27ae60; 
-            --danger: #e74c3c; 
-            --beauty: #ff4757; 
-            --warning: #f39c12;
+            --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; 
+            --success: #27ae60; --danger: #e74c3c; --beauty: #ff4757; --warning: #f39c12;
         }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; color: #333; }
         
-        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; z-index: 100; }
-        nav h2 { color: var(--beauty); text-align: center; margin-bottom: 30px; }
+        nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; z-index: 100; box-sizing: border-box; }
+        nav h2 { color: var(--beauty); text-align: center; margin-bottom: 30px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: block; transition: 0.3s; font-size: 14px; }
-        nav a:hover { background: rgba(255,255,255,0.1); color: white; }
-        nav a.active { background: var(--accent); color: white; }
+        nav a:hover, nav a.active { background: rgba(255,255,255,0.1); color: white; }
+        nav a.active { background: var(--accent); }
 
         main { flex: 1; margin-left: 240px; padding: 40px; width: calc(100% - 240px); box-sizing: border-box; }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 30px; }
         
+        .toolbar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .btn-group { display: flex; gap: 10px; }
+
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .stat-card { background: white; padding: 20px; border-radius: 12px; border-bottom: 4px solid var(--accent); }
         .stat-card small { color: #7f8c8d; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .stat-card div { font-size: 22px; font-weight: bold; margin-top: 5px; color: var(--primary); }
 
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
-        input, select { padding: 10px; border: 1px solid #dfe6e9; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 13px; }
+        input, select { padding: 10px; border: 1px solid #dfe6e9; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 13px; outline: none; }
         
-        button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-add { background: var(--beauty); color: white; }
-        .btn-update { background: var(--warning); color: white; }
+        button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 13px; }
+        .btn-save { background: var(--beauty); color: white; }
+        .btn-outline { background: #eee; color: #333; }
+        .btn-outline:hover { background: #ddd; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f2f6; color: #95a5a6; font-size: 11px; text-transform: uppercase; }
-        td { padding: 15px; border-bottom: 1px solid #f1f2f6; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #f1f1f1; font-size: 14px; }
         
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
         .bg-Aset { background: #e3f2fd; color: #1976d2; }
@@ -52,53 +51,57 @@
         .bg-Pendapatan { background: #e8f5e9; color: #2e7d32; }
         .bg-Beban { background: #efebe9; color: #4e342e; }
         
-        #status-msg { font-size: 13px; padding: 10px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; color: white; }
-        .user-info { margin-top: auto; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; font-size: 12px; color: #ddd; margin-bottom: 10px; }
+        #status-msg { font-size: 13px; padding: 12px 20px; border-radius: 8px; display: none; position: fixed; top: 20px; right: 20px; z-index: 2000; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
+
+    <div id="status-msg"></div>
 
     <nav>
         <h2 id="store-name-display">Finex Pos</h2>
         <a href="dashboard.html">📊 Dashboard</a>
         <a href="pos.html">🛒 Kasir</a>
-        <a href="akun_jurnal.html" class="active">🏦 Daftar Akun</a>
+        <a href="akun_jurnal.html" class="active">🏦 Daftar Akun (COA)</a>
         <a href="jurnal.html">📖 Jurnal Umum</a>
-        
-        <div class="user-info">
-            <small>ADMIN:</small> <b id="display-user-nav">...</b>
+        <div style="margin-top: auto;">
+            <button onclick="logout()" style="width:100%; background:var(--danger); color:white;">🚪 Keluar</button>
         </div>
-        <div style="background: var(--danger); color: white; text-align: center; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px;" onclick="logout()">🚪 Keluar</div>
     </nav>
 
     <main>
-        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin:0">Manajemen Bagan Akun</h1>
-            <button class="btn-add" onclick="loadData()" style="background: var(--accent)">🔄 Sinkron Saldo</button>
-            <div id="status-msg"></div>
+        <div class="toolbar-header">
+            <h1>Manajemen Bagan Akun</h1>
+            <div class="btn-group">
+                <button class="btn-outline" onclick="downloadTemplate()">📝 Template</button>
+                <button class="btn-outline" onclick="document.getElementById('fileImport').click()">📥 Import</button>
+                <button class="btn-outline" onclick="exportCOA()">📤 Export</button>
+                <button class="btn-save" onclick="loadData()" style="background: var(--accent)">🔄 Sinkron</button>
+                <input type="file" id="fileImport" hidden onchange="importExcel(event)">
+            </div>
         </div>
 
         <div class="summary-grid">
             <div class="stat-card" style="border-color: var(--success)">
-                <small>Total Saldo Aset</small>
+                <small>Total Aktiva (Aset)</small>
                 <div id="sum-aset">Rp 0</div>
             </div>
             <div class="stat-card" style="border-color: var(--beauty)">
-                <small>Total Saldo Ekuitas</small>
+                <small>Total Ekuitas (Modal)</small>
                 <div id="sum-ekuitas">Rp 0</div>
             </div>
         </div>
 
         <div class="card">
-            <h3 id="form-title" style="margin-top:0">Kelola Akun</h3>
+            <h3 id="form-title" style="margin-top:0">Tambah Akun Baru</h3>
             <div class="form-grid">
                 <div>
                     <label style="font-size:11px">Kode Akun</label>
-                    <input type="text" id="kode_akun" placeholder="Contoh: 1101">
+                    <input type="text" id="kode_akun" placeholder="1101">
                 </div>
                 <div>
                     <label style="font-size:11px">Nama Akun</label>
-                    <input type="text" id="nama_akun" placeholder="Contoh: Kas Utama">
+                    <input type="text" id="nama_akun" placeholder="Kas Utama">
                 </div>
                 <div>
                     <label style="font-size:11px">Kategori</label>
@@ -117,15 +120,14 @@
                         <option value="Kredit">Kredit</option>
                     </select>
                 </div>
-                <div>
-                    <label style="font-size:11px">Saldo Awal</label>
-                    <input type="number" id="saldo_awal" value="0">
+                <div style="display:flex; gap:5px;">
+                    <button id="btn-save" class="btn-save" onclick="saveAccount()" style="flex:2">Simpan</button>
+                    <button id="btn-cancel" onclick="resetForm()" style="flex:1; background:#ccc; display:none;">Batal</button>
                 </div>
-                <button id="btn-save" class="btn-add" onclick="saveAccount()">Simpan</button>
             </div>
         </div>
 
-        <div class="card" style="overflow-x: auto;">
+        <div class="card">
             <table>
                 <thead>
                     <tr>
@@ -138,20 +140,21 @@
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="6" style="text-align:center">Memuat data akun...</td></tr>
+                    <tr><td colspan="6" style="text-align:center">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
     let isEditMode = false;
     let editId = null;
+    let currentAccounts = [];
 
-    window.onload = () => { loadData(); };
-
-  // GANTI BAGIAN LOOPING loadData() ANDA DENGAN KODE INI
+    window.onload = () => {
+        document.getElementById('store-name-display').innerText = sessionStorage.getItem('NAMA_TOKO') || "Finex Pos";
+        loadData();
+    };
 
     async function loadData() {
         try {
@@ -159,34 +162,23 @@
                 db.from('akun').select('*').order('kode_akun'),
                 db.from('jurnal_umum').select('kode_akun, debit, kredit')
             ]);
-
             if (resAkun.error) throw resAkun.error;
 
-            const akunList = resAkun.data || [];
+            currentAccounts = resAkun.data;
             const jurnalList = resJurnal.data || [];
             const tbody = document.getElementById('table-body');
             
-            let totalAset = 0;
-            let totalEkuitas = 0;
+            let totalAset = 0, totalEkuitas = 0;
 
-            tbody.innerHTML = akunList.map(acc => {
-                // Murni ambil transaksi dari Jurnal Umum
+            tbody.innerHTML = currentAccounts.map(acc => {
                 const trx = jurnalList.filter(j => String(j.kode_akun) === String(acc.kode_akun));
+                const sumD = trx.reduce((a, b) => a + (Number(b.debit) || 0), 0);
+                const sumK = trx.reduce((a, b) => a + (Number(b.kredit) || 0), 0);
                 
-                const sumDebit = trx.reduce((acc, curr) => acc + (Number(curr.debit) || 0), 0);
-                const sumKredit = trx.reduce((acc, curr) => acc + (Number(curr.kredit) || 0), 0);
-                
-                let saldoBerjalan = 0;
+                let saldo = acc.posisi_normal === 'Debit' ? (sumD - sumK) : (sumK - sumD);
 
-                // LOGIKA: Saldo Berjalan HANYA dihitung dari mutasi Jurnal Umum
-                if (acc.posisi_normal === 'Debit') {
-                    saldoBerjalan = sumDebit - sumKredit;
-                } else {
-                    saldoBerjalan = sumKredit - sumDebit;
-                }
-
-                if (acc.kategori === 'Aset') totalAset += saldoBerjalan;
-                if (acc.kategori === 'Ekuitas') totalEkuitas += saldoBerjalan;
+                if (acc.kategori === 'Aset') totalAset += saldo;
+                if (acc.kategori === 'Ekuitas') totalEkuitas += saldo;
 
                 return `
                     <tr>
@@ -194,51 +186,53 @@
                         <td>${acc.nama_akun}</td>
                         <td><span class="badge bg-${acc.kategori}">${acc.kategori}</span></td>
                         <td>${acc.posisi_normal}</td>
-                        <td style="text-align:right; font-family: monospace; font-weight:bold; color: ${saldoBerjalan < 0 ? 'var(--danger)' : 'var(--primary)'}">
-                            Rp ${new Intl.NumberFormat('id-ID').format(saldoBerjalan)}
-                        </td>
+                        <td style="text-align:right; font-weight:bold;">Rp ${saldo.toLocaleString('id-ID')}</td>
                         <td style="text-align:center">
-                            <button onclick='prepareEdit(${JSON.stringify(acc)})' style="background:none; color:var(--accent); cursor:pointer; font-size:12px; font-weight:bold;">Edit</button>
+                            <a href="#" onclick='prepareEdit(${JSON.stringify(acc)})' style="color:var(--accent); text-decoration:none; font-weight:bold; margin-right:10px;">Edit</a>
+                            <a href="#" onclick="deleteAccount('${acc.kode_akun}')" style="color:var(--danger); text-decoration:none; font-weight:bold;">Hapus</a>
                         </td>
-                    </tr>
-                `;
+                    </tr>`;
             }).join('');
 
             document.getElementById('sum-aset').innerText = "Rp " + totalAset.toLocaleString('id-ID');
             document.getElementById('sum-ekuitas').innerText = "Rp " + totalEkuitas.toLocaleString('id-ID');
-
-        } catch (err) { 
-            console.error(err);
-            showStatus("Sinkronisasi gagal: " + err.message, "var(--danger)");
-        }
+        } catch (err) { showStatus(err.message, "var(--danger)"); }
     }
+
     async function saveAccount() {
         const kode = document.getElementById('kode_akun').value.trim();
         const nama = document.getElementById('nama_akun').value.trim();
         const kategori = document.getElementById('kategori_val').value;
         const posisi = document.getElementById('posisi_normal').value;
-        const saldo = parseFloat(document.getElementById('saldo_awal').value) || 0;
 
-        if(!kode || !nama) return showStatus("Lengkapi data!", "var(--warning)");
+        if(!kode || !nama) return showStatus("Kode dan Nama wajib diisi!", "var(--warning)");
 
-        const payload = { nama_akun: nama, kategori: kategori, posisi_normal: posisi, saldo: saldo };
+        const payload = { nama_akun: nama, kategori: kategori, posisi_normal: posisi };
 
         try {
-            let res;
             if (isEditMode) {
-                res = await db.from('akun').update(payload).eq('kode_akun', editId);
+                const { error } = await db.from('akun').update(payload).eq('kode_akun', editId);
+                if (error) throw error;
             } else {
-                res = await db.from('akun').insert([{...payload, kode_akun: kode}]);
+                const { error } = await db.from('akun').insert([{...payload, kode_akun: kode}]);
+                if (error) throw error;
             }
-
-            if (res.error) throw res.error;
-            
-            showStatus("Data berhasil disimpan!", "var(--success)");
+            showStatus("Akun berhasil disimpan!", "var(--success)");
             resetForm();
             loadData();
-        } catch (err) {
-            showStatus("Gagal menyimpan: " + err.message, "var(--danger)");
-        }
+        } catch (err) { showStatus(err.message, "var(--danger)"); }
+    }
+
+    async function deleteAccount(kode) {
+        if (!confirm(`Hapus akun ${kode}? Akun yang sudah memiliki transaksi tidak bisa dihapus.`)) return;
+        try {
+            const { data: trx } = await db.from('jurnal_umum').select('id').eq('kode_akun', kode).limit(1);
+            if (trx && trx.length > 0) return alert("Gagal: Akun ini sudah memiliki riwayat transaksi di Jurnal Umum!");
+
+            await db.from('akun').delete().eq('kode_akun', kode);
+            showStatus("Akun dihapus!", "var(--success)");
+            loadData();
+        } catch (err) { showStatus(err.message, "var(--danger)"); }
     }
 
     function prepareEdit(acc) {
@@ -250,38 +244,56 @@
         document.getElementById('nama_akun').value = acc.nama_akun;
         document.getElementById('kategori_val').value = acc.kategori;
         document.getElementById('posisi_normal').value = acc.posisi_normal;
-        document.getElementById('saldo_awal').value = acc.saldo;
-        document.getElementById('btn-save').innerText = "Update";
-        document.getElementById('btn-save').className = "btn-update";
+        document.getElementById('btn-save').innerText = "Update Akun";
+        document.getElementById('btn-cancel').style.display = "inline-block";
     }
 
     function resetForm() {
         isEditMode = false;
-        editId = null;
-        document.getElementById('form-title').innerText = "Kelola Akun";
-        document.getElementById('kode_akun').value = '';
+        document.getElementById('form-title').innerText = "Tambah Akun Baru";
         document.getElementById('kode_akun').readOnly = false;
+        document.getElementById('kode_akun').value = '';
         document.getElementById('nama_akun').value = '';
-        document.getElementById('saldo_awal').value = '0';
         document.getElementById('btn-save').innerText = "Simpan";
-        document.getElementById('btn-save').className = "btn-add";
+        document.getElementById('btn-cancel').style.display = "none";
+    }
+
+    // --- IMPORT / EXPORT LOGIC ---
+    function downloadTemplate() {
+        const ws = XLSX.utils.json_to_sheet([{ kode_akun: "1101", nama_akun: "Kas Utama", kategori: "Aset", posisi_normal: "Debit" }]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "COA");
+        XLSX.writeFile(wb, "Template_COA_Finex.xlsx");
+    }
+
+    function exportCOA() {
+        const ws = XLSX.utils.json_to_sheet(currentAccounts);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Daftar_Akun");
+        XLSX.writeFile(wb, "Daftar_Akun_Finex.xlsx");
+    }
+
+    function importExcel(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const workbook = XLSX.read(new Uint8Array(event.target.result), { type: 'array' });
+            const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            if (confirm(`Import ${data.length} akun?`)) {
+                const { error } = await db.from('akun').insert(data);
+                if (error) alert(error.message); else { showStatus("Import Berhasil!", "var(--success)"); loadData(); }
+            }
+        };
+        reader.readAsArrayBuffer(file);
     }
 
     function showStatus(msg, color) {
         const s = document.getElementById('status-msg');
-        s.style.display = 'block';
-        s.innerText = msg;
-        s.style.backgroundColor = color;
-        setTimeout(() => { s.style.display = 'none'; }, 3000);
+        s.innerText = msg; s.style.backgroundColor = color; s.style.display = 'block';
+        setTimeout(() => s.style.display = 'none', 3000);
     }
 
-    function logout() {
-        if(confirm("Keluar dari sistem?")) {
-            sessionStorage.clear();
-            localStorage.clear();
-            window.location.replace('login.html');
-        }
-    }
+    function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
 </html>
