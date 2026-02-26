@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finex Pos | Buat Biaya</title>
+    <title>Finex Pos | Buat Biaya & Pelunasan</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="supabase-init.js"></script>
@@ -12,24 +12,20 @@
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); height: 100vh; overflow: hidden; }
         
-        /* SIDEBAR */
         nav { width: 250px; background: var(--primary); color: white; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; }
         nav h2 { color: var(--accent); text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 20px; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; transition: 0.3s; }
         nav a:hover, nav a.active { background: var(--accent); color: white; }
         
-        /* MAIN CONTENT */
         main { flex: 1; padding: 30px; overflow-y: auto; }
         .form-container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 900px; margin: auto; }
         
         .form-header { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #f1f1f1; }
         
         .input-group { margin-bottom: 15px; }
-        label { font-size: 12px; font-weight: bold; color: #7f8c8d; display: block; margin-bottom: 5px; text-transform: uppercase; }
-        select, input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; outline: none; transition: 0.3s; }
-        select:focus, input:focus { border-color: var(--accent); }
+        label { font-size: 11px; font-weight: bold; color: #7f8c8d; display: block; margin-bottom: 5px; text-transform: uppercase; }
+        select, input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; outline: none; }
 
-        /* TABLE INPUT (Jurnal.id Style) */
         .table-input { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .table-input th { text-align: left; background: #f8f9fa; padding: 10px; font-size: 11px; color: #666; text-transform: uppercase; border-bottom: 2px solid #eee; }
         .table-input td { padding: 10px; border-bottom: 1px solid #f1f1f1; }
@@ -39,23 +35,16 @@
         .total-box h3 { margin: 10px 0 0 0; color: var(--primary); font-size: 24px; }
 
         .btn-save { padding: 15px 40px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; float: right; margin-top: 20px; }
-        
-        #print-area { display: none; }
-        @media print {
-            body * { visibility: hidden !important; }
-            #print-area, #print-area * { visibility: visible !important; }
-            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 58mm; }
-        }
     </style>
 </head>
 <body>
 
 <nav>
-    <h2 id="store-name-display">Finex Pos</h2>
+    <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="kas_bank.html">⚖️ Kas & Bank</a>
+    <a href="supplier.html">👥 Supplier</a>
     <a href="pengeluaran.html" class="active">💸 Catat Biaya</a>
-    <a href="laporan-pengeluaran.html">📑 Laporan Biaya</a>
     <div style="margin-top:auto; padding:15px; background:rgba(0,0,0,0.1); border-radius:8px;">
         <small>User:</small> <b id="display-user-nav">...</b>
     </div>
@@ -64,19 +53,22 @@
 
 <main>
     <div class="form-container">
-        <h2 style="margin-top:0; color:var(--primary);">Buat Biaya Baru</h2>
+        <h2 style="margin-top:0; color:var(--primary);">Buat Biaya / Pelunasan</h2>
         
         <div class="form-header">
             <div>
                 <div class="input-group">
                     <label>Bayar Dari (Sumber Dana)</label>
-                    <select id="exp-sumber-dana" onchange="checkBalance()">
-                        <option value="">-- Pilih Akun Kas/Bank --</option>
+                    <select id="exp-sumber-dana">
+                        <option value="">-- Pilih Kas/Bank --</option>
+                        <option value="HUTANG" style="font-weight:bold; color:red;">HUTANG (Bayar Nanti)</option>
                     </select>
                 </div>
                 <div class="input-group">
-                    <label>Penerima (Optional)</label>
-                    <input type="text" id="exp-penerima" placeholder="Nama Supplier / Pihak Ketiga">
+                    <label>Nama Supplier (Kontak Pemasok)</label>
+                    <select id="exp-supplier-id">
+                        <option value="">-- Pilih Supplier --</option>
+                    </select>
                 </div>
             </div>
             
@@ -87,7 +79,7 @@
                 </div>
                 <div class="input-group">
                     <label>No. Transaksi</label>
-                    <input type="text" id="no-bukti-auto" disabled placeholder="Otomatis">
+                    <input type="text" id="no-bukti-auto" disabled>
                 </div>
             </div>
         </div>
@@ -105,10 +97,10 @@
                     <td>
                         <select id="exp-kategori">
                             <option value="">-- Pilih Akun Biaya --</option>
-                        </select>
+                            </select>
                     </td>
                     <td>
-                        <input type="text" id="exp-ket" placeholder="Keterangan pengeluaran...">
+                        <input type="text" id="exp-ket" placeholder="Misal: Pembelian Bahan Baku">
                     </td>
                     <td>
                         <input type="number" id="exp-jumlah" style="text-align: right;" oninput="updateTotalDisplay()" placeholder="0">
@@ -124,14 +116,12 @@
             </div>
         </div>
 
-        <button id="btn-submit" class="btn-save" onclick="simpanPengeluaran()">
-            <i class="fas fa-check-circle"></i> BUAT TRANSAKSI BIAYA
+        <button id="btn-submit" class="btn-save" onclick="simpanTransaksiBiaya()">
+            <i class="fas fa-check-circle"></i> SIMPAN TRANSAKSI
         </button>
         <div style="clear:both;"></div>
     </div>
 </main>
-
-<div id="print-area"></div>
 
 <script>
     const session = JSON.parse(localStorage.getItem('finex_session'));
@@ -141,25 +131,32 @@
         document.getElementById('display-user-nav').innerText = session?.username || "Admin";
         document.getElementById('no-bukti-auto').value = 'EXP-' + Date.now().toString().slice(-6);
         
-        await fetchSemuaAkun();
+        await fetchDataDropdown();
     };
 
-    async function fetchSemuaAkun() {
+    async function fetchDataDropdown() {
         try {
-            // 1. Load Sumber Dana (Semua Kepala 11 - Kas & Bank)
+            // 1. Load Kas & Bank (11%)
             const { data: dana } = await db.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '11%');
             const selDana = document.getElementById('exp-sumber-dana');
             dana.forEach(d => {
-                selDana.innerHTML += `<option value="${d.kode_akun}">${d.kode_akun} - ${d.nama_akun}</option>`;
+                selDana.innerHTML += `<option value="${d.kode_akun}">${d.nama_akun}</option>`;
             });
 
-            // 2. Load Akun Biaya (Kepala 5, 6, 8)
+            // 2. Load Akun Biaya (5,6,8) & Akun Hutang (2)
             const { data: biaya } = await db.from('akun').select('kode_akun, nama_akun')
-                .or('kode_akun.ilike.5%,kode_akun.ilike.6%,kode_akun.ilike.8%')
+                .or('kode_akun.ilike.5%,kode_akun.ilike.6%,kode_akun.ilike.8%,kode_akun.ilike.2%')
                 .order('kode_akun');
             const selBiaya = document.getElementById('exp-kategori');
             biaya.forEach(b => {
                 selBiaya.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
+            });
+
+            // 3. Load Supplier
+            const { data: sups } = await db.from('suppliers').select('*').order('nama_supplier');
+            const selSup = document.getElementById('exp-supplier-id');
+            sups.forEach(s => {
+                selSup.innerHTML += `<option value="${s.id}">${s.nama_supplier} (Hutang: Rp ${parseFloat(s.saldo_hutang).toLocaleString()})</option>`;
             });
         } catch (e) { console.error(e); }
     }
@@ -169,30 +166,46 @@
         document.getElementById('display-total-final').innerText = "Rp " + val.toLocaleString('id-ID');
     }
 
-    async function simpanPengeluaran() {
+    async function simpanTransaksiBiaya() {
         const tgl = document.getElementById('exp-tanggal').value;
-        const kodeBeban = document.getElementById('exp-kategori').value;
-        const kodeSumber = document.getElementById('exp-sumber-dana').value;
-        const ket = document.getElementById('exp-ket').value;
-        const penerima = document.getElementById('exp-penerima').value;
+        const kodeAkunBiaya = document.getElementById('exp-kategori').value; // Akun yang di Debit
+        const kodeSumberDana = document.getElementById('exp-sumber-dana').value; // Akun yang di Kredit (Kas atau HUTANG)
+        const supplierId = document.getElementById('exp-supplier-id').value;
         const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
+        const ket = document.getElementById('exp-ket').value;
         
-        if(!kodeBeban || !kodeSumber || !jumlah) return alert("Pilih Akun dan Isi Nominal!");
-
-        const noBukti = document.getElementById('no-bukti-auto').value;
-        const fullKet = penerima ? `[${penerima}] ${ket}` : ket;
+        if(!kodeAkunBiaya || !kodeSumberDana || !supplierId || !jumlah) return alert("Lengkapi data!");
 
         try {
-            // 1. Simpan ke Jurnal Umum (D: Beban, K: Kas/Bank)
+            const noBukti = document.getElementById('no-bukti-auto').value;
+            let akunKredit = kodeSumberDana;
+            let isHutangBertambah = false;
+
+            // Logika: Jika Sumber Dana adalah "HUTANG", maka Akun Kredit adalah Hutang Usaha (Misal: 2101)
+            if(kodeSumberDana === "HUTANG") {
+                akunKredit = "2101"; // Ganti dengan kode akun Hutang Usaha Anda
+                isHutangBertambah = true;
+            }
+
+            // 1. Simpan ke Jurnal Umum
             const { error: errJurnal } = await db.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeBeban, keterangan: fullKet, debit: jumlah, kredit: 0 },
-                { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeSumber, keterangan: fullKet, debit: 0, kredit: jumlah }
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeAkunBiaya, keterangan: ket, debit: jumlah, kredit: 0, supplier_id: supplierId },
+                { tanggal: tgl, no_bukti: noBukti, kode_akun: akunKredit, keterangan: ket, debit: 0, kredit: jumlah, supplier_id: supplierId }
             ]);
             if (errJurnal) throw errJurnal;
 
-            alert("✅ Biaya Berhasil Dicatat!");
+            // 2. Update Saldo Hutang Supplier
+            // Jika isHutangBertambah = true, maka saldo bertambah (+). 
+            // Jika bayar tunai/bank, maka saldo berkurang (-) (Pelunasan).
+            const { data: sup } = await db.from('suppliers').select('saldo_hutang').eq('id', supplierId).single();
+            const adjustment = isHutangBertambah ? jumlah : -jumlah;
+            const saldoBaru = (parseFloat(sup.saldo_hutang) || 0) + adjustment;
+
+            await db.from('suppliers').update({ saldo_hutang: saldoBaru }).eq('id', supplierId);
+
+            alert("✅ Transaksi Berhasil Dicatat & Saldo Supplier Diperbarui!");
             location.reload();
-        } catch (e) { alert("Gagal: " + e.message); }
+        } catch (e) { alert("Error: " + e.message); }
     }
 
     function logout() { localStorage.clear(); window.location.href = 'login.html'; }
