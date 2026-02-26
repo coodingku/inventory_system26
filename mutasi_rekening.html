@@ -285,17 +285,31 @@
         const kode = String(d.kode || "");
         const kategori = String(d.kategori || "").toLowerCase();
         
-        if (kode === '1101' || kode === '1102') totalKasBank += sistem;
+        // --- PERBAIKAN: Semua kepala 11 (Kas/Bank) masuk ke Ringkasan ---
+        if (kode.startsWith('11') && kode !== '1103') { 
+            totalKasBank += sistem; 
+        }
+        
+        // Stok tetap 1103
         if (kode === '1103') totalPersediaan += sistem;
+        
+        // Pendapatan Kepala 4
         if (kode.startsWith('4')) totalPenjualan += sistem;
+        
+        // HPP Kepala 5 (Khusus 5101)
         if (kode === '5101') totalHPP += sistem;
+        
+        // Beban (Kepala 5 yang lain, Kepala 6, atau yang ada kata 'beban')
         else if (kode.startsWith('5') || kode.startsWith('6') || kategori.includes('beban')) {
             totalBebanLain += sistem;
         }
+        
+        // Hutang Kepala 2
         if (kode.startsWith('2')) totalHutang += sistem;
+        
+        // Modal Kepala 3
         if (kode.startsWith('3')) totalEkuitas += sistem;
     });
-
     const tableBody = currentDataRaw.map(d => [
         d.kode, 
         d.nama, 
