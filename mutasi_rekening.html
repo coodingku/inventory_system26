@@ -30,10 +30,7 @@
         .btn-action { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
         .btn-pdf { background: #c0392b; }
         .btn-excel { background: #1f7244; }
-        .btn-sync { background: var(--success); }
         .btn-refresh { background: var(--accent); }
-        .btn-adj { background: #7f8c8d; }
-        .btn-star { background: #f39c12; }
         .btn-mutasi { background: #8e44ad; }
         .btn-group-action { display: flex; gap: 5px; }
         code { background: #f1f2f6; padding: 2px 5px; border-radius: 4px; color: #e84393; }
@@ -143,16 +140,9 @@
                         <td><span class="status-badge ${isMatch ? 'bg-match' : 'bg-mismatch'}">${isMatch ? 'Sesuai' : 'Selisih'}</span></td>
                         <td>
                             <div class="btn-group-action">
-                                <button class="btn-action btn-star" onclick="setSaldoAwal('${a.kode_akun}', '${a.nama_akun}')" title="Set Saldo Awal">
-                                    <i class="fas fa-star"></i>
-                                </button>
                                 <button class="btn-action btn-adj" onclick="updateSaldoFisik('${a.kode_akun}', ${saldoSistem})" title="Update Realitas Fisik">
                                     <i class="fas fa-pen"></i>
                                 </button>
-                                ${!isMatch ? `
-                                <button class="btn-action btn-sync" onclick="autoJurnal('${a.kode_akun}', ${selisih})" title="Sinkronkan Jurnal Otomatis">
-                                    <i class="fas fa-magic"></i>
-                                </button>` : ''}
                             </div>
                         </td>
                     </tr>
@@ -164,46 +154,25 @@
         }
     }
 
-    // FUNGSI MUTASI KAS (Contoh: Bank ke Laci)
+    // FUNGSI MUTASI KAS
     async function openMutasiModal() {
-        const dari = prompt("Masukkan Kode Akun Sumber (Contoh: 1102 untuk Bank):", "1102");
+        const dari = prompt("Masukkan Kode Akun Sumber (Contoh: 1102):", "1102");
         if (!dari) return;
-        const ke = prompt("Masukkan Kode Akun Tujuan (Contoh: 1101 untuk Kas Laci):", "1101");
+        const ke = prompt("Masukkan Kode Akun Tujuan (Contoh: 1101):", "1101");
         if (!ke) return;
-        const nominal = prompt("Masukkan jumlah dana yang dipindahkan:", "0");
+        const nominal = prompt("Masukkan jumlah dana:", "0");
         if (!nominal || isNaN(nominal) || nominal <= 0) return;
         
         const noBukti = "MUT-" + Date.now().toString().slice(-6);
-        const tgl = new Date().toISOString();
 
         try {
-            // Jurnal Mutasi (Debit Tujuan, Kredit Sumber)
-            const { error } = await db.from('jurnal_umum').insert([
-                { tanggal: tgl, no_bukti: noBukti, kode_akun: ke, keterangan: "Mutasi Kas: Dari " + dari, debit: Number(nominal), kredit: 0 },
-                { tanggal: tgl, no_bukti: noBukti, kode_akun: dari, keterangan: "Mutasi Kas: Ke " + ke, debit: 0, kredit: Number(nominal) }
+            await db.from('jurnal_umum').insert([
+                { tanggal: new Date().toISOString(), no_bukti: noBukti, kode_akun: ke, keterangan: "Mutasi Masuk", debit: Number(nominal), kredit: 0 },
+                { tanggal: new Date().toISOString(), no_bukti: noBukti, kode_akun: dari, keterangan: "Mutasi Keluar", debit: 0, kredit: Number(nominal) }
             ]);
-
-            if (error) throw error;
-            alert(`✅ Mutasi Berhasil! Dana berpindah ke ${ke}`);
+            alert(`✅ Mutasi Berhasil!`);
             loadData();
         } catch (e) { alert("Gagal Mutasi: " + e.message); }
-    }
-
-    async function setSaldoAwal(kode, nama) {
-        const nominal = prompt(`Masukkan Saldo Awal Real untuk ${nama}:`, "0");
-        if (nominal === null || nominal === "") return;
-        const noBukti = "OPN-" + Date.now().toString().slice(-6);
-        const val = Number(nominal);
-
-        try {
-            await db.from('akun').update({ saldo: val }).eq('kode_akun', kode);
-            await db.from('jurnal_umum').insert([
-                { tanggal: new Date().toISOString(), kode_akun: kode, keterangan: "Saldo Awal " + nama, no_bukti: noBukti, debit: val, kredit: 0 },
-                { tanggal: new Date().toISOString(), kode_akun: '3101', keterangan: "Modal Awal (Penyeimbang)", no_bukti: noBukti, debit: 0, kredit: val }
-            ]);
-            alert("✅ Saldo awal berhasil dicatat!");
-            loadData();
-        } catch (e) { alert(e.message); }
     }
 
     async function updateSaldoFisik(kode, valSistem) {
@@ -217,31 +186,8 @@
         } catch (e) { alert(e.message); }
     }
 
-    async function autoJurnal(kode, selisih) {
-        if(!confirm(`Sinkronkan saldo sistem mengikuti saldo real?`)) return;
-        const akun = currentDataRaw.find(a => a.kode === kode);
-        const nominal = Math.abs(selisih);
-        let d = 0, k = 0;
-
-        // Logika Akuntansi berdasarkan posisi normal
-        if (selisih < 0) { // Sistem < Real (Butuh Ditambah)
-            if (akun.posisi_normal === 'Debit') d = nominal; else k = nominal;
-        } else { // Sistem > Real (Butuh Dikurangi)
-            if (akun.posisi_normal === 'Debit') k = nominal; else d = nominal;
-        }
-
-        try {
-            await db.from('jurnal_umum').insert([{
-                tanggal: new Date().toISOString(), kode_akun: kode, keterangan: "Penyesuaian Sinkronisasi",
-                no_bukti: "ADJ-" + Date.now().toString().slice(-6), debit: d, kredit: k
-            }]);
-            alert("✅ Sinkronisasi Jurnal Berhasil.");
-            loadData();
-        } catch (e) { alert(e.message); }
-    }
-
     function exportExcel() {
-        const ws = XLSX.utils.json_to_sheet(currentDataRaw);
+        const ws = XLSX.utils.table_to_sheet(document.getElementById("table-kas"));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "BukuKas");
         XLSX.writeFile(wb, `KasBank_Finex_${Date.now()}.xlsx`);
@@ -249,12 +195,12 @@
 
 function exportPDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+    const doc = new jsPDF('l', 'mm', 'a4'); 
     const now = new Date();
     const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    // --- 1. HEADER (Warna Navy seperti file lengkap) ---
+    // --- 1. HEADER (Navy) ---
     doc.setFillColor(44, 62, 80); 
     doc.rect(0, 0, 297, 40, 'F'); 
     
@@ -271,7 +217,7 @@ function exportPDF() {
     doc.setFontSize(14);
     doc.text("RINGKASAN NERACA & LABA RUGI", 283, 25, { align: 'right' });
 
-    // --- 2. LOGIKA AKUMULASI DATA ---
+    // --- 2. LOGIKA AKUMULASI DATA (METODE SCRAPING TABEL) ---
     let totalKasBank = 0;
     let totalPersediaan = 0;
     let totalPenjualan = 0;
@@ -280,37 +226,56 @@ function exportPDF() {
     let totalHutang = 0;
     let totalBebanLain = 0;
 
-    currentDataRaw.forEach(d => {
-        const sistem = Number(d.sistem || 0);
-        const kode = String(d.kode || "");
-        const kategori = String(d.kategori || "").toLowerCase();
-        
-        if (kode === '1101' || kode === '1102') totalKasBank += sistem;
-        if (kode === '1103') totalPersediaan += sistem;
-        if (kode.startsWith('4')) totalPenjualan += sistem;
-        if (kode === '5101') totalHPP += sistem;
-        else if (kode.startsWith('5') || kode.startsWith('6') || kategori.includes('beban')) {
-            totalBebanLain += sistem;
-        }
-        if (kode.startsWith('2')) totalHutang += sistem;
-        if (kode.startsWith('3')) totalEkuitas += sistem;
-    });
+    // Ambil semua baris dari tbody
+    const tableRows = document.querySelectorAll("#akun-list tr");
+    const tableBodyData = [];
 
-    const tableBody = currentDataRaw.map(d => [
-        d.kode, 
-        d.nama, 
-        d.kategori, 
-        `Rp ${(Number(d.debit) || 0).toLocaleString('id-ID')}`, 
-        `Rp ${(Number(d.kredit) || 0).toLocaleString('id-ID')}`, 
-        `Rp ${(Number(d.sistem) || 0).toLocaleString('id-ID')}`, 
-        d.status
-    ]);
+    tableRows.forEach(row => {
+        const cols = row.querySelectorAll("td");
+        if (cols.length >= 8) {
+            const kode = cols[0].innerText.trim();
+            const namaKategori = cols[1].innerText.toLowerCase();
+            
+            // Bersihkan format Rupiah ke angka murni
+            const getVal = (idx) => {
+                let val = cols[idx].innerText.replace(/[^0-9,-]/g, "").replace(",", ".");
+                return parseFloat(val) || 0;
+            };
+
+            const debit = getVal(2);
+            const kredit = getVal(3);
+            const sistem = getVal(4);
+            const real = getVal(5);
+
+            // Klasifikasi Akumulasi berdasarkan KODE (Starts With)
+            if (kode.startsWith('11') && kode !== '1103') totalKasBank += sistem;
+            if (kode === '1103') totalPersediaan += sistem;
+            if (kode.startsWith('2')) totalHutang += sistem;
+            if (kode.startsWith('3')) totalEkuitas += sistem;
+            if (kode.startsWith('4')) totalPenjualan += sistem;
+            if (kode === '5101') totalHPP += sistem;
+            else if (kode.startsWith('5') || kode.startsWith('6') || namaKategori.includes('beban')) {
+                totalBebanLain += sistem;
+            }
+
+            // Data untuk tabel PDF
+            tableBodyData.push([
+                kode,
+                cols[1].innerText.split("\n")[0].trim(),
+                cols[1].innerText.split("\n")[1]?.trim() || "",
+                cols[2].innerText,
+                cols[3].innerText,
+                cols[4].innerText,
+                cols[7].innerText
+            ]);
+        }
+    });
 
     // --- 3. TABEL UTAMA ---
     doc.autoTable({
         startY: 45,
         head: [['Kode', 'Nama Akun', 'Kategori', 'Debit', 'Kredit', 'Saldo Sistem', 'Status']],
-        body: tableBody,
+        body: tableBodyData,
         theme: 'striped',
         headStyles: { fillColor: [52, 152, 219], fontSize: 10, halign: 'center' },
         styles: { fontSize: 8, cellPadding: 2.5 },
@@ -322,7 +287,7 @@ function exportPDF() {
         }
     });
 
-    // --- 4. EXECUTIVE SUMMARY BOX (Bagian yang Hilang) ---
+    // --- 4. EXECUTIVE SUMMARY BOX ---
     const finalY = doc.lastAutoTable.finalY + 10;
     const labaKotor = totalPenjualan - totalHPP;
     const labaBersih = labaKotor - totalBebanLain;
@@ -342,7 +307,7 @@ function exportPDF() {
     doc.setFont(undefined, 'normal');
     doc.text(`Kas & Bank       : Rp ${totalKasBank.toLocaleString('id-ID')}`, 20, finalY + 28);
     doc.text(`Stok Persediaan  : Rp ${totalPersediaan.toLocaleString('id-ID')}`, 20, finalY + 34);
-    doc.text(` Hutang Pajak     : Rp ${totalHutang.toLocaleString('id-ID')}`, 20, finalY + 40);
+    doc.text(`Hutang (Kewajiban): Rp ${totalHutang.toLocaleString('id-ID')}`, 20, finalY + 40);
 
     // KOLOM 2: LABA KOTOR
     doc.setFont(undefined, 'bold'); doc.text("ANALISIS LABA KOTOR", 110, finalY + 20);
@@ -359,7 +324,7 @@ function exportPDF() {
     doc.setTextColor(44, 62, 80);
     doc.setFont(undefined, 'bold'); doc.text("MODAL & EKUITAS", 200, finalY + 20);
     doc.setFont(undefined, 'normal');
-    doc.text(`Modal Awal       : Rp ${totalEkuitas.toLocaleString('id-ID')}`, 200, finalY + 28);
+    doc.text(`Modal / Ekuitas  : Rp ${totalEkuitas.toLocaleString('id-ID')}`, 200, finalY + 28);
     doc.text(`Beban Ops        : Rp ${totalBebanLain.toLocaleString('id-ID')}`, 200, finalY + 34);
     
     doc.setFontSize(11);
