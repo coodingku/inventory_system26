@@ -6,120 +6,89 @@
     <title>Finex Pos | Jurnal Umum Audit & Auto-Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-    
     <script src="supabase-init.js"></script>
 
     <style>
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --info: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; }
-        
         nav { width: 240px; background: var(--primary); color: white; padding: 20px; height: 100vh; position: fixed; z-index: 100; }
         nav h2 { color: var(--accent); text-align: center; font-size: 20px; margin-bottom: 30px; }
-        nav h2 span { color: white; font-size: 12px; display: block; opacity: 0.7; }
         nav a { color: #bdc3c7; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: block; font-size: 14px; }
         nav a:hover { background: rgba(255,255,255,0.1); color: white; }
         nav a.active { background: var(--accent); color: white; }
-
         main { flex: 1; margin-left: 240px; padding: 40px; min-height: 100vh; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .container-report { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        
         .toolbar { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
-        .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        input[type="date"], select, .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 13px; min-width: 150px; }
-
         .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
         .btn-audit { background: var(--primary); color: white; }
         .btn-fix-all { background: var(--warning); color: white; }
-        .btn-export { background: #27ae60; color: white; }
-
         .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .badge-error { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
         .badge-success { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
-
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        th { background: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; border-bottom: 2px solid #eee; text-transform: uppercase; font-size: 11px; }
+        th { background: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; border-bottom: 2px solid #eee; }
         td { padding: 12px; border-bottom: 1px solid #eee; color: var(--primary); }
-        
         .btn-small-fix { background: var(--warning); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 30px; }
         .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
-        .stat-card label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
-        .stat-card span { font-size: 22px; font-weight: 800; display: block; }
-
-        @media print {
-            nav, .toolbar, .no-print { display: none !important; }
-            main { margin-left: 0; padding: 0; }
-        }
     </style>
 </head>
 <body>
 
 <nav class="no-print">
-    <h2 id="store-name-display">BeautyBloom <span>Finex POS</span></h2>
+    <h2 id="store-name-display">Finex POS</h2>
     <a href="dashboard.html">📊 Dashboard</a>
-    <a href="pos.html">🛒 Kasir POS</a>
-    <a href="admin_pos_backdate.html">🕒 Backdate POS</a>
+    <a href="laporan_neraca.html">⚖️ Laporan Neraca</a>
     <a href="catat_jurnal.html" class="active">🔍 Audit Jurnal</a>
-    <a href="laba_rugi.html">📈 Laba Rugi</a>
 </nav>
 
 <main>
     <div class="header">
         <div>
-            <h2 style="margin:0;">Audit & Rekonsiliasi HPP</h2>
-            <p style="color: #666; font-size: 13px;">Sinkronisasi otomatis antara Penjualan Kasir dan Jurnal Umum</p>
+            <h2 style="margin:0;">Audit & Auto-Fix Jurnal</h2>
+            <p style="color: #666; font-size: 13px;">Menyeimbangkan Grand Total & HPP secara otomatis.</p>
         </div>
-        <div class="no-print" style="display:flex; gap:10px;">
+        <div style="display:flex; gap:10px;">
             <button class="btn btn-fix-all" id="btnFixAll" style="display:none;" onclick="fixAllMismatches()">⚡ Perbaiki Semua</button>
-            <button class="btn btn-export" onclick="exportToExcel()">📥 Export Excel</button>
+            <button class="btn" style="background:#27ae60; color:white;" onclick="exportToExcel()">📥 Export</button>
         </div>
     </div>
 
     <div class="container-report">
         <div class="toolbar no-print">
-            <div class="filter-group">
-                <label>DARI TANGGAL</label>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <label style="font-size:10px; font-weight:bold;">DARI</label>
                 <input type="date" id="date-from">
             </div>
-            <div class="filter-group">
-                <label>SAMPAI TANGGAL</label>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <label style="font-size:10px; font-weight:bold;">SAMPAI</label>
                 <input type="date" id="date-to">
             </div>
-            <button class="btn btn-audit" onclick="runAudit()">Jalankan Audit 🔍</button>
+            <button class="btn btn-audit" onclick="runAudit()">🔍 Jalankan Audit</button>
         </div>
 
         <table id="table-audit">
             <thead>
                 <tr>
-                    <th>Waktu / Invoice</th>
-                    <th>Grand Total (Kasir)</th>
-                    <th>Jurnal Pendapatan</th>
-                    <th>Jurnal HPP</th>
+                    <th>Invoice</th>
+                    <th>Grand Total</th>
+                    <th>Jurnal Kas</th>
+                    <th>Status HPP</th>
                     <th>Selisih</th>
                     <th>Status</th>
-                    <th class="no-print">Tindakan</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody id="body-audit">
-                <tr><td colspan="7" style="text-align:center; padding:40px; color:#999;">Gunakan filter tanggal dan klik "Jalankan Audit".</td></tr>
+                <tr><td colspan="7" align="center">Pilih tanggal dan klik Audit.</td></tr>
             </tbody>
         </table>
 
         <div class="summary-grid">
-            <div class="stat-card">
-                <label>Total Transaksi Diaudit</label>
-                <span id="stat-total">0</span>
-            </div>
-            <div class="stat-card">
-                <label>Jurnal Belum Sinkron</label>
-                <span id="stat-mismatch" style="color:var(--danger)">0</span>
-            </div>
-            <div class="stat-card" style="background: var(--success); color: white;">
-                <label style="color: rgba(255,255,255,0.7)">Data Tersinkronisasi</label>
-                <span id="stat-ok">0</span>
-            </div>
+            <div class="stat-card"><label>TOTAL</label><span id="stat-total">0</span></div>
+            <div class="stat-card"><label>MISMATCH</label><span id="stat-mismatch" style="color:var(--danger)">0</span></div>
+            <div class="stat-card" style="background:var(--success); color:white;"><label>OK</label><span id="stat-ok">0</span></div>
         </div>
     </div>
 </main>
@@ -133,163 +102,113 @@
         document.getElementById('date-to').value = today;
     };
 
-   async function runAudit() {
-    const from = document.getElementById('date-from').value;
-    const to = document.getElementById('date-to').value;
-    const tbody = document.getElementById('body-audit');
-    
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Sedang menganalisa data...</td></tr>';
-    mismatchList = [];
+    async function runAudit() {
+        const from = document.getElementById('date-from').value;
+        const to = document.getElementById('date-to').value;
+        const tbody = document.getElementById('body-audit');
+        tbody.innerHTML = '<tr><td colspan="7" align="center">Menganalisa...</td></tr>';
+        mismatchList = [];
 
-    try {
-        const { data: sales } = await db.from('penjualan').select('*').gte('tanggal', from + 'T00:00:00').lte('tanggal', to + 'T23:59:59').order('tanggal', { ascending: false });
-        const { data: journals } = await db.from('jurnal_umum').select('*').gte('tanggal', from + 'T00:00:00').lte('tanggal', to + 'T23:59:59');
+        try {
+            const { data: sales } = await db.from('penjualan').select('*').gte('tanggal', from).lte('tanggal', to + 'T23:59:59');
+            const { data: journals } = await db.from('jurnal_umum').select('*').gte('tanggal', from).lte('tanggal', to + 'T23:59:59');
 
-        let html = '';
-        let countOk = 0;
+            let html = '';
+            let countOk = 0;
 
-        for (const s of sales) {
-            const totalSales = Math.round(s.grand_total || 0);
-            
-            // Ambil detail produk untuk tahu akun apa yang seharusnya ada
-            const { data: details } = await db.from('penjualan_detail').select('produk_id').eq('penjualan_id', s.id).limit(1);
-            let targetAkunPendapatan = '4101'; // Default
-            let targetAkunHPP = '5101'; // Default
+            sales.forEach(s => {
+                const totalKasir = Math.round(s.grand_total || 0);
+                // Cari Debit di Jurnal (Kepala 1)
+                const cashEntry = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun.startsWith('1'));
+                const totalJurnal = cashEntry.reduce((sum, j) => sum + Math.round(j.debit || 0), 0);
+                
+                // Cari HPP (Kepala 5)
+                const hasHpp = journals.some(j => j.no_bukti === s.no_invoice && j.kode_akun.startsWith('5'));
+                
+                const diff = totalKasir - totalJurnal;
+                const isMatch = Math.abs(diff) < 2 && hasHpp;
 
-            if (details && details.length > 0) {
-                const { data: pInfo } = await db.from('produk').select('akun_pendapatan, akun_hpp').eq('id', details[0].produk_id).single();
-                if (pInfo) {
-                    targetAkunPendapatan = pInfo.akun_pendapatan || '4101';
-                    targetAkunHPP = pInfo.akun_hpp || '5101';
-                }
-            }
-            
-            // Cek Jurnal Pendapatan secara Dinamis
-            const revEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === targetAkunPendapatan);
-            const totalInJurnal = revEntries.reduce((sum, j) => sum + Math.round(j.kredit || 0), 0);
-            
-            // Cek Jurnal HPP secara Dinamis
-            const hppEntries = journals.filter(j => j.no_bukti === s.no_invoice && j.kode_akun === targetAkunHPP);
-            const hppCount = hppEntries.length;
+                if (!isMatch) mismatchList.push({ inv: s.no_invoice, id: s.id });
+                else countOk++;
 
-            const diff = totalSales - totalInJurnal;
-            const isMatch = (Math.abs(diff) < 2) && (hppCount > 0);
-
-            if (!isMatch) mismatchList.push({ inv: s.no_invoice, id: s.id });
-            else countOk++;
-
-            html += `
-                <tr>
-                    <td><b>${s.no_invoice}</b><br><small>${new Date(s.tanggal).toLocaleString('id-ID')}</small></td>
-                    <td>Rp ${totalSales.toLocaleString()}</td>
-                    <td>Rp ${totalInJurnal.toLocaleString()}</td>
-                    <td>${hppCount > 0 ? '✅ Tercatat' : '❌ Kosong'}</td>
-                    <td style="color:${Math.abs(diff) > 0 ? 'var(--danger)' : 'inherit'}">Rp ${diff.toLocaleString()}</td>
-                    <td><span class="badge ${isMatch ? 'badge-success' : 'badge-error'}">${isMatch ? 'Sinkron' : 'Mismatch'}</span></td>
-                    <td class="no-print">${!isMatch ? `<button class="btn-small-fix" onclick="deepFix('${s.no_invoice}', '${s.id}')">Fix Jurnal</button>` : '✅'}</td>
+                html += `<tr>
+                    <td><b>${s.no_invoice}</b></td>
+                    <td>${totalKasir.toLocaleString()}</td>
+                    <td>${totalJurnal.toLocaleString()}</td>
+                    <td>${hasHpp ? '✅' : '❌'}</td>
+                    <td style="color:${diff !== 0 ? 'red' : 'green'}">${diff.toLocaleString()}</td>
+                    <td><span class="badge ${isMatch ? 'badge-success' : 'badge-error'}">${isMatch ? 'OK' : 'Pincang'}</span></td>
+                    <td>${!isMatch ? `<button class="btn-small-fix" onclick="deepFix('${s.no_invoice}', '${s.id}')">Fix</button>` : '✅'}</td>
                 </tr>`;
-        }
-        tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada transaksi ditemukan.</td></tr>';
-        
-        document.getElementById('stat-total').innerText = sales.length;
-        document.getElementById('stat-mismatch').innerText = mismatchList.length;
-        document.getElementById('stat-ok').innerText = countOk;
-        document.getElementById('btnFixAll').style.display = mismatchList.length > 0 ? 'flex' : 'none';
-
-    } catch (err) { alert("Gagal audit: " + err.message); }
-}
-
-async function deepFix(noInvoice, penjualanId, isQuiet = false) {
-    try {
-        // 1. Ambil Data Penjualan
-        const { data: s } = await db.from('penjualan').select('*').eq('id', penjualanId).single();
-        const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', penjualanId);
-        
-        if (!s || !details) return;
-
-        // 2. CARI AKUN PAJAK DINAMIS (Cari akun kepala 2 yang mengandung kata 'Pajak')
-        const { data: akunPajakList } = await db.from('akun')
-            .select('kode_akun')
-            .ilike('nama_akun', '%pajak%')
-            .eq('kategori', 'Kewajiban')
-            .limit(1);
-        
-        // Jika tidak ketemu, fallback ke 2102 atau berikan peringatan
-        const akunPajakDinamis = (akunPajakList && akunPajakList.length > 0) 
-            ? String(akunPajakList[0].kode_akun) 
-            : '2102'; 
-
-        // 3. Bersihkan Jurnal Lama agar tidak double/pincang
-        await db.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
-
-        let batch = [];
-        const grandTotal = Math.round(s.grand_total || 0);
-        const subTotal = Math.round(s.total_harga || 0);
-        const nilaiPajak = grandTotal - subTotal; 
-
-        // --- A. JURNAL PENDAPATAN & KAS ---
-        // Cari akun Kas/Bank dari metode pembayaran pelanggan
-        const { data: mtd } = await db.from('metode_pembayaran').select('kode_akun').eq('nama_metode', s.metode_pembayaran).maybeSingle();
-        const akunDebit = mtd ? String(mtd.kode_akun) : '1101';
-
-        batch.push({ 
-            tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: akunDebit, 
-            keterangan: `Penjualan ${noInvoice}`, debit: grandTotal, kredit: 0 
-        });
-
-        // Cari akun pendapatan dari produk (Dinamis)
-        const { data: pFirst } = await db.from('produk').select('akun_pendapatan').eq('id', details[0].produk_id).single();
-        const akunPendapatan = pFirst?.akun_pendapatan ? String(pFirst.akun_pendapatan) : '4102';
-
-        batch.push({ 
-            tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: akunPendapatan, 
-            keterangan: `Pendapatan ${noInvoice}`, debit: 0, kredit: subTotal 
-        });
-
-        // KREDIT: Pajak (Menggunakan Akun Pajak Dinamis milik Pelanggan)
-        if (nilaiPajak > 0) {
-            batch.push({ 
-                tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: akunPajakDinamis, 
-                keterangan: `Pajak/Layanan ${noInvoice}`, debit: 0, kredit: nilaiPajak 
             });
-        }
 
-        // --- B. JURNAL HPP (DINAMIS PER PRODUK) ---
-        for (const item of details) {
-            const { data: prod } = await db.from('produk').select('harga_beli, akun_hpp, akun_persediaan').eq('id', item.produk_id).single();
-            if (prod && prod.akun_hpp && prod.akun_persediaan) {
-                const nilaiHPP = Math.round(parseFloat(prod.harga_beli || 0) * item.qty);
-                if (nilaiHPP > 0) {
-                    batch.push({ 
-                        tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(prod.akun_hpp), 
-                        keterangan: `HPP: ${noInvoice}`, debit: nilaiHPP, kredit: 0 
-                    });
-                    batch.push({ 
-                        tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(prod.akun_persediaan), 
-                        keterangan: `Persediaan Keluar: ${noInvoice}`, debit: 0, kredit: nilaiHPP 
-                    });
+            tbody.innerHTML = html || '<tr><td colspan="7" align="center">Kosong.</td></tr>';
+            document.getElementById('stat-total').innerText = sales.length;
+            document.getElementById('stat-mismatch').innerText = mismatchList.length;
+            document.getElementById('stat-ok').innerText = countOk;
+            document.getElementById('btnFixAll').style.display = mismatchList.length > 0 ? 'flex' : 'none';
+
+        } catch (e) { alert(e.message); }
+    }
+
+    async function deepFix(noInvoice, penjualanId, isQuiet = false) {
+        try {
+            const { data: s } = await db.from('penjualan').select('*').eq('id', penjualanId).single();
+            const { data: details } = await db.from('penjualan_detail').select('qty, produk_id').eq('penjualan_id', penjualanId);
+            
+            // 1. CARI AKUN PAJAK DINAMIS (Cek keberadaan di tabel Akun)
+            const { data: akunPajak } = await db.from('akun').select('kode_akun').ilike('nama_akun', '%pajak%').limit(1);
+            const kodePajak = akunPajak.length > 0 ? String(akunPajak[0].kode_akun) : null;
+
+            // 2. HAPUS LAMA
+            await db.from('jurnal_umum').delete().eq('no_bukti', noInvoice);
+
+            let batch = [];
+            const grandTotal = Math.round(s.grand_total || 0);
+            const subTotal = Math.round(s.total_harga || 0);
+            const pajak = grandTotal - subTotal;
+
+            // DEBIT KAS/BANK
+            const { data: mtd } = await db.from('metode_pembayaran').select('kode_akun').eq('nama_metode', s.metode_pembayaran).maybeSingle();
+            batch.push({ tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: mtd ? String(mtd.kode_akun) : '1101', debit: grandTotal, kredit: 0, keterangan: 'Fix Penjualan' });
+
+            // KREDIT PENDAPATAN
+            const { data: pInfo } = await db.from('produk').select('akun_pendapatan').eq('id', details[0].produk_id).single();
+            batch.push({ tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(pInfo.akun_pendapatan || '4102'), debit: 0, kredit: subTotal, keterangan: 'Fix Pendapatan' });
+
+            // KREDIT PAJAK (HANYA JIKA AKUN ADA)
+            if (pajak > 0 && kodePajak) {
+                batch.push({ tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: kodePajak, debit: 0, kredit: pajak, keterangan: 'Fix Pajak' });
+            }
+
+            // HPP & STOK
+            for (const item of details) {
+                const { data: prd } = await db.from('produk').select('harga_beli, akun_hpp, akun_persediaan').eq('id', item.produk_id).single();
+                const nHpp = Math.round((prd.harga_beli || 0) * item.qty);
+                if (nHpp > 0 && prd.akun_hpp && prd.akun_persediaan) {
+                    batch.push({ tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(prd.akun_hpp), debit: nHpp, kredit: 0, keterangan: 'HPP' });
+                    batch.push({ tanggal: s.tanggal, no_bukti: noInvoice, kode_akun: String(prd.akun_persediaan), debit: 0, kredit: nHpp, keterangan: 'Stok Keluar' });
                 }
             }
-        }
 
-        // 4. Eksekusi Insert ke Database
-        if (batch.length > 0) {
             const { error } = await db.from('jurnal_umum').insert(batch);
             if (error) throw error;
-        }
-        
-        if (!isQuiet) {
-            alert(`✅ Sinkronisasi Berhasil!\nAkun Pajak yang digunakan: ${akunPajakDinamis}`);
-            runAudit();
-        }
-    } catch (e) {
-        console.error(e);
-        if (!isQuiet) alert(`Gagal Fix: ${e.message}`);
+            if (!isQuiet) { runAudit(); alert("Berhasil!"); }
+        } catch (e) { if (!isQuiet) alert(e.message); }
     }
-}
+
+    async function fixAllMismatches() {
+        const btn = document.getElementById('btnFixAll');
+        btn.disabled = true;
+        for (const m of mismatchList) { await deepFix(m.inv, m.id, true); }
+        alert("Selesai!");
+        btn.disabled = false;
+        runAudit();
+    }
+
     function exportToExcel() {
         const wb = XLSX.utils.table_to_book(document.getElementById("table-audit"));
-        XLSX.writeFile(wb, `Audit_Jurnal_HPP_${new Date().toLocaleDateString()}.xlsx`);
+        XLSX.writeFile(wb, "Audit_Jurnal.xlsx");
     }
 </script>
 </body>
