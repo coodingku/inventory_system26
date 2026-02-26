@@ -105,10 +105,10 @@
         await checkSesi();
     };
 
-   async function fetchSemuaAkun() {
+  async function fetchSemuaAkun() {
     try {
-        // 1. Ambil Data dari Tabel metode_pembayaran (Untuk Sumber Dana)
-        // Kita ambil nama_metode dan kode_akun-nya
+        // 1. Ambil Sumber Dana dari tabel metode_pembayaran
+        // Menggunakan nama_metode untuk tampilan dan kode_akun untuk nilai transaksi
         const { data: mtdData, error: errMtd } = await db
             .from('metode_pembayaran')
             .select('nama_metode, kode_akun')
@@ -119,26 +119,28 @@
         const selSumber = document.getElementById('exp-sumber-dana');
         selSumber.innerHTML = '<option value="">-- Pilih Sumber Dana --</option>';
         
-        // Loop berdasarkan metode pembayaran yang tersedia di database
         mtdData.forEach(m => {
-            // value diisi kode_akun (misal 1101), teks diisi nama metode (misal Tunai)
+            // value diisi kode_akun (1101, 7101, dll), teks diisi Nama Metode (Tunai, BNI, dll)
             selSumber.innerHTML += `<option value="${m.kode_akun}">${m.nama_metode}</option>`;
         });
 
-        // 2. Ambil Akun Beban (Kepala 5 atau 6) - Untuk Jenis Beban
-        const { data: bebanData } = await db.from('akun')
+        // 2. Ambil Akun Beban dari tabel akun (Kepala 5 atau 6)
+        const { data: bebanData, error: errBeban } = await db
+            .from('akun')
             .select('kode_akun, nama_akun')
             .or('kode_akun.ilike.5%,kode_akun.ilike.6%')
             .order('kode_akun');
 
-        const selBeban = document.getElementById('exp-jenis-beban');
-        selBeban.innerHTML = '<option value="">-- Pilih Jenis Beban --</option>';
+        if (errBeban) throw errBeban;
+
+        const selBeban = document.getElementById('exp-kategori');
+        selBeban.innerHTML = '<option value="">-- Pilih Akun Beban --</option>';
         bebanData.forEach(b => {
-            selBeban.innerHTML += `<option value="${b.kode_akun}">${b.nama_akun}</option>`;
+            selBeban.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
         });
 
-    } catch (err) {
-        console.error("Gagal mengambil data akun:", err.message);
+    } catch (e) {
+        console.error("Gagal load akun secara dinamis:", e.message);
     }
 }
     async function checkSesi() {
