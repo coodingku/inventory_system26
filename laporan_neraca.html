@@ -92,14 +92,14 @@
             <h3>AKTIVA (ASET)</h3>
             <table id="table-aktiva">
                 <tr class="group-title"><td colspan="2">Aset Lancar</td></tr>
-                <tr><td>Kas dan Bank (11xx / 7xxx)</td><td class="text-right" id="val-kas">Rp 0</td></tr>
+                <tr><td>Kas, Bank & BCA (1101, 1102, 1104)</td><td class="text-right" id="val-kas">Rp 0</td></tr>
                 <tr><td>Persediaan Barang (1103)</td><td class="text-right" id="val-stok">Rp 0</td></tr>
-                <tr><td>Piutang Pelanggan (1104)</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
+                <tr><td>Piutang & Aset Lancar Lain</td><td class="text-right" id="val-piutang">Rp 0</td></tr>
                 
                 <tr class="group-title"><td colspan="2">Aset Tetap</td></tr>
                 <tr><td>Peralatan & Inventaris (1301)</td><td class="text-right" id="val-alat">Rp 0</td></tr>
                 <tr><td>Kendaraan (1302)</td><td class="text-right" id="val-kendaraan">Rp 0</td></tr>
-                <tr><td>Gedung & Renovasi (1303)</td><td class="text-right" id="val-gedung">Rp 0</td></tr>
+                <tr><td>Gedung & Bangunan (1303)</td><td class="text-right" id="val-gedung">Rp 0</td></tr>
                 <tr><td>Akum. Penyusutan (1399)</td><td class="text-right" id="val-susut" style="color:var(--danger);">Rp 0</td></tr>
                 
                 <tr class="total-row">
@@ -114,10 +114,10 @@
             <table id="table-pasiva">
                 <tr class="group-title"><td colspan="2">Kewajiban</td></tr>
                 <tr><td>Hutang Dagang (2101)</td><td class="text-right" id="val-hutang">Rp 0</td></tr>
-                <tr><td>Hutang Pajak (2102)</td><td class="text-right" id="val-pajak">Rp 0</td></tr>
+                <tr><td>Hutang Lain & Pajak (2102)</td><td class="text-right" id="val-pajak">Rp 0</td></tr>
                 
                 <tr class="group-title"><td colspan="2">Modal</td></tr>
-                <tr><td>Modal Pemilik (31xx)</td><td class="text-right" id="val-modal">Rp 0</td></tr>
+                <tr><td>Modal Pemilik (3101)</td><td class="text-right" id="val-modal">Rp 0</td></tr>
                 <tr><td>Laba Tahun Berjalan (Net)</td><td class="text-right" id="val-laba" style="color:var(--success);">Rp 0</td></tr>
                 
                 <tr class="total-row">
@@ -145,7 +145,10 @@
 
     async function calculateBalanceSheet() {
         const targetDate = document.getElementById('filter-date').value;
+        const msgBox = document.getElementById('balance-msg');
+        
         try {
+            // Ambil Jurnal Umum
             const { data: jurnal, error } = await db
                 .from('jurnal_umum')
                 .select('*')
@@ -154,7 +157,7 @@
             if (error) throw error;
 
             let acc = {
-                kas: 0, stok: 0, piutang: 0, 
+                kasBank: 0, stok: 0, piutang: 0, 
                 alat: 0, kendaraan: 0, gedung: 0, susut: 0,
                 hutang: 0, pajak: 0, modal: 0, laba: 0
             };
@@ -163,47 +166,48 @@
                 const k = j.kode_akun.toString();
                 const d = parseFloat(j.debit || 0);
                 const kr = parseFloat(j.kredit || 0);
+                
+                const saldoD = d - kr; // Normal Debit
+                const saldoK = kr - d; // Normal Kredit
 
-                // --- 1. LOGIKA AKTIVA (KATEGORI KEPALA 1 & 7) ---
-                if (k.startsWith('1') || k.startsWith('7')) {
-                    // Kas, Bank, QRIS (Kepala 1101, 1102 atau Bank lain kepala 7)
-                    if (k.startsWith('1101') || k.startsWith('1102') || k.startsWith('7')) {
-                        acc.kas += (d - kr);
-                    } 
-                    else if (k === '1103') { acc.stok += (d - kr); }
-                    else if (k === '1104') { acc.piutang += (d - kr); }
-                    else if (k === '1301') { acc.alat += (d - kr); }
-                    else if (k === '1302') { acc.kendaraan += (d - kr); }
-                    else if (k === '1303') { acc.gedung += (d - kr); }
-                    else if (k === '1399') { acc.susut += (d - kr); }
-                    else if (k.startsWith('1')) { acc.kas += (d-kr); } // Fallback aset lancar lain
+                // 1. KELOMPOK AKTIVA (KEPALA 1)
+                if (k.startsWith('1')) {
+                    if (k === '1103') { acc.stok += saldoD; }
+                    else if (k === '1301') { acc.alat += saldoD; }
+                    else if (k === '1302') { acc.kendaraan += saldoD; }
+                    else if (k === '1303') { acc.gedung += saldoD; }
+                    else if (k === '1399') { acc.susut += saldoD; }
+                    else if (k.startsWith('1101') || k.startsWith('1102') || k.startsWith('1104')) {
+                        acc.kasBank += saldoD; // Uang Masuk (BCA 1104 di sini)
+                    } else {
+                        acc.piutang += saldoD; // Cadangan Piutang
+                    }
                 }
 
-                // --- 2. LOGIKA KEWAJIBAN (KATEGORI KEPALA 2) ---
+                // 2. KELOMPOK KEWAJIBAN (KEPALA 2)
                 else if (k.startsWith('2')) {
-                    if (k === '2101') acc.hutang += (kr - d);
-                    else if (k === '2102') acc.pajak += (kr - d);
-                    else acc.hutang += (kr - d); // Hutang lainnya
+                    if (k === '2102') acc.pajak += saldoK;
+                    else acc.hutang += saldoK;
                 }
 
-                // --- 3. LOGIKA MODAL (KATEGORI KEPALA 3) ---
+                // 3. KELOMPOK MODAL (KEPALA 3)
                 else if (k.startsWith('3')) {
-                    acc.modal += (kr - d);
+                    acc.modal += saldoK;
                 }
 
-                // --- 4. LOGIKA LABA RUGI (PENDAPATAN 4/8 VS BEBAN 5/6/9) ---
-                else if (k.startsWith('4') || k.startsWith('8')) {
-                    acc.laba += (kr - d); // Pendapatan menambah Laba
-                }
-                else if (k.startsWith('5') || k.startsWith('6') || k.startsWith('9')) {
-                    acc.laba -= (d - kr); // Beban mengurangi Laba
+                // 4. KELOMPOK LABA RUGI (PENDAPATAN 4 VS BEBAN 5/6)
+                // Inilah kunci penyeimbang Neraca
+                else if (k.startsWith('4')) {
+                    acc.laba += saldoK; // Kredit menambah Laba
+                } else if (k.startsWith('5') || k.startsWith('6')) {
+                    acc.laba -= saldoD; // Debit mengurangi Laba
                 }
             });
 
-            const f = (val) => "Rp " + Math.round(val).toLocaleString('id-ID');
+            const f = (val) => "Rp " + Math.round(val || 0).toLocaleString('id-ID');
 
-            // Render ke UI
-            document.getElementById('val-kas').innerText = f(acc.kas);
+            // Render ke Tabel
+            document.getElementById('val-kas').innerText = f(acc.kasBank);
             document.getElementById('val-stok').innerText = f(acc.stok);
             document.getElementById('val-piutang').innerText = f(acc.piutang);
             document.getElementById('val-alat').innerText = f(acc.alat);
@@ -215,33 +219,31 @@
             document.getElementById('val-modal').innerText = f(acc.modal);
             document.getElementById('val-laba').innerText = f(acc.laba);
 
-            const totalAktiva = acc.kas + acc.stok + acc.piutang + acc.alat + acc.kendaraan + acc.gedung + acc.susut;
+            const totalAktiva = acc.kasBank + acc.stok + acc.piutang + acc.alat + acc.kendaraan + acc.gedung + acc.susut;
             const totalPasiva = acc.hutang + acc.pajak + acc.modal + acc.laba;
 
             document.getElementById('total-aktiva').innerText = f(totalAktiva);
             document.getElementById('total-pasiva').innerText = f(totalPasiva);
 
-            const msgBox = document.getElementById('balance-msg');
-            // Toleransi selisih pembulatan Rp 10
-            if (Math.abs(totalAktiva - totalPasiva) < 10) { 
+            // Validasi Seimbang
+            const selisih = Math.abs(totalAktiva - totalPasiva);
+            if (selisih < 100) {
                 msgBox.className = "balance-check is-balanced";
                 msgBox.innerText = "✅ STATUS: BALANCE (SEIMBANG)";
             } else {
                 msgBox.className = "balance-check not-balanced";
-                msgBox.innerText = "⚠️ STATUS: TIDAK SEIMBANG (Selisih: " + f(totalAktiva - totalPasiva) + ")";
+                msgBox.innerText = "⚠️ TIDAK SEIMBANG! Selisih: " + f(totalAktiva - totalPasiva);
             }
 
-        } catch (e) { 
-            console.error("Gagal memuat Neraca:", e.message); 
+        } catch (e) {
+            console.error(e);
+            msgBox.innerText = "❌ Gagal memuat data.";
         }
     }
 
     function exportToExcel() {
         const wb = XLSX.utils.book_new();
-        const table1 = document.getElementById("table-aktiva");
-        const table2 = document.getElementById("table-pasiva");
-        const ws = XLSX.utils.table_to_sheet(table1);
-        XLSX.utils.sheet_add_dom(ws, table2, {origin: "D1"});
+        const ws = XLSX.utils.table_to_sheet(document.getElementById("report-content"));
         XLSX.utils.book_append_sheet(wb, ws, "Neraca");
         XLSX.writeFile(wb, `Neraca_Finex_${document.getElementById('filter-date').value}.xlsx`);
     }
