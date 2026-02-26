@@ -247,14 +247,14 @@
         XLSX.writeFile(wb, `KasBank_Finex_${Date.now()}.xlsx`);
     }
 
-  function exportPDF() {
+ function exportPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
     const now = new Date();
     const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    // --- 1. HEADER (Warna Navy seperti file lengkap) ---
+    // --- 1. HEADER ---
     doc.setFillColor(44, 62, 80); 
     doc.rect(0, 0, 297, 40, 'F'); 
     
@@ -271,46 +271,65 @@
     doc.setFontSize(14);
     doc.text("RINGKASAN NERACA & LABA RUGI", 283, 25, { align: 'right' });
 
-    // --- 2. LOGIKA AKUMULASI DATA ---
+    // --- 2. LOGIKA AKUMULASI DATA (DINAMIS UNTUK PELANGGAN) ---
     let totalKasBank = 0;
     let totalPersediaan = 0;
     let totalPenjualan = 0;
     let totalHPP = 0;
     let totalEkuitas = 0;
-    let totalHutang = 0;
+    let totalHutangPajak = 0;
+    let totalHutangLain = 0;
     let totalBebanLain = 0;
 
-    currentDataRaw.forEach(d => {
+    // Pastikan data ada sebelum loop
+    const dataToProcess = typeof currentDataRaw !== 'undefined' ? currentDataRaw : [];
+
+    dataToProcess.forEach(d => {
         const sistem = Number(d.sistem || 0);
         const kode = String(d.kode || "");
+        const nama = String(d.nama || "").toLowerCase();
         const kategori = String(d.kategori || "").toLowerCase();
         
-        // --- PERBAIKAN: Semua kepala 11 (Kas/Bank) masuk ke Ringkasan ---
-        if (kode.startsWith('11') && kode !== '1103') { 
-            totalKasBank += sistem; 
+        // Kas & Bank: Semua Kepala 11 kecuali Stok 1103
+        if (kode.startsWith('11') && kode !== '1103') {
+            totalKasBank += sistem;
         }
         
-        // Stok tetap 1103
-        if (kode === '1103') totalPersediaan += sistem;
-        
-        // Pendapatan Kepala 4
-        if (kode.startsWith('4')) totalPenjualan += sistem;
-        
-        // HPP Kepala 5 (Khusus 5101)
-        if (kode === '5101') totalHPP += sistem;
-        
-        // Beban (Kepala 5 yang lain, Kepala 6, atau yang ada kata 'beban')
+        // Stok: 1103
+        else if (kode === '1103') {
+            totalPersediaan += sistem;
+        }
+
+        // Hutang: Bedakan Pajak (2102) dan Hutang Umum (Kepala 2 lainnya)
+        else if (kode.startsWith('2')) {
+            if (kode === '2102' || nama.includes('pajak')) {
+                totalHutangPajak += sistem;
+            } else {
+                totalHutangLain += sistem;
+            }
+        }
+
+        // Modal: Kepala 3
+        else if (kode.startsWith('3')) {
+            totalEkuitas += sistem;
+        }
+
+        // Pendapatan: Kepala 4
+        else if (kode.startsWith('4')) {
+            totalPenjualan += sistem;
+        }
+
+        // HPP & Beban: Kepala 5 & 6
         else if (kode.startsWith('5') || kode.startsWith('6') || kategori.includes('beban')) {
-            totalBebanLain += sistem;
+            if (kode === '5101' || nama.includes('pokok beli')) {
+                totalHPP += sistem;
+            } else {
+                totalBebanLain += sistem;
+            }
         }
-        
-        // Hutang Kepala 2
-        if (kode.startsWith('2')) totalHutang += sistem;
-        
-        // Modal Kepala 3
-        if (kode.startsWith('3')) totalEkuitas += sistem;
     });
-    const tableBody = currentDataRaw.map(d => [
+
+    const tableBody = dataToProcess.map(d => [
         d.kode, 
         d.nama, 
         d.kategori, 
@@ -336,7 +355,7 @@
         }
     });
 
-    // --- 4. EXECUTIVE SUMMARY BOX (Bagian yang Hilang) ---
+    // --- 4. EXECUTIVE SUMMARY BOX ---
     const finalY = doc.lastAutoTable.finalY + 10;
     const labaKotor = totalPenjualan - totalHPP;
     const labaBersih = labaKotor - totalBebanLain;
@@ -356,7 +375,7 @@
     doc.setFont(undefined, 'normal');
     doc.text(`Kas & Bank       : Rp ${totalKasBank.toLocaleString('id-ID')}`, 20, finalY + 28);
     doc.text(`Stok Persediaan  : Rp ${totalPersediaan.toLocaleString('id-ID')}`, 20, finalY + 34);
-    doc.text(` Hutang Pajak     : Rp ${totalHutang.toLocaleString('id-ID')}`, 20, finalY + 40);
+    doc.text(`Hutang Pajak     : Rp ${totalHutangPajak.toLocaleString('id-ID')}`, 20, finalY + 40);
 
     // KOLOM 2: LABA KOTOR
     doc.setFont(undefined, 'bold'); doc.text("ANALISIS LABA KOTOR", 110, finalY + 20);
