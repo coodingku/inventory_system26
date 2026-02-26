@@ -289,66 +289,69 @@
         XLSX.writeFile(wb, "Data_Produk_Lengkap.xlsx");
     }
 
-    async function importExcel(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+   async function importExcel(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-        const container = document.getElementById('import-progress-container');
-        const progressBar = document.getElementById('import-progress-bar');
-        const statusText = document.getElementById('import-status-text');
-        
-        container.style.display = 'block';
-        statusText.style.display = 'block';
-        progressBar.style.width = '0%';
+    const progressBar = document.getElementById('import-progress-bar');
+    const statusText = document.getElementById('import-status-text');
+    document.getElementById('import-progress-container').style.display = 'block';
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-                // Mapping data dari Excel ke kolom Database Supabase
-                const cleanedData = json.map(item => ({
+            // 1. Ambil semua data Master Kategori & Gudang dulu untuk pencocokan
+            const { data: listKat } = await db.from('kategori').select('id, nama_kategori');
+            const { data: listGdg } = await db.from('gudang').select('id, nama_gudang');
+
+            // 2. Bersihkan dan Cocokkan Data
+            const cleanedData = json.map(item => {
+                // Cari UUID berdasarkan Nama yang diketik di Excel
+                const katObj = listKat.find(k => k.nama_kategori.toLowerCase() === (item["Nama Kategori"] || "").toLowerCase());
+                const gdgObj = listGdg.find(g => g.nama_gudang.toLowerCase() === (item["Nama Gudang"] || "").toLowerCase());
+
+                return {
                     kode_barang: (item["Kode Barang"] || "").toString(),
                     nama_barang: (item["Nama Produk"] || "").toString().trim(),
                     harga_beli: parseFloat(item["Harga Beli"] || 0),
                     harga_jual: parseFloat(item["Harga Jual"] || 0),
                     stok_sekarang: parseInt(item.Stok || 0),
                     stok_gudang: parseInt(item.Stok || 0),
-                    kategori_id: item["Kategori ID"],
-                    gudang_id: item["Gudang ID"],
-                    // KOLOM AKUNTANSI DINAMIS
+                    // Jika nama tidak ditemukan, gunakan ID default (ambil dari data pertama) atau null
+                    kategori_id: katObj ? katObj.id : (listKat[0] ? listKat[0].id : null),
+                    gudang_id: gdgObj ? gdgObj.id : (listGdg[0] ? listGdg[0].id : null),
                     akun_pendapatan: (item["Akun Pendapatan"] || "4101").toString(),
                     akun_hpp: (item["Akun HPP"] || "5101").toString(),
                     akun_persediaan: (item["Akun Persediaan"] || "1103").toString()
-                })).filter(item => item.nama_barang !== "");
+                };
+            }).filter(item => item.nama_barang !== "" && item.kategori_id !== null);
 
-                const totalData = cleanedData.length;
-                const batchSize = 20; 
-                
-                for (let i = 0; i < totalData; i += batchSize) {
-                    const batch = cleanedData.slice(i, i + batchSize);
-                    
-                    // Upsert berdasarkan nama_barang atau kode_barang agar tidak duplikat
-                    const { error } = await db.from('produk').upsert(batch, { onConflict: 'kode_barang' });
-                    if (error) throw error;
+            // 3. Proses Upsert dalam Batch
+            const totalData = cleanedData.length;
+            for (let i = 0; i < totalData; i += 20) {
+                const batch = cleanedData.slice(i, i + 20);
+                const { error } = await db.from('produk').upsert(batch, { onConflict: 'kode_barang' });
+                if (error) throw error;
 
-                    const percentage = Math.round((Math.min(i + batchSize, totalData) / totalData) * 100);
-                    progressBar.style.width = percentage + "%";
-                    progressBar.innerText = percentage + "%";
-                    statusText.innerText = `Mengunggah ${Math.min(i + batchSize, totalData)} dari ${totalData} produk...`;
-                }
-
-                statusText.innerHTML = `<span style="color:var(--success); font-weight:bold;">✅ Berhasil mengimpor ${totalData} produk!</span>`;
-                setTimeout(() => location.reload(), 1500);
-            } catch (err) {
-                alert("Kesalahan import: " + err.message);
-                container.style.display = 'none';
+                let progress = Math.round(((i + batch.length) / totalData) * 100);
+                progressBar.style.width = progress + "%";
+                statusText.innerText = `Mengimpor ${i + batch.length} dari ${totalData} produk...`;
             }
-        };
-        reader.readAsArrayBuffer(file);
-    }
+
+            statusText.innerHTML = `<span style="color:green;">✅ Berhasil!</span>`;
+            setTimeout(() => location.reload(), 1500);
+
+        } catch (err) {
+            alert("Gagal: " + err.message);
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
 </script>
 </body>
 </html>
