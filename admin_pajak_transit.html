@@ -24,6 +24,7 @@
         .btn { border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.3s; }
         .btn-check { background: var(--primary); color: white; margin-bottom: 10px; }
         .btn-generate { background: var(--accent); color: white; margin-top: 20px; display: none; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
         .loading { font-size: 12px; color: var(--warning); font-style: italic; display: none; margin-top: 10px; text-align: center; }
     </style>
 </head>
@@ -31,14 +32,14 @@
 
 <div class="card">
     <h2>Pajak Transit</h2>
-    <p style="text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">Penyesuaian Akun Pendapatan ke Akun Pajak</p>
+    <p style="text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">Sesuaikan Saldo Pendapatan ke Akun Pajak</p>
     <hr class="divider">
 
     <div class="filter-section">
-        <label>Sumber Akun Pendapatan</label>
+        <label>Sumber Akun Pendapatan (Dari)</label>
         <select id="select-akun-pendapatan" style="margin-bottom: 15px; font-weight: bold;"></select>
 
-        <label>Filter Periode Jurnal</label>
+        <label>Filter Periode Omzet</label>
         <div class="grid-date">
             <div>
                 <label style="font-size: 9px;">Dari Tanggal</label>
@@ -49,7 +50,7 @@
                 <input type="date" id="date-to">
             </div>
         </div>
-        <button class="btn btn-check" onclick="fetchOmzet()">HITUNG OMZET 🔍</button>
+        <button class="btn btn-check" id="btn-hitung" onclick="fetchOmzet()">HITUNG OMZET 🔍</button>
         <div id="loader" class="loading">Menganalisa Jurnal Umum...</div>
     </div>
 
@@ -60,7 +61,7 @@
         <div class="tax-input-box">
             <div style="flex: 1;">
                 <label>Persen (%)</label>
-                <input type="number" id="tax-percent" value="11" oninput="calculateTax()">
+                <input type="number" id="tax-percent" value="12" oninput="calculateTax()">
             </div>
             <div style="flex: 2;">
                 <label>Pajak Terhitung</label>
@@ -69,11 +70,11 @@
         </div>
 
         <div style="margin-top: 20px; text-align: left;">
-            <label>Pindahkan Ke Akun (Hutang Pajak)</label>
+            <label>Pindahkan Ke Akun (Ke/Hutang Pajak)</label>
             <select id="select-akun-pajak" style="margin-bottom: 15px; font-weight: bold;"></select>
             
             <label>Keterangan Jurnal</label>
-            <input type="text" id="keterangan" placeholder="Contoh: Penyesuaian Pajak Bulanan">
+            <input type="text" id="keterangan" placeholder="Penyesuaian Pajak Bulanan">
         </div>
 
         <button class="btn btn-generate" id="btn-save" onclick="generateJurnalPajak()">
@@ -93,7 +94,6 @@
         await loadDinamisAkun();
     };
 
-    // FUNGSI DINAMIS: Mengambil pilihan akun dari database
     async function loadDinamisAkun() {
         try {
             // Ambil Akun Pendapatan (Kepala 4)
@@ -103,12 +103,13 @@
                 selPen.innerHTML += `<option value="${a.kode_akun}">${a.kode_akun} - ${a.nama_akun}</option>`;
             });
 
-            // Ambil Akun Hutang/Kewajiban (Kepala 2)
+            // Ambil Akun Kewajiban/Pajak (Kepala 2)
             const { data: pajak } = await db.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '2%').order('kode_akun');
             const selPajak = document.getElementById('select-akun-pajak');
             pajak.forEach(a => {
-                const selected = a.kode_akun === '2102' ? 'selected' : ''; // Default ke 2102 jika ada
-                selPajak.innerHTML += `<option value="${a.kode_akun}" ${selected}>${a.kode_akun} - ${a.nama_akun}</option>`;
+                // Utamakan pilih akun yang ada kata 'pajak'
+                const isTax = a.nama_akun.toLowerCase().includes('pajak');
+                selPajak.innerHTML += `<option value="${a.kode_akun}" ${isTax ? 'selected' : ''}>${a.kode_akun} - ${a.nama_akun}</option>`;
             });
         } catch (e) { console.error("Gagal load akun", e); }
     }
@@ -125,18 +126,18 @@
         document.getElementById('result-area').style.display = 'none';
         
         try {
-            // Mengambil omzet (Kredit) berdasarkan akun yang dipilih user secara dinamis
             const { data, error } = await db.from('jurnal_umum')
-                .select('kredit')
+                .select('kredit, debit')
                 .eq('kode_akun', akunTerpilih) 
                 .gte('tanggal', `${from}T00:00:00`)
                 .lte('tanggal', `${to}T23:59:59`);
 
             if (error) throw error;
 
-            dataOmzet = data.reduce((sum, item) => sum + parseFloat(item.kredit || 0), 0);
+            // Hitung Omzet Net (Kredit - Debit)
+            dataOmzet = data.reduce((sum, item) => sum + (parseFloat(item.kredit || 0) - parseFloat(item.debit || 0)), 0);
             
-            document.getElementById('display-omzet').innerText = "Rp " + dataOmzet.toLocaleString('id-ID');
+            document.getElementById('display-omzet').innerText = "Rp " + Math.round(dataOmzet).toLocaleString('id-ID');
             document.getElementById('result-area').style.display = 'block';
             document.getElementById('btn-save').style.display = 'block';
             
@@ -155,29 +156,40 @@
     }
 
     async function generateJurnalPajak() {
-        if (taxValue <= 0) return alert("Nilai tidak valid!");
+        if (taxValue <= 0) return alert("Nilai pajak harus lebih besar dari 0!");
 
         const akunPendapatan = document.getElementById('select-akun-pendapatan').value;
         const akunPajak = document.getElementById('select-akun-pajak').value;
-        const ket = document.getElementById('keterangan').value || `Penyesuaian Pajak Otomatis`;
+        const ket = document.getElementById('keterangan').value || `Pajak Transit Omzet ${document.getElementById('date-from').value}`;
+        const btnSave = document.getElementById('btn-save');
 
-        const konfirmasi = confirm(`Konfirmasi Pemindahan:\n--------------------------\nDari Akun: ${akunPendapatan}\nKe Akun: ${akunPajak}\nNominal: Rp ${taxValue.toLocaleString()}\n\nLanjutkan?`);
+        const konfirmasi = confirm(`EKSEKUSI JURNAL PENYESUAIAN:\n--------------------------\nDebit (Potong Pendapatan): ${akunPendapatan}\nKredit (Masuk Pajak): ${akunPajak}\nNominal: Rp ${taxValue.toLocaleString()}\n\nApakah data sudah benar?`);
         if (!konfirmasi) return;
 
-        try {
-            const noBukti = `TAX-ADJ-${Date.now().toString().slice(-6)}`;
-            const tglJurnal = new Date().toISOString();
+        btnSave.disabled = true;
+        btnSave.innerText = "⏳ Sedang Memproses...";
 
-            // DINAMIS: Menggunakan akunPendapatan (Debit) dan akunPajak (Kredit)
+        try {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+            const noBukti = `TAX-${dateStr}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const tglJurnal = now.toISOString();
+
+            // Insert Jurnal Sepasang (Debit Pendapatan, Kredit Pajak)
             const { error } = await db.from('jurnal_umum').insert([
                 { tanggal: tglJurnal, no_bukti: noBukti, kode_akun: akunPendapatan, keterangan: ket, debit: taxValue, kredit: 0 },
                 { tanggal: tglJurnal, no_bukti: noBukti, kode_akun: akunPajak, keterangan: ket, debit: 0, kredit: taxValue }
             ]);
 
             if (error) throw error;
-            alert("✅ Sukses! Jurnal Pajak telah berhasil dibuat secara dinamis.");
+            
+            alert("✅ BERHASIL!\nJurnal Pajak Transit telah dibuat.\n\nSilakan cek Laporan Neraca untuk memastikan saldo sudah berpindah.");
             location.reload();
-        } catch (e) { alert("Error: " + e.message); }
+        } catch (e) { 
+            alert("Error: " + e.message); 
+            btnSave.disabled = false;
+            btnSave.innerText = "EKSEKUSI JURNAL PENYESUAIAN ⚡";
+        }
     }
 </script>
 </body>
