@@ -150,45 +150,68 @@
     }
 
     // Fungsi Core Sinkronisasi (Dinamis)
-    async function syncProcess(dataArray) {
+  async function syncProcess(dataArray) {
         if (dataArray.length === 0) return alert("Tidak ada data untuk disinkronkan.");
         
         try {
-            const refs = dataArray.map(x => x.ref);
-            // Ambil semua akun unik yang terlibat untuk pembersihan
-            const akunTerkait = [...new Set([...dataArray.map(x => x.target), ...dataArray.map(x => x.source)])];
+            // 1. Ambil DAFTAR AKUN VALID dari database pelanggan
+            const { data: currentAccounts, error: errAcc } = await db.from('akun').select('kode_akun');
+            if (errAcc) throw new Error("Gagal memvalidasi daftar akun: " + errAcc.message);
+            
+            // Buat Set agar pencarian cepat
+            const validAccountSet = new Set(currentAccounts.map(a => String(a.kode_akun)));
 
-            // 1. Bersihkan Jurnal Lama agar tidak double
+            const refs = dataArray.map(x => x.ref);
+            const akunTerkait = [...new Set([...dataArray.map(x => String(x.target)), ...dataArray.map(x => String(x.source))])];
+
+            // 2. Bersihkan Jurnal Lama
             if (refs.length > 0) {
                 await db.from('jurnal_umum').delete()
                     .in('no_bukti', refs)
                     .in('kode_akun', akunTerkait);
             }
 
-            // 2. Susun Batch Jurnal Baru
+            // 3. Susun Batch Jurnal Baru dengan PROTEKSI
             let batch = [];
+            let akunBermasalah = new Set();
+
             for (let item of dataArray) {
-                if (item.target && item.source && item.val > 0) {
+                const target = String(item.target);
+                const source = String(item.source);
+
+                // CEK: Apakah akun ada di database?
+                if (!validAccountSet.has(target)) { akunBermasalah.add(target); continue; }
+                if (!validAccountSet.has(source)) { akunBermasalah.add(source); continue; }
+
+                if (item.val > 0) {
                     batch.push({ 
-                        tanggal: item.date, no_bukti: item.ref, kode_akun: item.target, 
-                        keterangan: 'Audit Auto: ' + item.ref, debit: item.val, kredit: 0 
+                        tanggal: item.date, no_bukti: item.ref, kode_akun: target, 
+                        keterangan: 'Audit Auto: ' + item.ref, debit: Math.round(item.val), kredit: 0 
                     });
                     batch.push({ 
-                        tanggal: item.date, no_bukti: item.ref, kode_akun: item.source, 
-                        keterangan: 'Audit Penyeimbang', debit: 0, kredit: item.val 
+                        tanggal: item.date, no_bukti: item.ref, kode_akun: source, 
+                        keterangan: 'Audit Penyeimbang', debit: 0, kredit: Math.round(item.val) 
                     });
                 }
             }
 
-            // 3. Masukkan ke Database
+            // 4. Masukkan ke Database
             if (batch.length > 0) {
                 const { error } = await db.from('jurnal_umum').insert(batch);
                 if (error) throw error;
-                alert("✅ Sinkronisasi Berhasil!");
-                runAudit(); // Refresh data
+                
+                let pesan = "✅ Sinkronisasi Berhasil!";
+                if (akunBermasalah.size > 0) {
+                    pesan += `\n\n⚠️ Peringatan: Beberapa baris dilewati karena Kode Akun berikut belum dibuat di Daftar Akun: ${Array.from(akunBermasalah).join(', ')}`;
+                }
+                alert(pesan);
+                runAudit(); 
+            } else {
+                alert("❌ Gagal: Tidak ada data yang bisa dimasukkan. Pastikan kode akun (seperti " + Array.from(akunBermasalah).join(', ') + ") sudah didaftarkan di halaman Manajemen Akun.");
             }
         } catch (err) { 
             alert("Gagal Sync: " + err.message); 
+            console.error(err);
         }
     }
 </script>
