@@ -389,16 +389,62 @@
         // Simpan semua detail sekaligus
         await db.from('penjualan_detail').insert(detailRows);
 
-        // 3. JURNAL AKUNTANSI OTOMATIS
-        const journalEntries = [];
-        state.payments.forEach(p => {
-            journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: String(p.akun), keterangan: `Terima ${p.metode} - ${inv}`, debit: Math.round(p.jumlah), kredit: 0 });
-        });
-        journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '4101', keterangan: `Penjualan - ${inv}`, debit: 0, kredit: state.total });
-        journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '5101', keterangan: `HPP - ${inv}`, debit: Math.round(totalHPP), kredit: 0 });
-        journalEntries.push({ tanggal: tgl, no_bukti: inv, kode_akun: '1103', keterangan: `Stok Keluar - ${inv}`, debit: 0, kredit: Math.round(totalHPP) });
-        
-        await db.from('jurnal_umum').insert(journalEntries);
+      // 3. JURNAL AKUNTANSI OTOMATIS (VERSI DINAMIS TOTAL)
+const journalEntries = [];
+
+// A. Jurnal Penerimaan Kas/Bank (Dinamis dari Tabel metode_pembayaran)
+state.payments.forEach(p => {
+    // Menangani selisih kembalian agar yang masuk jurnal tetap nilai belanja (Grand Total)
+    let nominalJurnal = (state.payments.length === 1 && p.jumlah > state.total) ? state.total : p.jumlah;
+
+    journalEntries.push({ 
+        tanggal: tgl, 
+        no_bukti: inv, 
+        kode_akun: String(p.akun), // Diambil dari dataset akun yang ditarik dari tabel metode_pembayaran
+        keterangan: `Terima ${p.metode} - ${inv}`, 
+        debit: Math.round(nominalJurnal), 
+        kredit: 0 
+    });
+});
+
+// B. Jurnal Pendapatan & Stok (Dinamis per Item dari Tabel produk)
+for (const item of cart) {
+    // Ambil referensi akun yang sudah dipetakan di tabel produk
+    const { data: pInfo } = await db.from('produk')
+        .select('akun_pendapatan, akun_hpp, akun_persediaan, harga_beli')
+        .eq('id', item.id)
+        .single();
+    
+    const hppTotal = parseFloat(pInfo.harga_beli || 0) * item.qty;
+    const netSalesItem = (item.qty * item.harga) - ((item.qty * item.harga * (item.discountItem || 0)) / 100);
+
+    // Kredit Pendapatan (Dinamis, misal: 4101)
+    journalEntries.push({ 
+        tanggal: tgl, no_bukti: inv, 
+        kode_akun: String(pInfo.akun_pendapatan), 
+        keterangan: `Penjualan: ${item.nama_barang}`, 
+        debit: 0, kredit: Math.round(netSalesItem) 
+    });
+
+    // Debet HPP (Dinamis, misal: 5101)
+    journalEntries.push({ 
+        tanggal: tgl, no_bukti: inv, 
+        kode_akun: String(pInfo.akun_hpp), 
+        keterangan: `Beban HPP: ${item.nama_barang}`, 
+        debit: Math.round(hppTotal), kredit: 0 
+    });
+
+    // Kredit Persediaan Stok (Dinamis, misal: 1103)
+    journalEntries.push({ 
+        tanggal: tgl, no_bukti: inv, 
+        kode_akun: String(pInfo.akun_persediaan), 
+        keterangan: `Pengurangan Stok: ${item.nama_barang}`, 
+        debit: 0, kredit: Math.round(hppTotal) 
+    });
+}
+
+// Simpan semua entri ke tabel jurnal_umum
+await db.from('jurnal_umum').insert(journalEntries);
 
         // 4. RENDER STRUK BLUETOOTH READY
         renderReceipt(inv, totalDibayar);
