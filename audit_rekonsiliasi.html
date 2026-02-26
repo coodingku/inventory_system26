@@ -97,39 +97,77 @@
         resArea.style.display = 'block';
     }
 
-    async function fixJurnalTotal() {
+ async function fixJurnalTotal() {
         if (missingData.length === 0) return;
         const btn = document.getElementById('btn-fix');
         btn.disabled = true;
-        btn.innerText = "⏳ Sedang Menyuntikkan Data...";
+        btn.innerText = "⏳ Sedang Sinkronisasi Dinamis...";
 
-        let batch = [];
-        missingData.forEach(p => {
-            const nominal = parseFloat(p.total || p.total_harga || p.grand_total || 0);
-            const metode = (p.metode_pembayaran || "TUNAI").toUpperCase();
-            const akunAset = (metode === 'TUNAI') ? '1101' : '1102';
+        try {
+            // 1. Ambil Mapping Akun dari database pelanggan secara dinamis
+            const [resMetode, resProduk] = await Promise.all([
+                db.from('metode_pembayaran').select('nama_metode, kode_akun'),
+                db.from('produk').select('akun_pendapatan').limit(1)
+            ]);
 
-            // Entri Debit (Aset)
-            batch.push({ 
-                tanggal: p.created_at, no_bukti: p.no_invoice, kode_akun: akunAset, 
-                keterangan: `Penjualan ${metode} (${p.no_invoice})`, debit: nominal, kredit: 0 
+            const listMetode = resMetode.data || [];
+            // Ambil akun pendapatan dari salah satu produk pelanggan sebagai referensi utama
+            const akunPendapatanDinamis = (resProduk.data && resProduk.data[0]) 
+                ? resProduk.data[0].akun_pendapatan 
+                : '4101'; // Fallback jika setting produk kosong
+
+            let batch = [];
+            
+            missingData.forEach(p => {
+                const nominal = Math.round(parseFloat(p.total || p.total_harga || p.grand_total || 0));
+                
+                // Cari akun Kas/Bank berdasarkan nama metode di nota (Contoh: 'Tunai' -> 1101)
+                const mtd = listMetode.find(m => 
+                    m.nama_metode.toLowerCase() === (p.metode_pembayaran || 'TUNAI').toLowerCase()
+                );
+                const akunAset = mtd ? mtd.kode_akun : '1101';
+
+                if (nominal > 0) {
+                    // DEBIT: Akun Aset (Kas/Bank) hasil mapping dinamis
+                    batch.push({ 
+                        tanggal: p.created_at, 
+                        no_bukti: p.no_invoice, 
+                        kode_akun: String(akunAset), 
+                        keterangan: `Re-Sync: ${p.no_invoice}`, 
+                        debit: nominal, 
+                        kredit: 0 
+                    });
+
+                    // KREDIT: Akun Pendapatan hasil mapping dinamis dari tabel produk
+                    batch.push({ 
+                        tanggal: p.created_at, 
+                        no_bukti: p.no_invoice, 
+                        kode_akun: String(akunPendapatanDinamis), 
+                        keterangan: `Re-Sync: Omzet ${p.no_invoice}`, 
+                        debit: 0, 
+                        kredit: nominal 
+                    });
+                }
             });
-            // Entri Kredit (Pendapatan)
-            batch.push({ 
-                tanggal: p.created_at, no_bukti: p.no_invoice, kode_akun: '4101', 
-                keterangan: `Pendapatan Penjualan (${p.no_invoice})`, debit: 0, kredit: nominal 
-            });
-        });
 
-        // Pecah batch jika terlalu besar (per 100 baris) untuk menghindari timeout
-        const { error } = await db.from('jurnal_umum').insert(batch);
-        
-        if(!error) {
-            alert("✅ REKONSILIASI TOTAL BERHASIL!\nSaldo Modal Januari Tetap Aman.\nOmzet Januari-Februari telah disinkronkan.");
-            location.reload();
-        } else {
-            alert("Gagal: " + error.message);
+            // 2. Eksekusi suntik data dalam batch per 100 baris agar tidak timeout
+            if (batch.length > 0) {
+                for (let i = 0; i < batch.length; i += 100) {
+                    const chunk = batch.slice(i, i + 100);
+                    const { error } = await db.from('jurnal_umum').insert(chunk);
+                    if (error) throw error;
+                }
+                
+                alert("✅ REKONSILIASI BERHASIL!\nSistem telah menggunakan akun yang terdaftar di database pelanggan.");
+                location.reload();
+            }
+
+        } catch (err) {
+            alert("Gagal Sinkronisasi: " + err.message);
+            console.error(err);
+        } finally {
             btn.disabled = false;
+            btn.innerText = "🔥 SINKRONKAN KE JURNAL SEKARANG";
         }
     }
 </script>
