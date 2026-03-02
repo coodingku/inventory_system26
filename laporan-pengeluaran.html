@@ -14,44 +14,32 @@
         .sidebar-active { background: #e67e22; color: white !important; }
         .header-gradient { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); }
         
+        /* Modal Style */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        
         @media print {
             .no-print { display: none !important; }
             main { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
+            #print-nota { display: block !important; width: 58mm; padding: 10px; font-family: monospace; font-size: 12px; }
             body { background-color: white !important; }
-            .header-gradient { background: #f8fafc !important; color: black !important; border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
-            .header-gradient p, .header-gradient h2 { color: black !important; }
         }
+        #print-nota { display: none; }
     </style>
 </head>
 <body class="flex">
 
+    <div id="print-nota"></div>
+
     <nav class="no-print w-64 bg-[#2c3e50] text-slate-300 h-screen fixed flex flex-col p-6 space-y-2 z-50">
         <div class="mb-10 text-center">
-            <h2 id="store-name-display" class="text-2xl font-bold text-[#e67e22]">Finex POS</h2>
+            <h2 class="text-2xl font-bold text-[#e67e22]">Finex POS</h2>
             <p class="text-[10px] tracking-[0.2em] uppercase opacity-50">Management System</p>
         </div>
-        
-        <a href="dashboard.html" class="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all">
-            <span>📊 Dashboard</span>
-        </a>
-        <a href="kas_bank.html" class="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all">
-            <span>🏦 Kas & Bank</span>
-        </a>
-        
+        <a href="dashboard.html" class="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all"><span>📊 Dashboard</span></a>
+        <a href="kas_bank.html" class="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all"><span>🏦 Kas & Bank</span></a>
         <div class="pt-6 pb-2 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Keuangan</div>
-        <a href="pengeluaran.html" class="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all">
-            <span>💸 Catat Biaya</span>
-        </a>
-        <a href="laporan-pengeluaran.html" class="sidebar-active flex items-center space-x-3 p-3 rounded-xl shadow-lg">
-            <span>📑 Laporan Beban</span>
-        </a>
-
-        <div class="mt-auto pt-10">
-            <div class="p-3 text-xs text-slate-500 mb-2">User: <b id="display-user-nav">...</b></div>
-            <button onclick="logout()" class="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-rose-500/20 text-rose-400 transition-all">
-                <span>🚪 Keluar</span>
-            </button>
-        </div>
+        <a href="pengeluaran.html" class="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all"><span>💸 Catat Biaya</span></a>
+        <a href="laporan-pengeluaran.html" class="sidebar-active flex items-center space-x-3 p-3 rounded-xl shadow-lg"><span>📑 Laporan Beban</span></a>
     </nav>
 
     <main class="flex-1 ml-64 p-8">
@@ -61,12 +49,8 @@
                 <p id="unit-label" class="text-slate-500 text-sm">Operasional Unit: ...</p>
             </div>
             <div class="no-print flex space-x-3">
-                <button onclick="window.print()" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 flex items-center text-sm font-semibold">
-                    🖨️ Cetak
-                </button>
-                <button onclick="exportToCSV()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold shadow-sm">
-                    📥 Export CSV
-                </button>
+                <button onclick="window.print()" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 flex items-center text-sm font-semibold">🖨️ Cetak Hal.</button>
+                <button onclick="exportToCSV()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold shadow-sm">📥 Export CSV</button>
             </div>
         </div>
 
@@ -75,16 +59,13 @@
                 <label class="block text-[11px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Filter Bulan</label>
                 <div class="flex flex-col space-y-4">
                     <input type="month" id="filter-bulan" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#e67e22] outline-none font-medium">
-                    <button onclick="fetchExpenses()" class="w-full py-3 bg-[#2c3e50] text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md">
-                        Tampilkan Data
-                    </button>
+                    <button onclick="fetchExpenses()" class="w-full py-3 bg-[#2c3e50] text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md">Tampilkan Data</button>
                 </div>
             </div>
-
             <div class="lg:col-span-2 header-gradient p-8 rounded-2xl shadow-lg text-white flex flex-col justify-center">
                 <p class="text-blue-200 text-xs font-bold uppercase tracking-[0.2em] mb-2 opacity-80">Total Pengeluaran Bulan Ini</p>
                 <h2 id="total-pengeluaran-text" class="text-4xl font-black mb-1">Rp 0</h2>
-                <p id="period-label" class="text-sm text-blue-100 opacity-60">Pilih periode laporan...</p>
+                <p id="period-label" class="text-sm text-blue-100 opacity-60">Memuat data...</p>
             </div>
         </div>
 
@@ -93,8 +74,8 @@
                 <thead>
                     <tr class="bg-slate-50 border-b border-slate-200">
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal</th>
-                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kategori (Beban)</th>
-                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Metode Bayar</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Akun</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Metode</th>
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Keterangan</th>
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Nominal</th>
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center no-print">Aksi</th>
@@ -102,12 +83,30 @@
                 </thead>
                 <tbody id="expense-table-body" class="divide-y divide-slate-100"></tbody>
             </table>
-            
-            <div id="empty-state" class="hidden py-16 text-center">
-                <p class="text-slate-400 text-sm font-medium">Data pengeluaran tidak ditemukan</p>
-            </div>
+            <div id="empty-state" class="hidden py-16 text-center text-slate-400 text-sm">Data tidak ditemukan</div>
         </div>
     </main>
+
+    <div id="editModal" class="modal no-print items-center justify-center">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96">
+            <h3 class="text-xl font-bold mb-4">Edit Transaksi</h3>
+            <input type="hidden" id="edit-no-bukti">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-400">Keterangan</label>
+                    <input type="text" id="edit-keterangan" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-[#e67e22]">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-400">Nominal (Rp)</label>
+                    <input type="number" id="edit-nominal" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-[#e67e22]">
+                </div>
+                <div class="flex space-x-2 pt-4">
+                    <button onclick="closeModal()" class="flex-1 py-2 bg-slate-200 rounded-lg font-bold">Batal</button>
+                    <button onclick="saveEdit()" class="flex-1 py-2 bg-[#e67e22] text-white rounded-lg font-bold">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         let currentData = [];
@@ -120,40 +119,27 @@
             fetchExpenses();
         };
 
-      async function fetchExpenses() {
-    const filterMonth = document.getElementById('filter-bulan').value;
-    if(!filterMonth) return;
+        async function fetchExpenses() {
+            const filterMonth = document.getElementById('filter-bulan').value;
+            const [year, month] = filterMonth.split('-');
+            const start = `${filterMonth}-01T00:00:00.000Z`;
+            const end = `${year}-${month}-${new Date(year, month, 0).getDate()}T23:59:59.999Z`;
 
-    const [year, month] = filterMonth.split('-');
-    const start = `${filterMonth}-01T00:00:00.000Z`;
-    const end = `${year}-${month}-${new Date(year, month, 0).getDate()}T23:59:59.999Z`;
+            const { data, error } = await db.from('jurnal_umum').select('*, akun(nama_akun)')
+                .gte('tanggal', start).lte('tanggal', end)
+                .not('no_bukti', 'ilike', 'INV-%')
+                .order('tanggal', { ascending: false });
 
-    // Query ke jurnal_umum
-    const { data, error } = await db
-        .from('jurnal_umum')
-        .select('*, akun(nama_akun)')
-        .gte('tanggal', start)
-        .lte('tanggal', end)
-        .not('no_bukti', 'ilike', 'INV-%') // Abaikan transaksi penjualan
-        .order('tanggal', { ascending: false });
+            if (error) return console.error(error);
 
-    if (error) return console.error(error);
+            const expenseData = data.filter(j => j.debit > 0 && j.kode_akun.startsWith('6'));
+            currentData = expenseData.map(exp => {
+                const kreditPair = data.find(k => k.no_bukti === exp.no_bukti && k.kredit > 0);
+                return { ...exp, sumber_dana: kreditPair ? kreditPair.akun.nama_akun : 'Tunai' };
+            });
 
-    // UPGRADE FILTER: Hanya ambil akun kepala 6 (Beban Operasional)
-    // Kita hapus startsWith('5') agar HPP tidak masuk ke laporan ini
-    const expenseData = data.filter(j => j.debit > 0 && j.kode_akun.startsWith('6'));
-    
-    // Cari pasangan Kreditnya (Sumber Dana/Metode Bayar)
-    currentData = expenseData.map(exp => {
-        const kreditPair = data.find(k => k.no_bukti === exp.no_bukti && k.kredit > 0);
-        return {
-            ...exp,
-            sumber_dana: kreditPair ? kreditPair.akun.nama_akun : 'Tidak Diketahui'
-        };
-    });
-
-    renderTable(currentData);
-}
+            renderTable(currentData);
+        }
 
         function renderTable(data) {
             const tbody = document.getElementById('expense-table-body');
@@ -172,51 +158,91 @@
                 total += parseFloat(item.debit);
                 const tglStr = new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
                 return `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4 text-sm text-slate-600">${tglStr}</td>
-                        <td class="px-6 py-4 text-sm font-semibold text-[#e67e22]">Beban ${item.kode_akun}</td>
-                        <td class="px-6 py-4 text-sm text-slate-500 font-medium">${item.sumber_dana}</td>
-                        <td class="px-6 py-4 text-sm text-slate-500">${item.keterangan}</td>
-                        <td class="px-6 py-4 text-sm font-black text-slate-800 text-right">Rp ${Number(item.debit).toLocaleString('id-ID')}</td>
-                        <td class="px-6 py-4 text-center no-print">
-                            <button onclick="deleteRecord('${item.no_bukti}')" class="text-rose-400 hover:text-rose-600 text-xs font-bold">Hapus</button>
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4 text-sm">${tglStr}</td>
+                        <td class="px-6 py-4 text-sm font-semibold text-[#e67e22]">${item.akun.nama_akun}</td>
+                        <td class="px-6 py-4 text-sm">${item.sumber_dana}</td>
+                        <td class="px-6 py-4 text-sm">${item.keterangan}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-right">Rp ${Number(item.debit).toLocaleString('id-ID')}</td>
+                        <td class="px-6 py-4 text-center no-print space-x-3">
+                            <button onclick="openEdit('${item.no_bukti}', '${item.keterangan}', ${item.debit})" class="text-blue-500 hover:underline text-xs font-bold">Edit</button>
+                            <button onclick="printNotaSingle('${item.no_bukti}')" class="text-emerald-500 hover:underline text-xs font-bold">Nota</button>
+                            <button onclick="deleteRecord('${item.no_bukti}')" class="text-rose-400 hover:underline text-xs font-bold">Hapus</button>
                         </td>
                     </tr>
                 `;
             }).join('');
-
             document.getElementById('total-pengeluaran-text').innerText = "Rp " + total.toLocaleString('id-ID');
         }
 
-        async function deleteRecord(noBukti) {
-            if (!confirm(`Hapus transaksi ${noBukti}? Ini akan memulihkan saldo akun sumber dana.`)) return;
-            
-            // Hapus di Jurnal Umum (Keduanya akan terhapus karena no_bukti sama)
-            const { error: err1 } = await db.from('jurnal_umum').delete().eq('no_bukti', noBukti);
-            // Hapus di tabel pengeluaran (jika ada)
-            const { error: err2 } = await db.from('pengeluaran').delete().eq('keterangan', noBukti); // atau berdasar ID jika ada
+        // --- FUNGSI EDIT ---
+        function openEdit(noBukti, ket, nominal) {
+            document.getElementById('edit-no-bukti').value = noBukti;
+            document.getElementById('edit-keterangan').value = ket;
+            document.getElementById('edit-nominal').value = nominal;
+            document.getElementById('editModal').style.display = 'flex';
+        }
 
-            if (!err1) {
-                alert("Transaksi berhasil dibatalkan.");
-                fetchExpenses();
-            }
+        function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+        async function saveEdit() {
+            const noBukti = document.getElementById('edit-no-bukti').value;
+            const newKet = document.getElementById('edit-keterangan').value;
+            const newNom = parseFloat(document.getElementById('edit-nominal').value);
+
+            // Update baris Debit
+            await db.from('jurnal_umum').update({ keterangan: newKet, debit: newNom }).eq('no_bukti', noBukti).gt('debit', 0);
+            // Update baris Kredit
+            await db.from('jurnal_umum').update({ keterangan: newKet, kredit: newNom }).eq('no_bukti', noBukti).gt('kredit', 0);
+            
+            alert("Data diperbarui!");
+            closeModal();
+            fetchExpenses();
+        }
+
+        // --- FUNGSI CETAK NOTA ---
+        function printNotaSingle(noBukti) {
+            const item = currentData.find(d => d.no_bukti === noBukti);
+            if(!item) return;
+
+            const printArea = document.getElementById('print-nota');
+            printArea.innerHTML = `
+                <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+                    <b style="font-size:16px;">${sessionStorage.getItem('NAMA_TOKO') || 'FINEX POS'}</b><br>
+                    BUKTI PENGELUARAN BIAYA
+                </div>
+                <div style="margin-bottom:5px;">
+                    No: ${item.no_bukti}<br>
+                    Tgl: ${new Date(item.tanggal).toLocaleString('id-ID')}<br>
+                    Oleh: ${JSON.parse(localStorage.getItem('finex_session'))?.username || 'Admin'}
+                </div>
+                <div style="border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+                    <b>${item.akun.nama_akun}</b><br>
+                    ${item.keterangan}
+                </div>
+                <div style="text-align:right; font-size:16px;">
+                    TOTAL: <b>Rp ${Number(item.debit).toLocaleString('id-ID')}</b>
+                </div>
+                <div style="text-align:center; margin-top:10px; font-size:10px; border-top:1px dashed #000; padding-top:5px;">
+                    Simpan bukti ini sebagai arsip valid.
+                </div>
+            `;
+            window.print();
+        }
+
+        async function deleteRecord(noBukti) {
+            if (!confirm(`Hapus transaksi ${noBukti}?`)) return;
+            await db.from('jurnal_umum').delete().eq('no_bukti', noBukti);
+            fetchExpenses();
         }
 
         function exportToCSV() {
-            if (currentData.length === 0) return;
             let csv = 'Tanggal,Beban,Sumber Dana,Keterangan,Jumlah\n';
-            currentData.forEach(r => csv += `${r.tanggal.split('T')[0]},${r.kode_akun},${r.sumber_dana},"${r.keterangan}",${r.debit}\n`);
+            currentData.forEach(r => csv += `${r.tanggal.split('T')[0]},${r.akun.nama_akun},${r.sumber_dana},"${r.keterangan}",${r.debit}\n`);
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `Laporan_Beban_Finex.csv`;
-            a.click();
-        }
-
-        function logout() {
-            localStorage.clear();
-            window.location.replace('login.html');
+            a.href = url; a.download = `Laporan_Beban.csv`; a.click();
         }
     </script>
 </body>
