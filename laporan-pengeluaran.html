@@ -17,13 +17,34 @@
         /* Modal Style */
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
         
-        @media print {
-            .no-print { display: none !important; }
-            main { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
-            #print-nota { display: block !important; width: 58mm; padding: 10px; font-family: monospace; font-size: 12px; }
-            body { background-color: white !important; }
-        }
+        /* CSS KHUSUS CETAK */
         #print-nota { display: none; }
+
+        @media print {
+            /* Sembunyikan semua elemen di layar */
+            body * { visibility: hidden !important; }
+            nav, main, .modal, .no-print { display: none !important; }
+
+            /* Tampilkan hanya area nota */
+            #print-nota, #print-nota * { 
+                visibility: visible !important; 
+                display: block !important; 
+            }
+
+            #print-nota {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 58mm; /* Ukuran Kertas Thermal */
+                padding: 5px;
+                background: white;
+                color: black;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 12px;
+                line-height: 1.2;
+            }
+            .dashed-line { border-bottom: 1px dashed black; margin: 8px 0; }
+        }
     </style>
 </head>
 <body class="flex">
@@ -42,20 +63,20 @@
         <a href="laporan-pengeluaran.html" class="sidebar-active flex items-center space-x-3 p-3 rounded-xl shadow-lg"><span>📑 Laporan Beban</span></a>
     </nav>
 
-    <main class="flex-1 ml-64 p-8">
+    <main class="flex-1 ml-64 p-8 no-print">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
                 <h1 class="text-2xl font-extrabold text-slate-800">Laporan Pengeluaran</h1>
                 <p id="unit-label" class="text-slate-500 text-sm">Operasional Unit: ...</p>
             </div>
-            <div class="no-print flex space-x-3">
+            <div class="flex space-x-3">
                 <button onclick="window.print()" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 flex items-center text-sm font-semibold">🖨️ Cetak Hal.</button>
                 <button onclick="exportToCSV()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold shadow-sm">📥 Export CSV</button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 no-print">
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <label class="block text-[11px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Filter Bulan</label>
                 <div class="flex flex-col space-y-4">
                     <input type="month" id="filter-bulan" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#e67e22] outline-none font-medium">
@@ -78,7 +99,7 @@
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Metode</th>
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Keterangan</th>
                         <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Nominal</th>
-                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center no-print">Aksi</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="expense-table-body" class="divide-y divide-slate-100"></tbody>
@@ -164,7 +185,7 @@
                         <td class="px-6 py-4 text-sm">${item.sumber_dana}</td>
                         <td class="px-6 py-4 text-sm">${item.keterangan}</td>
                         <td class="px-6 py-4 text-sm font-bold text-right">Rp ${Number(item.debit).toLocaleString('id-ID')}</td>
-                        <td class="px-6 py-4 text-center no-print space-x-3">
+                        <td class="px-6 py-4 text-center space-x-3">
                             <button onclick="openEdit('${item.no_bukti}', '${item.keterangan}', ${item.debit})" class="text-blue-500 hover:underline text-xs font-bold">Edit</button>
                             <button onclick="printNotaSingle('${item.no_bukti}')" class="text-emerald-500 hover:underline text-xs font-bold">Nota</button>
                             <button onclick="deleteRecord('${item.no_bukti}')" class="text-rose-400 hover:underline text-xs font-bold">Hapus</button>
@@ -175,7 +196,6 @@
             document.getElementById('total-pengeluaran-text').innerText = "Rp " + total.toLocaleString('id-ID');
         }
 
-        // --- FUNGSI EDIT ---
         function openEdit(noBukti, ket, nominal) {
             document.getElementById('edit-no-bukti').value = noBukti;
             document.getElementById('edit-keterangan').value = ket;
@@ -190,9 +210,7 @@
             const newKet = document.getElementById('edit-keterangan').value;
             const newNom = parseFloat(document.getElementById('edit-nominal').value);
 
-            // Update baris Debit
             await db.from('jurnal_umum').update({ keterangan: newKet, debit: newNom }).eq('no_bukti', noBukti).gt('debit', 0);
-            // Update baris Kredit
             await db.from('jurnal_umum').update({ keterangan: newKet, kredit: newNom }).eq('no_bukti', noBukti).gt('kredit', 0);
             
             alert("Data diperbarui!");
@@ -200,34 +218,40 @@
             fetchExpenses();
         }
 
-        // --- FUNGSI CETAK NOTA ---
         function printNotaSingle(noBukti) {
             const item = currentData.find(d => d.no_bukti === noBukti);
             if(!item) return;
 
             const printArea = document.getElementById('print-nota');
             printArea.innerHTML = `
-                <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+                <div style="text-align:center;">
                     <b style="font-size:16px;">${sessionStorage.getItem('NAMA_TOKO') || 'FINEX POS'}</b><br>
-                    BUKTI PENGELUARAN BIAYA
+                    BUKTI PENGELUARAN
                 </div>
-                <div style="margin-bottom:5px;">
+                <div class="dashed-line"></div>
+                <div>
                     No: ${item.no_bukti}<br>
                     Tgl: ${new Date(item.tanggal).toLocaleString('id-ID')}<br>
-                    Oleh: ${JSON.parse(localStorage.getItem('finex_session'))?.username || 'Admin'}
+                    User: ${JSON.parse(localStorage.getItem('finex_session'))?.username || 'Admin'}
                 </div>
-                <div style="border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
-                    <b>${item.akun.nama_akun}</b><br>
-                    ${item.keterangan}
+                <div class="dashed-line"></div>
+                <div>
+                    <b>Kategori:</b><br>${item.akun.nama_akun}<br><br>
+                    <b>Keterangan:</b><br>${item.keterangan}
                 </div>
-                <div style="text-align:right; font-size:16px;">
-                    TOTAL: <b>Rp ${Number(item.debit).toLocaleString('id-ID')}</b>
+                <div class="dashed-line"></div>
+                <div style="text-align:right;">
+                    TOTAL:<br>
+                    <b style="font-size:18px;">Rp ${Number(item.debit).toLocaleString('id-ID')}</b>
                 </div>
-                <div style="text-align:center; margin-top:10px; font-size:10px; border-top:1px dashed #000; padding-top:5px;">
-                    Simpan bukti ini sebagai arsip valid.
+                <div style="text-align:center; margin-top:15px; font-size:10px;">
+                    *** TERIMA KASIH ***
                 </div>
             `;
-            window.print();
+            
+            setTimeout(() => {
+                window.print();
+            }, 100);
         }
 
         async function deleteRecord(noBukti) {
