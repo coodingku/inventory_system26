@@ -26,20 +26,32 @@
         label { font-size: 11px; font-weight: bold; color: #7f8c8d; display: block; margin-bottom: 5px; text-transform: uppercase; }
         select, input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; box-sizing: border-box; outline: none; }
 
-        .table-input { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .table-input th { text-align: left; background: #f8f9fa; padding: 10px; font-size: 11px; color: #666; text-transform: uppercase; border-bottom: 2px solid #eee; }
-        .table-input td { padding: 10px; border-bottom: 1px solid #f1f1f1; }
+        /* PREVIEW TABLE STYLE */
+        .preview-card { margin-top: 30px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+        .table-preview { width: 100%; border-collapse: collapse; }
+        .table-preview th { text-align: left; background: #f8f9fa; padding: 12px; font-size: 11px; color: #666; text-transform: uppercase; }
+        .table-preview td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
 
-        .total-section { margin-top: 30px; display: flex; justify-content: flex-end; }
-        .total-box { background: #f8f9fa; padding: 20px; border-radius: 8px; width: 300px; text-align: right; }
-        .total-box h3 { margin: 10px 0 0 0; color: var(--primary); font-size: 24px; }
+        .total-section { margin-top: 20px; display: flex; justify-content: flex-end; }
+        .total-box { background: var(--primary); color: white; padding: 20px; border-radius: 8px; width: 300px; text-align: right; }
+        .total-box h3 { margin: 5px 0 0 0; font-size: 24px; color: var(--accent); }
 
-        .btn-save { padding: 15px 40px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; float: right; margin-top: 20px; }
+        .btn-save { padding: 15px 40px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; float: right; margin-top: 20px; width: 100%; transition: 0.3s; }
+        .btn-save:hover { background: #219150; }
+
+        /* PRINT NOTA STYLE */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden !important; }
+            #print-area, #print-area * { visibility: visible !important; display: block !important; }
+            #print-area { position: absolute; left: 0; top: 0; width: 58mm; padding: 5px; font-family: monospace; font-size: 12px; line-height: 1.2; }
+            .dashed { border-bottom: 1px dashed #000; margin: 5px 0; }
+        }
     </style>
 </head>
 <body>
 
-<nav>
+<nav class="no-print">
     <h2>Finex Pos</h2>
     <a href="dashboard.html">📊 Dashboard</a>
     <a href="kas_bank.html">⚖️ Kas & Bank</a>
@@ -52,7 +64,7 @@
 </nav>
 
 <main>
-    <div class="form-container">
+    <div id="print-area"></div> <div class="form-container">
         <h2 style="margin-top:0; color:var(--primary);">Buat Biaya / Pelunasan</h2>
         
         <div class="form-header">
@@ -84,42 +96,47 @@
             </div>
         </div>
 
-        <table class="table-input">
-            <thead>
-                <tr>
-                    <th width="40%">Akun Biaya</th>
-                    <th width="40%">Deskripsi / Memo</th>
-                    <th width="20%" style="text-align: right;">Jumlah (Rp)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>
-                        <select id="exp-kategori">
-                            <option value="">-- Pilih Akun Biaya --</option>
-                            </select>
-                    </td>
-                    <td>
-                        <input type="text" id="exp-ket" placeholder="Misal: Pembelian Bahan Baku">
-                    </td>
-                    <td>
-                        <input type="number" id="exp-jumlah" style="text-align: right;" oninput="updateTotalDisplay()" placeholder="0">
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+            <div class="input-group">
+                <label>Akun Biaya</label>
+                <select id="exp-kategori" onchange="updatePreview()">
+                    <option value="">-- Pilih Akun Biaya --</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Keterangan / Memo</label>
+                <input type="text" id="exp-ket" oninput="updatePreview()" placeholder="Misal: Biaya Operasional">
+            </div>
+            <div class="input-group">
+                <label>Jumlah (Rp)</label>
+                <input type="number" id="exp-jumlah" oninput="updatePreview()" placeholder="0">
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <table class="table-preview">
+                <thead>
+                    <tr>
+                        <th>Deskripsi Item</th>
+                        <th style="text-align: right;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="preview-list">
+                    <tr><td colspan="2" style="text-align: center; color: #999;">Isi data di atas untuk melihat rincian</td></tr>
+                </tbody>
+            </table>
+        </div>
 
         <div class="total-section">
             <div class="total-box">
-                <label>Total Pembayaran</label>
+                <label style="color: #bdc3c7;">TOTAL BAYAR</label>
                 <h3 id="display-total-final">Rp 0</h3>
             </div>
         </div>
 
-        <button id="btn-submit" class="btn-save" onclick="simpanTransaksiBiaya()">
-            <i class="fas fa-check-circle"></i> SIMPAN TRANSAKSI
+        <button id="btn-submit" class="btn-save" onclick="simpanDanCetak()">
+            <i class="fas fa-print"></i> SIMPAN & CETAK NOTA
         </button>
-        <div style="clear:both;"></div>
     </div>
 </main>
 
@@ -130,82 +147,107 @@
         document.getElementById('exp-tanggal').value = new Date().toISOString().split('T')[0];
         document.getElementById('display-user-nav').innerText = session?.username || "Admin";
         document.getElementById('no-bukti-auto').value = 'EXP-' + Date.now().toString().slice(-6);
-        
         await fetchDataDropdown();
     };
 
     async function fetchDataDropdown() {
         try {
-            // 1. Load Kas & Bank (11%)
             const { data: dana } = await db.from('akun').select('kode_akun, nama_akun').ilike('kode_akun', '11%');
             const selDana = document.getElementById('exp-sumber-dana');
-            dana.forEach(d => {
-                selDana.innerHTML += `<option value="${d.kode_akun}">${d.nama_akun}</option>`;
-            });
+            dana.forEach(d => selDana.innerHTML += `<option value="${d.kode_akun}">${d.nama_akun}</option>`);
 
-            // 2. Load Akun Biaya (5,6,8) & Akun Hutang (2)
             const { data: biaya } = await db.from('akun').select('kode_akun, nama_akun')
-                .or('kode_akun.ilike.5%,kode_akun.ilike.6%,kode_akun.ilike.8%,kode_akun.ilike.2%')
-                .order('kode_akun');
+                .or('kode_akun.ilike.5%,kode_akun.ilike.6%,kode_akun.ilike.8%,kode_akun.ilike.2%').order('kode_akun');
             const selBiaya = document.getElementById('exp-kategori');
-            biaya.forEach(b => {
-                selBiaya.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`;
-            });
+            biaya.forEach(b => selBiaya.innerHTML += `<option value="${b.kode_akun}">${b.kode_akun} - ${b.nama_akun}</option>`);
 
-            // 3. Load Supplier
             const { data: sups } = await db.from('suppliers').select('*').order('nama_supplier');
             const selSup = document.getElementById('exp-supplier-id');
-            sups.forEach(s => {
-                selSup.innerHTML += `<option value="${s.id}">${s.nama_supplier} (Hutang: Rp ${parseFloat(s.saldo_hutang).toLocaleString()})</option>`;
-            });
+            sups.forEach(s => selSup.innerHTML += `<option value="${s.id}">${s.nama_supplier}</option>`);
         } catch (e) { console.error(e); }
     }
 
-    function updateTotalDisplay() {
+    function updatePreview() {
+        const ket = document.getElementById('exp-ket').value || "Tanpa Keterangan";
         const val = parseFloat(document.getElementById('exp-jumlah').value) || 0;
+        const kategori = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text;
+        
+        if (val > 0) {
+            document.getElementById('preview-list').innerHTML = `
+                <tr>
+                    <td><b>[${kategori}]</b><br>${ket}</td>
+                    <td style="text-align: right; font-weight: bold;">Rp ${val.toLocaleString('id-ID')}</td>
+                </tr>
+            `;
+        }
         document.getElementById('display-total-final').innerText = "Rp " + val.toLocaleString('id-ID');
     }
 
-    async function simpanTransaksiBiaya() {
+    async function simpanDanCetak() {
         const tgl = document.getElementById('exp-tanggal').value;
-        const kodeAkunBiaya = document.getElementById('exp-kategori').value; // Akun yang di Debit
-        const kodeSumberDana = document.getElementById('exp-sumber-dana').value; // Akun yang di Kredit (Kas atau HUTANG)
+        const kodeAkunBiaya = document.getElementById('exp-kategori').value;
+        const kodeSumberDana = document.getElementById('exp-sumber-dana').value;
         const supplierId = document.getElementById('exp-supplier-id').value;
         const jumlah = parseFloat(document.getElementById('exp-jumlah').value);
         const ket = document.getElementById('exp-ket').value;
-        
+        const noBukti = document.getElementById('no-bukti-auto').value;
+
         if(!kodeAkunBiaya || !kodeSumberDana || !supplierId || !jumlah) return alert("Lengkapi data!");
 
         try {
-            const noBukti = document.getElementById('no-bukti-auto').value;
-            let akunKredit = kodeSumberDana;
-            let isHutangBertambah = false;
-
-            // Logika: Jika Sumber Dana adalah "HUTANG", maka Akun Kredit adalah Hutang Usaha (Misal: 2101)
-            if(kodeSumberDana === "HUTANG") {
-                akunKredit = "2101"; // Ganti dengan kode akun Hutang Usaha Anda
-                isHutangBertambah = true;
-            }
-
-            // 1. Simpan ke Jurnal Umum
+            let akunKredit = kodeSumberDana === "HUTANG" ? "2101" : kodeSumberDana;
+            
+            // 1. Simpan Jurnal
             const { error: errJurnal } = await db.from('jurnal_umum').insert([
                 { tanggal: tgl, no_bukti: noBukti, kode_akun: kodeAkunBiaya, keterangan: ket, debit: jumlah, kredit: 0, supplier_id: supplierId },
                 { tanggal: tgl, no_bukti: noBukti, kode_akun: akunKredit, keterangan: ket, debit: 0, kredit: jumlah, supplier_id: supplierId }
             ]);
             if (errJurnal) throw errJurnal;
 
-            // 2. Update Saldo Hutang Supplier
-            // Jika isHutangBertambah = true, maka saldo bertambah (+). 
-            // Jika bayar tunai/bank, maka saldo berkurang (-) (Pelunasan).
+            // 2. Update Saldo Supplier
             const { data: sup } = await db.from('suppliers').select('saldo_hutang').eq('id', supplierId).single();
-            const adjustment = isHutangBertambah ? jumlah : -jumlah;
-            const saldoBaru = (parseFloat(sup.saldo_hutang) || 0) + adjustment;
+            const adjustment = (kodeSumberDana === "HUTANG") ? jumlah : -jumlah;
+            await db.from('suppliers').update({ saldo_hutang: (parseFloat(sup.saldo_hutang) || 0) + adjustment }).eq('id', supplierId);
 
-            await db.from('suppliers').update({ saldo_hutang: saldoBaru }).eq('id', supplierId);
+            // 3. Render Nota & Print
+            renderNota(noBukti, tgl, ket, jumlah);
+            
+            alert("✅ Transaksi Berhasil Disimpan!");
+            setTimeout(() => { window.print(); location.reload(); }, 500);
 
-            alert("✅ Transaksi Berhasil Dicatat & Saldo Supplier Diperbarui!");
-            location.reload();
         } catch (e) { alert("Error: " + e.message); }
+    }
+
+    function renderNota(no, tgl, ket, total) {
+        const storeName = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
+        const supplier = document.getElementById('exp-supplier-id').options[document.getElementById('exp-supplier-id').selectedIndex].text;
+        const kategori = document.getElementById('exp-kategori').options[document.getElementById('exp-kategori').selectedIndex].text;
+
+        document.getElementById('print-area').innerHTML = `
+            <div style="text-align:center;">
+                <b style="font-size:16px;">${storeName}</b><br>
+                PENGELUARAN BIAYA
+            </div>
+            <div class="dashed"></div>
+            <div>
+                No: ${no}<br>
+                Tgl: ${tgl}<br>
+                Supp: ${supplier}
+            </div>
+            <div class="dashed"></div>
+            <div>
+                <b>${kategori}</b><br>
+                ${ket}
+            </div>
+            <div class="dashed"></div>
+            <div style="text-align:right;">
+                TOTAL:<br>
+                <b style="font-size:16px;">Rp ${total.toLocaleString('id-ID')}</b>
+            </div>
+            <div style="text-align:center; margin-top:15px; font-size:10px;">
+                *** TRANSAKSI VALID ***
+            </div>
+        `;
     }
 
     function logout() { localStorage.clear(); window.location.href = 'login.html'; }
