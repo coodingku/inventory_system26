@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Pos | Penyusutan Aset Otomatis</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="supabase-init.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --success: #27ae60; --warning: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); min-height: 100vh; }
+        nav { width: 250px; background: var(--primary); color: white; padding: 20px; position: fixed; height: 100vh; }
+        nav a { color: #bdc3c7; text-decoration: none; padding: 12px; display: block; border-radius: 8px; margin-bottom: 5px; }
+        nav a.active { background: var(--accent); color: white; }
+        main { flex: 1; margin-left: 250px; padding: 40px; }
+        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 11px; text-transform: uppercase; color: #666; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        
+        .btn-process { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .badge-info { background: #e3f2fd; color: #1565c0; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <a href="aset.html">🚚 Daftar Aset</a>
+    <a href="penyusutan.html" class="active">📉 Penyusutan Aset</a>
+</nav>
+
+<main>
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="margin:0">Penyusutan Akhir Bulan</h1>
+                <p style="color: #666; font-size: 14px;">Otomatisasi pembebanan nilai aset tetap periode ini.</p>
+            </div>
+            <button class="btn-process" onclick="prosesPenyusutanSemua()">
+                <i class="fas fa-magic"></i> Jalankan Penyusutan Periode Ini
+            </button>
+        </div>
+
+        <table id="table-penyusutan">
+            <thead>
+                <tr>
+                    <th>Nama Aset</th>
+                    <th>Tgl Beli</th>
+                    <th>Harga Perolehan</th>
+                    <th>Umur Ekonomis</th>
+                    <th>Beban / Bulan</th>
+                    <th>Status Jurnal</th>
+                </tr>
+            </thead>
+            <tbody id="aset-list">
+                <tr><td colspan="6" style="text-align: center;">Mencari data aset...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    const BEBAN_PENYUSUTAN_AKUN = "6105"; // Ganti sesuai kode akun beban penyusutan Allberto
+
+    window.onload = loadAsetForDepreciation;
+
+    async function loadAsetForDepreciation() {
+        try {
+            // Ambil data aset dari tabel aset_tetap
+            const { data: aset, error } = await db.from('aset_tetap').select('*');
+            if (error) throw error;
+
+            const tbody = document.getElementById('aset-list');
+            tbody.innerHTML = '';
+
+            aset.forEach(item => {
+                // Standar: 4 tahun (48 bulan) untuk peralatan, 8 tahun (96 bulan) untuk kendaraan
+                let masaManfaat = item.kode_akun === "1302" ? 96 : 48; 
+                let bebanPerBulan = Math.round(item.harga_perolehan / masaManfaat);
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${item.nama_aset}</b><br><small>${item.kode_akun}</small></td>
+                        <td>${new Date(item.tanggal_beli).toLocaleDateString('id-ID')}</td>
+                        <td>Rp ${Number(item.harga_perolehan).toLocaleString('id-ID')}</td>
+                        <td><span class="badge-info">${masaManfaat} Bulan</span></td>
+                        <td style="color: var(--danger); font-weight: bold;">Rp ${bebanPerBulan.toLocaleString('id-ID')}</td>
+                        <td><span style="color: #999;">Ready to Journal</span></td>
+                    </tr>
+                `;
+            });
+        } catch (e) { alert(e.message); }
+    }
+
+    async function prosesPenyusutanSemua() {
+        const blnInput = prompt("Masukkan Periode Penyusutan (Contoh: Feb 2026):", "Maret 2026");
+        if (!blnInput) return;
+
+        if (!confirm(`Sistem akan membuat jurnal otomatis untuk semua aset. Lanjutkan?`)) return;
+
+        try {
+            const { data: aset } = await db.from('aset_tetap').select('*');
+            const noBukti = "DEP-" + Date.now().toString().slice(-6);
+            const tgl = new Date().toISOString(); // Tanggal hari ini (akhir bulan)
+
+            let jurnalBatch = [];
+
+            aset.forEach(item => {
+                let masaManfaat = item.kode_akun === "1302" ? 96 : 48; 
+                let bebanPerBulan = Math.round(item.harga_perolehan / masaManfaat);
+
+                // Cari akun akumulasi yang cocok (Misal: Aset 1301 pasangannya Akumulasi 1401)
+                let akunAkumulasi = item.kode_akun.replace("13", "14");
+
+                // Entry 1: Debit Beban Penyusutan
+                jurnalBatch.push({
+                    tanggal: tgl, no_bukti: noBukti, kode_akun: BEBAN_PENYUSUTAN_AKUN,
+                    keterangan: `Penyusutan ${item.nama_aset} - Per: ${blnInput}`,
+                    debit: bebanPerBulan, kredit: 0
+                });
+
+                // Entry 2: Kredit Akumulasi Penyusutan
+                jurnalBatch.push({
+                    tanggal: tgl, no_bukti: noBukti, kode_akun: akunAkumulasi,
+                    keterangan: `Akum. Penys ${item.nama_aset} - Per: ${blnInput}`,
+                    debit: 0, kredit: bebanPerBulan
+                });
+            });
+
+            const { error } = await db.from('jurnal_umum').insert(jurnalBatch);
+            if (error) throw error;
+
+            alert("✅ Berhasil! Jurnal penyusutan otomatis telah dibuat di Jurnal Umum.");
+            location.href = "mutasi_kas.html"; // Redirect ke jurnal umum untuk cek hasil
+
+        } catch (e) { alert("Gagal: " + e.message); }
+    }
+</script>
+</body>
+</html>
