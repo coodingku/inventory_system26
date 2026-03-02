@@ -54,7 +54,7 @@
     <div class="header-flex">
         <div>
             <h1 style="margin:0">Buku Kas & Rekonsiliasi</h1>
-            <small style="color:#888">Manajemen Saldo Sistem vs Fisik (Ala Jurnal.id)</small>
+            <small style="color:#888">Manajemen Saldo Sistem vs Fisik (Double Entry System)</small>
         </div>
         <div style="display: flex; gap: 10px;">
             <button class="btn-action" style="background:#8e44ad" onclick="openMutasiModal()"><i class="fas fa-random"></i> Mutasi</button>
@@ -168,47 +168,53 @@
         } catch (e) { console.error(e); }
     }
 
-    // 1. KOREKSI SALDO FISIK (Manual)
     async function updateSaldoFisik(kode, valSistem) {
-        const input = prompt("Berapa saldo fisik riil di bank/laci saat ini?", valSistem);
+        const input = prompt("Berapa saldo fisik riil saat ini?", valSistem);
         if (input === null || input === "") return;
         try {
-            const { error } = await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
-            if(error) throw error;
+            await db.from('akun').update({ saldo: Number(input) }).eq('kode_akun', kode);
             alert("✅ Saldo fisik diperbarui.");
             loadData();
         } catch (e) { alert("Gagal: " + e.message); }
     }
 
-    // 2. SINKRONISASI (Menyamakan Fisik ke Sistem secara instan)
     async function sinkronkanSaldo(kode, valSistem) {
-        if(!confirm("Samakan saldo Fisik dengan saldo Sistem? Ini akan menghilangkan selisih secara otomatis.")) return;
+        if(!confirm("Samakan saldo Fisik dengan saldo Sistem?")) return;
         try {
-            const { error } = await db.from('akun').update({ saldo: valSistem }).eq('kode_akun', kode);
-            if(error) throw error;
+            await db.from('akun').update({ saldo: valSistem }).eq('kode_akun', kode);
             alert("✅ Sinkronisasi Berhasil!");
             loadData();
         } catch (e) { alert("Gagal: " + e.message); }
     }
 
-    // 3. SET OPENING BALANCE (Saldo Awal)
+    // --- FUNGSI OPENING BALANCE DENGAN DOUBLE ENTRY (Modal Update) ---
     async function setOpeningBalance(kode) {
-        const input = prompt("Masukkan Saldo Awal (Opening Balance) untuk akun ini:");
-        if (!input) return;
+        const input = prompt("Masukkan Saldo Awal (Opening Balance):");
+        if (!input || isNaN(input)) return;
+        
         const nominal = Number(input);
         const noBukti = "OPB-" + Date.now().toString().slice(-6);
+        const tgl = new Date().toISOString();
+
         try {
-            // Masukkan ke jurnal agar tercatat secara akuntansi
-            const { error: errJurnal } = await db.from('jurnal_umum').insert([{ 
-                tanggal: new Date().toISOString(), no_bukti: noBukti, kode_akun: kode, 
-                keterangan: "Penyetelan Saldo Awal (Opening Balance)", debit: nominal, kredit: 0 
-            }]);
+            // 1. Simpan Jurnal Berpasangan (Debit: Aset, Kredit: Modal 3101)
+            const { error: errJurnal } = await db.from('jurnal_umum').insert([
+                { 
+                    tanggal: tgl, no_bukti: noBukti, kode_akun: kode, 
+                    keterangan: "Saldo Awal (Aset)", debit: nominal, kredit: 0 
+                },
+                { 
+                    tanggal: tgl, no_bukti: noBukti, kode_akun: "3101", 
+                    keterangan: `Saldo Awal Modal - Akun ${kode}`, debit: 0, kredit: nominal 
+                }
+            ]);
+            
             if(errJurnal) throw errJurnal;
 
-            // Update saldo fisik akun agar langsung MATCH dengan jurnal tadi
+            // 2. Update saldo fisik akun agar langsung MATCH
             await db.from('akun').update({ saldo: nominal }).eq('kode_akun', kode);
             
-            alert("✅ Saldo Awal berhasil disetel!");
+            alert("✅ Saldo Awal & Modal Pemilik berhasil disetel!");
             loadData();
         } catch (e) { alert("Gagal: " + e.message); }
     }
@@ -228,7 +234,6 @@
         } catch (e) { alert(e.message); }
     }
 
-    // PDF & EXCEL EXPORT (Tetap berfungsi)
     function exportPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('l', 'mm', 'a4');
