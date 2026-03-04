@@ -188,12 +188,38 @@
         calculateTotal();
     }
 
-    async function loadMenu() {
+   async function loadMenu() {
         const q = document.getElementById('search').value;
         let query = db.from('produk').select('*').gt('stok_sekarang', 0);
-        if (q) query = query.ilike('nama_barang', `%${q}%`);
-        const { data } = await query.order('nama_barang');
-        document.getElementById('displayMenu').innerHTML = (data || []).map(p => `
+        
+        // LOGIKA BARU:
+        // Jika kolom pencarian kosong, kita batasi hanya 4 item (Limit 4)
+        // Jika ada ketikan, kita cari semua yang cocok tanpa limit (agar semua hasil ketemu)
+        if (q) {
+            query = query.ilike('nama_barang', `%${q}%`);
+        } else {
+            query = query.limit(4); 
+        }
+
+        const { data, error } = await query.order('nama_barang');
+        
+        if (error) return console.error(error);
+
+        const menuContainer = document.getElementById('displayMenu');
+        
+        // Jika tidak ada hasil cari
+        if (data.length === 0) {
+            menuContainer.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #94a3b8;">
+                    <p class="text-3xl mb-2">🔎</p>
+                    <p class="font-bold">Produk tidak ditemukan</p>
+                    <p class="text-xs">Coba masukkan kata kunci lain</p>
+                </div>`;
+            return;
+        }
+
+        // Render Produk
+        menuContainer.innerHTML = data.map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
                 <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
                 <div class="text-xs font-bold leading-tight h-8 overflow-hidden mb-1">${p.nama_barang}</div>
