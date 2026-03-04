@@ -14,10 +14,10 @@
         
         /* HEADER & HORIZONTAL NAV */
         header { background: var(--primary); color: white; padding: 10px 20px; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .nav-container { display: flex; align-items: center; gap: 15px; margin-top: 10px; overflow-x: auto; padding-bottom: 5px; }
+        .nav-container { display: flex; align-items: center; gap: 10px; margin-top: 10px; overflow-x: auto; padding-bottom: 5px; }
         .nav-link { 
-            white-space: nowrap; color: #bdc3c7; text-decoration: none; padding: 8px 15px; 
-            border-radius: 8px; font-size: 13px; transition: 0.3s; background: rgba(255,255,255,0.05); 
+            white-space: nowrap; color: #bdc3c7; text-decoration: none; padding: 10px 18px; 
+            border-radius: 10px; font-size: 14px; font-weight: 600; transition: 0.3s; background: rgba(255,255,255,0.05); 
         }
         .nav-link:hover, .nav-link.active { background: var(--accent); color: white; }
         
@@ -26,16 +26,49 @@
         
         /* KATALOG AREA */
         .katalog-section { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
-        .grid-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-        .card { 
-            background: white; padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; position: relative; border: 1px solid #eee;
+        
+        /* GRID MENU: Kartu dibuat jauh lebih besar untuk Tablet */
+        .grid-menu { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+            gap: 20px; 
         }
-        .card:active { transform: scale(0.95); background: #f0f9ff; }
-        .stok-badge { position: absolute; top: 5px; right: 5px; background: #f1f5f9; font-size: 9px; padding: 1px 5px; border-radius: 8px; }
 
-        /* SIDEBAR CART (TETAP DI KANAN) */
-        .sidebar-cart { width: 380px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        /* CARD STYLE: Ukuran besar agar mudah ditekan jari */
+        .card { 
+            background: white; 
+            padding: 30px 20px; 
+            border-radius: 24px; 
+            text-align: center; 
+            cursor: pointer; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            transition: 0.2s; 
+            position: relative; 
+            border: 2px solid transparent;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .card:active { transform: scale(0.95); background: #f0f9ff; border-color: var(--accent); }
+        
+        .stok-badge { 
+            position: absolute; 
+            top: 12px; 
+            right: 12px; 
+            background: #f1f5f9; 
+            color: #475569;
+            font-size: 11px; 
+            font-weight: 800;
+            padding: 4px 10px; 
+            border-radius: 12px; 
+        }
+
+        .product-name { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 8px; line-height: 1.2; }
+        .product-price { font-size: 20px; font-weight: 700; color: var(--success); }
+
+        /* SIDEBAR CART */
+        .sidebar-cart { width: 400px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
         .cart-list { flex: 1; overflow-y: auto; padding: 15px; }
         .summary-panel { padding: 20px; background: #fff; border-top: 2px solid #eee; box-shadow: 0 -5px 15px rgba(0,0,0,0.03); }
 
@@ -53,14 +86,17 @@
 <body>
 
     <header>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <h2 style="margin:0; font-size: 20px; font-weight: 800; color: var(--accent);">Finex Pos</h2>
-                <span id="clock" style="font-size: 12px; opacity: 0.7; margin-left: 10px;"></span>
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <h2 class="text-2xl font-black text-[#3498db]">Finex Pos</h2>
+                <span id="clock" class="text-sm font-mono opacity-60 ml-4"></span>
             </div>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <small>User: <b id="display-user-nav">...</b></small>
-                <button onclick="logout()" style="background: var(--danger); border:none; color:white; padding: 5px 12px; border-radius: 6px; cursor:pointer; font-size: 12px;">Keluar</button>
+            <div class="flex items-center gap-6">
+                <div class="text-right">
+                    <p class="text-[10px] uppercase font-bold opacity-50">Kasir Aktif</p>
+                    <b id="display-user-nav" class="text-sm">...</b>
+                </div>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">Keluar</button>
             </div>
         </div>
 
@@ -77,90 +113,52 @@
 
     <div class="main-wrapper">
         <section class="katalog-section">
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="search" class="flex-1 p-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-blue-400" placeholder="Cari produk atau scan barcode..." onkeyup="loadMenu()">
+            <div class="mb-6">
+                <input type="text" id="search" 
+                       class="w-full p-5 rounded-2xl border-2 border-gray-100 outline-none focus:border-blue-400 text-lg shadow-sm font-medium" 
+                       placeholder="Cari nama produk atau scan barcode..." onkeyup="loadMenu()">
             </div>
             <div id="displayMenu" class="grid-menu no-scrollbar"></div>
         </section>
 
         <aside class="sidebar-cart">
-            <div class="p-4 bg-gray-50 border-b font-bold flex justify-between">
-                <span>Pesanan Baru</span>
-                <span onclick="cart=[];calculateTotal();" class="text-red-500 text-xs cursor-pointer">Hapus Semua</span>
+            <div class="p-5 bg-gray-50 border-b font-extrabold text-lg flex justify-between">
+                <span>Keranjang</span>
+                <span onclick="cart=[];calculateTotal();" class="text-red-500 text-xs font-bold cursor-pointer hover:underline">Kosongkan</span>
             </div>
             <div id="displayCart" class="cart-list no-scrollbar"></div>
             
             <div class="summary-panel">
-                <div class="flex justify-between text-sm text-gray-500 mb-1"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
-                <div class="flex justify-between text-sm text-red-500 mb-1"><span>Diskon</span><span id="txt-disc-total">Rp 0</span></div>
-                <div class="flex justify-between text-sm text-gray-500 mb-1">
+                <div class="flex justify-between text-sm text-gray-500 mb-2"><span>Subtotal</span><span id="txt-sub">Rp 0</span></div>
+                <div class="flex justify-between text-sm text-red-500 mb-2"><span>Total Diskon</span><span id="txt-disc-total">Rp 0</span></div>
+                <div class="flex justify-between text-sm text-gray-500 mb-4 items-center">
                     <span>Diskon Bill</span>
-                    <select id="discGlobalSelect" onchange="calculateTotal()" class="text-xs border rounded px-1"></select>
+                    <select id="discGlobalSelect" onchange="calculateTotal()" class="text-xs border-2 rounded-lg p-1 font-bold outline-none"></select>
                 </div>
-                <div class="flex justify-between text-xl font-bold text-gray-800 mt-3 pt-3 border-t">
-                    <span>TOTAL</span><span id="txt-total">Rp 0</span>
+                <div class="flex justify-between text-3xl font-black text-gray-900 mt-4 pt-4 border-t-2 border-dashed">
+                    <span class="text-sm font-bold self-center">TOTAL</span><span id="txt-total">Rp 0</span>
                 </div>
-                <button class="w-full mt-4 bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg active:bg-green-700" onclick="openPayment()">PROSES BAYAR</button>
+                <button class="w-full mt-6 bg-green-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all" onclick="openPayment()">BAYAR SEKARANG</button>
             </div>
         </aside>
     </div>
 
-    <div id="payModal" class="modal">
-        <div class="modal-content">
-            <h2 id="label-total-modal" class="text-center font-bold text-xl mb-4"></h2>
-            <div id="splitContainer" class="space-y-3"></div>
-            <button class="text-blue-500 text-sm font-bold mt-3" onclick="addSplitRow()">+ Tambah Metode</button>
-            
-            <div class="mt-4 p-4 bg-gray-100 rounded-xl space-y-2">
-                <div class="flex justify-between"><span>Diterima:</span><span id="txt-inputed" class="font-bold">Rp 0</span></div>
-                <div class="flex justify-between text-red-500" id="row-rem"><span>Sisa:</span><span id="txt-remaining" class="font-bold">Rp 0</span></div>
-                <div class="flex justify-between text-green-600 hidden" id="row-change"><span>Kembali:</span><span id="txt-change" class="font-bold">Rp 0</span></div>
-            </div>
-            
-            <button id="btnConfirm" class="w-full mt-5 bg-blue-600 text-white py-4 rounded-xl font-bold" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
-            <button onclick="closePayment()" class="w-full mt-2 text-gray-400 py-2">Batal</button>
-        </div>
-    </div>
-
-    <div id="waModal" class="modal">
-        <div class="modal-content text-center">
-            <div class="text-5xl mb-4">✅</div>
-            <h2 class="text-xl font-bold text-green-600">Transaksi Berhasil!</h2>
-            <p class="text-gray-500 text-sm mt-2">Kirim nota via WhatsApp?</p>
-            <input type="number" id="waNumber" placeholder="628xxx" class="w-full p-3 border rounded-xl mt-4 text-center text-lg">
-            <button id="btnSendWA" class="w-full mt-4 bg-green-500 text-white py-3 rounded-xl font-bold">KIRIM WHATSAPP</button>
-            <button onclick="location.reload()" class="w-full mt-2 text-gray-400">Selesai / Transaksi Baru</button>
-        </div>
-    </div>
-
-    <div id="openShiftModal" class="modal">
-        <div class="modal-content text-center">
-            <h2 class="font-bold text-lg">Buka Kasir</h2>
-            <p class="text-gray-400 text-xs mb-4">Masukkan modal awal laci kasir</p>
-            <input type="number" id="inputSaldoAwal" placeholder="Rp 0" class="w-full p-4 border rounded-2xl text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-blue-400">
-            <button class="w-full mt-6 bg-blue-600 text-white py-4 rounded-2xl font-bold" onclick="executeOpenShift()">MULAI SHIFT</button>
-        </div>
-    </div>
-
+    <div id="payModal" class="modal"><div class="modal-content"><h2 id="label-total-modal" class="text-center font-bold text-xl mb-4"></h2><div id="splitContainer" class="space-y-3"></div><button class="text-blue-500 text-sm font-bold mt-3" onclick="addSplitRow()">+ Tambah Metode</button><div class="mt-4 p-4 bg-gray-100 rounded-xl space-y-2"><div class="flex justify-between"><span>Diterima:</span><span id="txt-inputed" class="font-bold">Rp 0</span></div><div class="flex justify-between text-red-500" id="row-rem"><span>Sisa:</span><span id="txt-remaining" class="font-bold">Rp 0</span></div><div class="flex justify-between text-green-600 hidden" id="row-change"><span>Kembali:</span><span id="txt-change" class="font-bold">Rp 0</span></div></div><button id="btnConfirm" class="w-full mt-5 bg-blue-600 text-white py-4 rounded-xl font-bold" onclick="executeTransaction()">KONFIRMASI & CETAK</button><button onclick="closePayment()" class="w-full mt-2 text-gray-400 py-2">Batal</button></div></div>
+    <div id="waModal" class="modal"><div class="modal-content text-center"><div class="text-5xl mb-4">✅</div><h2 class="text-xl font-bold text-green-600">Transaksi Berhasil!</h2><p class="text-gray-500 text-sm mt-2">Kirim nota via WhatsApp?</p><input type="number" id="waNumber" placeholder="628xxx" class="w-full p-3 border rounded-xl mt-4 text-center text-lg"><button id="btnSendWA" class="w-full mt-4 bg-green-500 text-white py-3 rounded-xl font-bold">KIRIM WHATSAPP</button><button onclick="location.reload()" class="w-full mt-2 text-gray-400">Transaksi Baru</button></div></div>
+    <div id="openShiftModal" class="modal"><div class="modal-content text-center"><h2 class="font-bold text-lg">Buka Kasir</h2><input type="number" id="inputSaldoAwal" placeholder="Modal Awal Rp" class="w-full p-4 border rounded-2xl text-center text-2xl font-bold mt-4 outline-none focus:ring-2 focus:ring-blue-400"><button class="w-full mt-6 bg-blue-600 text-white py-4 rounded-2xl font-bold" onclick="executeOpenShift()">MULAI SHIFT</button></div></div>
     <div id="print-area"></div>
 
 <script>
-    // --- LOGIKA JAVASCRIPT (Sama seperti sebelumnya, disesuaikan ID-nya) ---
-    let cart = [];
-    let taxRate = 0;
-    let paymentMethods = [];
-    let availableDiscounts = [];
+    // LOGIKA JS DENGAN LIMIT 4 ITEM
+    let cart = []; let taxRate = 0; let paymentMethods = []; let availableDiscounts = [];
     let state = { sub: 0, discItem: 0, discGlobal: 0, tax: 0, total: 0, lastTrxId: null, lastInv: "", payments: [] };
-    let currentLogId = null;
-    let isSaving = false;
+    let currentLogId = null; let isSaving = false;
     const session = JSON.parse(localStorage.getItem('finex_session'));
 
     window.onload = async () => {
         if (!session) return window.location.replace('login.html');
         document.getElementById('display-user-nav').innerText = session.username;
-        await checkActiveShift();
-        await loadSettings();
-        await loadMenu();
+        await checkActiveShift(); await loadSettings(); await loadMenu();
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID'); }, 1000);
         document.getElementById('btnSendWA').onclick = sendWhatsApp;
     };
@@ -179,58 +177,42 @@
     async function loadSettings() {
         const { data: pData } = await db.from('ppn').select('nilai').eq('id', 1).single();
         if (pData) taxRate = parseFloat(pData.nilai) / 100;
-        const { data: mtd } = await db.from('metode_pembayaran').select('*');
-        paymentMethods = mtd || [];
-        const { data: dsk } = await db.from('diskon').select('*');
-        availableDiscounts = dsk || [];
+        const { data: mtd } = await db.from('metode_pembayaran').select('*'); paymentMethods = mtd || [];
+        const { data: dsk } = await db.from('diskon').select('*'); availableDiscounts = dsk || [];
         const opts = '<option value="0">Diskon 0%</option>' + availableDiscounts.map(d => `<option value="${d.persen}">${d.nama_diskon} (${d.persen}%)</option>`).join('');
         document.getElementById('discGlobalSelect').innerHTML = opts;
         calculateTotal();
     }
 
-   async function loadMenu() {
+    async function loadMenu() {
         const q = document.getElementById('search').value;
         let query = db.from('produk').select('*').gt('stok_sekarang', 0);
         
-        // LOGIKA BARU:
-        // Jika kolom pencarian kosong, kita batasi hanya 4 item (Limit 4)
-        // Jika ada ketikan, kita cari semua yang cocok tanpa limit (agar semua hasil ketemu)
-        if (q) {
-            query = query.ilike('nama_barang', `%${q}%`);
-        } else {
-            query = query.limit(4); 
-        }
+        // LOGIKA LIMIT: Hanya tampilkan 4 jika tidak sedang mencari
+        if (q) { query = query.ilike('nama_barang', `%${q}%`); } 
+        else { query = query.limit(4); }
 
         const { data, error } = await query.order('nama_barang');
-        
         if (error) return console.error(error);
 
-        const menuContainer = document.getElementById('displayMenu');
-        
-        // Jika tidak ada hasil cari
+        const container = document.getElementById('displayMenu');
         if (data.length === 0) {
-            menuContainer.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #94a3b8;">
-                    <p class="text-3xl mb-2">🔎</p>
-                    <p class="font-bold">Produk tidak ditemukan</p>
-                    <p class="text-xs">Coba masukkan kata kunci lain</p>
-                </div>`;
+            container.innerHTML = `<div class="col-span-full py-20 text-center text-gray-400 font-bold">Produk tidak ditemukan</div>`;
             return;
         }
 
-        // Render Produk
-        menuContainer.innerHTML = data.map(p => `
+        container.innerHTML = data.map(p => `
             <div class="card" onclick="addCart('${p.id}', '${p.nama_barang}', ${p.harga_jual}, ${p.stok_sekarang})">
                 <span class="stok-badge">Stok: ${p.stok_sekarang}</span>
-                <div class="text-xs font-bold leading-tight h-8 overflow-hidden mb-1">${p.nama_barang}</div>
-                <div class="text-blue-500 font-bold text-sm">Rp ${p.harga_jual.toLocaleString()}</div>
+                <div class="product-name">${p.nama_barang}</div>
+                <div class="product-price">Rp ${p.harga_jual.toLocaleString('id-ID')}</div>
             </div>`).join('');
     }
 
     function addCart(id, nama, harga, stokMaks) {
         const idx = cart.findIndex(c => c.id === id);
         if (idx > -1) { 
-            if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok terbatas!"); 
+            if (cart[idx].qty < stokMaks) cart[idx].qty++; else alert("Stok habis!"); 
         } else { cart.push({ id, nama_barang: nama, harga, qty: 1, discountItem: 0 }); }
         calculateTotal();
     }
@@ -244,23 +226,22 @@
             const potItem = (subItem * item.discountItem) / 100;
             totalSub += subItem; totalDiscItem += potItem;
             return `
-            <div class="mb-3 border-b pb-2">
-                <div class="flex justify-between items-start">
-                    <div class="text-xs font-bold">${item.nama_barang} <span class="text-blue-500">x${item.qty}</span></div>
-                    <div class="text-xs font-bold text-right">Rp ${(subItem - potItem).toLocaleString()}</div>
+            <div class="mb-4 border-b-2 border-gray-50 pb-3">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="font-bold text-gray-800 text-sm leading-tight">${item.nama_barang} <span class="text-blue-500 ml-1">x${item.qty}</span></div>
+                    <div class="font-bold text-sm">Rp ${(subItem - potItem).toLocaleString()}</div>
                 </div>
-                <div class="flex justify-between items-center mt-1">
-                    <select onchange="cart[${i}].discountItem=this.value;calculateTotal()" class="text-[10px] border rounded">
+                <div class="flex justify-between items-center">
+                    <select onchange="cart[${i}].discountItem=this.value;calculateTotal()" class="text-[10px] border-2 rounded-lg px-2 py-1 font-bold outline-none">
                         <option value="0">No Disc</option>
-                        ${availableDiscounts.map(d => `<option value="${d.persen}" ${item.discountItem==d.persen?'selected':''}>Disc ${d.persen}%</option>`).join('')}
+                        ${availableDiscounts.map(d => `<option value="${d.persen}" ${item.discountItem==d.persen?'selected':''}>-${d.persen}%</option>`).join('')}
                     </select>
-                    <span onclick="cart.splice(${i},1);calculateTotal();" class="text-red-500 text-xs font-bold cursor-pointer">Hapus</span>
+                    <button onclick="cart.splice(${i},1);calculateTotal();" class="text-red-500 text-xs font-black uppercase tracking-widest">Hapus</button>
                 </div>
             </div>`;
         }).join('');
 
-        state.sub = totalSub;
-        state.discItem = totalDiscItem;
+        state.sub = totalSub; state.discItem = totalDiscItem;
         const dpp1 = state.sub - state.discItem;
         state.discGlobal = (dpp1 * discGlobalPerc) / 100;
         const dppFinal = dpp1 - state.discGlobal;
@@ -272,139 +253,45 @@
         document.getElementById('txt-total').innerText = "Rp " + state.total.toLocaleString();
     }
 
-    function openPayment() {
-        if(cart.length === 0) return;
-        document.getElementById('label-total-modal').innerText = "Rp " + state.total.toLocaleString();
-        document.getElementById('splitContainer').innerHTML = "";
-        addSplitRow();
-        document.getElementById('payModal').style.display = 'flex';
-    }
-
+    function openPayment() { if(cart.length === 0) return; document.getElementById('label-total-modal').innerText = "Rp " + state.total.toLocaleString(); document.getElementById('splitContainer').innerHTML = ""; addSplitRow(); document.getElementById('payModal').style.display = 'flex'; }
     function closePayment() { document.getElementById('payModal').style.display = 'none'; }
-
-    function addSplitRow() {
-        const div = document.createElement('div');
-        div.className = 'flex gap-2 items-center bg-white border p-2 rounded-xl';
-        const options = paymentMethods.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join('');
-        div.innerHTML = `
-            <select class="pay-method text-xs font-bold flex-1 outline-none">${options}</select>
-            <input type="number" class="pay-amount w-24 text-right font-bold outline-none" placeholder="0" oninput="updateSplitSummary()">
-            <span class="text-red-500 font-bold px-2 cursor-pointer" onclick="this.parentElement.remove(); updateSplitSummary();">&times;</span>`;
-        document.getElementById('splitContainer').appendChild(div);
-        const inputs = document.querySelectorAll('.pay-amount');
-        if(inputs.length === 1) { inputs[0].value = state.total; updateSplitSummary(); }
-    }
-
-    function updateSplitSummary() {
-        const amounts = document.querySelectorAll('.pay-amount');
-        let totalInput = 0; amounts.forEach(input => totalInput += parseFloat(input.value || 0));
-        const remaining = state.total - totalInput;
-        const change = totalInput - state.total;
-        document.getElementById('txt-inputed').innerText = "Rp " + totalInput.toLocaleString();
-        if (remaining > 0) {
-            document.getElementById('row-rem').classList.remove('hidden');
-            document.getElementById('row-change').classList.add('hidden');
-            document.getElementById('txt-remaining').innerText = "Rp " + remaining.toLocaleString();
-            document.getElementById('btnConfirm').disabled = true;
-            document.getElementById('btnConfirm').style.opacity = "0.5";
-        } else {
-            document.getElementById('row-rem').classList.add('hidden');
-            document.getElementById('row-change').classList.remove('hidden');
-            document.getElementById('txt-change').innerText = "Rp " + Math.abs(change).toLocaleString();
-            document.getElementById('btnConfirm').disabled = false;
-            document.getElementById('btnConfirm').style.opacity = "1";
-        }
-    }
+    function addSplitRow() { const div = document.createElement('div'); div.className = 'flex gap-2 items-center bg-white border-2 p-3 rounded-2xl'; const options = paymentMethods.map(m => `<option value="${m.nama_metode}" data-akun="${m.kode_akun}">${m.nama_metode}</option>`).join(''); div.innerHTML = `<select class="pay-method text-sm font-black flex-1 outline-none">${options}</select><input type="number" class="pay-amount w-28 text-right font-black outline-none text-lg" placeholder="0" oninput="updateSplitSummary()"><span class="text-red-500 font-bold px-2 cursor-pointer" onclick="this.parentElement.remove(); updateSplitSummary();">&times;</span>`; document.getElementById('splitContainer').appendChild(div); const inputs = document.querySelectorAll('.pay-amount'); if(inputs.length === 1) { inputs[0].value = state.total; updateSplitSummary(); } }
+    function updateSplitSummary() { const amounts = document.querySelectorAll('.pay-amount'); let totalInput = 0; amounts.forEach(input => totalInput += parseFloat(input.value || 0)); const remaining = state.total - totalInput; const change = totalInput - state.total; document.getElementById('txt-inputed').innerText = "Rp " + totalInput.toLocaleString(); if (remaining > 0) { document.getElementById('row-rem').classList.remove('hidden'); document.getElementById('row-change').classList.add('hidden'); document.getElementById('txt-remaining').innerText = "Rp " + remaining.toLocaleString(); document.getElementById('btnConfirm').disabled = true; document.getElementById('btnConfirm').style.opacity = "0.5"; } else { document.getElementById('row-rem').classList.add('hidden'); document.getElementById('row-change').classList.remove('hidden'); document.getElementById('txt-change').innerText = "Rp " + Math.abs(change).toLocaleString(); document.getElementById('btnConfirm').disabled = false; document.getElementById('btnConfirm').style.opacity = "1"; } }
 
     async function executeTransaction() {
-        if (isSaving) return;
-        isSaving = true;
-        const inv = `INV-${Date.now().toString().slice(-6)}`;
-        const tgl = new Date().toISOString();
-        const rows = document.querySelectorAll('.split-item, .flex.gap-2.items-center');
-        state.payments = [];
-        let totalDibayar = 0;
-
-        rows.forEach(row => {
-            const mtd = row.querySelector('.pay-method').value;
-            const amt = parseFloat(row.querySelector('.pay-amount').value || 0);
-            const akun = row.querySelector('.pay-method').selectedOptions[0].dataset.akun;
-            if(amt > 0) { state.payments.push({ metode: mtd, jumlah: amt, akun: akun }); totalDibayar += amt; }
-        });
+        if (isSaving) return; isSaving = true;
+        const inv = `INV-${Date.now().toString().slice(-6)}`; const tgl = new Date().toISOString();
+        const rows = document.querySelectorAll('.pay-method');
+        state.payments = []; let totalDibayar = 0;
+        rows.forEach(row => { const mtd = row.value; const amt = parseFloat(row.parentElement.querySelector('.pay-amount').value || 0); const akun = row.selectedOptions[0].dataset.akun; if(amt > 0) { state.payments.push({ metode: mtd, jumlah: amt, akun: akun }); totalDibayar += amt; } });
 
         try {
-            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
-                no_invoice: inv, subtotal: Math.round(state.sub), 
-                diskon: Math.round(state.discItem + state.discGlobal),
-                pajak: Math.round(state.tax), grand_total: state.total, 
-                bayar: totalDibayar, kasir_id: currentLogId, 
-                metode_pembayaran: state.payments.length > 1 ? "SPLIT" : state.payments[0].metode,
-                tanggal: tgl 
-            }]).select().single();
-            
-            if (errTrx) throw errTrx;
-            state.lastTrxId = trx.id; state.lastInv = inv;
-
+            const { data: trx } = await db.from('penjualan').insert([{ no_invoice: inv, subtotal: Math.round(state.sub), diskon: Math.round(state.discItem + state.discGlobal), pajak: Math.round(state.tax), grand_total: state.total, bayar: totalDibayar, kasir_id: currentLogId, metode_pembayaran: state.payments.length > 1 ? "SPLIT" : state.payments[0].metode, tanggal: tgl }]).select().single();
             for (const item of cart) {
                 const subItem = (item.qty * item.harga) - ((item.qty * item.harga * item.discountItem) / 100);
                 await db.from('penjualan_detail').insert([{ penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, qty: item.qty, harga_satuan: item.harga, subtotal_item: subItem }]);
-                const { data: p } = await db.from('produk').select('stok_sekarang, harga_beli, akun_pendapatan, akun_hpp, akun_persediaan').eq('id', item.id).single();
+                const { data: p } = await db.from('produk').select('*').eq('id', item.id).single();
                 if (p) {
                     await db.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
-                    // Jurnal Akuntansi otomatis
                     await db.from('jurnal_umum').insert([
-                        { tanggal: tgl, no_bukti: inv, kode_akun: p.akun_pendapatan, keterangan: `Penjualan ${item.nama_barang}`, debit: 0, kredit: subItem },
+                        { tanggal: tgl, no_bukti: inv, kode_akun: p.akun_pendapatan, keterangan: `Jual ${item.nama_barang}`, debit: 0, kredit: subItem },
                         { tanggal: tgl, no_bukti: inv, kode_akun: p.akun_hpp, keterangan: `HPP ${item.nama_barang}`, debit: p.harga_beli * item.qty, kredit: 0 },
-                        { tanggal: tgl, no_bukti: inv, kode_akun: p.akun_persediaan, keterangan: `Kurang Stok ${item.nama_barang}`, debit: 0, kredit: p.harga_beli * item.qty }
+                        { tanggal: tgl, no_bukti: inv, kode_akun: p.akun_persediaan, keterangan: `Stok Keluar ${item.nama_barang}`, debit: 0, kredit: p.harga_beli * item.qty }
                     ]);
                 }
             }
-
-            // Jurnal Penerimaan Uang
-            for (const p of state.payments) {
-                let nominalJurnal = (state.payments.length === 1 && p.jumlah > state.total) ? state.total : p.jumlah;
-                await db.from('jurnal_umum').insert([{ tanggal: tgl, no_bukti: inv, kode_akun: p.akun, keterangan: `Terima ${p.metode} - ${inv}`, debit: nominalJurnal, kredit: 0 }]);
-            }
-
-            renderReceipt(inv, totalDibayar);
-            document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
-
-        } catch (e) { alert("Error: " + e.message); isSaving = false; }
+            for (const p of state.payments) { let nom = (state.payments.length === 1 && p.jumlah > state.total) ? state.total : p.jumlah; await db.from('jurnal_umum').insert([{ tanggal: tgl, no_bukti: inv, kode_akun: p.akun, keterangan: `Terima ${p.metode}`, debit: nom, kredit: 0 }]); }
+            renderReceipt(inv, totalDibayar); document.getElementById('payModal').style.display = 'none'; setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
+        } catch (e) { alert(e.message); isSaving = false; }
     }
 
     function renderReceipt(inv, totalBayar) {
         const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
-        const itemRows = cart.map(i => `
-            <div style="display:flex; justify-content:space-between; font-size:10px;">
-                <span>${i.nama_barang.substring(0,18)} x${i.qty}</span>
-                <span>${(i.qty * i.harga).toLocaleString()}</span>
-            </div>`).join('');
-
-        document.getElementById('print-area').innerHTML = `
-            <center><b>${storeName}</b><br><small>Invoice: ${inv}</small></center>
-            <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-            ${itemRows}
-            <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold;">
-                <span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:5px;">
-                <span>Bayar:</span><span>${totalBayar.toLocaleString()}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:10px;">
-                <span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString()}</span>
-            </div>
-            <center style="font-size:10px; margin-top:10px;">Terima Kasih</center>`;
+        const itemRows = cart.map(i => `<div class="flex justify-between text-[10px]"><span>${i.nama_barang.substring(0,18)} x${i.qty}</span><span>${(i.qty * i.harga).toLocaleString()}</span></div>`).join('');
+        document.getElementById('print-area').innerHTML = `<center class="font-bold">${storeName}<br><small>${inv}</small></center><div class="border-t border-dashed my-2"></div>${itemRows}<div class="border-t border-dashed my-2"></div><div class="flex justify-between font-bold"><span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span></div><div class="flex justify-between text-[10px] mt-2"><span>Bayar:</span><span>${totalBayar.toLocaleString()}</span></div><div class="flex justify-between text-[10px]"><span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString()}</span></div><center class="mt-4 text-[10px]">Terima Kasih</center>`;
     }
 
-    function sendWhatsApp() {
-        const hp = document.getElementById('waNumber').value;
-        const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0A_Terima kasih!_`;
-        window.open(`https://wa.me/${hp.startsWith('0')?'62'+hp.slice(1):hp}?text=${msg}`, '_blank');
-        location.reload();
-    }
-
+    function sendWhatsApp() { const hp = document.getElementById('waNumber').value; const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0A_Terima kasih!_`; window.open(`https://wa.me/${hp.startsWith('0')?'62'+hp.slice(1):hp}?text=${msg}`, '_blank'); location.reload(); }
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
