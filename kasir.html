@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Finex POS | Tablet Optimized</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="supabase-init.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; overflow: hidden; }
+        
+        /* HEADER & NAVIGATION ATAS */
+        header { background: #2c3e50; color: white; }
+        .nav-link { 
+            padding: 10px 16px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            font-weight: 600; 
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cbd5e1;
+        }
+        .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
+        .nav-link.active { background: #e67e22; color: white; }
+
+        /* SCROLLABLE AREA */
+        .product-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+            gap: 12px; 
+            height: calc(100vh - 140px); 
+            overflow-y: auto;
+            padding-bottom: 50px;
+        }
+
+        .cart-area {
+            height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* CARD PRODUCT */
+        .p-card { 
+            background: white; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.1s;
+            border: 1px solid #e2e8f0;
+        }
+        .p-card:active { transform: scale(0.95); }
+
+        /* HIDE SCROLLBAR */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="px-6 py-3 shadow-md z-50">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <h1 class="text-xl font-extrabold text-[#e67e22]">Finex POS</h1>
+                <div class="h-6 w-[1px] bg-slate-600 mx-2"></div>
+                <nav class="flex gap-2">
+                    <a href="dashboard.html" class="nav-link"><span>📊</span> <span class="hidden md:inline">Dashboard</span></a>
+                    <a href="pos.html" class="nav-link active"><span>🛒</span> <span class="hidden md:inline">Kasir</span></a>
+                    <a href="kas_bank.html" class="nav-link"><span>🏦</span> <span class="hidden md:inline">Kas/Bank</span></a>
+                    <a href="pengeluaran.html" class="nav-link"><span>💸</span> <span class="hidden md:inline">Biaya</span></a>
+                    <a href="aset.html" class="nav-link"><span>🚚</span> <span class="hidden md:inline">Aset</span></a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden sm:block">
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Petugas</p>
+                    <p id="user-display" class="text-xs font-semibold text-white">Admin</p>
+                </div>
+                <button onclick="logout()" class="p-2 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all">🚪</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        
+        <section class="flex-1 p-4 lg:p-6 overflow-hidden">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="relative flex-1">
+                    <span class="absolute left-4 top-3 text-slate-400">🔍</span>
+                    <input type="text" id="search-p" placeholder="Cari nama produk atau scan barcode..." 
+                           class="w-full pl-12 pr-4 py-3 rounded-2xl border-none shadow-sm focus:ring-2 focus:ring-[#e67e22] outline-none font-medium">
+                </div>
+                <select id="filter-cat" class="bg-white px-4 py-3 rounded-2xl shadow-sm border-none font-semibold text-slate-600 outline-none">
+                    <option value="">Semua Kategori</option>
+                </select>
+            </div>
+
+            <div id="product-list" class="product-grid no-scrollbar">
+                </div>
+        </section>
+
+        <aside class="w-80 lg:w-96 bg-white border-l border-slate-200 shadow-xl flex flex-col cart-area">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-extrabold text-slate-800 flex items-center gap-2">
+                    🛍️ Keranjang <span id="cart-count" class="bg-[#e67e22] text-white text-[10px] px-2 py-1 rounded-full">0</span>
+                </h3>
+                <button onclick="clearCart()" class="text-xs text-rose-500 font-bold hover:underline">Kosongkan</button>
+            </div>
+
+            <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                </div>
+
+            <div class="p-6 bg-slate-900 text-white rounded-t-[32px] shadow-2xl">
+                <div class="flex justify-between text-slate-400 text-sm mb-2">
+                    <span>Subtotal</span>
+                    <span id="subtotal-text">Rp 0</span>
+                </div>
+                <div class="flex justify-between items-end mb-6">
+                    <span class="text-sm font-bold">TOTAL AKHIR</span>
+                    <span id="total-text" class="text-3xl font-black text-[#e67e22]">Rp 0</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button class="py-3 bg-slate-800 rounded-xl font-bold text-xs hover:bg-slate-700 transition-all">💸 Tunai</button>
+                    <button class="py-3 bg-slate-800 rounded-xl font-bold text-xs hover:bg-slate-700 transition-all">💳 QRIS/Bank</button>
+                </div>
+
+                <button onclick="processOrder()" class="w-full py-4 bg-[#e67e22] text-white rounded-2xl font-black text-lg shadow-lg shadow-orange-500/30 hover:bg-orange-600 transition-all active:scale-95">
+                    BAYAR SEKARANG
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // Logika JS tetap sama dengan POS sebelumnya, 
+        // hanya pastikan ID element sesuai (search-p, product-list, total-text, dll)
+        
+        window.onload = () => {
+            const session = JSON.parse(localStorage.getItem('finex_session'));
+            if(!session) window.location.replace('login.html');
+            document.getElementById('user-display').innerText = session.username;
+            // Panggil fungsi load produk Anda di sini
+        };
+
+        function logout() {
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>
