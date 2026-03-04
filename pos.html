@@ -301,10 +301,15 @@
                 let nom = (state.payments.length === 1 && p.jumlah > state.total) ? state.total : p.jumlah;
                 await db.from('jurnal_umum').insert([{ tanggal: tgl, no_bukti: inv, kode_akun: p.akun, keterangan: `Terima ${p.metode}`, debit: nom, kredit: 0 }]);
             }
-            renderReceipt(inv, totalDibayar);
+           // Ganti bagian akhir dari fungsi executeTransaction dengan ini:
+            renderReceipt(inv, totalDibayar); 
             document.getElementById('payModal').style.display = 'none';
-            setTimeout(() => { window.print(); document.getElementById('waModal').style.display = 'flex'; }, 500);
-        } catch (e) { alert(e.message); isSaving = false; }
+
+            // Memicu perintah cetak secara instan
+            window.print(); 
+
+            // Modal WA muncul SETELAH perintah cetak dikirim ke antrian printer
+            document.getElementById('waModal').style.display = 'flex';
     }
 
     function renderReceipt(inv, totalBayar) {
