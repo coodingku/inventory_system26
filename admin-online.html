@@ -147,21 +147,41 @@
         }).join('');
     }
 
-    async function updateStatus(id, statusBaru) {
-        let loadingMsg = statusBaru === 'Dikemas' ? 'Pembayaran diterima. Barang sedang dikemas Tim Bloom ✨' : 'Pesanan sudah dikirim! Klik detail untuk cek resi 🚚';
-        
-        const { error } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
-        if (error) return alert("Gagal update status");
+   async function updateStatus(id, statusBaru) {
+    console.log("Mengubah status ID:", id, "ke:", statusBaru); // Cek di console browser
 
-        await db.from('transaksi_online_log').insert([{
-            transaksi_id: id,
-            status: statusBaru,
-            keterangan: loadingMsg
-        }]);
+    let keteranganLog = statusBaru === 'Dikemas' 
+        ? 'Pembayaran diterima. Barang sedang dikemas Tim Bloom ✨' 
+        : 'Pesanan sudah dikirim! Klik detail untuk cek resi 🚚';
+    
+    try {
+        // 1. Update Tabel Utama
+        const { error: errUpdate } = await db
+            .from('transaksi_online')
+            .update({ status_order: statusBaru })
+            .eq('id', id);
 
-        loadOrders();
+        if (errUpdate) throw errUpdate;
+
+        // 2. Tambah Log Aktivitas agar Customer Bisa Lacak
+        const { error: errLog } = await db
+            .from('transaksi_online_log')
+            .insert([{
+                transaksi_id: id,
+                status: statusBaru,
+                keterangan: keteranganLog
+            }]);
+
+        if (errLog) throw errLog;
+
+        alert(`✅ Sukses! Pesanan kini berstatus: ${statusBaru}`);
+        loadOrders(); // Muat ulang tabel
+
+    } catch (error) {
+        console.error("Detail Error:", error);
+        alert("Gagal memproses: " + error.message);
     }
-
+}
     async function viewDetail(id) {
         const { data } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
         if (data) {
