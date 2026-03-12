@@ -3,52 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Checkout | Finex Shop</title>
+    <title>Checkout | Finex Beauty Bloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #fff0f3; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff0f3; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; }
         .input-field:focus { border-color: #ff85a2; ring: 2px; ring-color: #ffe5ec; }
-        .payment-option { border: 2px solid #f1f5f9; cursor: pointer; transition: 0.3s; background: white; }
+        .payment-option { border: 2px solid #f1f5f9; cursor: pointer; transition: 0.3s; background: white; border-radius: 20px; }
         .payment-option.active { border-color: #f72585; background: #fff0f3; }
         .check-icon { display: none; }
         .payment-option.active .check-icon { display: block; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-[#fff0f3] pb-10">
 
-    <header class="bg-white shadow-sm sticky top-0 z-40 p-4 border-b border-pink-100">
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40 p-4 border-b border-pink-100">
         <div class="max-w-2xl mx-auto flex items-center gap-4">
             <a href="online-shop.html" class="text-pink-500 text-xl"><i class="fas fa-arrow-left"></i></a>
-            <h1 class="text-xl font-bold text-slate-800">Selesaikan Pesanan 🌸</h1>
+            <h1 class="text-xl font-bold text-slate-800 tracking-tight">Checkout Pesanan 🌸</h1>
         </div>
     </header>
 
     <main class="max-w-2xl mx-auto px-4 mt-6">
         
-        <div class="bg-white p-6 rounded-3xl shadow-sm mb-6 border border-pink-50">
+        <div class="bg-white p-6 rounded-[30px] shadow-sm mb-6 border border-pink-50">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
                 <i class="fas fa-shopping-bag text-pink-400"></i> Produk Dipesan
             </h3>
-            <div id="checkout-list" class="space-y-4 text-sm"></div>
+            <div id="checkout-list" class="space-y-4 text-sm">
+                </div>
             <div class="mt-6 pt-4 border-t border-dashed border-slate-200 text-right">
                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Bayar</p>
                 <h2 id="txt-total" class="text-2xl font-black text-[#f72585]">Rp 0</h2>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6">
+        <div class="bg-white p-6 rounded-[30px] shadow-sm border border-pink-50 mb-6">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-truck text-pink-400"></i> Alamat Pengiriman
+                <i class="fas fa-truck text-pink-400"></i> Informasi Pengiriman
             </h3>
-            <div id="loading-profile" class="text-[10px] text-pink-400 mb-4 animate-pulse font-black uppercase">Memuat profil...</div>
+            <div id="loading-profile" class="text-[10px] text-pink-400 mb-4 animate-pulse font-black uppercase tracking-tighter">Memuat profilmu...</div>
             <div class="space-y-4">
-                <input type="text" id="cust-name" class="input-field" placeholder="Nama Lengkap Penerima">
-                <input type="number" id="cust-phone" class="input-field" placeholder="No. WA (628...)">
-                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap & Patokan"></textarea>
+                <input type="text" id="cust-name" class="input-field" placeholder="Nama Penerima">
+                <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
+                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap & Patokan Rumah"></textarea>
                 <select id="courier" class="input-field font-bold text-slate-600">
                     <option value="JNT">J&T Express</option>
                     <option value="JNE">JNE Reguler</option>
@@ -58,36 +61,45 @@
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6">
+        <div class="bg-white p-6 rounded-[30px] shadow-sm border border-pink-50 mb-6">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-credit-card text-pink-400"></i> Metode Pembayaran
+                <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
             </h3>
             <div class="space-y-3">
-                <div onclick="selectPayment('TF')" id="pay-tf" class="payment-option p-4 rounded-2xl flex justify-between items-center">
-                    <div class="flex items-center gap-3"><i class="fas fa-university text-slate-400"></i><p class="font-bold text-slate-700 text-sm">Transfer Manual</p></div>
+                <div onclick="selectPayment('TF')" id="pay-tf" class="payment-option p-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-university text-slate-400"></i>
+                        <p class="font-bold text-slate-700 text-sm">Transfer Bank Manual</p>
+                    </div>
                     <i class="fas fa-check-circle text-pink-500 check-icon"></i>
                 </div>
-                <div onclick="selectPayment('VA')" id="pay-va" class="payment-option p-4 rounded-2xl flex justify-between items-center">
-                    <div class="flex items-center gap-3"><i class="fas fa-bolt text-slate-400"></i><p class="font-bold text-slate-700 text-sm">Virtual Account</p></div>
+                <div onclick="selectPayment('VA')" id="pay-va" class="payment-option p-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-bolt text-slate-400"></i>
+                        <p class="font-bold text-slate-700 text-sm">Virtual Account</p>
+                    </div>
                     <i class="fas fa-check-circle text-pink-500 check-icon"></i>
                 </div>
             </div>
 
             <div id="bank-info" class="hidden mt-4 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <div class="flex justify-between items-center"><b class="text-slate-700 text-xs uppercase">BCA - Beauty Bloom</b><button onclick="copyRek()" class="text-pink-500 text-[10px] font-bold border border-pink-200 px-2 py-1 rounded-lg">SALIN</button></div>
-                <p id="norek" class="text-xl font-black text-slate-800 mt-1">123-456-7890</p>
+                <div class="flex justify-between items-center">
+                    <b class="text-slate-700 text-[10px] uppercase">Bank BCA - Beauty Bloom</b>
+                    <button onclick="copyRek()" class="text-pink-500 text-[10px] font-bold">SALIN</button>
+                </div>
+                <p id="norek" class="text-xl font-black text-slate-800">123-456-7890</p>
             </div>
         </div>
 
-        <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
-            KONFIRMASI & PESAN ✨
+        <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg shadow-pink-200 active:scale-95 transition-all mb-4">
+            PESAN SEKARANG ✨
         </button>
 
     </main>
 
 <script>
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
-    const MY_WA_NUMBER = "628xxxxxxxx"; // GANTI DENGAN NO WA ANDA
+    const MY_WA_NUMBER = "628xxxxxxxx"; // Ganti dengan nomor WA Toko
     let selectedPayMethod = "";
     let grandTotal = 0;
 
@@ -96,6 +108,7 @@
         await loadCustomerData();
     };
 
+    // Ambil Data Profil
     async function loadCustomerData() {
         const { data: { user } } = await db.auth.getUser();
         if (user) {
@@ -104,13 +117,14 @@
                 document.getElementById('cust-name').value = data.full_name || "";
                 document.getElementById('cust-phone').value = data.phone_number || "";
                 document.getElementById('cust-address').value = data.address_shipping || "";
-                document.getElementById('loading-profile').innerText = "Alamat otomatis terisi ✨";
+                document.getElementById('loading-profile').innerText = "Alamat otomatis terisi dari profil ✨";
             } else {
-                document.getElementById('loading-profile').innerText = "Data baru akan tersimpan di profilmu 🌸";
+                document.getElementById('loading-profile').innerText = "Silakan lengkapi data pengiriman 🌸";
             }
         }
     }
 
+    // Render List Belanja
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
@@ -130,8 +144,9 @@
         document.getElementById('bank-info').classList.remove('hidden');
     }
 
-    function copyRek() { navigator.clipboard.writeText(document.getElementById('norek').innerText); alert("Norek disalin! 🌸"); }
+    function copyRek() { navigator.clipboard.writeText(document.getElementById('norek').innerText); alert("Norek berhasil disalin! 🌸"); }
 
+    // PROSES SIMPAN KE DATABASE & KIRIM WA
     async function processOrder() {
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
@@ -139,49 +154,64 @@
         const courier = document.getElementById('courier').value;
         const btn = document.getElementById('btn-order');
 
-        if (!name || !phone || !address) return alert("Lengkapi data pengiriman! 🌸");
-        if (!selectedPayMethod) return alert("Pilih pembayaran dulu! 🌸");
+        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman! 🌸");
+        if (!selectedPayMethod) return alert("Pilih metode pembayaran dulu ya! 🌸");
 
         btn.innerText = "Memproses Pesanan...";
         btn.disabled = true;
 
-        const { data: { user } } = await db.auth.getUser();
-        const inv = `BLM-${Date.now().toString().slice(-6)}`;
-
         try {
+            const { data: { user } } = await db.auth.getUser();
+            const inv = `BLM-${Date.now().toString().slice(-6)}`;
+
             // 1. Simpan Transaksi Utama
             const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
-                no_invoice: inv, customer_id: user.id, nama_penerima: name,
-                wa_penerima: phone, alamat_kirim: address, kurir: courier,
-                metode_bayar: selectedPayMethod, grand_total: grandTotal, status_order: 'Pending'
+                no_invoice: inv,
+                customer_id: user.id,
+                nama_penerima: name,
+                wa_penerima: phone,
+                alamat_kirim: address,
+                kurir: courier,
+                metode_bayar: selectedPayMethod,
+                grand_total: grandTotal,
+                status_order: 'Pending'
             }]).select().single();
 
             if (errTrx) throw errTrx;
 
             // 2. Simpan Detail Item
-            for (const item of cartData) {
-                await db.from('transaksi_online_detail').insert([{
-                    transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama,
-                    qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga
-                }]);
-            }
+            const details = cartData.map(item => ({
+                transaksi_id: trx.id,
+                produk_id: item.id,
+                nama_barang: item.nama,
+                qty: item.qty,
+                harga_satuan: item.harga,
+                subtotal_item: item.qty * item.harga
+            }));
+            const { error: errDetail } = await db.from('transaksi_online_detail').insert(details);
+            if (errDetail) throw errDetail;
 
-            // 3. Buat Log Aktivitas Pertama
+            // 3. Simpan Log Aktivitas Pertama
             await db.from('transaksi_online_log').insert([{
-                transaksi_id: trx.id, status: 'Pesanan Dibuat', keterangan: 'Pesanan telah diterima oleh sistem Beauty Bloom.'
+                transaksi_id: trx.id,
+                status: 'Pesanan Dibuat',
+                keterangan: 'Pesanan telah masuk ke sistem Bloom.'
             }]);
 
-            // 4. Kirim WA
+            // 4. Kirim WhatsApp
             let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
-            const message = `*ORDER ONLINE BEAUTY BLOOM*🌸%0AInv: ${inv}%0A%0A*Pesanan:*%0A${itemsText}%0A%0ATotal: Rp ${grandTotal.toLocaleString()}%0AMetode: ${selectedPayMethod}%0AAlamat: ${address}`;
+            const message = `*PESANAN BARU - BEAUTY BLOOM*🌸%0AInv: ${inv}%0A%0A*Pesanan:*%0A${itemsText}%0A%0ATotal: Rp ${grandTotal.toLocaleString()}%0APembayaran: ${selectedPayMethod}%0AAlamat: ${address}`;
             
             window.open(`https://wa.me/${MY_WA_NUMBER}?text=${message}`, '_blank');
+            
+            // Selesai
             sessionStorage.removeItem('finexcart');
             window.location.href = "online-shop.html";
 
         } catch (e) {
-            alert("Error: " + e.message);
-            btn.innerText = "KONFIRMASI & PESAN ✨";
+            console.error(e);
+            alert("Terjadi kesalahan: " + e.message);
+            btn.innerText = "PESAN SEKARANG ✨";
             btn.disabled = false;
         }
     }
