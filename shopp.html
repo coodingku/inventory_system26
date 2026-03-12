@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finex Online Shop | Katalog Produk</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="supabase-init.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; }
+        .product-card { transition: transform 0.2s; border-radius: 20px; overflow: hidden; }
+        .product-card:hover { transform: translateY(-5px); }
+        .btn-cart { position: fixed; bottom: 20px; right: 20px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; }
+    </style>
+</head>
+<body class="pb-24">
+
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <h1 class="text-2xl font-black text-blue-600">Finex Shop</h1>
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                <input type="text" id="search" onkeyup="loadOnlineMenu()" class="pl-10 pr-4 py-2 bg-gray-100 rounded-full border-none outline-none w-48 sm:w-64 focus:ring-2 focus:ring-blue-400" placeholder="Cari produk...">
+            </div>
+        </div>
+    </header>
+
+    <section class="max-w-6xl mx-auto px-4 mt-6">
+        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-3xl p-8 text-white">
+            <h2 class="text-3xl font-bold">Promo Cantik Hari Ini! ✨</h2>
+            <p class="mt-2 opacity-80">Temukan koleksi Beauty & Bloom terbaik untukmu.</p>
+        </div>
+    </section>
+
+    <main class="max-w-6xl mx-auto px-4 mt-10">
+        <h3 class="text-xl font-bold text-slate-800 mb-6">Semua Produk</h3>
+        <div id="onlineDisplay" class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="animate-pulse bg-white p-4 rounded-3xl h-64"></div>
+            <div class="animate-pulse bg-white p-4 rounded-3xl h-64"></div>
+            <div class="animate-pulse bg-white p-4 rounded-3xl h-64"></div>
+            <div class="animate-pulse bg-white p-4 rounded-3xl h-64"></div>
+        </div>
+    </main>
+
+    <button onclick="goToCheckout()" class="btn-cart bg-blue-600 text-white px-6 py-4 rounded-full flex items-center gap-3 font-bold">
+        <i class="fas fa-shopping-bag text-xl"></i>
+        <span id="cart-count">0</span> Item
+    </button>
+
+<script>
+    let shopCart = [];
+
+    window.onload = loadOnlineMenu;
+
+    async function loadOnlineMenu() {
+        const q = document.getElementById('search').value;
+        let query = db.from('produk').select('*').gt('stok_sekarang', 0);
+        
+        if (q) query = query.ilike('nama_barang', `%${q}%`);
+
+        const { data, error } = await query.order('nama_barang');
+        const container = document.getElementById('onlineDisplay');
+
+        if (data.length === 0) {
+            container.innerHTML = `<div class="col-span-full text-center py-20 text-gray-400">Produk tidak ditemukan.</div>`;
+            return;
+        }
+
+        container.innerHTML = data.map(p => `
+            <div class="product-card bg-white border border-gray-100 shadow-sm flex flex-col">
+                <div class="h-40 bg-gray-200">
+                    <img src="${p.foto_url || 'https://via.placeholder.com/300'}" class="w-full h-full object-cover">
+                </div>
+                <div class="p-4 flex flex-col flex-1">
+                    <p class="text-xs text-blue-500 font-bold uppercase tracking-widest mb-1">${p.kategori || 'Produk'}</p>
+                    <h4 class="font-bold text-slate-800 text-sm leading-tight h-10 overflow-hidden">${p.nama_barang}</h4>
+                    <p class="text-lg font-black text-slate-900 mt-2">Rp ${p.harga_jual.toLocaleString()}</p>
+                    <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" 
+                            class="mt-4 w-full bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 py-3 rounded-xl font-bold transition-all text-xs">
+                        + KERANJANG
+                    </button>
+                </div>
+            </div>`).join('');
+    }
+
+    function addToOnlineCart(id, nama, harga) {
+        const idx = shopCart.findIndex(c => c.id === id);
+        if (idx > -1) shopCart[idx].qty++;
+        else shopCart.push({ id, nama, harga, qty: 1 });
+        
+        document.getElementById('cart-count').innerText = shopCart.reduce((sum, item) => sum + item.qty, 0);
+        
+        // Animasi tombol
+        const btn = document.querySelector('.btn-cart');
+        btn.classList.add('scale-110');
+        setTimeout(() => btn.classList.remove('scale-110'), 200);
+    }
+
+    function goToCheckout() {
+        if (shopCart.length === 0) return alert("Keranjang masih kosong!");
+        // Simpan keranjang ke sessionStorage untuk halaman checkout
+        sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
+        window.location.href = "online-checkout.html";
+    }
+</script>
+</body>
+</html>
