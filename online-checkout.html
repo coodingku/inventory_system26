@@ -2,24 +2,30 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Checkout | Finex Shop</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; }
-        .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; }
+        body { font-family: 'Segoe UI', sans-serif; background: #fff0f3; }
+        .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; }
         .input-field:focus { border-color: #ff85a2; ring: 2px; ring-color: #ffe5ec; }
+        
+        /* Gaya Kartu Pembayaran */
+        .payment-option { border: 2px solid #f1f5f9; cursor: pointer; transition: 0.3s; background: white; }
+        .payment-option.active { border-color: #f72585; background: #fff0f3; }
+        .check-icon { display: none; }
+        .payment-option.active .check-icon { display: block; }
     </style>
 </head>
-<body class="bg-slate-50 pb-10">
+<body class="bg-[#fff0f3] pb-10">
 
     <header class="bg-white shadow-sm sticky top-0 z-40 p-4 border-b border-pink-100">
         <div class="max-w-2xl mx-auto flex items-center gap-4">
-            <a href="shopp.html" class="text-pink-500 text-xl"><i class="fas fa-arrow-left"></i></a>
-            <h1 class="text-xl font-bold text-slate-800">Checkout Pesanan </h1>
+            <a href="online-shop.html" class="text-pink-500 text-xl"><i class="fas fa-arrow-left"></i></a>
+            <h1 class="text-xl font-bold text-slate-800">Selesaikan Pesanan 🌸</h1>
         </div>
     </header>
 
@@ -27,10 +33,9 @@
         
         <div class="bg-white p-6 rounded-3xl shadow-sm mb-6 border border-pink-50">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-box text-pink-400"></i> Produk Dipesan
+                <i class="fas fa-shopping-bag text-pink-400"></i> Produk Dipesan
             </h3>
-            <div id="checkout-list" class="space-y-4">
-                </div>
+            <div id="checkout-list" class="space-y-4"></div>
             <div class="mt-6 pt-4 border-t border-dashed border-slate-200">
                 <div class="flex justify-between font-black text-xl text-[#f72585]">
                     <span>Total Bayar</span>
@@ -39,66 +44,90 @@
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-map-marker-alt text-pink-400"></i> Data Pengiriman
+                <i class="fas fa-truck text-pink-400"></i> Informasi Pengiriman
             </h3>
-            <div id="loading-profile" class="text-xs text-pink-400 mb-4 animate-pulse">Menyiapkan data profilmu...</div>
-            
+            <div id="loading-profile" class="text-[10px] text-pink-400 mb-4 animate-pulse uppercase font-bold">Memuat data profil...</div>
             <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">Nama Lengkap</label>
-                    <input type="text" id="cust-name" class="input-field" placeholder="Memuat nama...">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">No. WhatsApp</label>
-                    <input type="number" id="cust-phone" class="input-field" placeholder="Contoh: 62812xxx">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">Alamat Lengkap</label>
-                    <textarea id="cust-address" rows="3" class="input-field" placeholder="Nama jalan, No rumah, Kec, Kota..."></textarea>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">Pilih Kurir</label>
-                    <select id="courier" class="input-field">
-                        <option value="JNT">J&T Express</option>
-                        <option value="JNE">JNE Reguler</option>
-                        <option value="SiCepat">SiCepat</option>
-                        <option value="Ambil di Toko">Ambil di Toko (Free)</option>
-                    </select>
-                </div>
+                <input type="text" id="cust-name" class="input-field" placeholder="Nama Lengkap">
+                <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
+                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap Pengiriman"></textarea>
+                <select id="courier" class="input-field">
+                    <option value="JNT">J&T Express</option>
+                    <option value="JNE">JNE Reguler</option>
+                    <option value="SiCepat">SiCepat</option>
+                    <option value="Ambil di Toko">Ambil di Toko (Free)</option>
+                </select>
             </div>
         </div>
 
-        <button onclick="sendOrderToWA()" class="w-full mt-8 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
-            <i class="fab fa-whatsapp mr-2"></i> PESAN VIA WHATSAPP
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
+            </h3>
+            <div class="space-y-3">
+                <div onclick="selectPayment('TF')" id="pay-tf" class="payment-option p-4 rounded-2xl flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-university text-slate-400"></i>
+                        <div>
+                            <p class="font-bold text-slate-700 text-sm">Transfer Bank Manual</p>
+                            <p class="text-[10px] text-slate-400 italic">Verifikasi manual oleh admin</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-check-circle text-pink-500 check-icon"></i>
+                </div>
+                
+                <div onclick="selectPayment('VA')" id="pay-va" class="payment-option p-4 rounded-2xl flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-bolt text-slate-400"></i>
+                        <div>
+                            <p class="font-bold text-slate-700 text-sm">Virtual Account (BCA/Mandiri)</p>
+                            <p class="text-[10px] text-slate-400 italic">Proses lebih cepat & otomatis</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-check-circle text-pink-500 check-icon"></i>
+                </div>
+            </div>
+
+            <div id="bank-info" class="hidden mt-4 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Rekening Tujuan:</p>
+                <div class="flex justify-between items-center">
+                    <b class="text-slate-700 text-sm">Bank BCA - Beauty Bloom</b>
+                    <button onclick="copyRek()" class="text-pink-500 text-[10px] font-bold border border-pink-200 px-2 py-1 rounded-lg">SALIN</button>
+                </div>
+                <p id="norek" class="text-xl font-black text-slate-800 tracking-wider">123-456-7890</p>
+                <p class="text-[9px] text-red-400 mt-2">*Kirimkan bukti transfer setelah memesan</p>
+            </div>
+        </div>
+
+        <button onclick="sendOrderToWA()" class="w-full mt-4 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
+            <i class="fab fa-whatsapp mr-2"></i> PESAN SEKARANG
         </button>
 
     </main>
 
 <script>
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
-    const MY_WA_NUMBER = "628xxxxxxxx"; // GANTI DENGAN NO WA TOKO ALLBERTO
+    const MY_WA_NUMBER = "628xxxxxxxx"; // GANTI DENGAN NO WA TOKO ANDA
+    let selectedPayMethod = "";
 
     window.onload = async () => {
         renderCheckout();
         await loadCustomerData();
     };
 
-    // Fungsi Ambil Data Profil dari Supabase
     async function loadCustomerData() {
         const { data: { user } } = await db.auth.getUser();
-        
         if (user) {
-            const { data, error } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
-            
+            const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
             if (data) {
                 document.getElementById('cust-name').value = data.full_name || "";
                 document.getElementById('cust-phone').value = data.phone_number || "";
                 document.getElementById('cust-address').value = data.address_shipping || "";
                 document.getElementById('loading-profile').innerText = "Data profil berhasil diterapkan ✨";
             } else {
-                document.getElementById('loading-profile').innerText = "Lengkapi data di bawah untuk pesanan pertama ya ";
+                document.getElementById('loading-profile').innerText = "Silakan lengkapi data pengiriman 🌸";
             }
         } else {
             document.getElementById('loading-profile').innerText = "Anda masuk sebagai tamu.";
@@ -106,30 +135,28 @@
     }
 
     function renderCheckout() {
-        if (cartData.length === 0) {
-            alert("Keranjang kosong!");
-            window.location.href = "online-shop.html";
-            return;
-        }
-
+        if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
         let total = 0;
-
         container.innerHTML = cartData.map(item => {
             const sub = item.qty * item.harga;
             total += sub;
-            return `
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="font-bold text-slate-800 text-sm">${item.nama}</p>
-                        <p class="text-xs text-slate-400">${item.qty} x Rp ${item.harga.toLocaleString()}</p>
-                    </div>
-                    <p class="font-bold text-slate-700">Rp ${sub.toLocaleString()}</p>
-                </div>
-            `;
+            return `<div class="flex justify-between items-center text-sm"><div><b class="text-slate-700">${item.nama}</b><br><small class="text-slate-400">${item.qty} x ${item.harga.toLocaleString()}</small></div><b class="text-slate-700">Rp ${sub.toLocaleString()}</b></div>`;
         }).join('');
-
         document.getElementById('txt-total').innerText = "Rp " + total.toLocaleString();
+    }
+
+    function selectPayment(type) {
+        selectedPayMethod = type === 'TF' ? 'Transfer Bank Manual' : 'Virtual Account';
+        document.querySelectorAll('.payment-option').forEach(c => c.classList.remove('active'));
+        document.getElementById(type === 'TF' ? 'pay-tf' : 'pay-va').classList.add('active');
+        document.getElementById('bank-info').classList.remove('hidden');
+    }
+
+    function copyRek() {
+        const rek = document.getElementById('norek').innerText;
+        navigator.clipboard.writeText(rek);
+        alert("Nomor rekening berhasil disalin! 🌸");
     }
 
     function sendOrderToWA() {
@@ -138,26 +165,26 @@
         const address = document.getElementById('cust-address').value;
         const courier = document.getElementById('courier').value;
 
-        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman ya Cantik! ");
+        if (!name || !phone || !address) return alert("Lengkapi data pengiriman ya Cantik! 🌸");
+        if (!selectedPayMethod) return alert("Pilih metode pembayaran dulu ya! 🌸");
 
         let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
         let totalVal = document.getElementById('txt-total').innerText;
 
-        const message = `*HALOO BEAUTY BLOOM, SAYA MAU ORDER!*%0A%0A` +
-                        `*Detail Pesanan:*%0A${itemsText}%0A%0A` +
-                        `*Total:* ${totalVal}%0A` +
+        const message = `*PESANAN BARU - BEAUTY BLOOM*🌸%0A%0A` +
+                        `*Produk:*%0A${itemsText}%0A%0A` +
+                        `*Total Bayar:* ${totalVal}%0A` +
+                        `*Metode:* ${selectedPayMethod}%0A` +
                         `----------------------------%0A` +
-                        `*Data Pemesan:*%0A` +
+                        `*Data Penerima:*%0A` +
                         `Nama: ${name}%0A` +
                         `WA: ${phone}%0A` +
-                        `Alamat: ${address}%0A` +
-                        `Kurir: ${courier}%0A%0A` +
-                        `_Mohon segera diinfokan total ongkir dan no.rekening ya Kak!_`;
+                        `Kurir: ${courier}%0A` +
+                        `Alamat: ${address}%0A%0A` +
+                        `_Mohon segera diinfokan total ongkir ya Kak!_`;
 
-        const waLink = `https://wa.me/${MY_WA_NUMBER}?text=${message}`;
-        
+        window.open(`https://wa.me/${MY_WA_NUMBER}?text=${message}`, '_blank');
         sessionStorage.removeItem('finexcart');
-        window.open(waLink, '_blank');
         window.location.href = "online-shop.html";
     }
 </script>
