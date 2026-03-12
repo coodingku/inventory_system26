@@ -12,8 +12,6 @@
         body { font-family: 'Segoe UI', sans-serif; background: #fff0f3; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; }
         .input-field:focus { border-color: #ff85a2; ring: 2px; ring-color: #ffe5ec; }
-        
-        /* Gaya Kartu Pembayaran */
         .payment-option { border: 2px solid #f1f5f9; cursor: pointer; transition: 0.3s; background: white; }
         .payment-option.active { border-color: #f72585; background: #fff0f3; }
         .check-icon { display: none; }
@@ -35,25 +33,23 @@
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
                 <i class="fas fa-shopping-bag text-pink-400"></i> Produk Dipesan
             </h3>
-            <div id="checkout-list" class="space-y-4"></div>
-            <div class="mt-6 pt-4 border-t border-dashed border-slate-200">
-                <div class="flex justify-between font-black text-xl text-[#f72585]">
-                    <span>Total Bayar</span>
-                    <span id="txt-total">Rp 0</span>
-                </div>
+            <div id="checkout-list" class="space-y-4 text-sm"></div>
+            <div class="mt-6 pt-4 border-t border-dashed border-slate-200 text-right">
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Bayar</p>
+                <h2 id="txt-total" class="text-2xl font-black text-[#f72585]">Rp 0</h2>
             </div>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-truck text-pink-400"></i> Informasi Pengiriman
+                <i class="fas fa-truck text-pink-400"></i> Alamat Pengiriman
             </h3>
-            <div id="loading-profile" class="text-[10px] text-pink-400 mb-4 animate-pulse uppercase font-bold">Memuat data profil...</div>
+            <div id="loading-profile" class="text-[10px] text-pink-400 mb-4 animate-pulse font-black uppercase">Memuat profil...</div>
             <div class="space-y-4">
-                <input type="text" id="cust-name" class="input-field" placeholder="Nama Lengkap">
-                <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
-                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap Pengiriman"></textarea>
-                <select id="courier" class="input-field">
+                <input type="text" id="cust-name" class="input-field" placeholder="Nama Lengkap Penerima">
+                <input type="number" id="cust-phone" class="input-field" placeholder="No. WA (628...)">
+                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap & Patokan"></textarea>
+                <select id="courier" class="input-field font-bold text-slate-600">
                     <option value="JNT">J&T Express</option>
                     <option value="JNE">JNE Reguler</option>
                     <option value="SiCepat">SiCepat</option>
@@ -64,53 +60,36 @@
 
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6">
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
+                <i class="fas fa-credit-card text-pink-400"></i> Metode Pembayaran
             </h3>
             <div class="space-y-3">
                 <div onclick="selectPayment('TF')" id="pay-tf" class="payment-option p-4 rounded-2xl flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-university text-slate-400"></i>
-                        <div>
-                            <p class="font-bold text-slate-700 text-sm">Transfer Bank Manual</p>
-                            <p class="text-[10px] text-slate-400 italic">Verifikasi manual oleh admin</p>
-                        </div>
-                    </div>
+                    <div class="flex items-center gap-3"><i class="fas fa-university text-slate-400"></i><p class="font-bold text-slate-700 text-sm">Transfer Manual</p></div>
                     <i class="fas fa-check-circle text-pink-500 check-icon"></i>
                 </div>
-                
                 <div onclick="selectPayment('VA')" id="pay-va" class="payment-option p-4 rounded-2xl flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-bolt text-slate-400"></i>
-                        <div>
-                            <p class="font-bold text-slate-700 text-sm">Virtual Account (BCA/Mandiri)</p>
-                            <p class="text-[10px] text-slate-400 italic">Proses lebih cepat & otomatis</p>
-                        </div>
-                    </div>
+                    <div class="flex items-center gap-3"><i class="fas fa-bolt text-slate-400"></i><p class="font-bold text-slate-700 text-sm">Virtual Account</p></div>
                     <i class="fas fa-check-circle text-pink-500 check-icon"></i>
                 </div>
             </div>
 
             <div id="bank-info" class="hidden mt-4 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Rekening Tujuan:</p>
-                <div class="flex justify-between items-center">
-                    <b class="text-slate-700 text-sm">Bank BCA - Beauty Bloom</b>
-                    <button onclick="copyRek()" class="text-pink-500 text-[10px] font-bold border border-pink-200 px-2 py-1 rounded-lg">SALIN</button>
-                </div>
-                <p id="norek" class="text-xl font-black text-slate-800 tracking-wider">123-456-7890</p>
-                <p class="text-[9px] text-red-400 mt-2">*Kirimkan bukti transfer setelah memesan</p>
+                <div class="flex justify-between items-center"><b class="text-slate-700 text-xs uppercase">BCA - Beauty Bloom</b><button onclick="copyRek()" class="text-pink-500 text-[10px] font-bold border border-pink-200 px-2 py-1 rounded-lg">SALIN</button></div>
+                <p id="norek" class="text-xl font-black text-slate-800 mt-1">123-456-7890</p>
             </div>
         </div>
 
-        <button onclick="sendOrderToWA()" class="w-full mt-4 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
-            <i class="fab fa-whatsapp mr-2"></i> PESAN SEKARANG
+        <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
+            KONFIRMASI & PESAN ✨
         </button>
 
     </main>
 
 <script>
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
-    const MY_WA_NUMBER = "628xxxxxxxx"; // GANTI DENGAN NO WA TOKO ANDA
+    const MY_WA_NUMBER = "628xxxxxxxx"; // GANTI DENGAN NO WA ANDA
     let selectedPayMethod = "";
+    let grandTotal = 0;
 
     window.onload = async () => {
         renderCheckout();
@@ -125,67 +104,86 @@
                 document.getElementById('cust-name').value = data.full_name || "";
                 document.getElementById('cust-phone').value = data.phone_number || "";
                 document.getElementById('cust-address').value = data.address_shipping || "";
-                document.getElementById('loading-profile').innerText = "Data profil berhasil diterapkan ✨";
+                document.getElementById('loading-profile').innerText = "Alamat otomatis terisi ✨";
             } else {
-                document.getElementById('loading-profile').innerText = "Silakan lengkapi data pengiriman 🌸";
+                document.getElementById('loading-profile').innerText = "Data baru akan tersimpan di profilmu 🌸";
             }
-        } else {
-            document.getElementById('loading-profile').innerText = "Anda masuk sebagai tamu.";
         }
     }
 
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
-        let total = 0;
+        grandTotal = 0;
         container.innerHTML = cartData.map(item => {
             const sub = item.qty * item.harga;
-            total += sub;
-            return `<div class="flex justify-between items-center text-sm"><div><b class="text-slate-700">${item.nama}</b><br><small class="text-slate-400">${item.qty} x ${item.harga.toLocaleString()}</small></div><b class="text-slate-700">Rp ${sub.toLocaleString()}</b></div>`;
+            grandTotal += sub;
+            return `<div class="flex justify-between items-center"><div><b>${item.nama}</b><br><small class="text-slate-400">${item.qty} x ${item.harga.toLocaleString()}</small></div><b>Rp ${sub.toLocaleString()}</b></div>`;
         }).join('');
-        document.getElementById('txt-total').innerText = "Rp " + total.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + grandTotal.toLocaleString();
     }
 
     function selectPayment(type) {
-        selectedPayMethod = type === 'TF' ? 'Transfer Bank Manual' : 'Virtual Account';
+        selectedPayMethod = type === 'TF' ? 'Transfer Bank' : 'Virtual Account';
         document.querySelectorAll('.payment-option').forEach(c => c.classList.remove('active'));
         document.getElementById(type === 'TF' ? 'pay-tf' : 'pay-va').classList.add('active');
         document.getElementById('bank-info').classList.remove('hidden');
     }
 
-    function copyRek() {
-        const rek = document.getElementById('norek').innerText;
-        navigator.clipboard.writeText(rek);
-        alert("Nomor rekening berhasil disalin! 🌸");
-    }
+    function copyRek() { navigator.clipboard.writeText(document.getElementById('norek').innerText); alert("Norek disalin! 🌸"); }
 
-    function sendOrderToWA() {
+    async function processOrder() {
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
         const courier = document.getElementById('courier').value;
+        const btn = document.getElementById('btn-order');
 
-        if (!name || !phone || !address) return alert("Lengkapi data pengiriman ya Cantik! 🌸");
-        if (!selectedPayMethod) return alert("Pilih metode pembayaran dulu ya! 🌸");
+        if (!name || !phone || !address) return alert("Lengkapi data pengiriman! 🌸");
+        if (!selectedPayMethod) return alert("Pilih pembayaran dulu! 🌸");
 
-        let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
-        let totalVal = document.getElementById('txt-total').innerText;
+        btn.innerText = "Memproses Pesanan...";
+        btn.disabled = true;
 
-        const message = `*PESANAN BARU - BEAUTY BLOOM*🌸%0A%0A` +
-                        `*Produk:*%0A${itemsText}%0A%0A` +
-                        `*Total Bayar:* ${totalVal}%0A` +
-                        `*Metode:* ${selectedPayMethod}%0A` +
-                        `----------------------------%0A` +
-                        `*Data Penerima:*%0A` +
-                        `Nama: ${name}%0A` +
-                        `WA: ${phone}%0A` +
-                        `Kurir: ${courier}%0A` +
-                        `Alamat: ${address}%0A%0A` +
-                        `_Mohon segera diinfokan total ongkir ya Kak!_`;
+        const { data: { user } } = await db.auth.getUser();
+        const inv = `BLM-${Date.now().toString().slice(-6)}`;
 
-        window.open(`https://wa.me/${MY_WA_NUMBER}?text=${message}`, '_blank');
-        sessionStorage.removeItem('finexcart');
-        window.location.href = "online-shop.html";
+        try {
+            // 1. Simpan Transaksi Utama
+            const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
+                no_invoice: inv, customer_id: user.id, nama_penerima: name,
+                wa_penerima: phone, alamat_kirim: address, kurir: courier,
+                metode_bayar: selectedPayMethod, grand_total: grandTotal, status_order: 'Pending'
+            }]).select().single();
+
+            if (errTrx) throw errTrx;
+
+            // 2. Simpan Detail Item
+            for (const item of cartData) {
+                await db.from('transaksi_online_detail').insert([{
+                    transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama,
+                    qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga
+                }]);
+            }
+
+            // 3. Buat Log Aktivitas Pertama
+            await db.from('transaksi_online_log').insert([{
+                transaksi_id: trx.id, status: 'Pesanan Dibuat', keterangan: 'Pesanan telah diterima oleh sistem Beauty Bloom.'
+            }]);
+
+            // 4. Kirim WA
+            let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
+            const message = `*ORDER ONLINE BEAUTY BLOOM*🌸%0AInv: ${inv}%0A%0A*Pesanan:*%0A${itemsText}%0A%0ATotal: Rp ${grandTotal.toLocaleString()}%0AMetode: ${selectedPayMethod}%0AAlamat: ${address}`;
+            
+            window.open(`https://wa.me/${MY_WA_NUMBER}?text=${message}`, '_blank');
+            sessionStorage.removeItem('finexcart');
+            window.location.href = "online-shop.html";
+
+        } catch (e) {
+            alert("Error: " + e.message);
+            btn.innerText = "KONFIRMASI & PESAN ✨";
+            btn.disabled = false;
+        }
     }
 </script>
 </body>
