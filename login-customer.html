@@ -7,44 +7,133 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-init.js"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+
     <style>
-        body { background: #fff0f3; background-image: radial-gradient(at 0% 0%, #ffe5ec 0, transparent 50%), radial-gradient(at 50% 0%, #fff0f3 0, transparent 50%); font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .login-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-radius: 30px; padding: 40px 30px; width: 90%; max-width: 400px; box-shadow: 0 20px 40px rgba(255, 133, 162, 0.2); text-align: center; border: 1px solid rgba(255, 255, 255, 0.3); }
-        .btn-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); color: white; transition: 0.3s; }
-        .btn-pink:hover { transform: translateY(-2px); opacity: 0.9; }
+        body { 
+            background: #fff0f3; 
+            background-image: radial-gradient(at 0% 0%, #ffe5ec 0, transparent 50%), radial-gradient(at 50% 0%, #fff0f3 0, transparent 50%); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden;
+        }
+        .login-card { 
+            background: rgba(255, 255, 255, 0.9); 
+            backdrop-filter: blur(15px); 
+            border-radius: 35px; 
+            padding: 40px 30px; 
+            width: 90%; 
+            max-width: 400px; 
+            box-shadow: 0 25px 50px -12px rgba(255, 133, 162, 0.25); 
+            text-align: center; 
+            border: 1px solid rgba(255, 255, 255, 0.4); 
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .btn-pink { 
+            background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); 
+            color: white; 
+            transition: all 0.3s; 
+            box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3);
+        }
+        .btn-pink:hover { transform: translateY(-2px); opacity: 0.9; box-shadow: 0 15px 20px -3px rgba(247, 37, 133, 0.4); }
+        .input-bloom {
+            background: #fffafa;
+            border: 1px solid #ffe5ec;
+            transition: 0.3s;
+        }
+        .input-bloom:focus {
+            background: white;
+            border-color: #ff85a2;
+            box-shadow: 0 0 0 4px rgba(255, 133, 162, 0.1);
+        }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="text-pink-500 text-5xl mb-4"><i class="fa-solid fa-wand-sparkles"></i></div>
-        <h1 class="text-2xl font-black text-slate-800 mb-1">Beauty Bloom</h1>
-        <p class="text-sm text-slate-500 mb-8">Rahasia cantikmu dimulai di sini ✨</p>
 
-        <button onclick="loginGoogle()" class="w-full bg-white border border-slate-200 py-3 rounded-2xl font-bold flex items-center justify-center gap-3 mb-4 shadow-sm hover:bg-slate-50">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Masuk dengan Google
+    <div class="login-card">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-pink-50 rounded-full mb-6 text-pink-500 text-4xl shadow-inner">
+            <i class="fa-solid fa-wand-sparkles"></i>
+        </div>
+        
+        <h1 class="text-3xl font-black text-slate-800 mb-1">Beauty Bloom</h1>
+        <p class="text-sm text-slate-400 mb-10 uppercase tracking-[2px] font-bold">Member Area</p>
+
+        <button onclick="loginGoogle()" class="w-full bg-white border border-slate-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 mb-4 shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-slate-600">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20"> 
+            Login via Google
         </button>
 
         <div class="flex items-center gap-4 my-6 text-slate-300">
-            <div class="h-[1px] bg-slate-200 flex-1"></div><span class="text-[10px] font-bold uppercase tracking-widest">Atau</span><div class="h-[1px] bg-slate-200 flex-1"></div>
+            <div class="h-[1px] bg-slate-100 flex-1"></div>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Atau Manual</span>
+            <div class="h-[1px] bg-slate-100 flex-1"></div>
         </div>
 
-        <input type="email" id="email" placeholder="Email" class="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-pink-300 border-none">
-        <input type="password" id="password" placeholder="Password" class="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-pink-300 border-none">
+        <div class="space-y-4">
+            <input type="email" id="email" placeholder="Alamat Email" 
+                class="input-bloom w-full p-4 rounded-2xl outline-none text-slate-700">
+            
+            <input type="password" id="password" placeholder="Password" 
+                class="input-bloom w-full p-4 rounded-2xl outline-none text-slate-700">
+        </div>
 
-        <button onclick="loginEmail()" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg">MASUK SEKARANG</button>
-        <p class="mt-6 text-xs text-slate-500">Belum punya akun? <a href="#" class="text-pink-500 font-bold">Daftar Akun</a></p>
+        <button onclick="loginEmail()" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-8 active:scale-95 transition-all">
+            MASUK SEKARANG
+        </button>
+
+        <p class="mt-8 text-xs text-slate-400 font-semibold">
+            Baru di Bloom? 
+            <a href="register-customer.html" class="text-pink-500 font-bold hover:underline">Daftar Akun</a>
+        </p>
     </div>
 
     <script>
+        // Cek Sesi Saat Ini (Auto Redirect)
+        window.onload = async () => {
+            const { data: { session } } = await db.auth.getSession();
+            if (session) {
+                window.location.replace('online-shop.html');
+            }
+        };
+
+        // Login Google
         async function loginGoogle() {
-            const { error } = await db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/online-shop.html' } });
-            if (error) alert(error.message);
+            const { error } = await db.auth.signInWithOAuth({ 
+                provider: 'google', 
+                options: { 
+                    redirectTo: window.location.origin + '/online-shop.html' 
+                } 
+            });
+            if (error) alert("Error: " + error.message);
         }
+
+        // Login Email
         async function loginEmail() {
-            const { data, error } = await db.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
-            if (error) alert("Login Gagal: Periksa kembali email/password 🌸");
-            else window.location.href = 'online-shop.html';
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) return alert("Mohon lengkapi email dan password 🌸");
+
+            const { data, error } = await db.auth.signInWithPassword({ 
+                email: email, 
+                password: password 
+            });
+
+            if (error) {
+                alert("Login Gagal: Email atau Password salah. Pastikan sudah terdaftar ya! 🌸");
+            } else {
+                window.location.replace('online-shop.html');
+            }
         }
     </script>
 </body>
