@@ -8,15 +8,25 @@
     const SB_URL = sessionStorage.getItem('CLIENT_URL');
     const SB_KEY = sessionStorage.getItem('CLIENT_KEY');
     const NAMA_TOKO = sessionStorage.getItem('NAMA_TOKO') || 'Finex Pos';
-
-    // 2. Proteksi Halaman: Jika tidak ada kunci, tendang kembali ke login
+// 2. Proteksi Halaman: Jika tidak ada kunci, tendang kembali ke login
     if (!SB_URL || !SB_KEY) {
-        // Abaikan proteksi jika user sedang di halaman login
-        if (!window.location.pathname.includes('login.html')) {
+        // DAFTAR HALAMAN YANG BOLEH DIAKSES TANPA LOGIN POS (Pengecualian)
+        const halamanBebas = [
+            'login.html', 
+            'login-customer.html', 
+            'register-customer.html', 
+            'online-shop.html',
+            'online-checkout.html'
+        ];
+
+        // Cek apakah halaman saat ini ada dalam daftar pengecualian
+        const isHalamanBebas = halamanBebas.some(path => window.location.pathname.includes(path));
+
+        if (!isHalamanBebas) {
+            console.log("Akses ditolak, mengalihkan ke Login POS...");
             window.location.replace('login.html');
         }
     }
-
     // 3. Inisialisasi Database Client secara Global
     // Sekarang Anda bisa menggunakan variabel 'db' di semua file lain
     window.db = window.supabase.createClient(SB_URL, SB_KEY);
