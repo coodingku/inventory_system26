@@ -7,55 +7,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-init.js"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
-
     <style>
-        body { 
-            background: #fff0f3; 
-            background-image: radial-gradient(at 0% 0%, #ffe5ec 0, transparent 50%), radial-gradient(at 50% 0%, #fff0f3 0, transparent 50%); 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0; 
-            overflow: hidden;
-        }
-        .login-card { 
-            background: rgba(255, 255, 255, 0.9); 
-            backdrop-filter: blur(15px); 
-            border-radius: 35px; 
-            padding: 40px 30px; 
-            width: 90%; 
-            max-width: 400px; 
-            box-shadow: 0 25px 50px -12px rgba(255, 133, 162, 0.25); 
-            text-align: center; 
-            border: 1px solid rgba(255, 255, 255, 0.4); 
-            animation: fadeIn 0.6s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .btn-pink { 
-            background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); 
-            color: white; 
-            transition: all 0.3s; 
-            box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3);
-        }
-        .btn-pink:hover { transform: translateY(-2px); opacity: 0.9; box-shadow: 0 15px 20px -3px rgba(247, 37, 133, 0.4); }
-        .input-bloom {
-            background: #fffafa;
-            border: 1px solid #ffe5ec;
-            transition: 0.3s;
-        }
-        .input-bloom:focus {
-            background: white;
-            border-color: #ff85a2;
-            box-shadow: 0 0 0 4px rgba(255, 133, 162, 0.1);
-        }
+        body { background: #fff0f3; background-image: radial-gradient(at 0% 0%, #ffe5ec 0, transparent 50%), radial-gradient(at 50% 0%, #fff0f3 0, transparent 50%); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .login-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px); border-radius: 35px; padding: 40px 30px; width: 90%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(255, 133, 162, 0.25); text-align: center; border: 1px solid rgba(255, 255, 255, 0.4); animation: fadeIn 0.6s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); color: white; transition: all 0.3s; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
+        .btn-pink:hover { transform: translateY(-2px); opacity: 0.9; }
+        .input-bloom { background: #fffafa; border: 1px solid #ffe5ec; transition: 0.3s; }
+        .input-bloom:focus { border-color: #ff85a2; box-shadow: 0 0 0 4px rgba(255, 133, 162, 0.1); outline: none; }
     </style>
 </head>
 <body>
@@ -68,7 +29,7 @@
         <h1 class="text-3xl font-black text-slate-800 mb-1">Beauty Bloom</h1>
         <p class="text-sm text-slate-400 mb-10 uppercase tracking-[2px] font-bold">Member Area</p>
 
-        <button onclick="loginGoogle()" class="w-full bg-white border border-slate-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 mb-4 shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-slate-600">
+        <button onclick="loginGoogle()" class="w-full bg-white border border-slate-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 mb-4 shadow-sm hover:bg-slate-50 transition-all text-slate-600">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20"> 
             Login via Google
         </button>
@@ -80,14 +41,11 @@
         </div>
 
         <div class="space-y-4">
-            <input type="email" id="email" placeholder="Alamat Email" 
-                class="input-bloom w-full p-4 rounded-2xl outline-none text-slate-700">
-            
-            <input type="password" id="password" placeholder="Password" 
-                class="input-bloom w-full p-4 rounded-2xl outline-none text-slate-700">
+            <input type="email" id="email" placeholder="Alamat Email" class="input-bloom w-full p-4 rounded-2xl text-slate-700">
+            <input type="password" id="password" placeholder="Password" class="input-bloom w-full p-4 rounded-2xl text-slate-700">
         </div>
 
-        <button onclick="loginEmail()" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-8 active:scale-95 transition-all">
+        <button onclick="loginEmail()" id="btnLogin" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-8 active:scale-95 transition-all">
             MASUK SEKARANG
         </button>
 
@@ -98,16 +56,18 @@
     </div>
 
     <script>
-        // Cek Sesi Saat Ini (Auto Redirect)
+        // 1. CEK SESI (Hanya mengalihkan jika benar-benar session Customer)
         window.onload = async () => {
             const { data: { session } } = await db.auth.getSession();
+            // Jika ada sesi login customer, langsung ke online-shop.html
             if (session) {
                 window.location.replace('online-shop.html');
             }
         };
 
-        // Login Google
+        // 2. LOGIN GOOGLE
         async function loginGoogle() {
+            // Pastikan redirectTo mengarah langsung ke online-shop.html
             const { error } = await db.auth.signInWithOAuth({ 
                 provider: 'google', 
                 options: { 
@@ -117,12 +77,16 @@
             if (error) alert("Error: " + error.message);
         }
 
-        // Login Email
+        // 3. LOGIN EMAIL (Perbaikan Redirect)
         async function loginEmail() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const btn = document.getElementById('btnLogin');
 
-            if (!email || !password) return alert("Mohon lengkapi email dan password ");
+            if (!email || !password) return alert("Mohon lengkapi email dan password! 🌸");
+
+            btn.innerText = "MENGECEK...";
+            btn.disabled = true;
 
             const { data, error } = await db.auth.signInWithPassword({ 
                 email: email, 
@@ -130,9 +94,12 @@
             });
 
             if (error) {
-                alert("Login Gagal: Email atau Password salah. Pastikan sudah terdaftar ya! ");
+                alert("Login Gagal: Email atau Password salah. 🌸");
+                btn.innerText = "MASUK SEKARANG";
+                btn.disabled = false;
             } else {
-                window.location.replace('shopp.html');
+                // ARAHKAN KE online-shop.html (Pastikan nama file benar)
+                window.location.replace('online-shop.html');
             }
         }
     </script>
