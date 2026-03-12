@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Pesanan Online Bloom</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; }
+        .pending { background: #fee2e2; color: #ef4444; }
+        .dikemas { background: #fef3c7; color: #d97706; }
+        .dikirim { background: #dcfce7; color: #16a34a; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800">Manajemen Pesanan Online 🌸</h1>
+                <p class="text-slate-500 text-sm">Konfirmasi dan atur pengiriman produk Beauty Bloom</p>
+            </div>
+            <button onclick="loadOrders()" class="bg-blue-600 text-white p-3 rounded-xl shadow-lg hover:bg-blue-700 transition-all">
+                <i class="fas fa-sync-alt"></i> Refresh Data
+            </button>
+        </header>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Total Pesanan</p>
+                <h3 id="stat-total" class="text-xl font-black text-slate-800">0</h3>
+            </div>
+            <div class="bg-pink-50 p-5 rounded-3xl shadow-sm border border-pink-100">
+                <p class="text-[10px] font-bold text-pink-400 uppercase">Perlu Diproses</p>
+                <h3 id="stat-pending" class="text-xl font-black text-pink-600">0</h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase">Invoice & Customer</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase">Total & Metode</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase">Status</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="orderList" class="divide-y divide-slate-50">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    window.onload = loadOrders;
+
+    async function loadOrders() {
+        const { data, error } = await db.from('transaksi_online')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) return console.error(error);
+
+        // Update Stats
+        document.getElementById('stat-total').innerText = data.length;
+        document.getElementById('stat-pending').innerText = data.filter(x => x.status_order === 'Pending').length;
+
+        const container = document.getElementById('orderList');
+        container.innerHTML = data.map(trx => `
+            <tr>
+                <td class="px-6 py-4">
+                    <p class="font-black text-slate-800 text-sm">${trx.no_invoice}</p>
+                    <p class="text-xs text-slate-500">${trx.nama_penerima}</p>
+                    <p class="text-[9px] text-slate-400 italic">${trx.wa_penerima}</p>
+                </td>
+                <td class="px-6 py-4">
+                    <p class="font-bold text-blue-600 text-sm">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                    <p class="text-[10px] font-bold text-slate-400">${trx.metode_bayar}</p>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="status-badge ${trx.status_order.toLowerCase()}">${trx.status_order}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex justify-center gap-2">
+                        ${trx.status_order === 'Pending' ? 
+                            `<button onclick="updateStatus('${trx.id}', 'Dikemas')" class="bg-amber-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-amber-600">KEMAS BARANG</button>` : 
+                            (trx.status_order === 'Dikemas' ? 
+                            `<button onclick="updateStatus('${trx.id}', 'Dikirim')" class="bg-green-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-green-600">KIRIM BARANG</button>` : 
+                            `<span class="text-slate-300 text-[10px] font-bold italic">Selesai / Dikirim</span>`)
+                        }
+                        <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-600 text-[10px] font-bold px-3 py-2 rounded-lg"><i class="fas fa-eye"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function updateStatus(id, statusBaru) {
+        const loadingMsg = statusBaru === 'Dikemas' ? 'Sedang dikemas tim Bloom' : 'Pesanan sudah diserahkan ke kurir';
+        
+        // 1. Update Tabel Utama
+        const { error } = await db.from('transaksi_online')
+            .update({ status_order: statusBaru })
+            .eq('id', id);
+
+        if (error) return alert("Gagal update status");
+
+        // 2. Tambah Log Aktivitas agar Customer Bisa Lacak
+        await db.from('transaksi_online_log').insert([{
+            transaksi_id: id,
+            status: statusBaru,
+            keterangan: loadingMsg
+        }]);
+
+        alert(`Pesanan berhasil diubah ke: ${statusBaru} ✨`);
+        loadOrders();
+    }
+
+    async function viewDetail(id) {
+        const { data, error } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
+        if (data) {
+            let list = data.map(i => `- ${i.nama_barang} (${i.qty}x)`).join('\n');
+            alert("Rincian Produk:\n" + list);
+        }
+    }
+</script>
+</body>
+</html>
