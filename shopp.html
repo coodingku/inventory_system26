@@ -13,36 +13,15 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
         
-        /* Glassmorphism Effect untuk Header */
-        .glass-header {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
+        .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 
-        /* Card Produk Premium */
-        .product-card {
-            background: white;
-            border-radius: 24px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            border: 1px solid #f1f5f9;
-        }
-        
-        .product-card:active {
-            transform: scale(0.95);
-        }
+        .product-card { background: white; border-radius: 24px; overflow: hidden; transition: all 0.3s ease; border: 1px solid #f1f5f9; }
+        .product-card:active { transform: scale(0.95); }
 
-        .img-container {
-            aspect-ratio: 1 / 1;
-            overflow: hidden;
-            background: #f1f5f9;
-        }
+        .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #f1f5f9; cursor: pointer; }
 
-        /* Sembunyikan Scrollbar */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* Animasi Badge Keranjang */
         @keyframes pulse-cart {
             0% { transform: scale(1); }
             50% { transform: scale(1.2); }
@@ -50,20 +29,23 @@
         }
         .cart-animate { animation: pulse-cart 0.3s ease-in-out; }
 
-        /* Bottom Navigation */
         .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            display: flex;
-            justify-content: space-around;
-            padding: 12px 0 25px 0; /* Padding bawah lebih besar untuk iPhone modern */
-            box-shadow: 0 -10px 20px rgba(0,0,0,0.05);
-            border-radius: 24px 24px 0 0;
-            z-index: 100;
+            position: fixed; bottom: 0; left: 0; right: 0; background: white;
+            display: flex; justify-content: space-around; padding: 12px 0 25px 0;
+            box-shadow: 0 -10px 20px rgba(0,0,0,0.05); border-radius: 24px 24px 0 0; z-index: 100;
         }
+
+        /* BOTTOM SHEET DETAIL */
+        .detail-modal {
+            position: fixed; bottom: -100%; left: 0; right: 0; background: white;
+            z-index: 1000; border-radius: 32px 32px 0 0;
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+        }
+        .detail-modal.active { bottom: 0; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; z-index: 999; }
+        .modal-overlay.active { display: block; }
+        .drag-handle { width: 50px; height: 5px; background: #e2e8f0; border-radius: 10px; margin: 15px auto; }
     </style>
 </head>
 <body class="pb-28">
@@ -108,15 +90,37 @@
 
     <main class="px-6 mt-8">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="font-extrabold text-slate-800">Rekomendasi Untukmu</h3>
+            <h3 class="font-extrabold text-slate-800">Koleksi Produk</h3>
             <a href="#" class="text-xs font-bold text-blue-600">Lihat Semua</a>
         </div>
-
         <div id="onlineDisplay" class="grid grid-cols-2 gap-4">
             <div class="animate-pulse bg-white rounded-3xl h-60"></div>
             <div class="animate-pulse bg-white rounded-3xl h-60"></div>
         </div>
     </main>
+
+    <div id="modalOverlay" class="modal-overlay" onclick="closeDetail()"></div>
+    <div id="productDetailModal" class="detail-modal">
+        <div class="drag-handle"></div>
+        <div class="px-6 pb-10">
+            <div class="aspect-square rounded-3xl mb-4 overflow-hidden bg-slate-100 h-64 mx-auto">
+                <img id="detail-img" src="" class="w-full h-full object-cover">
+            </div>
+            <div class="flex justify-between items-start mb-2">
+                <h2 id="detail-name" class="text-xl font-extrabold text-slate-800 flex-1"></h2>
+                <p id="detail-price" class="text-xl font-black text-blue-600 ml-4"></p>
+            </div>
+            <p id="detail-cat" class="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-4"></p>
+            <h3 class="font-bold text-slate-800 text-sm mb-2">Deskripsi Produk</h3>
+            <p id="detail-desc" class="text-slate-500 text-sm leading-relaxed mb-8">Produk kecantikan premium.</p>
+            <div class="flex gap-4">
+                <button onclick="closeDetail()" class="flex-1 py-4 bg-slate-100 rounded-2xl font-bold text-slate-500">Tutup</button>
+                <button id="btn-add-modal" class="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 active:scale-95 transition-all">
+                    TAMBAH KERANJANG
+                </button>
+            </div>
+        </div>
+    </div>
 
     <nav class="bottom-nav">
         <a href="index.html" class="flex flex-col items-center text-blue-600">
@@ -158,10 +162,8 @@
 
         container.innerHTML = data.map(p => `
             <div class="product-card shadow-sm">
-                <div class="img-container">
-                    <img src="${p.foto_url || 'https://via.placeholder.com/300'}" 
-                         class="w-full h-full object-cover" 
-                         onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
+                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.foto_url}', '${p.deskripsi || 'Produk kecantikan terbaik untuk Anda.'}', '${p.kategori}')">
+                    <img src="${p.foto_url || 'https://via.placeholder.com/300'}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
                 </div>
                 <div class="p-3">
                     <h4 class="font-bold text-slate-800 text-[13px] leading-tight h-8 overflow-hidden">${p.nama_barang}</h4>
@@ -176,18 +178,37 @@
             </div>`).join('');
     }
 
+    function openDetail(id, nama, harga, img, desc, cat) {
+        document.getElementById('detail-name').innerText = nama;
+        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
+        document.getElementById('detail-img').src = img || 'https://via.placeholder.com/300';
+        document.getElementById('detail-desc').innerText = desc;
+        document.getElementById('detail-cat').innerText = cat || 'Kecantikan';
+        
+        document.getElementById('btn-add-modal').onclick = function() {
+            addToOnlineCart(id, nama, harga);
+            closeDetail();
+        };
+
+        document.getElementById('productDetailModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function closeDetail() {
+        document.getElementById('productDetailModal').classList.remove('active');
+        document.getElementById('modalOverlay').classList.remove('active');
+    }
+
     function addToOnlineCart(id, nama, harga) {
         const idx = shopCart.findIndex(c => c.id === id);
         if (idx > -1) shopCart[idx].qty++;
         else shopCart.push({ id, nama, harga, qty: 1 });
         
-        // Update UI
         const badge = document.getElementById('cart-count');
         badge.innerText = shopCart.reduce((sum, item) => sum + item.qty, 0);
         
-        // Animasi Pulse pada Badge
         badge.classList.remove('cart-animate');
-        void badge.offsetWidth; // Trigger reflow
+        void badge.offsetWidth; 
         badge.classList.add('cart-animate');
     }
 
