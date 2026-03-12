@@ -4,54 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout | Finex Shop</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; }
-        .input-field:focus { border-color: #2563eb; ring: 2px; ring-color: #bfdbfe; }
+        .input-field:focus { border-color: #ff85a2; ring: 2px; ring-color: #ffe5ec; }
     </style>
 </head>
 <body class="bg-slate-50 pb-10">
 
-    <header class="bg-white shadow-sm sticky top-0 z-40 p-4">
+    <header class="bg-white shadow-sm sticky top-0 z-40 p-4 border-b border-pink-100">
         <div class="max-w-2xl mx-auto flex items-center gap-4">
-            <a href="index.html" class="text-blue-600 text-xl"><i class="fas fa-arrow-left"></i></a>
-            <h1 class="text-xl font-bold text-slate-800">Checkout Pesanan</h1>
+            <a href="online-shop.html" class="text-pink-500 text-xl"><i class="fas fa-arrow-left"></i></a>
+            <h1 class="text-xl font-bold text-slate-800">Checkout Pesanan 🌸</h1>
         </div>
     </header>
 
     <main class="max-w-2xl mx-auto px-4 mt-6">
         
-        <div class="bg-white p-6 rounded-3xl shadow-sm mb-6">
-            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">📦 Produk yang Dipesan</h3>
+        <div class="bg-white p-6 rounded-3xl shadow-sm mb-6 border border-pink-50">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i class="fas fa-box text-pink-400"></i> Produk Dipesan
+            </h3>
             <div id="checkout-list" class="space-y-4">
                 </div>
             <div class="mt-6 pt-4 border-t border-dashed border-slate-200">
-                <div class="flex justify-between font-black text-xl text-blue-600">
+                <div class="flex justify-between font-black text-xl text-[#f72585]">
                     <span>Total Bayar</span>
                     <span id="txt-total">Rp 0</span>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl shadow-sm">
-            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">📍 Data Pengiriman</h3>
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-50">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i class="fas fa-map-marker-alt text-pink-400"></i> Data Pengiriman
+            </h3>
+            <div id="loading-profile" class="text-xs text-pink-400 mb-4 animate-pulse">Menyiapkan data profilmu...</div>
+            
             <div class="space-y-4">
                 <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase px-1">Nama Lengkap</label>
-                    <input type="text" id="cust-name" class="input-field" placeholder="Masukkan nama Anda...">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">Nama Lengkap</label>
+                    <input type="text" id="cust-name" class="input-field" placeholder="Memuat nama...">
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase px-1">No. WhatsApp</label>
-                    <input type="number" id="cust-phone" class="input-field" placeholder="628xxxxxx">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">No. WhatsApp</label>
+                    <input type="number" id="cust-phone" class="input-field" placeholder="Contoh: 62812xxx">
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase px-1">Alamat Lengkap</label>
-                    <textarea id="cust-address" rows="3" class="input-field" placeholder="Nama jalan, Nomor rumah, Kecamatan, Kota..."></textarea>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">Alamat Lengkap</label>
+                    <textarea id="cust-address" rows="3" class="input-field" placeholder="Nama jalan, No rumah, Kec, Kota..."></textarea>
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase px-1">Pilih Kurir</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase px-1">Pilih Kurir</label>
                     <select id="courier" class="input-field">
                         <option value="JNT">J&T Express</option>
                         <option value="JNE">JNE Reguler</option>
@@ -62,22 +70,45 @@
             </div>
         </div>
 
-        <button onclick="sendOrderToWA()" class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg shadow-blue-200 active:scale-95 transition-all">
-            <i class="fab fa-whatsapp mr-2"></i> PESAN SEKARANG
+        <button onclick="sendOrderToWA()" class="w-full mt-8 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
+            <i class="fab fa-whatsapp mr-2"></i> PESAN VIA WHATSAPP
         </button>
 
     </main>
 
 <script>
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
-    const MY_WA_NUMBER = "628xxxxxxxx"; // Ganti dengan nomor WhatsApp Toko Allberto
+    const MY_WA_NUMBER = "628xxxxxxxx"; // GANTI DENGAN NO WA TOKO ALLBERTO
 
-    window.onload = renderCheckout;
+    window.onload = async () => {
+        renderCheckout();
+        await loadCustomerData();
+    };
+
+    // Fungsi Ambil Data Profil dari Supabase
+    async function loadCustomerData() {
+        const { data: { user } } = await db.auth.getUser();
+        
+        if (user) {
+            const { data, error } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
+            
+            if (data) {
+                document.getElementById('cust-name').value = data.full_name || "";
+                document.getElementById('cust-phone').value = data.phone_number || "";
+                document.getElementById('cust-address').value = data.address_shipping || "";
+                document.getElementById('loading-profile').innerText = "Data profil berhasil diterapkan ✨";
+            } else {
+                document.getElementById('loading-profile').innerText = "Lengkapi data di bawah untuk pesanan pertama ya 🌸";
+            }
+        } else {
+            document.getElementById('loading-profile').innerText = "Anda masuk sebagai tamu.";
+        }
+    }
 
     function renderCheckout() {
         if (cartData.length === 0) {
             alert("Keranjang kosong!");
-            window.location.href = "index.html";
+            window.location.href = "online-shop.html";
             return;
         }
 
@@ -107,13 +138,12 @@
         const address = document.getElementById('cust-address').value;
         const courier = document.getElementById('courier').value;
 
-        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman!");
+        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman ya Cantik! 🌸");
 
-        // Format Pesan WhatsApp
         let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
         let totalVal = document.getElementById('txt-total').innerText;
 
-        const message = `*HALOO FINEX SHOP, SAYA MAU ORDER!*%0A%0A` +
+        const message = `*HALOO BEAUTY BLOOM, SAYA MAU ORDER!*%0A%0A` +
                         `*Detail Pesanan:*%0A${itemsText}%0A%0A` +
                         `*Total:* ${totalVal}%0A` +
                         `----------------------------%0A` +
@@ -126,12 +156,9 @@
 
         const waLink = `https://wa.me/${MY_WA_NUMBER}?text=${message}`;
         
-        // Hapus keranjang setelah checkout
         sessionStorage.removeItem('finexcart');
-        
-        // Arahkan ke WhatsApp
         window.open(waLink, '_blank');
-        window.location.href = "index.html"; // Kembali ke toko
+        window.location.href = "online-shop.html";
     }
 </script>
 </body>
