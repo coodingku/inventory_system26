@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | Finex Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; }
+        .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; }
+        .input-field:focus { border-color: #2563eb; ring: 2px; ring-color: #bfdbfe; }
+    </style>
+</head>
+<body class="bg-slate-50 pb-10">
+
+    <header class="bg-white shadow-sm sticky top-0 z-40 p-4">
+        <div class="max-w-2xl mx-auto flex items-center gap-4">
+            <a href="index.html" class="text-blue-600 text-xl"><i class="fas fa-arrow-left"></i></a>
+            <h1 class="text-xl font-bold text-slate-800">Checkout Pesanan</h1>
+        </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-4 mt-6">
+        
+        <div class="bg-white p-6 rounded-3xl shadow-sm mb-6">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">📦 Produk yang Dipesan</h3>
+            <div id="checkout-list" class="space-y-4">
+                </div>
+            <div class="mt-6 pt-4 border-t border-dashed border-slate-200">
+                <div class="flex justify-between font-black text-xl text-blue-600">
+                    <span>Total Bayar</span>
+                    <span id="txt-total">Rp 0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-sm">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">📍 Data Pengiriman</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase px-1">Nama Lengkap</label>
+                    <input type="text" id="cust-name" class="input-field" placeholder="Masukkan nama Anda...">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase px-1">No. WhatsApp</label>
+                    <input type="number" id="cust-phone" class="input-field" placeholder="628xxxxxx">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase px-1">Alamat Lengkap</label>
+                    <textarea id="cust-address" rows="3" class="input-field" placeholder="Nama jalan, Nomor rumah, Kecamatan, Kota..."></textarea>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase px-1">Pilih Kurir</label>
+                    <select id="courier" class="input-field">
+                        <option value="JNT">J&T Express</option>
+                        <option value="JNE">JNE Reguler</option>
+                        <option value="SiCepat">SiCepat</option>
+                        <option value="Ambil di Toko">Ambil di Toko (Free)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="sendOrderToWA()" class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg shadow-blue-200 active:scale-95 transition-all">
+            <i class="fab fa-whatsapp mr-2"></i> PESAN SEKARANG
+        </button>
+
+    </main>
+
+<script>
+    let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
+    const MY_WA_NUMBER = "628xxxxxxxx"; // Ganti dengan nomor WhatsApp Toko Allberto
+
+    window.onload = renderCheckout;
+
+    function renderCheckout() {
+        if (cartData.length === 0) {
+            alert("Keranjang kosong!");
+            window.location.href = "index.html";
+            return;
+        }
+
+        const container = document.getElementById('checkout-list');
+        let total = 0;
+
+        container.innerHTML = cartData.map(item => {
+            const sub = item.qty * item.harga;
+            total += sub;
+            return `
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">${item.nama}</p>
+                        <p class="text-xs text-slate-400">${item.qty} x Rp ${item.harga.toLocaleString()}</p>
+                    </div>
+                    <p class="font-bold text-slate-700">Rp ${sub.toLocaleString()}</p>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('txt-total').innerText = "Rp " + total.toLocaleString();
+    }
+
+    function sendOrderToWA() {
+        const name = document.getElementById('cust-name').value;
+        const phone = document.getElementById('cust-phone').value;
+        const address = document.getElementById('cust-address').value;
+        const courier = document.getElementById('courier').value;
+
+        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman!");
+
+        // Format Pesan WhatsApp
+        let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
+        let totalVal = document.getElementById('txt-total').innerText;
+
+        const message = `*HALOO FINEX SHOP, SAYA MAU ORDER!*%0A%0A` +
+                        `*Detail Pesanan:*%0A${itemsText}%0A%0A` +
+                        `*Total:* ${totalVal}%0A` +
+                        `----------------------------%0A` +
+                        `*Data Pemesan:*%0A` +
+                        `Nama: ${name}%0A` +
+                        `WA: ${phone}%0A` +
+                        `Alamat: ${address}%0A` +
+                        `Kurir: ${courier}%0A%0A` +
+                        `_Mohon segera diinfokan total ongkir dan no.rekening ya Kak!_`;
+
+        const waLink = `https://wa.me/${MY_WA_NUMBER}?text=${message}`;
+        
+        // Hapus keranjang setelah checkout
+        sessionStorage.removeItem('finexcart');
+        
+        // Arahkan ke WhatsApp
+        window.open(waLink, '_blank');
+        window.location.href = "index.html"; // Kembali ke toko
+    }
+</script>
+</body>
+</html>
