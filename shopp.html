@@ -3,249 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finex Beauty Bloom | Online Shop</title>
+    <title>Finex Beauty Bloom | Shop</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-init.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
-
     <style>
-        /* TEMA WARNA PINK BEAUTY BLOOM */
-        :root {
-            --primary-pink: #ff85a2;
-            --soft-pink: #fff0f3;
-            --deep-pink: #f72585;
-            --accent-peach: #ffb3c1;
-        }
-
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); }
-        
-        /* Glassmorphism Pink */
-        .glass-header {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(255, 133, 162, 0.2);
-        }
-
-        /* Card Produk Estetik */
-        .product-card {
-            background: white;
-            border-radius: 28px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 133, 162, 0.1);
-            box-shadow: 0 4px 15px rgba(255, 133, 162, 0.05);
-        }
-        
-        .product-card:active { transform: scale(0.96); }
-
-        .img-container {
-            aspect-ratio: 1 / 1;
-            overflow: hidden;
-            background: #fffafa;
-            cursor: pointer;
-        }
-
-        /* Navigasi Bawah Pink */
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; right: 0; background: white;
-            display: flex; justify-content: space-around; padding: 12px 0 25px 0;
-            box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1);
-            border-radius: 30px 30px 0 0; z-index: 100;
-        }
-
-        /* Bottom Sheet Detail */
-        .detail-modal {
-            position: fixed; bottom: -100%; left: 0; right: 0; background: white;
-            z-index: 1000; border-radius: 35px 35px 0 0;
-            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 -15px 35px rgba(0,0,0,0.1);
-        }
-        .detail-modal.active { bottom: 0; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(247, 37, 133, 0.1); backdrop-filter: blur(4px); display: none; z-index: 999; }
-        .modal-overlay.active { display: block; }
-        .drag-handle { width: 40px; height: 4px; background: var(--accent-peach); border-radius: 10px; margin: 12px auto; }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        @keyframes pulse-pink {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.3); background: var(--deep-pink); }
-            100% { transform: scale(1); }
-        }
-        .cart-animate { animation: pulse-pink 0.3s ease-in-out; }
+        body { background-color: #fff0f3; font-family: 'Segoe UI', sans-serif; padding-bottom: 100px; }
+        .product-card { background: white; border-radius: 25px; overflow: hidden; border: 1px solid #ffe5ec; transition: 0.3s; }
+        .img-box { aspect-ratio: 1/1; background: #fef1f2; overflow: hidden; }
+        /* Floating Cart Button */
+        .btn-floating { position: fixed; bottom: 30px; right: 25px; width: 75px; height: 75px; background: #f72585; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 10px 25px rgba(247, 37, 133, 0.4); z-index: 1000; border: 4px solid white; transition: 0.3s; }
+        .badge { position: absolute; top: -5px; right: -5px; background: #ff4d6d; color: white; font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 50%; border: 2px solid white; }
+        /* Pop-up Keranjang */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+        .modal-content { background: white; width: 100%; max-width: 450px; border-radius: 30px; padding: 25px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.3); }
     </style>
 </head>
-<body class="pb-28">
+<body>
 
-    <header class="glass-header sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div>
-            <p class="text-[10px] font-bold text-[#ff4d6d] uppercase tracking-widest">Finex Store</p>
-            <h1 class="text-xl font-extrabold text-slate-800">Beauty Bloom 🌸</h1>
-        </div>
-        <button class="relative p-2 bg-pink-50 rounded-full border border-pink-100 text-pink-500">
-            <i class="fa-solid fa-sparkles text-lg"></i>
-        </button>
+    <header class="sticky top-0 bg-white/80 backdrop-blur-md p-4 flex justify-between items-center z-50">
+        <h2 class="text-xl font-black text-pink-500">Beauty Bloom 🌸</h2>
+        <button class="text-slate-400 text-xl"><i class="fa-regular fa-bell"></i></button>
     </header>
 
-    <section class="px-6 mt-6">
-        <div class="relative group">
-            <i class="fas fa-search absolute left-5 top-4 text-pink-300"></i>
-            <input type="text" id="search" onkeyup="loadOnlineMenu()" 
-                   class="w-full pl-12 pr-4 py-4 bg-white rounded-3xl border-none shadow-sm focus:ring-2 focus:ring-pink-300 outline-none transition-all placeholder:text-pink-200" 
-                   placeholder="Cari perawatan cantikmu...">
-        </div>
-
-        <div class="flex gap-3 mt-6 overflow-x-auto no-scrollbar">
-            <button class="px-6 py-2 bg-[#ff85a2] text-white rounded-2xl text-xs font-bold shadow-md shadow-pink-200">✨ Semua</button>
-            <button class="px-6 py-2 bg-white text-pink-400 rounded-2xl text-xs font-bold border border-pink-100">Skincare</button>
-            <button class="px-6 py-2 bg-white text-pink-400 rounded-2xl text-xs font-bold border border-pink-100">Serum</button>
-            <button class="px-6 py-2 bg-white text-pink-400 rounded-2xl text-xs font-bold border border-pink-100">Makeup</button>
-        </div>
-    </section>
-
-    <section class="px-6 mt-8">
-        <div class="bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-[35px] p-6 text-white relative overflow-hidden shadow-xl shadow-pink-100">
-            <div class="relative z-10">
-                <h2 class="text-xl font-black italic leading-tight">Be Bloom,<br>Be Beautiful!</h2>
-                <p class="text-[10px] opacity-90 mt-2 font-bold tracking-widest uppercase">Diskon Member 15%</p>
-                <button class="mt-4 px-5 py-2 bg-white text-[#f72585] rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg">Ambil Promo</button>
+    <main class="px-5 mt-4">
+        <input type="text" id="search" onkeyup="loadMenu()" placeholder="Cari skincare favoritmu..." class="w-full p-4 rounded-2xl border-none shadow-sm mb-6 bg-white outline-none focus:ring-2 focus:ring-pink-300">
+        
+        <div id="onlineDisplay" class="grid grid-cols-2 gap-4">
             </div>
-            <i class="fa-solid fa-clover absolute -right-4 -bottom-4 text-white/10 text-[120px] rotate-12"></i>
-        </div>
-    </section>
-
-    <main class="px-6 mt-8">
-        <div class="flex justify-between items-end mb-5">
-            <h3 class="font-extrabold text-slate-800 text-lg">Katalog Bloom</h3>
-            <span class="text-[10px] font-bold text-pink-400 uppercase tracking-tighter">Terlaris Bulan Ini</span>
-        </div>
-
-        <div id="onlineDisplay" class="grid grid-cols-2 gap-5">
-            <div class="animate-pulse bg-white rounded-[28px] h-64"></div>
-            <div class="animate-pulse bg-white rounded-[28px] h-64"></div>
-        </div>
     </main>
 
-    <div id="modalOverlay" class="modal-overlay" onclick="closeDetail()"></div>
-    <div id="productDetailModal" class="detail-modal">
-        <div class="drag-handle"></div>
-        <div class="px-6 pb-10">
-            <div class="aspect-square rounded-[30px] mb-6 overflow-hidden bg-pink-50 h-72 mx-auto border-4 border-pink-50 shadow-inner">
-                <img id="detail-img" src="" class="w-full h-full object-cover">
-            </div>
-            <div class="flex justify-between items-start mb-3">
-                <h2 id="detail-name" class="text-2xl font-black text-slate-800 flex-1 leading-tight"></h2>
-                <p id="detail-price" class="text-xl font-black text-[#f72585] ml-4"></p>
-            </div>
-            <p id="detail-cat" class="inline-block px-3 py-1 bg-pink-50 text-[10px] font-black text-pink-400 rounded-full uppercase tracking-widest mb-5"></p>
-            
-            <h3 class="font-black text-slate-800 text-xs uppercase tracking-widest mb-2">Manfaat Produk</h3>
-            <p id="detail-desc" class="text-slate-500 text-sm leading-relaxed mb-10"></p>
+    <div class="btn-floating" onclick="toggleCartModal()">
+        <i class="fa-solid fa-basket-shopping"></i>
+        <span id="cart-count" class="badge">0</span>
+    </div>
 
-            <div class="flex gap-4">
-                <button onclick="closeDetail()" class="p-4 bg-pink-50 rounded-3xl text-pink-400">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-                <button id="btn-add-modal" class="flex-1 py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg shadow-pink-200 active:scale-95 transition-all text-sm tracking-widest">
-                    TAMBAH KERANJANG ✨
-                </button>
+    <div id="cartModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-5 border-b pb-3">
+                <h2 class="text-xl font-black text-slate-800">Rincian Pesanan</h2>
+                <button onclick="toggleCartModal()" class="text-slate-300 text-2xl">&times;</button>
             </div>
+            
+            <div id="cartItems" class="space-y-4 mb-6">
+                </div>
+
+            <div class="bg-pink-50 p-5 rounded-2xl space-y-2 border border-pink-100">
+                <div class="flex justify-between text-sm text-pink-600"><span>Subtotal:</span><span id="m-sub">Rp 0</span></div>
+                <div class="flex justify-between text-sm text-red-500"><span>Potongan:</span><span id="m-disc">Rp 0</span></div>
+                <div class="flex justify-between text-sm text-pink-600"><span>PPN:</span><span id="m-tax">Rp 0</span></div>
+                <div class="flex justify-between text-xl font-black text-slate-800 pt-3 border-t border-pink-200">
+                    <span>TOTAL:</span><span id="m-total" class="text-pink-500">Rp 0</span>
+                </div>
+            </div>
+
+            <button onclick="window.location.href='online-checkout.html'" class="w-full mt-6 bg-[#f72585] text-white py-4 rounded-2xl font-black shadow-lg shadow-pink-200 active:scale-95 transition-all">PROSES BAYAR 🛍️</button>
         </div>
     </div>
 
-    <nav class="bottom-nav">
-        <a href="index.html" class="flex flex-col items-center text-[#ff85a2]">
-            <i class="fas fa-home text-2xl"></i>
-            <span class="text-[9px] font-black mt-1 uppercase tracking-tighter">Bloom</span>
-        </a>
-        <button onclick="goToCheckout()" class="flex flex-col items-center text-slate-300 relative">
-            <i class="fas fa-shopping-bag text-2xl"></i>
-            <span id="cart-count" class="absolute -top-2 -right-3 bg-[#f72585] text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white">0</span>
-            <span class="text-[9px] font-black mt-1 uppercase tracking-tighter">Keranjang</span>
-        </button>
-        <a href="#" class="flex flex-col items-center text-slate-300">
-            <i class="fas fa-heart text-2xl"></i>
-            <span class="text-[9px] font-black mt-1 uppercase tracking-tighter">Koleksi</span>
-        </a>
-    </nav>
+    <script>
+        let cart = [];
+        let taxRate = 0.11; // Default PPN 11%
 
-<script>
-    let shopCart = [];
+        window.onload = async () => { loadMenu(); };
 
-    window.onload = loadOnlineMenu;
+        async function loadMenu() {
+            const q = document.getElementById('search').value;
+            let query = db.from('produk').select('*').gt('stok_sekarang', 0);
+            if (q) query = query.ilike('nama_barang', `%${q}%`);
+            else query = query.limit(4);
 
-    async function loadOnlineMenu() {
-        const q = document.getElementById('search').value;
-        let query = db.from('produk').select('*').gt('stok_sekarang', 0);
-        if (q) query = query.ilike('nama_barang', `%${q}%`);
-
-        const { data, error } = await query.order('nama_barang');
-        const container = document.getElementById('onlineDisplay');
-
-        if (data.length === 0) {
-            container.innerHTML = `<div class="col-span-2 text-center py-20 text-pink-200 font-bold">Produk tidak ditemukan 🌸</div>`;
-            return;
+            const { data } = await query.order('nama_barang');
+            document.getElementById('onlineDisplay').innerHTML = (data || []).map(p => `
+                <div class="product-card">
+                    <div class="img-box"><img src="${p.foto_url || 'https://via.placeholder.com/300'}" class="w-full h-full object-cover"></div>
+                    <div class="p-3">
+                        <h4 class="font-bold text-slate-700 text-xs truncate">${p.nama_barang}</h4>
+                        <div class="flex justify-between items-center mt-3">
+                            <p class="text-pink-500 font-black text-sm">Rp ${p.harga_jual.toLocaleString()}</p>
+                            <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="bg-pink-50 text-pink-500 w-8 h-8 rounded-lg flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                        </div>
+                    </div>
+                </div>`).join('');
         }
 
-        container.innerHTML = data.map(p => `
-            <div class="product-card">
-                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.foto_url}', '${p.deskripsi || 'Rahasia kecantikan alami Anda kini hadir dalam genggaman.'}', '${p.kategori}')">
-                    <img src="${p.foto_url || 'https://via.placeholder.com/300'}" class="w-full h-full object-cover">
-                </div>
-                <div class="p-4 bg-white">
-                    <h4 class="font-bold text-slate-700 text-xs leading-tight h-8 overflow-hidden">${p.nama_barang}</h4>
-                    <div class="flex justify-between items-center mt-4">
-                        <p class="font-black text-[#ff85a2] text-sm">Rp ${p.harga_jual.toLocaleString()}</p>
-                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" 
-                                class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-2xl flex items-center justify-center active:bg-[#ff85a2] active:text-white transition-all">
-                            <i class="fas fa-plus text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>`).join('');
-    }
+        function addToCart(id, nama, harga) {
+            const idx = cart.findIndex(c => c.id === id);
+            if (idx > -1) cart[idx].qty++;
+            else cart.push({ id, nama_barang: nama, harga, qty: 1, discountItem: 0 });
+            calculateTotal();
+        }
 
-    function openDetail(id, nama, harga, img, desc, cat) {
-        document.getElementById('detail-name').innerText = nama;
-        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-        document.getElementById('detail-img').src = img || 'https://via.placeholder.com/300';
-        document.getElementById('detail-desc').innerText = desc;
-        document.getElementById('detail-cat').innerText = cat || 'Premium Bloom';
-        
-        document.getElementById('btn-add-modal').onclick = function() {
-            addToOnlineCart(id, nama, harga);
-            closeDetail();
-        };
+        function calculateTotal() {
+            let sub = 0;
+            document.getElementById('cart-count').innerText = cart.reduce((s, i) => s + i.qty, 0);
+            
+            document.getElementById('cartItems').innerHTML = cart.map((item, i) => {
+                const totalItem = item.qty * item.harga;
+                sub += totalItem;
+                return `
+                <div class="flex justify-between items-center">
+                    <div><b class="text-sm text-slate-800">${item.nama_barang}</b><br><small class="text-slate-400">${item.qty} x Rp ${item.harga.toLocaleString()}</small></div>
+                    <div class="text-right text-sm font-bold text-slate-800">Rp ${totalItem.toLocaleString()} <span onclick="cart.splice(${i},1);calculateTotal();" class="text-red-400 ml-2 font-black cursor-pointer">&times;</span></div>
+                </div>`;
+            }).join('');
 
-        document.getElementById('productDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
+            const tax = sub * taxRate;
+            const total = sub + tax;
+            document.getElementById('m-sub').innerText = "Rp " + sub.toLocaleString();
+            document.getElementById('m-tax').innerText = "Rp " + tax.toLocaleString();
+            document.getElementById('m-total').innerText = "Rp " + total.toLocaleString();
+            sessionStorage.setItem('finexcart', JSON.stringify(cart));
+        }
 
-    function closeDetail() {
-        document.getElementById('productDetailModal').classList.remove('active');
-        document.getElementById('modalOverlay').classList.remove('active');
-    }
-
-    function addToOnlineCart(id, nama, harga) {
-        const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) shopCart[idx].qty++;
-        else shopCart.push({ id, nama, harga, qty: 1 });
-        
-        const badge = document.getElementById('cart-count');
-        badge.innerText = shopCart.reduce((sum, item) => sum + item.qty, 0);
-        
-        badge.classList.remove('cart-animate');
-        void badge.offsetWidth; 
-        badge.classList.add('cart-animate');
-    }
-
-    function goToCheckout() {
-        if (shopCart.length === 0) return alert("Pilih produk Bloom dulu ya kak! 🌸");
-        sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
-        window.location.href = "online-checkout.html";
-    }
-</script>
+        function toggleCartModal() {
+            const m = document.getElementById('cartModal');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        }
+    </script>
 </body>
 </html>
