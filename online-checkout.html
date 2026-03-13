@@ -124,89 +124,100 @@
     }
 
     async function processOrder() {
-        const name = document.getElementById('cust-name').value;
-        const phone = document.getElementById('cust-phone').value;
-        const address = document.getElementById('cust-address').value;
-        const courier = document.getElementById('courier').value;
-        const btn = document.getElementById('btn-order');
+    const name = document.getElementById('cust-name').value;
+    const phone = document.getElementById('cust-phone').value;
+    const address = document.getElementById('cust-address').value;
+    const courier = document.getElementById('courier').value;
+    const btn = document.getElementById('btn-order');
 
-        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman! 🌸");
+    if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman! 🌸");
 
-        btn.innerText = "Membuka Gerai Pembayaran...";
-        btn.disabled = true;
+    btn.innerText = "Membuka Gerai Pembayaran...";
+    btn.disabled = true;
 
-        try {
-            const { data: { user } } = await db.auth.getUser();
-            const inv = `BLM-${Date.now().toString().slice(-6)}`;
+    try {
+        const { data: { user } } = await db.auth.getUser();
+        const inv = `BLM-${Date.now().toString().slice(-6)}`;
 
-            // 1. Ambil Token dari Edge Function
-            const { data: midtrans, error: errFunc } = await db.functions.invoke('midtrans-token', {
-                body: { 
-                    order_id: inv,
-                    amount: grandTotal,
-                    customer_name: name,
-                    customer_email: customerEmail
-                }
-            });
+        // 1. Ambil Token dari Edge Function
+        // Pastikan nama 'midtrans-token' di sini SAMA PERSIS dengan di Dashboard Supabase
+        const { data: midtrans, error: errFunc } = await db.functions.invoke('midtrans-token', {
+            body: { 
+                order_id: inv,
+                amount: grandTotal,
+                customer_name: name,
+                customer_email: customerEmail || "customer@beautybloom.com"
+            }
+        });
 
-            if (errFunc || !midtrans.token) throw new Error("Gagal terhubung ke Bank. Coba lagi.");
-
-            // 2. Simpan Transaksi Awal (Pending)
-            const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
-                no_invoice: inv,
-                customer_id: user.id,
-                nama_penerima: name,
-                wa_penerima: phone,
-                alamat_kirim: address,
-                kurir: courier,
-                metode_bayar: 'Midtrans Otomatis',
-                grand_total: grandTotal,
-                status_order: 'Pending',
-                snap_token: midtrans.token // Simpan token di DB
-            }]).select().single();
-
-            if (errTrx) throw errTrx;
-
-            // 3. Simpan Detail Item
-            const details = cartData.map(item => ({
-                transaksi_id: trx.id,
-                produk_id: item.id,
-                nama_barang: item.nama,
-                qty: item.qty,
-                harga_satuan: item.harga,
-                subtotal_item: item.qty * item.harga
-            }));
-            await db.from('transaksi_online_detail').insert(details);
-
-            // 4. Buka Midtrans Snap Pop-up
-            window.snap.pay(midtrans.token, {
-                onSuccess: function(result) {
-                    sessionStorage.removeItem('finexcart');
-                    window.location.href = "online-shop.html";
-                },
-                onPending: function(result) {
-                    sessionStorage.removeItem('finexcart');
-                    window.location.href = "online-shop.html";
-                },
-                onError: function(result) {
-                    alert("Pembayaran bermasalah, silakan cek menu Pesanan.");
-                    btn.disabled = false;
-                    btn.innerText = "COBA LAGI ✨";
-                },
-                onClose: function() {
-                    alert("Jangan lupa selesaikan pembayaran Kakak ya! 🌸");
-                    sessionStorage.removeItem('finexcart');
-                    window.location.href = "online-shop.html";
-                }
-            });
-
-        } catch (e) {
-            console.error(e);
-            alert(e.message);
-            btn.innerText = "BAYAR SEKARANG ✨";
-            btn.disabled = false;
+        // Cek apakah ada error dari sistem Supabase-nya
+        if (errFunc) {
+            console.error("Supabase Function Error:", errFunc);
+            throw new Error("Sistem sedang sibuk. Pastikan 'Enforce JWT' di Supabase sudah OFF. 🌸");
         }
+
+        // Cek apakah Midtrans memberikan token
+        if (!midtrans || !midtrans.token) {
+            console.error("Midtrans Response:", midtrans);
+            throw new Error("Gagal mengambil kode pembayaran. Periksa Server Key di Edge Function. 🌸");
+        }
+
+        // 2. Simpan Transaksi Awal (Pending)
+        const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
+            no_invoice: inv,
+            customer_id: user.id,
+            nama_penerima: name,
+            wa_penerima: phone,
+            alamat_kirim: address,
+            kurir: courier,
+            metode_bayar: 'Midtrans Otomatis',
+            grand_total: grandTotal,
+            status_order: 'Pending',
+            snap_token: midtrans.token
+        }]).select().single();
+
+        if (errTrx) throw errTrx;
+
+        // 3. Simpan Detail Item
+        const details = cartData.map(item => ({
+            transaksi_id: trx.id,
+            produk_id: item.id,
+            nama_barang: item.nama,
+            qty: item.qty,
+            harga_satuan: item.harga,
+            subtotal_item: item.qty * item.harga
+        }));
+        await db.from('transaksi_online_detail').insert(details);
+
+        // 4. Buka Midtrans Snap Pop-up
+        window.snap.pay(midtrans.token, {
+            onSuccess: function(result) {
+                sessionStorage.removeItem('finexcart');
+                window.location.href = "online-shop.html";
+            },
+            onPending: function(result) {
+                sessionStorage.removeItem('finexcart');
+                window.location.href = "online-shop.html";
+            },
+            onError: function(result) {
+                alert("Pembayaran gagal, silakan hubungi admin.");
+                btn.disabled = false;
+                btn.innerText = "COBA LAGI ✨";
+            },
+            onClose: function() {
+                alert("Pesanan disimpan. Jangan lupa bayar ya Kak! 🌸");
+                sessionStorage.removeItem('finexcart');
+                window.location.href = "online-shop.html";
+            }
+        });
+
+    } catch (e) {
+        console.error("Final Error:", e);
+        alert(e.message);
+        btn.innerText = "BAYAR SEKARANG ✨";
+        btn.disabled = false;
     }
+}
 </script>
 </body>
 </html>
