@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Produk Baru | Finex POS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="supabase-online.js"></script> </head>
+<body class="bg-slate-50 p-8">
+
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-3xl shadow-sm">
+        <h2 class="text-2xl font-black mb-6 text-slate-800">Tambah Produk Baru 🌸</h2>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-bold text-slate-600 mb-1">Nama Produk</label>
+                <input type="text" id="nama_produk" class="w-full p-3 border rounded-xl outline-pink-500" placeholder="Contoh: Lipstik Matte">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-1">Harga (Rp)</label>
+                    <input type="number" id="harga" class="w-full p-3 border rounded-xl outline-pink-500" placeholder="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-1">Stok</label>
+                    <input type="number" id="stok" class="w-full p-3 border rounded-xl outline-pink-500" placeholder="0">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-slate-600 mb-1">Kategori</label>
+                <select id="kategori" class="w-full p-3 border rounded-xl outline-pink-500">
+                    <option value="Skincare">Skincare</option>
+                    <option value="Makeup">Makeup</option>
+                    <option value="Bodycare">Bodycare</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-slate-600 mb-1">Foto Produk</label>
+                <input type="file" id="foto_produk" accept="image/*" class="w-full p-2 text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
+            </div>
+
+            <button onclick="simpanProduk()" id="btnSimpan" class="w-full bg-pink-500 text-white py-4 rounded-2xl font-bold shadow-lg shadow-pink-200 hover:bg-pink-600 transition-all mt-6">
+                SIMPAN PRODUK
+            </button>
+        </div>
+    </div>
+
+    <script>
+        async function simpanProduk() {
+            const nama = document.getElementById('nama_produk').value;
+            const harga = document.getElementById('harga').value;
+            const stok = document.getElementById('stok').value;
+            const kategori = document.getElementById('kategori').value;
+            const fileInput = document.getElementById('foto_produk');
+            const btn = document.getElementById('btnSimpan');
+
+            if (!nama || !harga || !fileInput.files[0]) {
+                return alert("Mohon lengkapi data dan pilih foto! 🌸");
+            }
+
+            btn.innerText = "Sedang Upload...";
+            btn.disabled = true;
+
+            try {
+                const file = fileInput.files[0];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const filePath = `produk/${fileName}`;
+
+                // 1. UPLOAD KE SUPABASE STORAGE
+                // Pastikan Allberto sudah membuat Bucket bernama 'produk_images' di Supabase
+                let { error: uploadError } = await db.storage
+                    .from('produk_images')
+                    .upload(filePath, file);
+
+                if (uploadError) throw uploadError;
+
+                // 2. AMBIL URL PUBLIK GAMBAR
+                const { data: urlData } = db.storage
+                    .from('produk_images')
+                    .getPublicUrl(filePath);
+                
+                const imageUrl = urlData.publicUrl;
+
+                // 3. SIMPAN KE TABEL PRODUK
+                const { error: insertError } = await db
+                    .from('produk')
+                    .insert([{
+                        nama_produk: nama,
+                        harga: parseInt(harga),
+                        stok: parseInt(stok),
+                        kategori: kategori,
+                        image_url: imageUrl // Kolom yang kita tambah lewat SQL tadi
+                    }]);
+
+                if (insertError) throw insertError;
+
+                alert("Produk berhasil ditambah! ✨");
+                window.location.reload();
+
+            } catch (err) {
+                alert("Gagal: " + err.message);
+                console.error(err);
+            } finally {
+                btn.innerText = "SIMPAN PRODUK";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
