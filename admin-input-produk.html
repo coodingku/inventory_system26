@@ -1,59 +1,249 @@
-<div class="form-group">
-    <label>Foto Produk</label>
-    <div style="display: flex; gap: 10px; align-items: center;">
-        <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event)" style="flex: 1;">
-        <img id="img-preview" src="" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; display: none; border: 1px solid #ddd;">
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <title>Finex Pos | Master Produk Terintegrasi</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script src="supabase-online.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
+        
+        /* Sidebar */
+        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 10; }
+        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
+        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
+        nav a:hover, nav a.active { background: var(--accent); color: white; }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 260px; padding: 30px; }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .search-box { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; min-width: 250px; }
+        
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-add { background: var(--accent); color: white; }
+        .btn-export { background: #607d8b; color: white; }
+        .btn-import { background: #8e44ad; color: white; }
+        .btn-template { background: #95a5a6; color: white; }
+
+        /* Progress Bar */
+        #import-progress-container { display:none; margin: 20px 0; background: #eee; border-radius: 10px; overflow: hidden; height: 25px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+        #import-progress-bar { width: 0%; height: 100%; background: var(--success); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; }
+
+        /* Table Card */
+        .card-table { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 450px; max-height: 90vh; overflow-y: auto; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        
+        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .stock-low { background: #ffebee; color: #c62828; }
+        .stock-ok { background: #e8f5e9; color: #2e7d32; }
+
+        .img-thumbnail { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid #eee; }
+        #img-preview { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; display: none; margin-top: 10px; border: 2px solid var(--accent); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2 id="store-name-display">Finex Pos</h2>
+    <a href="dashboard.html">📊 Dashboard</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
+    <a href="produk.html" class="active">📦 Produk</a>
+    <a href="kategori.html">📁 Kategori</a>
+    <a href="gudang.html">🏠 Gudang</a>
+    <hr style="border: 0.5px solid #555; margin: 10px 0;">
+    <a href="penjualan-detail.html">💰 Laba Rugi</a>
+    <a href="pos.html" style="background: var(--success); color: white; text-align:center; margin-top: 10px;">🛒 Kasir</a>
+</nav>
+
+<main>
+    <div class="header-section">
+        <h1>📦 Management Produk</h1>
+        <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
     </div>
-    <input type="hidden" id="prod-url-lama"> </div>
+
+    <div id="import-progress-container">
+        <div id="import-progress-bar">0%</div>
+    </div>
+    <p id="import-status-text" style="display:none; font-size: 12px; color: #666; text-align: center; margin-bottom: 20px;">Memproses data...</p>
+
+    <div class="action-bar">
+        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk..." onkeyup="filterProduk()">
+        <button class="btn btn-template" onclick="downloadTemplate()">📄 Template</button>
+        <button class="btn btn-export" onclick="exportExcel()">📥 Export</button>
+        <label class="btn btn-import">
+            📤 Import Excel
+            <input type="file" id="importFile" hidden accept=".xlsx, .xls" onchange="importExcel(event)">
+        </label>
+    </div>
+
+    <div class="card-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Foto</th>
+                    <th>Barcode</th>
+                    <th>Produk</th>
+                    <th>Kategori / Gudang</th>
+                    <th>Harga Jual</th>
+                    <th>Stok</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="product-list"></tbody>
+        </table>
+    </div>
+</main>
+
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle" style="margin-top:0">Tambah Produk</h3>
+        <form id="productForm">
+            <input type="hidden" id="prod-id">
+            <input type="hidden" id="prod-url-lama">
+
+            <div class="form-group">
+                <label>Foto Produk</label>
+                <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event)">
+                <img id="img-preview" src="">
+            </div>
+
+            <div class="form-group">
+                <label>Kode / Barcode</label>
+                <input type="text" id="prod-kode" placeholder="Scan atau ketik kode barang">
+            </div>
+
+            <div class="form-group">
+                <label>Nama Produk</label>
+                <input type="text" id="prod-nama" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label>Kategori</label>
+                    <select id="prod-kategori"></select>
+                </div>
+                <div class="form-group">
+                    <label>Gudang</label>
+                    <select id="prod-gudang"></select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label>Harga Beli</label>
+                    <input type="number" id="prod-beli" required>
+                </div>
+                <div class="form-group">
+                    <label>Harga Jual</label>
+                    <input type="number" id="prod-harga" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Stok Saat Ini</label>
+                <input type="number" id="prod-stok" required>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn" style="background:#eee; flex:1" onclick="closeModal()">Batal</button>
+                <button type="submit" id="btnSimpan" class="btn btn-add" style="flex:2; justify-content:center;">Simpan Data</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
-    // --- TAMBAHAN FUNGSI UPLOAD GAMBAR ---
+    let masterData = [];
 
-    // 1. Preview Gambar saat dipilih
+    window.onload = async () => {
+        await Promise.all([fetchProduk(), loadDropdowns()]);
+    };
+
+    async function loadDropdowns() {
+        const [resKat, resGud] = await Promise.all([
+            db.from('kategori').select('id, nama_kategori'),
+            db.from('gudang').select('id, nama_gudang')
+        ]);
+        document.getElementById('prod-kategori').innerHTML = resKat.data.map(k => `<option value="${k.id}">${k.nama_kategori}</option>`).join('');
+        document.getElementById('prod-gudang').innerHTML = resGud.data.map(g => `<option value="${g.id}">${g.nama_gudang}</option>`).join('');
+    }
+
+    async function fetchProduk() {
+        const { data, error } = await db
+            .from('produk')
+            .select('*, kategori:kategori_id(nama_kategori), gudang:gudang_id(nama_gudang)')
+            .order('nama_barang', { ascending: true });
+        
+        if (error) return console.error(error);
+        masterData = data || [];
+        renderTable(masterData);
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('product-list');
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td><img src="${p.image_url || 'https://via.placeholder.com/40'}" class="img-thumbnail"></td>
+                <td><small>${p.kode_barang || '-'}</small></td>
+                <td><b>${p.nama_barang}</b></td>
+                <td><small>${p.kategori?.nama_kategori || '-'} | ${p.gudang?.nama_gudang || '-'}</small></td>
+                <td style="color:var(--success); font-weight:bold;">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
+                <td><span class="badge-stock ${p.stok_sekarang < 10 ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang || 0}</span></td>
+                <td>
+                    <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer;">Edit</button> |
+                    <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer;">Hapus</button>
+                </td>
+            </tr>`).join('');
+    }
+
     function previewImage(event) {
         const reader = new FileReader();
         const preview = document.getElementById('img-preview');
-        reader.onload = () => {
-            preview.src = reader.result;
-            preview.style.display = 'block';
-        }
+        reader.onload = () => { preview.src = reader.result; preview.style.display = 'block'; }
         reader.readAsDataURL(event.target.files[0]);
     }
 
-    // 2. Fungsi Utama Upload ke Storage
-    async function uploadFotoProduk(file) {
+    async function uploadImage(file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `produk/${fileName}`;
-
-        // Upload ke bucket 'produk_images' (Pastikan bucket ini sudah dibuat & Public)
-        const { error: uploadError } = await db.storage
-            .from('produk_images')
-            .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        // Ambil URL Publik
+        const { error } = await db.storage.from('produk_images').upload(filePath, file);
+        if (error) throw error;
         const { data } = db.storage.from('produk_images').getPublicUrl(filePath);
         return data.publicUrl;
     }
 
-    // --- UPDATE FUNGSI SIMPAN (ONSUBMIT) ---
     document.getElementById('productForm').onsubmit = async (e) => {
         e.preventDefault();
+        const btn = document.getElementById('btnSimpan');
         const id = document.getElementById('prod-id').value;
         const fileInput = document.getElementById('prod-foto');
-        const btnSimpan = e.target.querySelector('button[type="submit"]');
         
-        btnSimpan.innerText = "Memproses...";
-        btnSimpan.disabled = true;
+        btn.innerText = "Memproses...";
+        btn.disabled = true;
 
         try {
-            let finalImageUrl = document.getElementById('prod-url-lama').value;
-
-            // Jika ada file baru yang dipilih, upload dulu
+            let imageUrl = document.getElementById('prod-url-lama').value;
             if (fileInput.files.length > 0) {
-                finalImageUrl = await uploadFotoProduk(fileInput.files[0]);
+                imageUrl = await uploadImage(fileInput.files[0]);
             }
 
             const payload = {
@@ -61,78 +251,66 @@
                 nama_barang: document.getElementById('prod-nama').value,
                 kategori_id: document.getElementById('prod-kategori').value,
                 gudang_id: document.getElementById('prod-gudang').value,
-                harga_beli: parseFloat(document.getElementById('prod-beli').value) || 0,
-                harga_jual: parseFloat(document.getElementById('prod-harga').value) || 0,
-                stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0,
-                stok_gudang: parseInt(document.getElementById('prod-stok').value) || 0,
-                image_url: finalImageUrl // Masukkan URL gambar ke kolom ini
+                harga_beli: parseFloat(document.getElementById('prod-beli').value),
+                harga_jual: parseFloat(document.getElementById('prod-harga').value),
+                stok_sekarang: parseInt(document.getElementById('prod-stok').value),
+                image_url: imageUrl
             };
 
-            const res = id ? 
-                await db.from('produk').update(payload).eq('id', id) : 
-                await db.from('produk').insert([payload]);
+            const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
+            if (res.error) throw res.error;
 
-            if (!res.error) {
-                alert("Berhasil simpan produk! ✨");
-                closeModal();
-                fetchProduk();
-            } else {
-                throw res.error;
-            }
+            closeModal();
+            fetchProduk();
         } catch (err) {
-            alert("Gagal: " + err.message);
+            alert(err.message);
         } finally {
-            btnSimpan.innerText = "Simpan Data";
-            btnSimpan.disabled = false;
+            btn.innerText = "Simpan Data";
+            btn.disabled = false;
         }
     };
 
-    // --- UPDATE RENDER TABLE (Agar muncul gambar kecil di list) ---
-    function renderTable(data) {
-        const tbody = document.getElementById('product-list');
-        tbody.innerHTML = data.map(p => `
-            <tr>
-                <td><small>${p.kode_barang || '-'}</small></td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <img src="${p.image_url || 'https://via.placeholder.com/40'}" style="width:40px; height:40px; border-radius:5px; object-fit:cover;">
-                        <b>${p.nama_barang}</b>
-                    </div>
-                </td>
-                <td><small>${p.kategori?.nama_kategori || '-'} | ${p.gudang?.nama_gudang || '-'}</small></td>
-                <td>Rp ${(p.harga_beli || 0).toLocaleString()}</td>
-                <td style="color:var(--success); font-weight:bold;">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
-                <td><span class="badge-stock ${p.stok_sekarang < 10 ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang || 0}</span></td>
-                <td>
-                    <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button> |
-                    <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">Hapus</button>
-                </td>
-            </tr>`).join('');
-    }
-
-    // --- UPDATE FUNGSI EDIT (Agar gambar lama muncul di modal) ---
     function editProduk(id) {
         const p = masterData.find(x => x.id === id);
         document.getElementById('prod-id').value = p.id;
-        document.getElementById('prod-kode').value = p.kode_barang || '';
         document.getElementById('prod-nama').value = p.nama_barang;
+        document.getElementById('prod-kode').value = p.kode_barang;
         document.getElementById('prod-kategori').value = p.kategori_id;
         document.getElementById('prod-gudang').value = p.gudang_id;
-        document.getElementById('prod-beli').value = p.harga_beli || 0;
-        document.getElementById('prod-harga').value = p.harga_jual || 0;
-        document.getElementById('prod-stok').value = p.stok_sekarang || 0;
-        
-        // Tampilkan foto lama di preview
+        document.getElementById('prod-beli').value = p.harga_beli;
+        document.getElementById('prod-harga').value = p.harga_jual;
+        document.getElementById('prod-stok').value = p.stok_sekarang;
         document.getElementById('prod-url-lama').value = p.image_url || '';
-        const preview = document.getElementById('img-preview');
+        
         if (p.image_url) {
-            preview.src = p.image_url;
-            preview.style.display = 'block';
-        } else {
-            preview.style.display = 'none';
+            document.getElementById('img-preview').src = p.image_url;
+            document.getElementById('img-preview').style.display = 'block';
         }
-
         document.getElementById('modalTitle').innerText = "Edit Produk";
         document.getElementById('productModal').style.display = 'flex';
     }
+
+    async function hapusProduk(id) {
+        if (confirm("Hapus produk?")) {
+            await db.from('produk').delete().eq('id', id);
+            fetchProduk();
+        }
+    }
+
+    function openModal() {
+        document.getElementById('productForm').reset();
+        document.getElementById('prod-id').value = '';
+        document.getElementById('img-preview').style.display = 'none';
+        document.getElementById('productModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('productModal').style.display = 'none'; }
+
+    function filterProduk() {
+        const q = document.getElementById('searchBar').value.toLowerCase();
+        renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q)));
+    }
 </script>
+
+</body>
+</html>
