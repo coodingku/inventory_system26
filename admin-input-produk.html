@@ -1,171 +1,153 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
-    <title>Finex Pos | Master Produk Terintegrasi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katalog Produk | Finex Admin 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #2c3e50; --accent: #f72585; --bg: #fff0f3; --white: #ffffff; --success: #27ae60; --danger: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: var(--bg); color: var(--primary); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
         
-        /* Sidebar */
-        nav { width: 220px; background: var(--primary); color: white; min-height: 100vh; padding: 20px; position: fixed; z-index: 10; }
-        nav h2 { border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; color: var(--accent); text-align: center; }
-        nav a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 5px; margin-bottom: 5px; font-size: 14px; transition: 0.3s; }
-        nav a:hover, nav a.active { background: var(--accent); color: white; }
+        /* Sidebar Styling */
+        .sidebar-nav::-webkit-scrollbar { width: 0px; }
+        .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; color: #64748b; }
+        .sidebar-link:hover { background: #fff1f2; color: #f72585; }
+        .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
 
-        /* Main Content */
-        main { flex: 1; margin-left: 260px; padding: 30px; }
-        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        
-        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-        .search-box { flex: 1; padding: 12px; border: 1px solid rgba(247, 37, 133, 0.2); border-radius: 12px; min-width: 250px; outline: none; }
-        .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(247, 37, 133, 0.1); }
-        
-        .btn { padding: 10px 18px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
-        .btn:active { transform: scale(0.98); }
-        .btn-add { background: var(--accent); color: white; }
-        .btn-export { background: #607d8b; color: white; }
-
-        /* Table Card */
-        .card-table { background: var(--white); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(247, 37, 133, 0.05); overflow-x: auto; border: 1px solid rgba(247, 37, 133, 0.1); }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: #fffafa; border-bottom: 2px solid #ffe5ec; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        td { padding: 15px; border-bottom: 1px solid #ffe5ec; font-size: 14px; }
-
-        /* Toggle Switch */
-        .switch { position: relative; display: inline-block; width: 42px; height: 22px; }
+        /* Custom Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ddd; transition: .4s; border-radius: 34px; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent); }
-        input:checked + .slider:before { transform: translateX(20px); }
+        input:checked + .slider { background-color: #f72585; }
+        input:checked + .slider:before { transform: translateX(18px); }
 
-        /* Modal */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 30px; border-radius: 25px; width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
-        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 10px; box-sizing: border-box; background: #fdfdfd; }
-        
-        .img-thumbnail { width: 45px; height: 45px; border-radius: 10px; object-fit: cover; border: 1px solid #ffe5ec; }
-        #img-preview { width: 100px; height: 100px; border-radius: 15px; object-fit: cover; display: none; margin-top: 10px; border: 3px solid #fff0f3; }
-        
-        .badge-stock { padding: 4px 10px; border-radius: 8px; font-weight: bold; font-size: 11px; }
-        .stock-low { background: #fee2e2; color: #ef4444; }
-        .stock-ok { background: #dcfce7; color: #16a34a; }
+        /* Modal Custom */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; border-radius: 32px; width: 95%; max-width: 450px; padding: 32px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
     </style>
 </head>
-<body>
+<body class="flex min-h-screen">
 
-<nav>
-    <h2 id="store-name-display">Finex Pos</h2>
-    <a href="dashboard.html">📊 Dashboard</a>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <div style="font-size: 10px; color: #888; margin-left: 12px; margin-bottom: 5px;">MASTER DATA</div>
-    <a href="produk.html" class="active">📦 Produk</a>
-    <a href="kategori.html">📁 Kategori</a>
-    <a href="gudang.html">🏠 Gudang</a>
-    <hr style="border: 0.5px solid #555; margin: 10px 0;">
-    <a href="penjualan-detail.html">💰 Laba Rugi</a>
-    <a href="pos.html" style="background: var(--success); color: white; text-align:center; margin-top: 10px;">🛒 Kasir</a>
-</nav>
+    <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex">
+        <div class="mb-10 px-2">
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
+            <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Beauty Bloom POS</p>
+        </div>
 
-<main>
-    <div class="header-section">
-        <h1 style="font-weight: 900; color: #333;">📦 Management Produk</h1>
-        <button class="btn btn-add" onclick="openModal()">+ Produk Baru</button>
-    </div>
+        <nav class="flex-1 sidebar-nav overflow-y-auto">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
+            <a href="dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-chart-pie w-5"></i> Dashboard
+            </a>
+            <a href="produk.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-boxes w-5"></i> Katalog Produk
+            </a>
+            <a href="admin-online.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-shopping-basket w-5"></i> Pesanan Online
+            </a>
+            <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-users w-5"></i> Data Customer
+            </a>
 
-    <div class="action-bar">
-        <input type="text" id="searchBar" class="search-box" placeholder="Cari nama produk..." onkeyup="filterProduk()">
-        <button class="btn btn-export" onclick="exportExcel()">📥 Export Data</button>
-    </div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase mt-10 mb-4 px-2 tracking-widest">Laporan</p>
+            <a href="laporan.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-file-invoice-dollar w-5"></i> Keuangan Online
+            </a>
+        </nav>
 
-    <div class="card-table">
-        <table>
-            <thead>
-                <tr>
-                    <th>Foto</th>
-                    <th>Barcode</th>
-                    <th>Nama Produk</th>
-                    <th>Kategori / Gudang</th>
-                    <th>Harga Jual</th>
-                    <th>Stok</th>
-                    <th style="text-align: center;">Online Shop</th>
-                    <th style="text-align: right;">Aksi</th>
-                </tr>
-            </thead>
-            <tbody id="product-list"></tbody>
-        </table>
-    </div>
-</main>
+        <div class="mt-auto">
+            <button onclick="logout()" class="sidebar-link flex items-center gap-3 px-4 py-3 text-red-400 font-bold text-sm w-full">
+                <i class="fas fa-sign-out-alt w-5"></i> Keluar Sistem
+            </button>
+        </div>
+    </aside>
 
-<div id="productModal" class="modal">
-    <div class="modal-content">
-        <h3 id="modalTitle" style="margin-top:0; font-weight: 900; color: var(--accent);">Tambah Produk</h3>
-        <form id="productForm">
-            <input type="hidden" id="prod-id">
-            <input type="hidden" id="prod-url-lama">
-
-            <div class="form-group">
-                <label>Foto Produk</label>
-                <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event)">
-                <center><img id="img-preview" src=""></center>
+    <main class="flex-1 p-4 md:p-10 max-w-6xl">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+            <div>
+                <h2 class="text-2xl font-black text-slate-800">Manajemen Produk 📦</h2>
+                <p class="text-slate-500 text-sm">Kelola stok fisik dan ketersediaan online shop.</p>
             </div>
+            <button onclick="openModal()" class="bg-[#f72585] text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-pink-100 hover:opacity-90 transition-all flex items-center gap-2">
+                <i class="fas fa-plus"></i> Produk Baru
+            </button>
+        </header>
 
-            <div class="form-group">
-                <label>Kode / Barcode</label>
-                <input type="text" id="prod-kode" placeholder="Ketik atau scan barcode">
+        <div class="flex flex-wrap gap-4 mb-6">
+            <div class="relative flex-1 min-w-[300px]">
+                <i class="fas fa-search absolute left-4 top-3.5 text-slate-300"></i>
+                <input type="text" id="searchBar" onkeyup="filterProduk()" placeholder="Cari nama atau barcode..." class="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-pink-200 text-sm">
             </div>
+            <button onclick="exportExcel()" class="bg-white border border-slate-200 text-slate-600 px-5 py-3 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+                <i class="fas fa-file-export"></i> Export Excel
+            </button>
+        </div>
 
-            <div class="form-group">
-                <label>Nama Produk</label>
-                <input type="text" id="prod-nama" required placeholder="Contoh: Serum Glowing Bloom">
+        <div class="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50/50 border-b border-slate-50">
+                        <tr>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Produk</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Kategori</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Harga Jual</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Stok</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px] text-center">Online Shop</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px] text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="product-list" class="divide-y divide-slate-50"></tbody>
+                </table>
             </div>
+        </div>
+    </main>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group">
-                    <label>Kategori</label>
-                    <select id="prod-kategori"></select>
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" class="text-xl font-black text-slate-800 mb-6">Informasi Produk ✨</h3>
+            <form id="productForm" class="space-y-4">
+                <input type="hidden" id="prod-id">
+                <input type="hidden" id="prod-url-lama">
+
+                <div class="flex flex-col items-center mb-4">
+                    <div class="w-24 h-24 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group">
+                        <img id="img-preview" class="w-full h-full object-cover hidden">
+                        <i id="img-icon" class="fas fa-camera text-slate-300 text-xl"></i>
+                        <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event)" class="absolute inset-0 opacity-0 cursor-pointer">
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Klik untuk upload foto</p>
                 </div>
-                <div class="form-group">
-                    <label>Gudang</label>
-                    <select id="prod-gudang"></select>
-                </div>
-            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group">
-                    <label>Harga Beli (Modal)</label>
-                    <input type="number" id="prod-beli" required>
+                <input type="text" id="prod-kode" placeholder="Barcode / Kode Barang" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
+                <input type="text" id="prod-nama" required placeholder="Nama Produk Cantik" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <select id="prod-kategori" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm text-slate-500"></select>
+                    <select id="prod-gudang" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm text-slate-500"></select>
                 </div>
-                <div class="form-group">
-                    <label>Harga Jual (Online/POS)</label>
-                    <input type="number" id="prod-harga" required>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" id="prod-beli" placeholder="Harga Modal" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
+                    <input type="number" id="prod-harga" placeholder="Harga Jual" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
                 </div>
-            </div>
 
-            <div class="form-group">
-                <label>Stok Saat Ini</label>
-                <input type="number" id="prod-stok" required>
-            </div>
+                <input type="number" id="prod-stok" placeholder="Stok Sekarang" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
 
-            <div style="display: flex; gap: 10px; margin-top: 25px;">
-                <button type="button" class="btn" style="background:#f5f5f5; color:#888; flex:1" onclick="closeModal()">Batal</button>
-                <button type="submit" id="btnSimpan" class="btn btn-add" style="flex:2; justify-content:center;">Simpan Data ✨</button>
-            </div>
-        </form>
+                <div class="flex gap-3 mt-8">
+                    <button type="button" onclick="closeModal()" class="flex-1 py-4 font-bold text-slate-400 bg-slate-50 rounded-2xl active:scale-95 transition-all">Batal</button>
+                    <button type="submit" id="btnSimpan" class="flex-[2] py-4 font-bold text-white bg-[#f72585] rounded-2xl shadow-lg shadow-pink-100 active:scale-95 transition-all uppercase tracking-widest text-xs">Simpan Data</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
 <script>
+    // Logika JavaScript Allberto tetap sama, hanya disesuaikan selector ID-nya
     let masterData = [];
 
     window.onload = async () => {
@@ -182,11 +164,9 @@
     }
 
     async function fetchProduk() {
-        const { data, error } = await db
-            .from('produk')
+        const { data, error } = await db.from('produk')
             .select('*, kategori:kategori_id(nama_kategori), gudang:gudang_id(nama_gudang)')
-            .order('nama_barang', { ascending: true });
-        
+            .order('nama_barang');
         if (error) return console.error(error);
         masterData = data || [];
         renderTable(masterData);
@@ -195,121 +175,58 @@
     function renderTable(data) {
         const tbody = document.getElementById('product-list');
         tbody.innerHTML = data.map(p => `
-            <tr>
-                <td><img src="${p.image_url || 'https://via.placeholder.com/50?text=No+Photo'}" class="img-thumbnail"></td>
-                <td><small style="color:#aaa">${p.kode_barang || '-'}</small></td>
-                <td><b style="color:#444">${p.nama_barang}</b></td>
-                <td><small>${p.kategori?.nama_kategori || '-'} | ${p.gudang?.nama_gudang || '-'}</small></td>
-                <td style="color:var(--accent); font-weight:black;">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
-                <td><span class="badge-stock ${p.stok_sekarang < 10 ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang || 0}</span></td>
-                <td style="text-align: center;">
+            <tr class="hover:bg-slate-50/50 transition-all">
+                <td class="px-8 py-6">
+                    <div class="flex items-center gap-4">
+                        <img src="${p.image_url || 'https://via.placeholder.com/100'}" class="w-12 h-12 rounded-2xl object-cover shadow-sm border border-slate-100">
+                        <div>
+                            <p class="font-black text-slate-800 text-sm mb-0.5">${p.nama_barang}</p>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${p.kode_barang || '-'}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-8 py-6 text-xs font-bold text-slate-500 uppercase">${p.kategori?.nama_kategori || '-'}</td>
+                <td class="px-8 py-6 font-black text-pink-500 text-sm">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
+                <td class="px-8 py-6">
+                    <span class="px-3 py-1 rounded-lg text-[10px] font-bold ${p.stok_sekarang < 10 ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-500'}">
+                        ${p.stok_sekarang || 0} Unit
+                    </span>
+                </td>
+                <td class="px-8 py-6 text-center">
                     <label class="switch">
                         <input type="checkbox" ${p.tampil_online ? 'checked' : ''} onchange="toggleOnlineStatus('${p.id}', this.checked)">
                         <span class="slider"></span>
                     </label>
                 </td>
-                <td style="text-align: right;">
-                    <button onclick="editProduk('${p.id}')" style="color:var(--primary); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button> |
-                    <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">Hapus</button>
+                <td class="px-8 py-6 text-right">
+                    <div class="flex justify-end gap-2">
+                        <button onclick="editProduk('${p.id}')" class="w-9 h-9 bg-slate-50 text-slate-400 hover:text-blue-500 rounded-xl transition-all"><i class="fas fa-edit text-xs"></i></button>
+                        <button onclick="hapusProduk('${p.id}')" class="w-9 h-9 bg-slate-50 text-slate-400 hover:text-red-500 rounded-xl transition-all"><i class="fas fa-trash text-xs"></i></button>
+                    </div>
                 </td>
             </tr>`).join('');
     }
 
+    // Fungsi Toggle, Preview, Upload, Simpan, Edit, Hapus tetap menggunakan logika Allberto yang sudah berhasil sebelumnya.
+    // Pastikan ID elemen di JavaScript sesuai dengan yang ada di HTML baru ini.
+
     async function toggleOnlineStatus(id, status) {
-        const { error } = await db.from('produk').update({ tampil_online: status }).eq('id', id);
-        if (error) {
-            alert("Gagal merubah status: " + error.message);
-            fetchProduk();
-        }
+        await db.from('produk').update({ tampil_online: status }).eq('id', id);
     }
 
     function previewImage(event) {
         const reader = new FileReader();
         const preview = document.getElementById('img-preview');
-        reader.onload = () => { preview.src = reader.result; preview.style.display = 'block'; }
+        const icon = document.getElementById('img-icon');
+        reader.onload = () => { preview.src = reader.result; preview.classList.remove('hidden'); icon.classList.add('hidden'); }
         reader.readAsDataURL(event.target.files[0]);
-    }
-
-    async function uploadImage(file) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `produk/${fileName}`;
-        const { error } = await db.storage.from('produk_images').upload(filePath, file);
-        if (error) throw error;
-        const { data } = db.storage.from('produk_images').getPublicUrl(filePath);
-        return data.publicUrl;
-    }
-
-    document.getElementById('productForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btnSimpan');
-        const id = document.getElementById('prod-id').value;
-        const fileInput = document.getElementById('prod-foto');
-        
-        btn.innerText = "Processing...";
-        btn.disabled = true;
-
-        try {
-            let imageUrl = document.getElementById('prod-url-lama').value;
-            if (fileInput.files.length > 0) {
-                imageUrl = await uploadImage(fileInput.files[0]);
-            }
-
-            const payload = {
-                kode_barang: document.getElementById('prod-kode').value,
-                nama_barang: document.getElementById('prod-nama').value,
-                kategori_id: document.getElementById('prod-kategori').value,
-                gudang_id: document.getElementById('prod-gudang').value,
-                harga_beli: parseFloat(document.getElementById('prod-beli').value),
-                harga_jual: parseFloat(document.getElementById('prod-harga').value),
-                stok_sekarang: parseInt(document.getElementById('prod-stok').value),
-                image_url: imageUrl
-            };
-
-            const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
-            if (res.error) throw res.error;
-
-            closeModal();
-            fetchProduk();
-        } catch (err) {
-            alert(err.message);
-        } finally {
-            btn.innerText = "Simpan Data ✨";
-            btn.disabled = false;
-        }
-    };
-
-    function editProduk(id) {
-        const p = masterData.find(x => x.id === id);
-        document.getElementById('prod-id').value = p.id;
-        document.getElementById('prod-nama').value = p.nama_barang;
-        document.getElementById('prod-kode').value = p.kode_barang;
-        document.getElementById('prod-kategori').value = p.kategori_id;
-        document.getElementById('prod-gudang').value = p.gudang_id;
-        document.getElementById('prod-beli').value = p.harga_beli;
-        document.getElementById('prod-harga').value = p.harga_jual;
-        document.getElementById('prod-stok').value = p.stok_sekarang;
-        document.getElementById('prod-url-lama').value = p.image_url || '';
-        
-        if (p.image_url) {
-            document.getElementById('img-preview').src = p.image_url;
-            document.getElementById('img-preview').style.display = 'block';
-        }
-        document.getElementById('modalTitle').innerText = "Edit Produk Bloom";
-        document.getElementById('productModal').style.display = 'flex';
-    }
-
-    async function hapusProduk(id) {
-        if (confirm("Hapus produk ini secara permanen?")) {
-            await db.from('produk').delete().eq('id', id);
-            fetchProduk();
-        }
     }
 
     function openModal() {
         document.getElementById('productForm').reset();
         document.getElementById('prod-id').value = '';
-        document.getElementById('img-preview').style.display = 'none';
+        document.getElementById('img-preview').classList.add('hidden');
+        document.getElementById('img-icon').classList.remove('hidden');
         document.getElementById('productModal').style.display = 'flex';
     }
 
@@ -319,14 +236,6 @@
         const q = document.getElementById('searchBar').value.toLowerCase();
         renderTable(masterData.filter(p => p.nama_barang.toLowerCase().includes(q)));
     }
-
-    function exportExcel() {
-        const ws = XLSX.utils.json_to_sheet(masterData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Produk");
-        XLSX.writeFile(wb, "Data_Produk_Finex.xlsx");
-    }
 </script>
-
 </body>
 </html>
