@@ -16,6 +16,7 @@
         .dikemas { background: #fef3c7; color: #d97706; }
         .dikirim { background: #e0f2fe; color: #0284c7; }
         .selesai { background: #f3e8ff; color: #7e22ce; }
+        .dibatalkan { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; } /* Abu-abu untuk batal */
         
         .sidebar-nav::-webkit-scrollbar { width: 0px; }
         .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; }
@@ -58,7 +59,7 @@
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
             <div>
                 <h2 class="text-2xl font-black text-slate-800">Manajemen Pesanan Online 🛒</h2>
-                <p class="text-slate-500 text-sm">Pantau proses kemas, kirim, dan konfirmasi pelanggan.</p>
+                <p class="text-slate-500 text-sm">Proses kemas, kirim, dan kontrol pembatalan admin.</p>
             </div>
             <button onclick="loadOrders()" class="bg-white border border-slate-200 text-slate-600 px-5 py-3 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
                 <i class="fas fa-sync-alt"></i> Refresh Data
@@ -67,7 +68,7 @@
 
         <div class="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-left">
+                <table class="w-full text-left border-collapse">
                     <thead class="bg-slate-50/50 border-b border-slate-50">
                         <tr>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Invoice & Customer</th>
@@ -103,7 +104,7 @@
                     <p class="text-xs text-slate-500 font-bold">${trx.nama_penerima}</p>
                     <div class="flex items-center gap-2 mt-1">
                         <button onclick="sendWA('${trx.wa_penerima}', '${trx.nama_penerima}', '${trx.no_invoice}', '${trx.status_order}')" class="text-[10px] text-green-500 font-bold hover:underline flex items-center gap-1">
-                            <i class="fab fa-whatsapp"></i> ${trx.wa_penerima}
+                            <i class="fab fa-whatsapp"></i> Hubungi Customer
                         </button>
                     </div>
                 </td>
@@ -115,7 +116,7 @@
                     <span class="status-badge ${statusStyle}">${trx.status_order}</span>
                 </td>
                 <td class="px-8 py-6">
-                    <div class="flex justify-center gap-3">
+                    <div class="flex justify-center items-center gap-3">
                         ${renderActionButton(trx)}
                         <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-400 hover:text-slate-600 w-9 h-9 rounded-xl flex items-center justify-center transition-all">
                             <i class="fas fa-expand-alt text-xs"></i>
@@ -127,28 +128,40 @@
     }
 
     function renderActionButton(trx) {
+        // Tombol Batal Admin: Selalu muncul jika status bukan Selesai atau Dibatalkan
+        const showBatal = (trx.status_order !== 'Selesai' && trx.status_order !== 'Dibatalkan');
+        const btnBatal = showBatal ? `<button onclick="updateStatus('${trx.id}', 'Dibatalkan')" class="text-red-400 hover:text-red-600 transition-all" title="Batalkan Pesanan"><i class="fas fa-times-circle text-lg"></i></button>` : '';
+
         if (trx.status_order === 'Pending') {
-            return `<button onclick="updateStatus('${trx.id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl hover:bg-black">KEMAS BARANG</button>`;
+            return `<div class="flex items-center gap-3">
+                        <button onclick="updateStatus('${trx.id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl">KEMAS BARANG</button>
+                        ${btnBatal}
+                    </div>`;
         } else if (trx.status_order === 'Dikemas') {
-            return `<button onclick="updateStatus('${trx.id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-xl hover:bg-blue-600">INPUT RESI / KIRIM</button>`;
+            return `<div class="flex items-center gap-3">
+                        <button onclick="updateStatus('${trx.id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-xl">KIRIM PAKET</button>
+                        ${btnBatal}
+                    </div>`;
         } else if (trx.status_order === 'Dikirim') {
-            return `<button onclick="updateStatus('${trx.id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-4 py-2 rounded-xl hover:bg-green-600 uppercase italic">Selesaikan Pesanan ✓</button>`;
+            return `<div class="flex items-center gap-3">
+                        <button onclick="updateStatus('${trx.id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-4 py-2 rounded-xl">SELESAI ✓</button>
+                        ${btnBatal}
+                    </div>`;
+        } else if (trx.status_order === 'Dibatalkan') {
+            return `<span class="text-slate-400 text-[10px] font-bold uppercase italic tracking-widest">CLOSED (BATAL)</span>`;
         } else {
-            return `<span class="text-purple-500 text-[10px] font-black uppercase tracking-widest">TRANSAKSI SELESAI ✨</span>`;
+            return `<span class="text-purple-500 text-[10px] font-black uppercase tracking-widest">SUCCESS ✨</span>`;
         }
     }
 
-    function sendWA(phone, name, inv, status) {
-        const cleanPhone = phone.replace(/[^0-9]/g, "");
-        const msg = `Halo Kak ${name}, kami dari *Beauty Bloom* 🌸\n\nMenginformasikan pesanan Kakak dengan nomor invoice *${inv}* saat ini berstatus: *${status}*.\n\nTerima kasih sudah belanja di toko kami! ✨`;
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-    }
-
     async function updateStatus(id, statusBaru) {
+        if (statusBaru === 'Dibatalkan' && !confirm("Yakin ingin membatalkan pesanan ini, Allberto? 🌸")) return;
+
         let keteranganLog = '';
-        if (statusBaru === 'Dikemas') keteranganLog = 'Pembayaran diterima. Barang sedang dikemas Tim Bloom ✨';
-        else if (statusBaru === 'Dikirim') keteranganLog = 'Pesanan sudah dikirim! Silakan cek menu pesanan untuk detail 🚚';
-        else if (statusBaru === 'Selesai') keteranganLog = 'Pesanan telah diterima customer. Terima kasih sudah berbelanja! ❤️';
+        if (statusBaru === 'Dikemas') keteranganLog = 'Pembayaran terverifikasi. Pesanan sedang disiapkan tim Bloom ✨';
+        else if (statusBaru === 'Dikirim') keteranganLog = 'Paket sudah diserahkan ke kurir. Pantau terus ya! 🚚';
+        else if (statusBaru === 'Selesai') keteranganLog = 'Pesanan sudah diterima dengan baik. Terima kasih Bloomers! ❤️';
+        else if (statusBaru === 'Dibatalkan') keteranganLog = 'Pesanan dibatalkan oleh Admin. Hubungi kami jika ada pertanyaan.';
 
         try {
             const { error: errUpdate } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
@@ -156,18 +169,29 @@
 
             await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: keteranganLog }]);
 
-            alert(`✅ Berhasil! Status diupdate ke: ${statusBaru}`);
+            alert(`✅ Update Berhasil: ${statusBaru}`);
             loadOrders();
         } catch (error) {
-            alert("Gagal memproses: " + error.message);
+            alert("Error: " + error.message);
         }
+    }
+
+    function sendWA(phone, name, inv, status) {
+        const cleanPhone = phone.replace(/[^0-9]/g, "");
+        let customMsg = `Halo Kak ${name}, kami dari *Beauty Bloom* 🌸\n\nMau menginfokan pesanan *${inv}* saat ini sudah *${status}*. `;
+        
+        if(status === 'Dikirim') customMsg += `Paket sudah di kurir ya Kak. Tunggu kedatangannya! 🚚`;
+        else if(status === 'Dibatalkan') customMsg += `Mohon maaf, pesanan Kakak kami batalkan karena alasan teknis/stok. 🙏`;
+        else customMsg += `Terima kasih sudah belanja! ✨`;
+
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(customMsg)}`, '_blank');
     }
 
     async function viewDetail(id) {
         const { data } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
         if (data) {
             let list = data.map(i => `- ${i.nama_barang} (${i.qty}x)`).join('\n');
-            alert("RINCIAN PESANAN:\n\n" + list);
+            alert("DETAIL PESANAN:\n\n" + list);
         }
     }
 
