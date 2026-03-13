@@ -110,9 +110,15 @@
     </main>
 
 <script>
-    let rawData = [];
+  let rawData = [];
+    let lastOrderCount = 0; // Untuk melacak jumlah pesanan sebelumnya
+    let isFirstLoad = true; // Agar suara tidak bunyi saat pertama kali buka halaman
 
-    window.onload = loadOrders;
+    window.onload = async () => {
+        await loadOrders();
+        // Cek pesanan baru setiap 30 detik secara otomatis
+        setInterval(loadOrders, 30000); 
+    };
 
     async function loadOrders() {
         const { data, error } = await db.from('transaksi_online')
@@ -120,9 +126,78 @@
             .order('created_at', { ascending: false });
 
         if (error) return console.error(error);
+        
         rawData = data;
+
+        // --- LOGIKA NOTIFIKASI SUARA ---
+        const currentOrderCount = data.length;
+
+        // Jika jumlah data bertambah dibanding cek terakhir
+        if (!isFirstLoad && currentOrderCount > lastOrderCount) {
+            playVoiceNotification();
+        }
+
+        lastOrderCount = currentOrderCount;
+        isFirstLoad = false;
+        // -------------------------------
+
         renderTable(data);
     }
+
+    // FUNGSI SUARA MANUSIA
+    function playVoiceNotification() {
+        const message = new SpeechSynthesisUtterance("Ada pesanan masuk");
+        message.lang = "id-ID"; // Bahasa Indonesia
+        message.pitch = 1;     // Nada suara
+        message.rate = 0.9;    // Kecepatan bicara (sedikit pelan agar jelas)
+
+        let count = 0;
+        const interval = setInterval(() => {
+            window.speechSynthesis.speak(message);
+            count++;
+            if (count >= 3) clearInterval(interval); // Berhenti setelah 3x
+        }, 2000); // Jeda antar ucapan 2 detik
+    }
+
+    // ... sisa fungsi renderTable, filterData, sendWA, dll tetap sama seperti sebelumnya ...
+    function renderTable(data) {
+        const container = document.getElementById('orderList');
+        container.innerHTML = data.map(trx => {
+            const statusStyle = trx.status_order.toLowerCase();
+            return `
+            <tr class="hover:bg-slate-50/50 transition-all">
+                <td class="px-8 py-6">
+                    <p class="font-black text-slate-800 text-sm mb-1">${trx.no_invoice}</p>
+                    <p class="text-xs text-slate-500 font-bold">${trx.nama_penerima}</p>
+                    <div class="flex items-center gap-2 mt-1 no-print">
+                        <button onclick="sendWA('${trx.wa_penerima}', '${trx.nama_penerima}', '${trx.no_invoice}', '${trx.status_order}')" class="text-[10px] text-green-500 font-bold hover:underline flex items-center gap-1">
+                            <i class="fab fa-whatsapp"></i> Hubungi Customer
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
+                </td>
+                <td class="px-8 py-6">
+                    <p class="font-black text-pink-500 text-sm">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                    <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">${trx.metode_bayar}</p>
+                </td>
+                <td class="px-8 py-6">
+                    <span class="status-badge ${statusStyle}">${trx.status_order}</span>
+                </td>
+                <td class="px-8 py-6 no-print">
+                    <div class="flex justify-center items-center gap-3">
+                        <button onclick="printNota('${trx.id}')" class="bg-slate-100 text-slate-600 w-9 h-9 rounded-xl flex items-center justify-center hover:bg-pink-50 hover:text-pink-500 transition-all" title="Print Nota">
+                            <i class="fas fa-print text-xs"></i>
+                        </button>
+                        ${renderActionButton(trx)}
+                        <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-400 hover:text-slate-600 w-9 h-9 rounded-xl flex items-center justify-center transition-all">
+                            <i class="fas fa-expand-alt text-xs"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+    // ... fungsi lainnya ...
 
     function renderTable(data) {
         const container = document.getElementById('orderList');
