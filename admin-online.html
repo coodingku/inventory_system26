@@ -23,7 +23,6 @@
         .sidebar-link:hover { background: #fff1f2; color: #f72585; }
         .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
 
-        /* Print Style */
         @media print {
             aside, header, .filter-section, .no-print { display: none !important; }
             main { margin: 0 !important; padding: 0 !important; }
@@ -66,25 +65,25 @@
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
             <div>
                 <h2 class="text-2xl font-black text-slate-800">Manajemen Pesanan Online 🛒</h2>
-                <p class="text-slate-500 text-sm">Kelola laporan dan proses pengiriman paket.</p>
+                <p class="text-slate-500 text-sm">Filter data, cetak laporan, dan hubungi customer.</p>
             </div>
             <div class="flex gap-2">
                 <button onclick="exportToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-green-100">
-                    <i class="fas fa-file-excel"></i> Excel
+                    <i class="fas fa-file-excel"></i> Export Excel
                 </button>
                 <button onclick="window.print()" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-100">
-                    <i class="fas fa-print"></i> PDF / Cetak
+                    <i class="fas fa-print"></i> PDF / Halaman Ini
                 </button>
             </div>
         </header>
 
         <div class="filter-section grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-white p-6 rounded-[30px] border border-slate-100 shadow-sm">
             <div class="md:col-span-2">
-                <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Cari Pesanan</label>
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Cari Nota / Customer</label>
                 <input type="text" id="searchBox" onkeyup="filterData()" placeholder="Ketik No. Invoice atau Nama..." class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-pink-200 text-sm">
             </div>
             <div>
-                <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Dari Tanggal</label>
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Mulai Tanggal</label>
                 <input type="date" id="dateStart" onchange="filterData()" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-pink-200 text-sm">
             </div>
             <div>
@@ -95,7 +94,7 @@
 
         <div class="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden card-table">
             <div class="overflow-x-auto">
-                <table class="w-full text-left" id="mainTable">
+                <table class="w-full text-left border-collapse" id="mainTable">
                     <thead class="bg-slate-50/50 border-b border-slate-50">
                         <tr>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Invoice & Customer</th>
@@ -134,7 +133,12 @@
                 <td class="px-8 py-6">
                     <p class="font-black text-slate-800 text-sm mb-1">${trx.no_invoice}</p>
                     <p class="text-xs text-slate-500 font-bold">${trx.nama_penerima}</p>
-                    <p class="text-[10px] text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
+                    <div class="flex items-center gap-2 mt-1 no-print">
+                        <button onclick="sendWA('${trx.wa_penerima}', '${trx.nama_penerima}', '${trx.no_invoice}', '${trx.status_order}')" class="text-[10px] text-green-500 font-bold hover:underline flex items-center gap-1">
+                            <i class="fab fa-whatsapp"></i> Hubungi Customer
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
                 </td>
                 <td class="px-8 py-6">
                     <p class="font-black text-pink-500 text-sm">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
@@ -184,20 +188,25 @@
         const btnBatal = showBatal ? `<button onclick="updateStatus('${trx.id}', 'Dibatalkan')" class="text-red-400 hover:text-red-600 transition-all" title="Batalkan"><i class="fas fa-times-circle text-lg"></i></button>` : '';
 
         if (trx.status_order === 'Pending') {
-            return `<button onclick="updateStatus('${trx.id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl hover:bg-black">KEMAS</button> ${btnBatal}`;
+            return `<button onclick="updateStatus('${trx.id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl">KEMAS</button> ${btnBatal}`;
         } else if (trx.status_order === 'Dikemas') {
-            return `<button onclick="updateStatus('${trx.id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-xl hover:bg-blue-600">KIRIM</button> ${btnBatal}`;
+            return `<button onclick="updateStatus('${trx.id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-xl">KIRIM</button> ${btnBatal}`;
         } else if (trx.status_order === 'Dikirim') {
             return `<button onclick="updateStatus('${trx.id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-4 py-2 rounded-xl italic">SELESAI ✓</button> ${btnBatal}`;
         } else if (trx.status_order === 'Dibatalkan') {
-            return `<span class="text-slate-300 text-[10px] font-bold">BATAL</span>`;
+            return `<span class="text-slate-400 text-[10px] font-bold italic">CLOSED</span>`;
         } else {
-            return `<span class="text-purple-500 text-[10px] font-black">LUNAS ✨</span>`;
+            return `<span class="text-purple-500 text-[10px] font-black uppercase tracking-widest">SUCCESS ✨</span>`;
         }
     }
 
+    function sendWA(phone, name, inv, status) {
+        const cleanPhone = phone.replace(/[^0-9]/g, "");
+        const msg = `Halo Kak ${name}, kami dari *Beauty Bloom* 🌸\n\nMau menginfokan pesanan dengan invoice *${inv}* saat ini sudah *${status}*. Terima kasih! ✨`;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
     async function printNota(id) {
-        // Ambil data header & detail
         const { data: header } = await db.from('transaksi_online').select('*').eq('id', id).single();
         const { data: items } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
 
@@ -211,28 +220,12 @@
 
         printWindow.document.write(`
             <html>
-            <head><title>Nota ${header.no_invoice}</title></head>
             <body style="font-family: monospace; width: 80mm; padding: 10px; font-size: 12px;">
-                <center>
-                    <strong style="font-size: 16px;">BEAUTY BLOOM 🌸</strong><br>
-                    Online Shop Nota<br>
-                    ---------------------------
-                </center>
-                <br>
-                Inv: ${header.no_invoice}<br>
-                Tgl: ${new Date(header.created_at).toLocaleString()}<br>
-                Cust: ${header.nama_penerima}<br>
-                ---------------------------
-                <table style="width: 100%; font-size: 12px;">
-                    ${itemHtml}
-                </table>
-                ---------------------------<br>
-                <div style="display: flex; justify-content: space-between;">
-                    <strong>TOTAL:</strong>
-                    <strong>Rp ${parseFloat(header.grand_total).toLocaleString()}</strong>
-                </div>
-                <br>
-                <center>Terima kasih sudah belanja!</center>
+                <center><strong>BEAUTY BLOOM 🌸</strong><br>Online Shop Nota<br>---------------------------</center>
+                Inv: ${header.no_invoice}<br>Tgl: ${new Date(header.created_at).toLocaleString()}<br>Cust: ${header.nama_penerima}<br>---------------------------
+                <table style="width: 100%; font-size: 11px;">${itemHtml}</table>
+                ---------------------------<br><div style="display: flex; justify-content: space-between;"><strong>TOTAL:</strong><strong>Rp ${parseFloat(header.grand_total).toLocaleString()}</strong></div>
+                <br><center>Terima kasih sudah belanja!</center>
             </body>
             </html>
         `);
@@ -242,22 +235,22 @@
 
     function exportToExcel() {
         const table = document.getElementById("mainTable");
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Pesanan Online" });
-        XLSX.writeFile(wb, "Laporan_Pesanan_Bloom.xlsx");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Pesanan" });
+        XLSX.writeFile(wb, "Laporan_Bloom_Online.xlsx");
     }
 
     async function updateStatus(id, statusBaru) {
-        if (statusBaru === 'Dibatalkan' && !confirm("Batalkan pesanan? 🌸")) return;
+        if (statusBaru === 'Dibatalkan' && !confirm("Batalkan pesanan ini?")) return;
         const { error } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
         if (!error) {
-            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: 'Update status oleh Admin' }]);
+            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: 'Status diperbarui oleh Admin' }]);
             loadOrders();
         }
     }
 
     async function viewDetail(id) {
         const { data } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
-        if (data) alert("RINCIAN:\n\n" + data.map(i => `- ${i.nama_barang} (${i.qty}x)`).join('\n'));
+        if (data) alert("DETAIL ITEM:\n\n" + data.map(i => `- ${i.nama_barang} (${i.qty}x)`).join('\n'));
     }
 
     function logout() {
