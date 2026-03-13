@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin | Finex Bloom 🌸</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="supabase-online.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
+        .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; color: #64748b; }
+        .sidebar-link:hover { background: #fff1f2; color: #f72585; }
+        .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
+        .stat-card { background: white; border-radius: 32px; padding: 24px; border: 1px solid #f1f5f9; transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); }
+    </style>
+</head>
+<body class="flex min-h-screen">
+
+    <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex">
+        <div class="mb-10 px-2">
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
+            <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Beauty Bloom POS</p>
+        </div>
+        <nav class="flex-1 overflow-y-auto">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
+            <a href="dashboard.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-chart-pie w-5"></i> Dashboard
+            </a>
+            <a href="produk.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-boxes w-5"></i> Katalog Produk
+            </a>
+            <a href="admin-online.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-shopping-basket w-5"></i> Pesanan Online
+            </a>
+            <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-users w-5"></i> Data Customer
+            </a>
+        </nav>
+        <div class="mt-auto">
+            <button onclick="logout()" class="sidebar-link flex items-center gap-3 px-4 py-3 text-red-400 font-bold text-sm w-full">
+                <i class="fas fa-sign-out-alt w-5"></i> Keluar
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-4 md:p-10 max-w-6xl">
+        <header class="mb-10">
+            <h2 class="text-2xl font-black text-slate-800">Ringkasan Toko 📊</h2>
+            <p class="text-slate-500 text-sm">Pantau perkembangan Beauty Bloom hari ini.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="stat-card shadow-sm">
+                <div class="w-12 h-12 bg-pink-50 text-pink-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendapatan Online</p>
+                <h3 id="total-revenue" class="text-2xl font-black text-slate-800 mt-1">Rp 0</h3>
+            </div>
+
+            <div class="stat-card shadow-sm">
+                <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pesanan Masuk</p>
+                <h3 id="total-orders" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+            </div>
+
+            <div class="stat-card shadow-sm">
+                <div class="w-12 h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Baru</p>
+                <h3 id="total-customers" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white rounded-[40px] p-8 shadow-sm border border-slate-50">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="font-black text-slate-800">Pesanan Terbaru</h4>
+                    <a href="admin-online.html" class="text-xs font-bold text-pink-500">Lihat Semua</a>
+                </div>
+                <div id="recent-orders-list" class="space-y-4">
+                    <p class="text-slate-400 text-sm italic">Memuat data...</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-[40px] p-8 shadow-sm border border-slate-50">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="font-black text-slate-800">Peringatan Stok Low</h4>
+                    <i class="fas fa-exclamation-triangle text-amber-400"></i>
+                </div>
+                <div id="low-stock-list" class="space-y-4">
+                    </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        window.onload = async () => {
+            await Promise.all([
+                loadStats(),
+                loadRecentOrders(),
+                loadLowStock()
+            ]);
+        };
+
+        async function loadStats() {
+            // 1. Hitung Total Revenue & Orders
+            const { data: orders } = await db.from('transaksi_online').select('grand_total');
+            const totalRevenue = orders.reduce((acc, curr) => acc + (parseFloat(curr.grand_total) || 0), 0);
+            document.getElementById('total-revenue').innerText = "Rp " + totalRevenue.toLocaleString();
+            document.getElementById('total-orders').innerText = orders.length;
+
+            // 2. Hitung Total Customers
+            const { count } = await db.from('customers').select('*', { count: 'exact', head: true });
+            document.getElementById('total-customers').innerText = count || 0;
+        }
+
+        async function loadRecentOrders() {
+            const { data } = await db.from('transaksi_online')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            const container = document.getElementById('recent-orders-list');
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(o => `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xs shadow-sm text-pink-500">
+                                <i class="fas fa-receipt"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-black text-slate-800">${o.nama_penerima}</p>
+                                <p class="text-[9px] text-slate-400">${new Date(o.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <p class="text-xs font-black text-slate-800">Rp ${parseFloat(o.grand_total).toLocaleString()}</p>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = "<p class='text-slate-400 text-xs'>Belum ada pesanan.</p>";
+            }
+        }
+
+        async function loadLowStock() {
+            const { data } = await db.from('produk')
+                .select('nama_barang, stok_sekarang, image_url')
+                .lt('stok_sekarang', 10)
+                .limit(5);
+
+            const container = document.getElementById('low-stock-list');
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(p => `
+                    <div class="flex items-center justify-between p-3 border-b border-slate-50">
+                        <div class="flex items-center gap-3">
+                            <img src="${p.image_url || 'https://via.placeholder.com/50'}" class="w-10 h-10 rounded-xl object-cover">
+                            <p class="text-xs font-bold text-slate-700">${p.nama_barang}</p>
+                        </div>
+                        <span class="text-[10px] font-black text-red-500 bg-red-50 px-2 py-1 rounded-lg">${p.stok_sekarang} Sisa</span>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = "<p class='text-slate-400 text-xs text-center py-4'>✅ Stok semua produk aman!</p>";
+            }
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>
