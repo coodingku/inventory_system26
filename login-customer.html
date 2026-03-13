@@ -55,31 +55,35 @@
         </p>
     </div>
 
-    <script>
-        // 1. CEK SESI (Hanya mengalihkan jika benar-benar session Customer)
+  <script>
+        // 1. CEK SESI (Lebih akurat untuk browser mobile)
         window.onload = async () => {
-            const { data: { session } } = await db.auth.getSession();
-            // Jika ada sesi login customer, langsung ke online-shop.html
-            if (session) {
-                window.location.replace('online-shop.html');
+            try {
+                const { data: { session }, error } = await db.auth.getSession();
+                if (session) {
+                    // Gunakan URL lengkap jika replace biasa gagal di HP
+                    window.location.href = window.location.origin + '/online-shop.html';
+                }
+            } catch (err) {
+                console.error("Gagal cek sesi");
             }
         };
 
         // 2. LOGIN GOOGLE
         async function loginGoogle() {
-            // Pastikan redirectTo mengarah langsung ke online-shop.html
             const { error } = await db.auth.signInWithOAuth({ 
                 provider: 'google', 
                 options: { 
+                    // Penting: HP butuh URL absolut
                     redirectTo: window.location.origin + '/online-shop.html' 
                 } 
             });
             if (error) alert("Error: " + error.message);
         }
 
-        // 3. LOGIN EMAIL (Perbaikan Redirect)
+        // 3. LOGIN EMAIL (Ditambah penanganan error mobile)
         async function loginEmail() {
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             const btn = document.getElementById('btnLogin');
 
@@ -88,18 +92,24 @@
             btn.innerText = "MENGECEK...";
             btn.disabled = true;
 
-            const { data, error } = await db.auth.signInWithPassword({ 
-                email: email, 
-                password: password 
-            });
+            try {
+                const { data, error } = await db.auth.signInWithPassword({ 
+                    email: email, 
+                    password: password 
+                });
 
-            if (error) {
-                alert("Login Gagal: Email atau Password salah. 🌸");
+                if (error) {
+                    alert("Login Gagal: " + error.message);
+                    btn.innerText = "MASUK SEKARANG";
+                    btn.disabled = false;
+                } else {
+                    // Gunakan href untuk mobile agar lebih stabil daripada replace
+                    window.location.href = 'online-shop.html';
+                }
+            } catch (err) {
+                alert("Kesalahan koneksi, coba lagi ya.");
                 btn.innerText = "MASUK SEKARANG";
                 btn.disabled = false;
-            } else {
-                // ARAHKAN KE online-shop.html (Pastikan nama file benar)
-                window.location.replace('online-shop.html');
             }
         }
     </script>
