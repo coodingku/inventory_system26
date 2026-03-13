@@ -12,13 +12,18 @@
 
     <style>
         :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; --accent-peach: #ffb3c1; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; }
+        
+        /* Glassmorphism Header */
         .glass-header { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.2); }
+        
+        /* Product Styling */
         .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); box-shadow: 0 4px 15px rgba(255, 133, 162, 0.05); }
         .product-card:active { transform: scale(0.96); }
         .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #fffafa; cursor: pointer; }
         .img-container img { width: 100%; height: 100%; object-fit: cover; }
         
+        /* Modals & Overlay */
         .modal-overlay { position: fixed; inset: 0; background: rgba(247, 37, 133, 0.1); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
         .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -15px 35px rgba(0,0,0,0.1); }
@@ -27,12 +32,17 @@
         .profile-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 90%; max-width: 400px; background: white; border-radius: 35px; z-index: 2000; display: none; opacity: 0; transition: all 0.3s ease; padding: 30px; }
         .profile-modal.active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
         
+        /* Status Badges */
         .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
         .status-pending { background: #fee2e2; color: #ef4444; }
         .status-dikemas { background: #fef3c7; color: #d97706; }
         .status-dikirim { background: #e0f2fe; color: #0284c7; }
         .status-selesai { background: #dcfce7; color: #16a34a; }
         .status-dibatalkan { background: #f1f5f9; color: #64748b; }
+
+        /* Input Styling */
+        .input-bloom { width: 100%; padding: 12px 15px; background: var(--soft-pink); border-radius: 15px; font-size: 14px; outline: none; border: 1px solid transparent; }
+        .input-bloom:focus { border-color: var(--primary-pink); background: white; }
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -45,7 +55,7 @@
             <p class="text-[10px] font-bold text-[#ff4d6d] uppercase tracking-widest">Finex Store</p>
             <h1 class="text-xl font-extrabold text-slate-800">Beauty Bloom 🌸</h1>
         </div>
-        <button onclick="openProfile()" class="w-10 h-10 bg-pink-50 rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm">
+        <button onclick="openProfile()" class="w-10 h-10 bg-pink-50 rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm active:scale-90 transition-all">
             <i class="fa-solid fa-user-heart"></i>
         </button>
     </header>
@@ -68,7 +78,7 @@
         <div class="px-6 pb-10">
             <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Lacak Pesanan 🚚</h2>
             <div id="activityList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">Tutup</button>
+            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">Tutup Menu</button>
         </div>
     </div>
 
@@ -83,6 +93,21 @@
             <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4"></p>
             <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg">TAMBAH KERANJANG ✨</button>
         </div>
+    </div>
+
+    <div id="profileModal" class="profile-modal">
+        <div class="text-center mb-6">
+            <i class="fa-solid fa-circle-user text-5xl text-pink-200"></i>
+            <h2 class="text-xl font-black mt-2 text-slate-800">Akun Saya</h2>
+        </div>
+        <div class="space-y-3">
+            <input type="text" id="p-name" class="input-bloom" placeholder="Nama Lengkap">
+            <input type="text" id="p-email" class="input-bloom opacity-50" readonly>
+            <input type="number" id="p-phone" class="input-bloom" placeholder="628xxx">
+            <textarea id="p-address" class="input-bloom h-20 resize-none" placeholder="Alamat Pengiriman"></textarea>
+        </div>
+        <button onclick="saveProfile()" id="btnSaveProfile" class="w-full py-4 bg-[#f72585] text-white rounded-2xl font-bold mt-6 shadow-lg active:scale-95 transition-all">SIMPAN PERUBAHAN</button>
+        <button onclick="logoutCustomer()" class="w-full mt-6 text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">Logout Akun</button>
     </div>
 
     <nav class="bottom-nav">
@@ -101,119 +126,160 @@
         </button>
     </nav>
 
-    <script>
-        let shopCart = [];
+<script>
+    let shopCart = [];
 
-        window.onload = async () => {
-            const { data: { session } } = await db.auth.getSession();
-            if (!session) window.location.replace('login-customer.html');
-            loadOnlineMenu();
-        };
+    window.onload = async () => {
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) window.location.replace('login-customer.html');
+        loadOnlineMenu();
+    };
 
-        async function loadOnlineMenu() {
-            const q = document.getElementById('search').value;
-            let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
-            if (q) query = query.ilike('nama_barang', `%${q}%`);
-            
-            const { data } = await query.order('nama_barang');
-            const display = document.getElementById('onlineDisplay');
+    async function loadOnlineMenu() {
+        const q = document.getElementById('search').value;
+        let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
+        if (q) query = query.ilike('nama_barang', `%${q}%`);
+        
+        const { data } = await query.order('nama_barang');
+        const display = document.getElementById('onlineDisplay');
 
-            if (!data || data.length === 0) {
-                display.innerHTML = `<div class="col-span-2 py-20 text-center text-slate-400">Produk belum tersedia 🌸</div>`;
-                return;
-            }
+        if (!data || data.length === 0) {
+            display.innerHTML = `<div class="col-span-2 py-20 text-center text-slate-400">Produk Bloom belum tersedia 🌸</div>`;
+            return;
+        }
 
-            display.innerHTML = data.map(p => `
-                <div class="product-card">
-                    <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.image_url}', '${p.deskripsi || ''}')">
-                        <img src="${p.image_url || 'https://via.placeholder.com/300'}" onerror="this.src='https://via.placeholder.com/300?text=Beauty+Bloom'">
+        display.innerHTML = data.map(p => `
+            <div class="product-card">
+                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.image_url}', '${p.deskripsi || ''}')">
+                    <img src="${p.image_url || 'https://via.placeholder.com/300'}" onerror="this.src='https://via.placeholder.com/300?text=Beauty+Bloom'">
+                </div>
+                <div class="p-4 bg-white">
+                    <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
+                    <div class="flex justify-between items-center mt-3">
+                        <p class="font-black text-[#ff85a2] text-sm">Rp ${p.harga_jual.toLocaleString()}</p>
+                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
                     </div>
-                    <div class="p-4 bg-white">
-                        <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
-                        <div class="flex justify-between items-center mt-3">
-                            <p class="font-black text-[#ff85a2] text-sm">Rp ${p.harga_jual.toLocaleString()}</p>
-                            <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
+                </div>
+            </div>`).join('');
+    }
+
+    async function openActivity() {
+        const { data: { user } } = await db.auth.getUser();
+        const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
+
+        const container = document.getElementById('activityList');
+        if (data && data.length > 0) {
+            container.innerHTML = data.map(trx => {
+                const status = (trx.status_order || 'Pending').toLowerCase();
+                const canCancel = trx.status_order === 'Pending';
+
+                return `
+                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="text-[10px] font-black text-pink-300 uppercase">${trx.no_invoice}</p>
+                            <p class="text-[11px] font-bold text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
+                        </div>
+                        <span class="status-badge status-${status}">${trx.status_order}</span>
+                    </div>
+                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3 mt-1">
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Total</p>
+                            <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${canCancel ? 
+                                `<button onclick="batalPesananCustomer('${trx.id}')" class="text-[10px] font-bold text-red-500 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : 
+                                `<button onclick="alert('Pesanan sudah diproses admin. Silakan hubungi WA toko untuk pembatalan.')" class="text-[10px] font-bold text-slate-300 border border-slate-50 px-3 py-2 rounded-xl">Batal Terkunci</button>`
+                            }
+                            <button onclick="alert('Detail pesanan bisa dicek melalui WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
                         </div>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
+        } else {
+            container.innerHTML = `<p class="text-center text-slate-300 py-10">Belum ada pesanan nih. Yuk belanja! 🌸</p>`;
         }
+        document.getElementById('activityModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
 
-        async function openActivity() {
-            const { data: { user } } = await db.auth.getUser();
-            const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
-
-            const container = document.getElementById('activityList');
-            if (data && data.length > 0) {
-                container.innerHTML = data.map(trx => {
-                    const status = (trx.status_order || 'Pending').toLowerCase();
-                    const canCancel = trx.status_order === 'Pending';
-
-                    return `
-                    <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4">
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <p class="text-[10px] font-black text-pink-300 uppercase">${trx.no_invoice}</p>
-                                <p class="text-[11px] font-bold text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
-                            </div>
-                            <span class="status-badge status-${status}">${trx.status_order}</span>
-                        </div>
-                        <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3 mt-1">
-                            <div>
-                                <p class="text-[10px] text-slate-400 font-bold uppercase">Total</p>
-                                <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                            </div>
-                            <div class="flex gap-2">
-                                ${canCancel ? 
-                                    `<button onclick="batalPesananCustomer('${trx.id}')" class="text-[10px] font-bold text-red-500 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : 
-                                    `<button onclick="alert('Pesanan sudah diproses admin. Silakan hubungi WA toko.')" class="text-[10px] font-bold text-slate-300 border border-slate-50 px-3 py-2 rounded-xl">Batal Terkunci</button>`
-                                }
-                                <button onclick="alert('Detail pesanan bisa dicek di WA konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Info</button>
-                            </div>
-                        </div>
-                    </div>`;
-                }).join('');
-            } else {
-                container.innerHTML = `<p class="text-center text-slate-300 py-10">Belum ada pesanan.</p>`;
-            }
-            document.getElementById('activityModal').classList.add('active');
-            document.getElementById('modalOverlay').classList.add('active');
+    async function batalPesananCustomer(id) {
+        if (!confirm("Yakin ingin membatalkan pesanan? 🌸")) return;
+        const { error } = await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
+        if (!error) {
+            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: 'Dibatalkan', keterangan: 'Dibatalkan oleh pelanggan.' }]);
+            alert("Pesanan berhasil dibatalkan.");
+            openActivity();
         }
+    }
 
-        async function batalPesananCustomer(id) {
-            if (!confirm("Yakin ingin membatalkan pesanan? 🌸")) return;
-            const { error } = await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
-            if (!error) {
-                await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: 'Dibatalkan', keterangan: 'Dibatalkan oleh pelanggan.' }]);
-                alert("Berhasil dibatalkan.");
-                openActivity();
-            }
-        }
+    async function openProfile() {
+        const { data: { user } } = await db.auth.getUser();
+        const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
+        
+        document.getElementById('p-name').value = data?.full_name || user.user_metadata?.full_name || "";
+        document.getElementById('p-email').value = user.email;
+        document.getElementById('p-phone').value = data?.phone_number || "";
+        document.getElementById('p-address').value = data?.address_shipping || "";
+        
+        document.getElementById('profileModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
 
-        function addToOnlineCart(id, nama, harga) {
-            const idx = shopCart.findIndex(c => c.id === id);
-            if (idx > -1) shopCart[idx].qty++; else shopCart.push({ id, nama, harga, qty: 1 });
-            document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
-        }
+    async function saveProfile() {
+        const { data: { user } } = await db.auth.getUser();
+        const btn = document.getElementById('btnSaveProfile');
+        btn.innerText = "MENYIMPAN...";
+        
+        const { error } = await db.from('customers').upsert({
+            id: user.id,
+            full_name: document.getElementById('p-name').value,
+            phone_number: document.getElementById('p-phone').value,
+            address_shipping: document.getElementById('p-address').value,
+            email: user.email,
+            updated_at: new Date().toISOString()
+        });
+        
+        if (!error) { alert("Profil Berhasil Diperbarui! ✨"); closeAllModals(); }
+        btn.innerText = "SIMPAN PERUBAHAN";
+    }
 
-        function openDetail(id, nama, harga, img, desc) {
-            document.getElementById('detail-name').innerText = nama;
-            document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-            document.getElementById('detail-img').src = img || 'https://via.placeholder.com/300';
-            document.getElementById('detail-desc').innerText = desc || 'Rahasia kecantikan Beauty Bloom.';
-            document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga); closeAllModals(); };
-            document.getElementById('productDetailModal').classList.add('active');
-            document.getElementById('modalOverlay').classList.add('active');
-        }
+    function addToOnlineCart(id, nama, harga) {
+        const idx = shopCart.findIndex(c => c.id === id);
+        if (idx > -1) shopCart[idx].qty++; else shopCart.push({ id, nama, harga, qty: 1 });
+        document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
+    }
 
-        function closeAllModals() {
-            document.querySelectorAll('.activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active'));
-        }
+    function openDetail(id, nama, harga, img, desc) {
+        document.getElementById('detail-name').innerText = nama;
+        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
+        document.getElementById('detail-img').src = img || 'https://via.placeholder.com/300';
+        document.getElementById('detail-desc').innerText = desc || 'Rahasia kecantikan Beauty Bloom.';
+        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga); closeAllModals(); };
+        document.getElementById('productDetailModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
 
-        function goToCheckout() {
-            if (shopCart.length === 0) return alert("Pilih produk dulu! 🌸");
-            sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
-            window.location.href = "online-checkout.html";
+    function closeAllModals() {
+        document.getElementById('activityModal').classList.remove('active');
+        document.getElementById('productDetailModal').classList.remove('active');
+        document.getElementById('profileModal').classList.remove('active');
+        document.getElementById('modalOverlay').classList.remove('active');
+    }
+
+    function goToCheckout() {
+        if (shopCart.length === 0) return alert("Pilih produk dulu! 🌸");
+        sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
+        window.location.href = "online-checkout.html";
+    }
+
+    async function logoutCustomer() {
+        if(confirm("Keluar dari akun?")) {
+            await db.auth.signOut();
+            window.location.replace('login-customer.html');
         }
-    </script>
+    }
+</script>
 </body>
 </html>
