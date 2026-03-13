@@ -138,16 +138,31 @@
         loadOnlineMenu();
     };
 
-   async function loadOnlineMenu() {
+async function loadOnlineMenu() {
         const q = document.getElementById('search').value;
-        // Kita pastikan mengambil image_url
-        let query = db.from('produk').select('*').gt('stok_sekarang', 0);
+        
+        // FILTER GANDA: Stok harus ada DAN Status Tampil Online harus TRUE
+        let query = db.from('produk')
+            .select('*')
+            .gt('stok_sekarang', 0)
+            .eq('tampil_online', true); // Filter baru
         
         if (q) query = query.ilike('nama_barang', `%${q}%`);
         
         const { data } = await query.order('nama_barang');
         
-        document.getElementById('onlineDisplay').innerHTML = (data || []).map(p => `
+        const display = document.getElementById('onlineDisplay');
+        
+        if (!data || data.length === 0) {
+            display.innerHTML = `
+                <div class="col-span-2 py-20 text-center">
+                    <i class="fa-solid fa-sparkles text-4xl text-pink-200 mb-4"></i>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Produk belum tersedia</p>
+                </div>`;
+            return;
+        }
+
+        display.innerHTML = data.map(p => `
             <div class="product-card">
                 <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.image_url}', '${p.deskripsi || 'Rahasia kecantikan Beauty Bloom.'}')">
                     <img src="${p.image_url || 'https://via.placeholder.com/300'}" 
