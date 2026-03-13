@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-online.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-SxwBHyWfI2h4Py-b"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -35,8 +36,7 @@
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
                 <i class="fas fa-shopping-bag text-pink-400"></i> Produk Dipesan
             </h3>
-            <div id="checkout-list" class="space-y-4 text-sm">
-                </div>
+            <div id="checkout-list" class="space-y-4 text-sm"></div>
             <div class="mt-6 pt-4 border-t border-dashed border-slate-200 text-right">
                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Bayar</p>
                 <h2 id="txt-total" class="text-2xl font-black text-[#f72585]">Rp 0</h2>
@@ -66,65 +66,51 @@
                 <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
             </h3>
             <div class="space-y-3">
-                <div onclick="selectPayment('TF')" id="pay-tf" class="payment-option p-4 flex justify-between items-center">
+                <div onclick="selectPayment('VA')" id="pay-va" class="payment-option p-4 flex justify-between items-center active">
                     <div class="flex items-center gap-3">
-                        <i class="fas fa-university text-slate-400"></i>
-                        <p class="font-bold text-slate-700 text-sm">Transfer Bank Manual</p>
+                        <div class="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-700 text-sm">Pembayaran Otomatis</p>
+                            <p class="text-[10px] text-slate-400">VA Bank, QRIS, & E-Wallet</p>
+                        </div>
                     </div>
-                    <i class="fas fa-check-circle text-pink-500 check-icon"></i>
+                    <i class="fas fa-check-circle text-pink-500 check-icon" style="display:block"></i>
                 </div>
-                <div onclick="selectPayment('VA')" id="pay-va" class="payment-option p-4 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-bolt text-slate-400"></i>
-                        <p class="font-bold text-slate-700 text-sm">Virtual Account</p>
-                    </div>
-                    <i class="fas fa-check-circle text-pink-500 check-icon"></i>
-                </div>
-            </div>
-
-            <div id="bank-info" class="hidden mt-4 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <div class="flex justify-between items-center">
-                    <b class="text-slate-700 text-[10px] uppercase">Bank BCA - Beauty Bloom</b>
-                    <button onclick="copyRek()" class="text-pink-500 text-[10px] font-bold">SALIN</button>
-                </div>
-                <p id="norek" class="text-xl font-black text-slate-800">123-456-7890</p>
             </div>
         </div>
 
         <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg shadow-pink-200 active:scale-95 transition-all mb-4">
-            PESAN SEKARANG ✨
+            BAYAR SEKARANG ✨
         </button>
 
     </main>
 
 <script>
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
-    const MY_WA_NUMBER = "628xxxxxxxx"; // Ganti dengan nomor WA Toko
-    let selectedPayMethod = "";
     let grandTotal = 0;
+    let customerEmail = "";
 
     window.onload = async () => {
         renderCheckout();
         await loadCustomerData();
     };
 
-    // Ambil Data Profil
     async function loadCustomerData() {
         const { data: { user } } = await db.auth.getUser();
         if (user) {
+            customerEmail = user.email;
             const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
             if (data) {
                 document.getElementById('cust-name').value = data.full_name || "";
                 document.getElementById('cust-phone').value = data.phone_number || "";
                 document.getElementById('cust-address').value = data.address_shipping || "";
-                document.getElementById('loading-profile').innerText = "Alamat otomatis terisi dari profil ✨";
-            } else {
-                document.getElementById('loading-profile').innerText = "Silakan lengkapi data pengiriman 🌸";
+                document.getElementById('loading-profile').innerText = "Data pengiriman terisi otomatis ✨";
             }
         }
     }
 
-    // Render List Belanja
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
@@ -137,16 +123,6 @@
         document.getElementById('txt-total').innerText = "Rp " + grandTotal.toLocaleString();
     }
 
-    function selectPayment(type) {
-        selectedPayMethod = type === 'TF' ? 'Transfer Bank' : 'Virtual Account';
-        document.querySelectorAll('.payment-option').forEach(c => c.classList.remove('active'));
-        document.getElementById(type === 'TF' ? 'pay-tf' : 'pay-va').classList.add('active');
-        document.getElementById('bank-info').classList.remove('hidden');
-    }
-
-    function copyRek() { navigator.clipboard.writeText(document.getElementById('norek').innerText); alert("Norek berhasil disalin! 🌸"); }
-
-    // PROSES SIMPAN KE DATABASE & KIRIM WA
     async function processOrder() {
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
@@ -155,16 +131,27 @@
         const btn = document.getElementById('btn-order');
 
         if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman! 🌸");
-        if (!selectedPayMethod) return alert("Pilih metode pembayaran dulu ya! 🌸");
 
-        btn.innerText = "Memproses Pesanan...";
+        btn.innerText = "Membuka Gerai Pembayaran...";
         btn.disabled = true;
 
         try {
             const { data: { user } } = await db.auth.getUser();
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
 
-            // 1. Simpan Transaksi Utama
+            // 1. Ambil Token dari Edge Function
+            const { data: midtrans, error: errFunc } = await db.functions.invoke('midtrans-token', {
+                body: { 
+                    order_id: inv,
+                    amount: grandTotal,
+                    customer_name: name,
+                    customer_email: customerEmail
+                }
+            });
+
+            if (errFunc || !midtrans.token) throw new Error("Gagal terhubung ke Bank. Coba lagi.");
+
+            // 2. Simpan Transaksi Awal (Pending)
             const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
                 no_invoice: inv,
                 customer_id: user.id,
@@ -172,14 +159,15 @@
                 wa_penerima: phone,
                 alamat_kirim: address,
                 kurir: courier,
-                metode_bayar: selectedPayMethod,
+                metode_bayar: 'Midtrans Otomatis',
                 grand_total: grandTotal,
-                status_order: 'Pending'
+                status_order: 'Pending',
+                snap_token: midtrans.token // Simpan token di DB
             }]).select().single();
 
             if (errTrx) throw errTrx;
 
-            // 2. Simpan Detail Item
+            // 3. Simpan Detail Item
             const details = cartData.map(item => ({
                 transaksi_id: trx.id,
                 produk_id: item.id,
@@ -188,30 +176,34 @@
                 harga_satuan: item.harga,
                 subtotal_item: item.qty * item.harga
             }));
-            const { error: errDetail } = await db.from('transaksi_online_detail').insert(details);
-            if (errDetail) throw errDetail;
+            await db.from('transaksi_online_detail').insert(details);
 
-            // 3. Simpan Log Aktivitas Pertama
-            await db.from('transaksi_online_log').insert([{
-                transaksi_id: trx.id,
-                status: 'Pesanan Dibuat',
-                keterangan: 'Pesanan telah masuk ke sistem Bloom.'
-            }]);
-
-            // 4. Kirim WhatsApp
-            let itemsText = cartData.map(i => `- ${i.nama} (${i.qty}x)`).join('%0A');
-            const message = `*PESANAN BARU - BEAUTY BLOOM*🌸%0AInv: ${inv}%0A%0A*Pesanan:*%0A${itemsText}%0A%0ATotal: Rp ${grandTotal.toLocaleString()}%0APembayaran: ${selectedPayMethod}%0AAlamat: ${address}`;
-            
-            window.open(`https://wa.me/${6281239739396}?text=${message}`, '_blank');
-            
-            // Selesai
-            sessionStorage.removeItem('finexcart');
-            window.location.href = "online-shop.html";
+            // 4. Buka Midtrans Snap Pop-up
+            window.snap.pay(midtrans.token, {
+                onSuccess: function(result) {
+                    sessionStorage.removeItem('finexcart');
+                    window.location.href = "online-shop.html";
+                },
+                onPending: function(result) {
+                    sessionStorage.removeItem('finexcart');
+                    window.location.href = "online-shop.html";
+                },
+                onError: function(result) {
+                    alert("Pembayaran bermasalah, silakan cek menu Pesanan.");
+                    btn.disabled = false;
+                    btn.innerText = "COBA LAGI ✨";
+                },
+                onClose: function() {
+                    alert("Jangan lupa selesaikan pembayaran Kakak ya! 🌸");
+                    sessionStorage.removeItem('finexcart');
+                    window.location.href = "online-shop.html";
+                }
+            });
 
         } catch (e) {
             console.error(e);
-            alert("Terjadi kesalahan: " + e.message);
-            btn.innerText = "PESAN SEKARANG ✨";
+            alert(e.message);
+            btn.innerText = "BAYAR SEKARANG ✨";
             btn.disabled = false;
         }
     }
