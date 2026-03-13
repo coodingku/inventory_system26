@@ -25,6 +25,11 @@
         .profile-modal.active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
         .input-bloom { width: 100%; padding: 12px 15px; background: var(--soft-pink); border: 1px solid rgba(255, 133, 162, 0.1); border-radius: 15px; font-size: 14px; outline: none; margin-bottom: 12px; }
         .input-bloom:focus { border-color: var(--primary-pink); background: white; }
+        .img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ini penting agar gambar terpotong rapi di tengah */
+}
 
         /* STATUS COLORS */
         .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
@@ -133,15 +138,21 @@
         loadOnlineMenu();
     };
 
-    async function loadOnlineMenu() {
+   async function loadOnlineMenu() {
         const q = document.getElementById('search').value;
+        // Kita pastikan mengambil image_url
         let query = db.from('produk').select('*').gt('stok_sekarang', 0);
+        
         if (q) query = query.ilike('nama_barang', `%${q}%`);
+        
         const { data } = await query.order('nama_barang');
+        
         document.getElementById('onlineDisplay').innerHTML = (data || []).map(p => `
             <div class="product-card">
-                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.foto_url}', '${p.deskripsi || 'Rahasia kecantikan Beauty Bloom.'}')">
-                    <img src="${p.foto_url || 'https://via.placeholder.com/300'}" class="w-full h-full object-cover">
+                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.image_url}', '${p.deskripsi || 'Rahasia kecantikan Beauty Bloom.'}')">
+                    <img src="${p.image_url || 'https://via.placeholder.com/300'}" 
+                         class="w-full h-full object-cover" 
+                         onerror="this.src='https://via.placeholder.com/300?text=Beauty+Bloom'">
                 </div>
                 <div class="p-4 bg-white">
                     <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase tracking-tight">${p.nama_barang}</h4>
