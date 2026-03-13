@@ -1,115 +1,138 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Input Produk Baru | Finex POS</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="supabase-online.js"></script> </head>
-<body class="bg-slate-50 p-8">
-
-    <div class="max-w-2xl mx-auto bg-white p-8 rounded-3xl shadow-sm">
-        <h2 class="text-2xl font-black mb-6 text-slate-800">Tambah Produk Baru 🌸</h2>
-
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-bold text-slate-600 mb-1">Nama Produk</label>
-                <input type="text" id="nama_produk" class="w-full p-3 border rounded-xl outline-pink-500" placeholder="Contoh: Lipstik Matte">
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Harga (Rp)</label>
-                    <input type="number" id="harga" class="w-full p-3 border rounded-xl outline-pink-500" placeholder="0">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Stok</label>
-                    <input type="number" id="stok" class="w-full p-3 border rounded-xl outline-pink-500" placeholder="0">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-bold text-slate-600 mb-1">Kategori</label>
-                <select id="kategori" class="w-full p-3 border rounded-xl outline-pink-500">
-                    <option value="Skincare">Skincare</option>
-                    <option value="Makeup">Makeup</option>
-                    <option value="Bodycare">Bodycare</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-sm font-bold text-slate-600 mb-1">Foto Produk</label>
-                <input type="file" id="foto_produk" accept="image/*" class="w-full p-2 text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
-            </div>
-
-            <button onclick="simpanProduk()" id="btnSimpan" class="w-full bg-pink-500 text-white py-4 rounded-2xl font-bold shadow-lg shadow-pink-200 hover:bg-pink-600 transition-all mt-6">
-                SIMPAN PRODUK
-            </button>
-        </div>
+<div class="form-group">
+    <label>Foto Produk</label>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event)" style="flex: 1;">
+        <img id="img-preview" src="" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; display: none; border: 1px solid #ddd;">
     </div>
+    <input type="hidden" id="prod-url-lama"> </div>
 
-    <script>
-        async function simpanProduk() {
-            const nama = document.getElementById('nama_produk').value;
-            const harga = document.getElementById('harga').value;
-            const stok = document.getElementById('stok').value;
-            const kategori = document.getElementById('kategori').value;
-            const fileInput = document.getElementById('foto_produk');
-            const btn = document.getElementById('btnSimpan');
+<script>
+    // --- TAMBAHAN FUNGSI UPLOAD GAMBAR ---
 
-            if (!nama || !harga || !fileInput.files[0]) {
-                return alert("Mohon lengkapi data dan pilih foto! 🌸");
-            }
-
-            btn.innerText = "Sedang Upload...";
-            btn.disabled = true;
-
-            try {
-                const file = fileInput.files[0];
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Math.random()}.${fileExt}`;
-                const filePath = `produk/${fileName}`;
-
-                // 1. UPLOAD KE SUPABASE STORAGE
-                // Pastikan Allberto sudah membuat Bucket bernama 'produk_images' di Supabase
-                let { error: uploadError } = await db.storage
-                    .from('produk_images')
-                    .upload(filePath, file);
-
-                if (uploadError) throw uploadError;
-
-                // 2. AMBIL URL PUBLIK GAMBAR
-                const { data: urlData } = db.storage
-                    .from('produk_images')
-                    .getPublicUrl(filePath);
-                
-                const imageUrl = urlData.publicUrl;
-
-                // 3. SIMPAN KE TABEL PRODUK
-                const { error: insertError } = await db
-                    .from('produk')
-                    .insert([{
-                        nama_produk: nama,
-                        harga: parseInt(harga),
-                        stok: parseInt(stok),
-                        kategori: kategori,
-                        image_url: imageUrl // Kolom yang kita tambah lewat SQL tadi
-                    }]);
-
-                if (insertError) throw insertError;
-
-                alert("Produk berhasil ditambah! ✨");
-                window.location.reload();
-
-            } catch (err) {
-                alert("Gagal: " + err.message);
-                console.error(err);
-            } finally {
-                btn.innerText = "SIMPAN PRODUK";
-                btn.disabled = false;
-            }
+    // 1. Preview Gambar saat dipilih
+    function previewImage(event) {
+        const reader = new FileReader();
+        const preview = document.getElementById('img-preview');
+        reader.onload = () => {
+            preview.src = reader.result;
+            preview.style.display = 'block';
         }
-    </script>
-</body>
-</html>
+        reader.readAsDataURL(event.target.files[0]);
+    }
+
+    // 2. Fungsi Utama Upload ke Storage
+    async function uploadFotoProduk(file) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `produk/${fileName}`;
+
+        // Upload ke bucket 'produk_images' (Pastikan bucket ini sudah dibuat & Public)
+        const { error: uploadError } = await db.storage
+            .from('produk_images')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Ambil URL Publik
+        const { data } = db.storage.from('produk_images').getPublicUrl(filePath);
+        return data.publicUrl;
+    }
+
+    // --- UPDATE FUNGSI SIMPAN (ONSUBMIT) ---
+    document.getElementById('productForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prod-id').value;
+        const fileInput = document.getElementById('prod-foto');
+        const btnSimpan = e.target.querySelector('button[type="submit"]');
+        
+        btnSimpan.innerText = "Memproses...";
+        btnSimpan.disabled = true;
+
+        try {
+            let finalImageUrl = document.getElementById('prod-url-lama').value;
+
+            // Jika ada file baru yang dipilih, upload dulu
+            if (fileInput.files.length > 0) {
+                finalImageUrl = await uploadFotoProduk(fileInput.files[0]);
+            }
+
+            const payload = {
+                kode_barang: document.getElementById('prod-kode').value,
+                nama_barang: document.getElementById('prod-nama').value,
+                kategori_id: document.getElementById('prod-kategori').value,
+                gudang_id: document.getElementById('prod-gudang').value,
+                harga_beli: parseFloat(document.getElementById('prod-beli').value) || 0,
+                harga_jual: parseFloat(document.getElementById('prod-harga').value) || 0,
+                stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0,
+                stok_gudang: parseInt(document.getElementById('prod-stok').value) || 0,
+                image_url: finalImageUrl // Masukkan URL gambar ke kolom ini
+            };
+
+            const res = id ? 
+                await db.from('produk').update(payload).eq('id', id) : 
+                await db.from('produk').insert([payload]);
+
+            if (!res.error) {
+                alert("Berhasil simpan produk! ✨");
+                closeModal();
+                fetchProduk();
+            } else {
+                throw res.error;
+            }
+        } catch (err) {
+            alert("Gagal: " + err.message);
+        } finally {
+            btnSimpan.innerText = "Simpan Data";
+            btnSimpan.disabled = false;
+        }
+    };
+
+    // --- UPDATE RENDER TABLE (Agar muncul gambar kecil di list) ---
+    function renderTable(data) {
+        const tbody = document.getElementById('product-list');
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td><small>${p.kode_barang || '-'}</small></td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <img src="${p.image_url || 'https://via.placeholder.com/40'}" style="width:40px; height:40px; border-radius:5px; object-fit:cover;">
+                        <b>${p.nama_barang}</b>
+                    </div>
+                </td>
+                <td><small>${p.kategori?.nama_kategori || '-'} | ${p.gudang?.nama_gudang || '-'}</small></td>
+                <td>Rp ${(p.harga_beli || 0).toLocaleString()}</td>
+                <td style="color:var(--success); font-weight:bold;">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
+                <td><span class="badge-stock ${p.stok_sekarang < 10 ? 'stock-low' : 'stock-ok'}">${p.stok_sekarang || 0}</span></td>
+                <td>
+                    <button onclick="editProduk('${p.id}')" style="color:var(--accent); border:none; background:none; cursor:pointer; font-weight:bold;">Edit</button> |
+                    <button onclick="hapusProduk('${p.id}')" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">Hapus</button>
+                </td>
+            </tr>`).join('');
+    }
+
+    // --- UPDATE FUNGSI EDIT (Agar gambar lama muncul di modal) ---
+    function editProduk(id) {
+        const p = masterData.find(x => x.id === id);
+        document.getElementById('prod-id').value = p.id;
+        document.getElementById('prod-kode').value = p.kode_barang || '';
+        document.getElementById('prod-nama').value = p.nama_barang;
+        document.getElementById('prod-kategori').value = p.kategori_id;
+        document.getElementById('prod-gudang').value = p.gudang_id;
+        document.getElementById('prod-beli').value = p.harga_beli || 0;
+        document.getElementById('prod-harga').value = p.harga_jual || 0;
+        document.getElementById('prod-stok').value = p.stok_sekarang || 0;
+        
+        // Tampilkan foto lama di preview
+        document.getElementById('prod-url-lama').value = p.image_url || '';
+        const preview = document.getElementById('img-preview');
+        if (p.image_url) {
+            preview.src = p.image_url;
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
+
+        document.getElementById('modalTitle').innerText = "Edit Produk";
+        document.getElementById('productModal').style.display = 'flex';
+    }
+</script>
