@@ -6,8 +6,8 @@
 (function() {
     // 1. Masukkan URL dan KEY Supabase Anda secara langsung di sini
     // Ambil dari Dashboard Supabase -> Settings -> API
-    const SB_URL = "https://xyz-your-url.supabase.co"; 
-    const SB_KEY = "eyJhbG...your-anon-key"; 
+    const SB_URL = "https://uojhjskgugghwxtdsfvm.supabase.co"; 
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM"; 
 
     // 2. Inisialisasi Database Client
     // Tanpa proteksi redirect, agar customer bisa langsung akses
