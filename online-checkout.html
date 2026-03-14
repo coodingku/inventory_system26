@@ -182,37 +182,61 @@
         document.getElementById('area-results').classList.add('hidden');
     }
 
-    async function checkShippingRates() {
-        const destId = document.getElementById('destination-id').value;
-        if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
+   async function checkShippingRates() {
+    const destId = document.getElementById('destination-id').value;
+    if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
+    
+    const btn = document.getElementById('btn-cek-ongkir');
+    btn.innerText = "MENGHITUNG...";
+
+    // Pastikan berat ada, kalau tidak ada kita anggap 200 gram
+    const totalWeight = cartData.reduce((s, i) => s + ((i.berat || 200) * i.qty), 0);
+
+    const payload = {
+        origin_area_id: ORIGIN_ID, // Harus IDNP10CL1081
+        destination_area_id: destId,
+        couriers: "jne,jnt,sicepat", // Coba 3 kurir paling standar dulu
+        items: cartData.map(i => ({
+            name: i.nama,
+            description: "Produk Kecantikan",
+            value: i.harga,
+            weight: i.berat || 200,
+            quantity: i.qty
+        }))
+    };
+
+    console.log("Mengirim Data ke Biteship:", payload);
+
+    try {
+        const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+            method: 'POST',
+            headers: { 
+                'Authorization': BITES_API_KEY, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify(payload)
+        });
         
-        const btn = document.getElementById('btn-cek-ongkir');
-        btn.innerText = "MENGHITUNG...";
-
-        const totalWeight = cartData.reduce((s, i) => s + ((i.berat || 200) * i.qty), 0);
-
-        const payload = {
-            origin_area_id: ORIGIN_ID,
-            destination_area_id: destId,
-            couriers: "jne,jnt,sicepat,gojek,grab",
-            items: cartData.map(i => ({ name: i.nama, quantity: i.qty, value: i.harga, weight: i.berat || 200 }))
-        };
-
-        try {
-            const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
-                method: 'POST',
-                headers: { 'Authorization': BITES_API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            renderShippingOptions(data.results);
-        } catch (err) {
-            alert("Gagal memuat ongkir. Cek API Key Biteship kamu.");
-        } finally {
-            btn.innerText = "Cek Ongkos Kirim 🚚";
+        const data = await res.json();
+        
+        if (!res.ok) {
+            console.error("Biteship Error Response:", data);
+            throw new Error(data.error || "Gagal mengambil ongkir.");
         }
-    }
 
+        if (data.results && data.results.length > 0) {
+            renderShippingOptions(data.results);
+        } else {
+            alert("Maaf, kurir tidak tersedia untuk rute ini. 🌸");
+        }
+
+    } catch (err) {
+        console.error("Detail Error:", err);
+        alert("Gagal memuat ongkir: " + err.message);
+    } finally {
+        btn.innerText = "Cek Ongkos Kirim 🚚";
+    }
+}
     function renderShippingOptions(rates) {
         const container = document.getElementById('shipping-options');
         container.innerHTML = rates.map(r => `
