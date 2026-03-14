@@ -206,18 +206,17 @@
 
 async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Pilih kecamatan dari daftar dulu ya! 🌸");
+    if (!destId) return alert("Pilih kecamatan dari daftar hasil pencarian ya! 🌸");
     
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
     const payload = {
-        origin_area_id: ORIGIN_ID,
+        origin_area_id: ORIGIN_ID.trim(), // Pastikan tidak ada spasi
         destination_area_id: destId,
         couriers: "jne,jnt,sicepat,gojek,grab",
         items: cartData.map(i => ({
             name: i.nama,
-            description: "Produk Kecantikan",
             value: i.harga,
             weight: i.berat || 200,
             quantity: i.qty,
@@ -226,11 +225,10 @@ async function checkShippingRates() {
     };
 
     try {
-        // PERBAIKAN URL: Pastikan tidak ada spasi dan formatnya benar
         const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
             method: 'POST',
             headers: { 
-                'Authorization': BITES_API_KEY.trim(), // Kita bersihkan spasi jika ada
+                'Authorization': BITES_API_KEY.trim(), 
                 'Content-Type': 'application/json' 
             },
             body: JSON.stringify(payload)
@@ -239,18 +237,20 @@ async function checkShippingRates() {
         const data = await res.json();
         
         if (!res.ok) {
-            console.error("Biteship Error Response:", data);
-            // Jika Route Not Found (404), berarti kurir belum di-Enable
-            if(data.code === 40400000) {
-                throw new Error("Kurir belum aktif. Silakan 'Enable' JNE/J&T di Dashboard Biteship menu Configuration.");
+            console.error("Biteship Error:", data);
+            // CEK KHUSUS: Jika origin_area_id bermasalah
+            if (data.error && data.error.includes("origin")) {
+                throw new Error("Alamat TOKO Allberto belum benar. Cek menu Location > Origin di Biteship.");
             }
-            throw new Error(data.error || "Gagal mengambil ongkir.");
+            throw new Error(data.error || "Rute tidak ditemukan.");
         }
 
         if (data.results && data.results.length > 0) {
             renderShippingOptions(data.results);
+            // Scroll otomatis ke daftar kurir agar Allberto tidak bingung
+            document.getElementById('shipping-options').scrollIntoView({ behavior: 'smooth' });
         } else {
-            alert("Maaf, rute pengiriman tidak ditemukan. 🌸");
+            alert("Maaf, kurir tidak tersedia untuk rute ini. Coba pilih kecamatan lain. 🌸");
         }
 
     } catch (err) {
@@ -260,7 +260,6 @@ async function checkShippingRates() {
         btn.innerText = "Cek Ongkos Kirim 🚚";
     }
 }
-
     function renderShippingOptions(rates) {
         const container = document.getElementById('shipping-options');
         container.innerHTML = rates.map(r => `
