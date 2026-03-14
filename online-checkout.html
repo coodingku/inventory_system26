@@ -163,12 +163,9 @@
         document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
     }
 
- async function searchArea(query) {
+async function searchArea(query) {
     const resultsBox = document.getElementById('area-results');
-    if (query.length < 3) { resultsBox.classList.add('hidden'); return; }
-
-    resultsBox.innerHTML = '<div class="p-4 text-slate-400 italic text-[10px]">Mencari kecamatan...</div>';
-    resultsBox.classList.remove('hidden');
+    if (query.length < 3) return;
 
     try {
         const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
@@ -176,23 +173,15 @@
         });
         const data = await res.json();
         
-        if (data.areas && data.areas.length > 0) {
-            resultsBox.innerHTML = data.areas.map(a => {
-                // LOGIKA PEMBERSIH: Jika ID sangat panjang, kita ambil bagian IDNP-nya saja
-                let cleanId = a.id;
-                if (cleanId.length > 20) {
-                    const parts = cleanId.split('.'); // Coba pecah jika ada titik
-                    cleanId = parts[0].substring(0, 12); // Ambil 12 karakter pertama (Standar IDNP)
-                    // Jika formatnya IDNP...CL... kita ambil pola itu
-                    const match = a.id.match(/IDNP\d+CL\d+/);
-                    if (match) cleanId = match[0];
-                }
-                
-                return `<div onclick="selectArea('${cleanId}', '${a.name}')" 
-                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
+        if (data.areas) {
+            // Kita FILTER agar hanya menampilkan area yang punya ID Kecamatan (panjang ID biasanya > 10)
+            const kecamatanOnly = data.areas.filter(a => a.id.includes('CL') || a.id.length > 10);
+            
+            resultsBox.innerHTML = kecamatanOnly.map(a => `
+                <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
                     ${a.name}
-                </div>`;
-            }).join('');
+                </div>`).join('');
+            resultsBox.classList.remove('hidden');
         }
     } catch (err) { console.error(err); }
 }
@@ -209,20 +198,20 @@ async function checkShippingRates() {
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
-    // KITA SEDERHANAKAN PAYLOAD-NYA
-    const payload = {
-        origin_area_id: ORIGIN_ID.trim(), // IDNP10CL1081
-        destination_area_id: destId.trim(),
-        couriers: "jne", // <--- KITA TES JNE SAJA DULU
-        items: [{
-            name: "Produk Finex",
-            description: "Kosmetik",
-            value: 100000,
-            weight: 200,
-            quantity: 1,
-            length: 10, width: 10, height: 10
-        }]
-    };
+   
+  // GANTI SEMENTARA UNTUK TES SAJA
+const payload = {
+    origin_area_id: "IDNP10CL1081", // Denpasar Selatan
+    destination_area_id: "IDNP10CL1097", // KUTA (ID Kecamatan yang benar)
+    couriers: "jne",
+    items: [{
+        name: "Tes Produk",
+        value: 100000,
+        weight: 200,
+        quantity: 1,
+        length: 10, width: 10, height: 10
+    }]
+};
 
     console.log("Payload Tes JNE:", payload);
 
