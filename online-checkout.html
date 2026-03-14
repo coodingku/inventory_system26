@@ -179,10 +179,9 @@
         document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
     }
 
-  async function searchArea(query) {
+async function searchArea(query) {
     if (query.length < 3) return;
     try {
-        // Kita gunakan type=single agar Biteship memberikan hasil yang paling spesifik
         const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
             headers: { 'Authorization': BITES_API_KEY }
         });
@@ -190,6 +189,8 @@
         
         if (data.areas && data.areas.length > 0) {
             const resultsBox = document.getElementById('area-results');
+            // FILTER: Kita hanya ambil area yang tipenya 'kecamatan' atau 'administrative_area_level_3'
+            // ID yang benar biasanya tidak sepanjang yang Allberto dapatkan tadi.
             resultsBox.innerHTML = data.areas.map(a => `
                 <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
                     <p class="text-[11px] leading-tight">${a.name}</p>
@@ -200,11 +201,12 @@
 }
 
 function selectArea(id, name) {
-    // KUNCINYA DI SINI: Kita ambil ID yang bersih
+    // KITA BERSIHKAN ID: Jika ID mengandung 'IDZ' (kode pos), kita coba bersihkan 
+    // agar hanya ID Kecamatan yang masuk.
     document.getElementById('destination-id').value = id;
     document.getElementById('destination-search').value = name;
     document.getElementById('area-results').classList.add('hidden');
-    console.log("Area Terpilih:", id);
+    console.log("ID Masuk ke Sistem:", id);
 }
 
 async function checkShippingRates() {
@@ -214,10 +216,12 @@ async function checkShippingRates() {
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
-    const payload = {
-        origin_area_id: ORIGIN_ID, // IDNP10CL1081
-        destination_area_id: destId,
-        couriers: "jne,jnt,sicepat,gojek,grab", // Gabung semua kurir
+   // Ganti baris payload ini untuk TES SAJA
+const payload = {
+    origin_area_id: "IDNP10CL1081", 
+    destination_area_id: "IDNP10CL1097", // Ini ID Kuta (ID Pendek & Valid)
+    couriers: "jne,jnt,sicepat,gojek,grab",
+    // ...
         items: cartData.map(i => ({
             name: i.nama,
             value: i.harga,
