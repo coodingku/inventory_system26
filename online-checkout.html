@@ -14,7 +14,7 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff0f3; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; font-size: 14px; }
         .input-field:focus { border-color: #ff85a2; box-shadow: 0 0 0 2px #ffe5ec; }
-        .courier-box { transition: all 0.2s ease; }
+        .courier-box { transition: all 0.2s ease; border: 2px solid #f1f5f9; }
         .courier-box.active { border-color: #f72585; background: #fff0f3; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
@@ -82,6 +82,24 @@
             </div>
         </div>
 
+        <div class="bg-white p-6 rounded-[30px] shadow-sm border border-pink-50 mb-6">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
+            </h3>
+            <div class="p-4 border-2 border-pink-500 bg-pink-50 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white text-pink-500 rounded-full flex items-center justify-center shadow-sm">
+                        <i class="fas fa-bolt-lightning"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-700 text-sm">Otomatis (Midtrans)</p>
+                        <p class="text-[10px] text-slate-400">Virtual Account, QRIS, E-Wallet</p>
+                    </div>
+                </div>
+                <i class="fas fa-circle-check text-pink-500"></i>
+            </div>
+        </div>
+
         <input type="hidden" id="selected-courier-name">
         <input type="hidden" id="selected-shipping-cost" value="0">
 
@@ -91,8 +109,8 @@
     </main>
 
 <script>
-    const BITES_API_KEY = "biteship_test.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBmaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ4NTUxNH0.uVIDJzaqz4PF8q6iOBdqHNf0RfYHfUSzKcPmdJoGlPk"; // Ganti dengan API Key Biteship
-    const ORIGIN_ID = "IDNP10CL1081"; // Ganti dengan Area ID Toko Kamu
+    const BITES_API_KEY = "biteship_test.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBmaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ4NTUxNH0.uVIDJzaqz4PF8q6iOBdqHNf0RfYHfUSzKcPmdJoGlPk"; 
+    const ORIGIN_ID = "IDNP10CL1081"; 
 
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
     let subtotalFinal = 0;
@@ -120,7 +138,6 @@
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
-        
         let subtotalTanpaDiskon = 0;
         let totalDiskon = 0;
         subtotalFinal = 0;
@@ -129,7 +146,6 @@
             const hargaNormal = item.harga_normal || item.harga;
             const subNormal = item.qty * hargaNormal;
             const subFinal = item.qty * item.harga;
-            
             subtotalTanpaDiskon += subNormal;
             subtotalFinal += subFinal;
             totalDiskon += (subNormal - subFinal);
@@ -148,7 +164,6 @@
         }).join('');
 
         document.getElementById('txt-subtotal').innerText = "Rp " + subtotalTanpaDiskon.toLocaleString();
-        
         if (totalDiskon > 0) {
             document.getElementById('row-diskon').classList.remove('hidden');
             document.getElementById('txt-diskon').innerText = "- Rp " + totalDiskon.toLocaleString();
@@ -164,96 +179,67 @@
         document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
     }
 
-    // --- LOGIKA BITESHIP ---
-   async function searchArea(query) {
-    if (query.length < 3) return;
-    try {
-        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
-            headers: { 'Authorization': BITES_API_KEY }
-        });
-        const data = await res.json();
-        
-        // Cek apakah data areas ada
-        if (data.areas && data.areas.length > 0) {
-            const resultsBox = document.getElementById('area-results');
-            // Kita ambil ID yang paling spesifik (biasanya yang pertama)
-            resultsBox.innerHTML = data.areas.map(a => `
-                <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
-                    ${a.name}
-                </div>`).join('');
-            resultsBox.classList.remove('hidden');
-        }
-    } catch (err) {
-        console.error("Gagal cari area:", err);
+    async function searchArea(query) {
+        if (query.length < 3) return;
+        try {
+            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
+                headers: { 'Authorization': BITES_API_KEY }
+            });
+            const data = await res.json();
+            if (data.areas && data.areas.length > 0) {
+                const resultsBox = document.getElementById('area-results');
+                resultsBox.innerHTML = data.areas.map(a => `
+                    <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
+                        ${a.name}
+                    </div>`).join('');
+                resultsBox.classList.remove('hidden');
+            }
+        } catch (err) { console.error("Gagal cari area:", err); }
     }
-}
 
-function selectArea(id, name) {
-    console.log("ID Area Terpilih:", id); // Cek di console apakah masih kepanjangan
-    document.getElementById('destination-id').value = id;
-    document.getElementById('destination-search').value = name;
-    document.getElementById('area-results').classList.add('hidden');
-}
-
-   async function checkShippingRates() {
-    const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
-    
-    const btn = document.getElementById('btn-cek-ongkir');
-    btn.innerText = "MENGHITUNG...";
-
-    // Pastikan berat ada, kalau tidak ada kita anggap 200 gram
-    const totalWeight = cartData.reduce((s, i) => s + ((i.berat || 200) * i.qty), 0);
-
-    const payload = {
-        origin_area_id: ORIGIN_ID, // Harus IDNP10CL1081
-        destination_area_id: destId,
-        couriers: "jne,jnt,sicepat", // Coba 3 kurir paling standar dulu
-        items: cartData.map(i => ({
-            name: i.nama,
-            description: "Produk Kecantikan",
-            value: i.harga,
-            weight: i.berat || 200,
-            quantity: i.qty
-        }))
-    };
-
-    console.log("Mengirim Data ke Biteship:", payload);
-
-    try {
-        const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
-            method: 'POST',
-            headers: { 
-                'Authorization': BITES_API_KEY, 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await res.json();
-        
-        if (!res.ok) {
-            console.error("Biteship Error Response:", data);
-            throw new Error(data.error || "Gagal mengambil ongkir.");
-        }
-
-        if (data.results && data.results.length > 0) {
-            renderShippingOptions(data.results);
-        } else {
-            alert("Maaf, kurir tidak tersedia untuk rute ini. 🌸");
-        }
-
-    } catch (err) {
-        console.error("Detail Error:", err);
-        alert("Gagal memuat ongkir: " + err.message);
-    } finally {
-        btn.innerText = "Cek Ongkos Kirim 🚚";
+    function selectArea(id, name) {
+        document.getElementById('destination-id').value = id;
+        document.getElementById('destination-search').value = name;
+        document.getElementById('area-results').classList.add('hidden');
     }
-}
+
+    async function checkShippingRates() {
+        const destId = document.getElementById('destination-id').value;
+        if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
+        const btn = document.getElementById('btn-cek-ongkir');
+        btn.innerText = "MENGHITUNG...";
+
+        const payload = {
+            origin_area_id: ORIGIN_ID,
+            destination_area_id: destId,
+            couriers: "jne,jnt,sicepat",
+            items: cartData.map(i => ({
+                name: i.nama,
+                description: "Produk Kecantikan",
+                value: i.harga,
+                weight: i.berat || 200,
+                quantity: i.qty
+            }))
+        };
+
+        try {
+            const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+                method: 'POST',
+                headers: { 'Authorization': BITES_API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gagal mengambil ongkir.");
+            if (data.results && data.results.length > 0) renderShippingOptions(data.results);
+            else alert("Maaf, kurir tidak tersedia untuk rute ini. 🌸");
+        } catch (err) { alert("Gagal memuat ongkir: " + err.message); } 
+        finally { btn.innerText = "Cek Ongkos Kirim 🚚"; }
+    }
+
     function renderShippingOptions(rates) {
         const container = document.getElementById('shipping-options');
         container.innerHTML = rates.map(r => `
-            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:border-pink-300 transition-all courier-box bg-white">
+            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center cursor-pointer hover:border-pink-300 transition-all courier-box bg-white mb-2">
                 <div>
                     <p class="text-[10px] font-black uppercase text-slate-400">${r.courier_name} - ${r.courier_service}</p>
                     <p class="text-xs font-bold text-slate-700">${r.duration}</p>
@@ -263,9 +249,8 @@ function selectArea(id, name) {
     }
 
     function selectCourier(name, price) {
-        document.querySelectorAll('.courier-box').forEach(el => el.classList.remove('border-pink-500', 'bg-pink-50'));
-        event.currentTarget.classList.add('border-pink-500', 'bg-pink-50');
-        
+        document.querySelectorAll('.courier-box').forEach(el => el.classList.remove('border-pink-500', 'bg-pink-50', 'active'));
+        event.currentTarget.classList.add('border-pink-500', 'bg-pink-50', 'active');
         shippingCost = price;
         document.getElementById('selected-courier-name').value = name;
         document.getElementById('selected-shipping-cost').value = price;
@@ -277,60 +262,41 @@ function selectArea(id, name) {
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
         const courier = document.getElementById('selected-courier-name').value;
-        const finalAmount = subtotalFinal + shippingCost;
+        if (!name || !phone || !address || !courier) return alert("Lengkapi data pengiriman dan kurir! 🌸");
+
         const btn = document.getElementById('btn-order');
-
-        if (!courier || shippingCost === 0) return alert("Pilih kurir pengiriman dulu! 🌸");
-
         btn.innerText = "Processing...";
         btn.disabled = true;
 
         try {
             const { data: { user } } = await db.auth.getUser();
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
+            const finalAmount = subtotalFinal + shippingCost;
 
             const { data: midtrans, error: errFunc } = await db.functions.invoke('swift-function', {
                 body: { order_id: inv, amount: finalAmount, customer_name: name, customer_email: customerEmail }
             });
-
-            if (errFunc || !midtrans?.token) throw new Error("Gagal memproses pembayaran Midtrans.");
+            if (errFunc || !midtrans?.token) throw new Error("Gagal Midtrans.");
 
             const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
-                no_invoice: inv,
-                customer_id: user.id,
-                nama_penerima: name,
-                wa_penerima: phone,
+                no_invoice: inv, customer_id: user.id, nama_penerima: name, wa_penerima: phone,
                 alamat_kirim: `${address} (${document.getElementById('destination-search').value})`,
-                kurir: courier,
-                ongkos_kirim: shippingCost,
-                grand_total: finalAmount,
-                status_order: 'Pending',
-                snap_token: midtrans.token
+                kurir: courier, ongkos_kirim: shippingCost, grand_total: finalAmount, status_order: 'Pending', snap_token: midtrans.token
             }]).select().single();
-
             if (errTrx) throw errTrx;
 
             const details = cartData.map(item => ({
-                transaksi_id: trx.id,
-                produk_id: item.id,
-                nama_barang: item.nama,
-                qty: item.qty,
-                harga_satuan: item.harga,
-                subtotal_item: item.qty * item.harga
+                transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama, qty: item.qty,
+                harga_satuan: item.harga, subtotal_item: item.qty * item.harga
             }));
             await db.from('transaksi_online_detail').insert(details);
 
             window.snap.pay(midtrans.token, {
                 onSuccess: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
                 onPending: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
-                onClose: () => { alert("Pesanan disimpan. Silakan selesaikan pembayaran."); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
+                onClose: () => { alert("Pesanan disimpan."); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
             });
-
-        } catch (e) {
-            alert(e.message);
-            btn.innerText = "BAYAR SEKARANG ✨";
-            btn.disabled = false;
-        }
+        } catch (e) { alert(e.message); btn.innerText = "BAYAR SEKARANG ✨"; btn.disabled = false; }
     }
 </script>
 </body>
