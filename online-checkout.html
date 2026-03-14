@@ -204,23 +204,27 @@
 
 async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Pilih kecamatan dari daftar dulu! 🌸");
+    if (!destId) return alert("Pilih kecamatan dari daftar dulu ya! 🌸");
     
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
+    // KITA SEDERHANAKAN PAYLOAD-NYA
     const payload = {
-        origin_area_id: ORIGIN_ID.trim(),
+        origin_area_id: ORIGIN_ID.trim(), // IDNP10CL1081
         destination_area_id: destId.trim(),
-        couriers: "jne,jnt,sicepat,gojek,grab",
-        items: cartData.map(i => ({
-            name: i.nama.substring(0, 30),
-            value: Number(i.harga),
-            weight: Number(i.berat) || 200,
-            quantity: Number(i.qty),
+        couriers: "jne", // <--- KITA TES JNE SAJA DULU
+        items: [{
+            name: "Produk Finex",
+            description: "Kosmetik",
+            value: 100000,
+            weight: 200,
+            quantity: 1,
             length: 10, width: 10, height: 10
-        }))
+        }]
     };
+
+    console.log("Payload Tes JNE:", payload);
 
     try {
         const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
@@ -233,16 +237,18 @@ async function checkShippingRates() {
         });
         
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Gagal memuat rute.");
+        console.log("Respon JNE:", data);
+
+        if (!res.ok) throw new Error(data.error || "Gagal");
 
         if (data.results && data.results.length > 0) {
             renderShippingOptions(data.results);
         } else {
-            alert("Kurir tidak tersedia. Coba kecamatan lain! 🌸");
+            alert("JNE tidak ditemukan. Pastikan sudah Enable JNE REGULER di dashboard.");
         }
     } catch (err) {
-        console.error(err);
-        alert("INFO: " + err.message);
+        console.error("Detail Error:", err);
+        alert("HASIL: " + err.message);
     } finally {
         btn.innerText = "Cek Ongkos Kirim 🚚";
     }
