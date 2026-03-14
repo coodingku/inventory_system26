@@ -118,24 +118,36 @@
         loadOnlineMenu();
     };
 
-    // FUNGSI PINTAR: HITUNG HARGA AKTIF (SMART PRICE + POTONG DISKON)
-    function getActivePrice(p) {
+   function getActivePrice(p) {
         // 1. Ambil Harga Dasar (Online lebih prioritas)
         let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
         
-        // 2. Cek Masa Promo
-        const sekarang = new Date();
-        const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai) : null;
-        const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir) : null;
-        const isPromo = p.is_diskon && (!tglMulai || sekarang >= tglMulai) && (!tglAkhir || sekarang <= tglAkhir);
+        // Jika saklar diskon mati, langsung kembalikan harga dasar
+        if (!p.is_diskon) return basePrice;
 
-        // 3. Jika Promo, potong dengan nominal_diskon
+        // 2. Ambil waktu sekarang dalam milidetik
+        const sekarang = new Date().getTime();
+
+        // 3. Konversi waktu mulai & akhir ke milidetik
+        // Kita gunakan .getTime() agar perbandingannya angka murni (millisecond)
+        const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai).getTime() : null;
+        const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir).getTime() : null;
+
+        // 4. Logika Validasi: 
+        // Diskon aktif jika: (Tidak ada tgl mulai ATAU sudah lewat tgl mulai) 
+        // DAN (Tidak ada tgl akhir ATAU belum lewat tgl akhir)
+        const sudahMulai = !tglMulai || sekarang >= tglMulai;
+        const belumSelesai = !tglAkhir || sekarang <= tglAkhir;
+
+        const isPromo = p.is_diskon && sudahMulai && belumSelesai;
+
+        // 5. Jika Promo, potong harganya
         if (isPromo) {
             return basePrice - (p.nominal_diskon || 0);
         }
+        
         return basePrice;
     }
-
     async function loadOnlineMenu() {
         const q = document.getElementById('search').value;
         let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
