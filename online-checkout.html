@@ -14,8 +14,9 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff0f3; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; font-size: 14px; }
         .input-field:focus { border-color: #ff85a2; box-shadow: 0 0 0 2px #ffe5ec; }
-        .payment-option { border: 2px solid #f1f5f9; cursor: pointer; transition: 0.3s; background: white; border-radius: 20px; }
-        .payment-option.active { border-color: #f72585; background: #fff0f3; }
+        .courier-box { transition: all 0.2s ease; }
+        .courier-box.active { border-color: #f72585; background: #fff0f3; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-[#fff0f3] pb-10">
@@ -37,24 +38,22 @@
             <div class="mt-6 pt-4 border-t border-dashed border-slate-200">
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-slate-400 text-xs uppercase font-bold">Subtotal Produk</span>
-                    <span id="txt-subtotal" class="text-slate-600 font-bold italic">Rp 0</span>
+                    <span id="txt-subtotal" class="text-slate-600 font-bold">Rp 0</span>
                 </div>
                 <div id="row-diskon" class="flex justify-between items-center mb-1 hidden">
                     <span class="text-green-500 text-xs uppercase font-bold">Total Diskon Online</span>
                     <span id="txt-diskon" class="text-green-500 font-bold">- Rp 0</span>
                 </div>
                 <div class="flex justify-between items-center mb-3">
-                    <span class="text-slate-400 text-xs uppercase font-bold">Biaya Layanan</span>
-                    <span class="text-green-500 font-bold">Gratis</span>
+                    <span class="text-slate-400 text-xs uppercase font-bold">Ongkos Kirim</span>
+                    <span id="txt-ongkir" class="text-slate-600 font-bold">Rp 0</span>
                 </div>
                 <div class="flex justify-between items-end border-t border-slate-50 pt-3">
                     <div>
                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Bayar</p>
                         <h2 id="txt-total" class="text-2xl font-black text-[#f72585]">Rp 0</h2>
                     </div>
-                    <div id="badge-hemat" class="hidden bg-green-100 text-green-600 text-[10px] font-black px-3 py-1 rounded-full uppercase">
-                        Hemat Rp 0
-                    </div>
+                    <div id="badge-hemat" class="hidden bg-green-100 text-green-600 text-[10px] font-black px-3 py-1 rounded-full uppercase">Hemat Rp 0</div>
                 </div>
             </div>
         </div>
@@ -63,37 +62,28 @@
             <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
                 <i class="fas fa-truck text-pink-400"></i> Informasi Pengiriman
             </h3>
-            <div id="loading-profile" class="text-[10px] text-pink-400 mb-4 animate-pulse font-black uppercase">Memuat profil...</div>
             <div class="space-y-4">
                 <input type="text" id="cust-name" class="input-field" placeholder="Nama Penerima">
                 <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
-                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap & Patokan Rumah"></textarea>
-                <select id="courier" class="input-field font-bold text-slate-600">
-                    <option value="JNT">J&T Express</option>
-                    <option value="JNE">JNE Reguler</option>
-                    <option value="SiCepat">SiCepat</option>
-                    <option value="Ambil di Toko">Ambil di Toko (Free)</option>
-                </select>
+                
+                <div class="relative">
+                    <input type="text" id="destination-search" onkeyup="searchArea(this.value)" class="input-field" placeholder="Ketik Kecamatan/Kota Tujuan...">
+                    <div id="area-results" class="absolute z-50 w-full bg-white shadow-xl rounded-2xl mt-1 max-h-48 overflow-y-auto hidden text-xs border border-slate-100 no-scrollbar"></div>
+                    <input type="hidden" id="destination-id">
+                </div>
+
+                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap (Jl, No Rumah, RT/RW)"></textarea>
+
+                <button type="button" onclick="checkShippingRates()" id="btn-cek-ongkir" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-slate-200 active:scale-95 transition-all">
+                    Cek Ongkos Kirim 🚚
+                </button>
+
+                <div id="shipping-options" class="space-y-2 mt-4"></div>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-[30px] shadow-sm border border-pink-50 mb-6">
-            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
-            </h3>
-            <div class="payment-option p-4 flex justify-between items-center active">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
-                        <i class="fas fa-bolt"></i>
-                    </div>
-                    <div>
-                        <p class="font-bold text-slate-700 text-sm">Pembayaran Otomatis</p>
-                        <p class="text-[10px] text-slate-400">VA Bank, QRIS, & E-Wallet</p>
-                    </div>
-                </div>
-                <i class="fas fa-check-circle text-pink-500"></i>
-            </div>
-        </div>
+        <input type="hidden" id="selected-courier-name">
+        <input type="hidden" id="selected-shipping-cost" value="0">
 
         <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg shadow-pink-200 active:scale-95 transition-all mb-4">
             BAYAR SEKARANG ✨
@@ -101,8 +91,12 @@
     </main>
 
 <script>
+    const BITES_API_KEY = "KODE_API_BITESHIP_KAMU"; // Ganti dengan API Key Biteship
+    const ORIGIN_ID = "IDNP10CL1097"; // Ganti dengan Area ID Toko Kamu
+
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
-    let grandTotal = 0;
+    let subtotalFinal = 0;
+    let shippingCost = 0;
     let customerEmail = "";
 
     window.onload = async () => {
@@ -119,9 +113,6 @@
                 document.getElementById('cust-name').value = data.full_name || "";
                 document.getElementById('cust-phone').value = data.phone_number || "";
                 document.getElementById('cust-address').value = data.address_shipping || "";
-                document.getElementById('loading-profile').innerText = "Data pengiriman terisi otomatis ✨";
-            } else {
-                document.getElementById('loading-profile').classList.add('hidden');
             }
         }
     }
@@ -132,16 +123,15 @@
         
         let subtotalTanpaDiskon = 0;
         let totalDiskon = 0;
-        grandTotal = 0;
+        subtotalFinal = 0;
         
         container.innerHTML = cartData.map(item => {
-            // Pastikan data item.harga_normal ada (dikirim dari online-shop.html)
             const hargaNormal = item.harga_normal || item.harga;
             const subNormal = item.qty * hargaNormal;
             const subFinal = item.qty * item.harga;
             
             subtotalTanpaDiskon += subNormal;
-            grandTotal += subFinal;
+            subtotalFinal += subFinal;
             totalDiskon += (subNormal - subFinal);
 
             return `
@@ -154,32 +144,108 @@
                         </div>
                     </div>
                     <p class="font-bold text-slate-800">Rp ${subFinal.toLocaleString()}</p>
-                </div>
-            `;
+                </div>`;
         }).join('');
 
         document.getElementById('txt-subtotal').innerText = "Rp " + subtotalTanpaDiskon.toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + grandTotal.toLocaleString();
-
-        // Tampilkan Baris Diskon jika ada
+        
         if (totalDiskon > 0) {
             document.getElementById('row-diskon').classList.remove('hidden');
             document.getElementById('txt-diskon').innerText = "- Rp " + totalDiskon.toLocaleString();
             document.getElementById('badge-hemat').classList.remove('hidden');
             document.getElementById('badge-hemat').innerText = "Hemat Rp " + totalDiskon.toLocaleString();
         }
+        updateTotalDisplay();
+    }
+
+    function updateTotalDisplay() {
+        const totalBayar = subtotalFinal + shippingCost;
+        document.getElementById('txt-ongkir').innerText = "Rp " + shippingCost.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
+    }
+
+    // --- LOGIKA BITESHIP ---
+    async function searchArea(query) {
+        if (query.length < 3) return;
+        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
+            headers: { 'Authorization': BITES_API_KEY }
+        });
+        const { areas } = await res.json();
+        const resultsBox = document.getElementById('area-results');
+        resultsBox.innerHTML = areas.map(a => `<div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">${a.name}</div>`).join('');
+        resultsBox.classList.remove('hidden');
+    }
+
+    function selectArea(id, name) {
+        document.getElementById('destination-id').value = id;
+        document.getElementById('destination-search').value = name;
+        document.getElementById('area-results').classList.add('hidden');
+    }
+
+    async function checkShippingRates() {
+        const destId = document.getElementById('destination-id').value;
+        if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
+        
+        const btn = document.getElementById('btn-cek-ongkir');
+        btn.innerText = "MENGHITUNG...";
+
+        const totalWeight = cartData.reduce((s, i) => s + ((i.berat || 200) * i.qty), 0);
+
+        const payload = {
+            origin_area_id: ORIGIN_ID,
+            destination_area_id: destId,
+            couriers: "jne,jnt,sicepat,gojek,grab",
+            items: cartData.map(i => ({ name: i.nama, quantity: i.qty, value: i.harga, weight: i.berat || 200 }))
+        };
+
+        try {
+            const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+                method: 'POST',
+                headers: { 'Authorization': BITES_API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            renderShippingOptions(data.results);
+        } catch (err) {
+            alert("Gagal memuat ongkir. Cek API Key Biteship kamu.");
+        } finally {
+            btn.innerText = "Cek Ongkos Kirim 🚚";
+        }
+    }
+
+    function renderShippingOptions(rates) {
+        const container = document.getElementById('shipping-options');
+        container.innerHTML = rates.map(r => `
+            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:border-pink-300 transition-all courier-box bg-white">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400">${r.courier_name} - ${r.courier_service}</p>
+                    <p class="text-xs font-bold text-slate-700">${r.duration}</p>
+                </div>
+                <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
+            </div>`).join('');
+    }
+
+    function selectCourier(name, price) {
+        document.querySelectorAll('.courier-box').forEach(el => el.classList.remove('border-pink-500', 'bg-pink-50'));
+        event.currentTarget.classList.add('border-pink-500', 'bg-pink-50');
+        
+        shippingCost = price;
+        document.getElementById('selected-courier-name').value = name;
+        document.getElementById('selected-shipping-cost').value = price;
+        updateTotalDisplay();
     }
 
     async function processOrder() {
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
-        const courier = document.getElementById('courier').value;
+        const courier = document.getElementById('selected-courier-name').value;
+        const finalAmount = subtotalFinal + shippingCost;
         const btn = document.getElementById('btn-order');
 
-        if (!name || !phone || !address) return alert("Mohon lengkapi data pengiriman! 🌸");
+        if (!courier || shippingCost === 0) return alert("Pilih kurir pengiriman dulu! 🌸");
 
-        btn.innerText = "Membuka Gerai Pembayaran...";
+        btn.innerText = "Processing...";
         btn.disabled = true;
 
         try {
@@ -187,25 +253,20 @@
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
 
             const { data: midtrans, error: errFunc } = await db.functions.invoke('swift-function', {
-                body: { 
-                    order_id: inv,
-                    amount: grandTotal,
-                    customer_name: name,
-                    customer_email: customerEmail || "customer@beautybloom.com"
-                }
+                body: { order_id: inv, amount: finalAmount, customer_name: name, customer_email: customerEmail }
             });
 
-            if (errFunc || !midtrans?.token) throw new Error("Gagal mengambil kode pembayaran. Cek Server Key. 🌸");
+            if (errFunc || !midtrans?.token) throw new Error("Gagal memproses pembayaran Midtrans.");
 
             const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
                 no_invoice: inv,
                 customer_id: user.id,
                 nama_penerima: name,
                 wa_penerima: phone,
-                alamat_kirim: address,
+                alamat_kirim: `${address} (${document.getElementById('destination-search').value})`,
                 kurir: courier,
-                metode_bayar: 'Midtrans Otomatis',
-                grand_total: grandTotal,
+                ongkos_kirim: shippingCost,
+                grand_total: finalAmount,
                 status_order: 'Pending',
                 snap_token: midtrans.token
             }]).select().single();
@@ -223,23 +284,12 @@
             await db.from('transaksi_online_detail').insert(details);
 
             window.snap.pay(midtrans.token, {
-                onSuccess: (result) => {
-                    sessionStorage.removeItem('finexcart');
-                    window.location.href = "online-shop.html";
-                },
-                onPending: (result) => {
-                    sessionStorage.removeItem('finexcart');
-                    window.location.href = "online-shop.html";
-                },
-                onClose: () => {
-                    alert("Pesanan disimpan. Jangan lupa bayar ya! 🌸");
-                    sessionStorage.removeItem('finexcart');
-                    window.location.href = "online-shop.html";
-                }
+                onSuccess: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
+                onPending: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
+                onClose: () => { alert("Pesanan disimpan. Silakan selesaikan pembayaran."); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
             });
 
         } catch (e) {
-            console.error(e);
             alert(e.message);
             btn.innerText = "BAYAR SEKARANG ✨";
             btn.disabled = false;
