@@ -203,39 +203,66 @@
         document.getElementById('area-results').classList.add('hidden');
     }
 
-    async function checkShippingRates() {
-        const destId = document.getElementById('destination-id').value;
-        if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
-        const btn = document.getElementById('btn-cek-ongkir');
-        btn.innerText = "MENGHITUNG...";
+   async function checkShippingRates() {
+    const destId = document.getElementById('destination-id').value;
+    if (!destId) return alert("Pilih Kecamatan/Kota tujuan dulu! 🌸");
+    
+    const btn = document.getElementById('btn-cek-ongkir');
+    btn.innerText = "MENGHITUNG...";
 
-        const payload = {
-            origin_area_id: ORIGIN_ID,
-            destination_area_id: destId,
-            couriers: "jne,jnt,sicepat",
-            items: cartData.map(i => ({
-                name: i.nama,
-                description: "Produk Kecantikan",
-                value: i.harga,
-                weight: i.berat || 200,
-                quantity: i.qty
-            }))
-        };
+    // 1. Siapkan data barang dengan dimensi default (P:10, L:10, T:10)
+    // Biteship butuh dimensi agar tidak error 404/400
+    const items = cartData.map(i => ({
+        name: i.nama,
+        description: "Produk Kecantikan",
+        value: i.harga,
+        weight: i.berat || 200,
+        quantity: i.qty,
+        length: 10, 
+        width: 10, 
+        height: 10
+    }));
 
-        try {
-            const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
-                method: 'POST',
-                headers: { 'Authorization': BITES_API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Gagal mengambil ongkir.");
-            if (data.results && data.results.length > 0) renderShippingOptions(data.results);
-            else alert("Maaf, kurir tidak tersedia untuk rute ini. 🌸");
-        } catch (err) { alert("Gagal memuat ongkir: " + err.message); } 
-        finally { btn.innerText = "Cek Ongkos Kirim 🚚"; }
+    const payload = {
+        origin_area_id: ORIGIN_ID,
+        destination_area_id: destId,
+        couriers: "jne,jnt,sicepat",
+        items: items
+    };
+
+    console.log("Payload yang dikirim:", payload);
+
+    try {
+        const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+            method: 'POST',
+            headers: { 
+                'Authorization': BITES_API_KEY, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            console.error("Biteship Error detail:", data);
+            // Jika error 404, biasanya karena ID Area tidak ditemukan atau kurir belum aktif
+            throw new Error(data.error || "Rute tidak ditemukan. Cek apakah kurir sudah di-enable di dashboard Biteship.");
+        }
+
+        if (data.results && data.results.length > 0) {
+            renderShippingOptions(data.results);
+        } else {
+            alert("Kurir tidak tersedia untuk lokasi ini. Coba pilih kecamatan lain. 🌸");
+        }
+
+    } catch (err) {
+        console.error("Detail Error:", err);
+        alert("Gagal memuat ongkir: " + err.message);
+    } finally {
+        btn.innerText = "Cek Ongkos Kirim 🚚";
     }
-
+}
     function renderShippingOptions(rates) {
         const container = document.getElementById('shipping-options');
         container.innerHTML = rates.map(r => `
