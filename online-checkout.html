@@ -192,32 +192,40 @@ async function searchArea(query) {
     }
 
 async function checkShippingRates() {
-    const destId = document.getElementById('destination-id').value;
-    
-    // Validasi: Pastikan user sudah memilih kecamatan dari dropdown
-    if (!destId) return alert("Allberto, tolong pilih kecamatan dari daftar hasil pencarian dulu ya! 🌸");
-    
+    let destId = document.getElementById('destination-id').value;
+    if (!destId) return alert("Pilih kecamatan dari daftar dulu ya! 🌸");
+
+    // LOGIKA AUTO-CUTTER: Memotong ID raksasa menjadi ID Kecamatan yang valid
+    // Jika ID mengandung 'IDZ' (kode pos), kita ambil bagian depannya saja
+    if (destId.length > 15) {
+        console.log("ID Terlalu panjang, sedang dipotong...");
+        // Mencari pola ID Kecamatan (IDNP...CL...)
+        const match = destId.match(/IDNP\d+CL\d+/);
+        if (match) {
+            destId = match[0];
+        } else {
+            // Jika tidak ada pola CL, kita ambil 12 karakter pertama sebagai standar IDNP
+            destId = destId.substring(0, 12);
+        }
+    }
+
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
-    // Siapkan data barang dari keranjang (cartData)
-    // Biteship wajib ada Nama, Harga, Berat, dan Jumlah
-    const itemsPayload = cartData.map(i => ({
-        name: i.nama.substring(0, 30),
-        value: Number(i.harga),
-        weight: Number(i.berat) || 200, // Jika berat tidak ada, kita anggap 200gr
-        quantity: Number(i.qty),
-        length: 10, width: 10, height: 10 // Dimensi standar paket kecil
-    }));
-
     const payload = {
-        origin_area_id: ORIGIN_ID.trim(),
-        destination_area_id: destId.trim(),
-        couriers: "jne,jnt,sicepat", // Kita panggil 3 kurir utama
-        items: itemsPayload
+        origin_area_id: ORIGIN_ID.trim(), // IDNP10CL1081
+        destination_area_id: destId.trim(), // ID yang sudah dibersihkan
+        couriers: "jne,jnt,sicepat",
+        items: cartData.map(i => ({
+            name: i.nama.substring(0, 30),
+            value: Number(i.harga),
+            weight: Number(i.berat) || 200,
+            quantity: Number(i.qty),
+            length: 10, width: 10, height: 10
+        }))
     };
 
-    console.log("Mengirim data ke Biteship:", payload);
+    console.log("Data BERSIH yang dikirim:", payload);
 
     try {
         const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
@@ -230,24 +238,18 @@ async function checkShippingRates() {
         });
         
         const data = await res.json();
-        console.log("Respon dari Biteship:", data);
+        console.log("Respon Akhir:", data);
 
-        if (!res.ok) {
-            // Jika masih error, tampilkan pesan spesifik dari Biteship
-            throw new Error(data.error || "Gagal mengambil ongkir.");
-        }
+        if (!res.ok) throw new Error(data.error || "Rute tidak ditemukan.");
 
         if (data.results && data.results.length > 0) {
             renderShippingOptions(data.results);
-            // Scroll otomatis ke daftar ongkir agar terlihat oleh user
-            document.getElementById('shipping-options').scrollIntoView({ behavior: 'smooth' });
         } else {
-            alert("Maaf Allberto, kurir tidak tersedia untuk rute ini. Coba cek apakah layanan JNE/J&T sudah Enable di dashboard.");
+            alert("Kurir tidak tersedia. Pastikan JNE/J&T sudah Enable di dashboard.");
         }
-
     } catch (err) {
         console.error("Detail Error:", err);
-        alert("INFO: " + err.message);
+        alert("HASIL: " + err.message);
     } finally {
         btn.innerText = "Cek Ongkos Kirim 🚚";
     }
