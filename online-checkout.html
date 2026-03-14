@@ -165,22 +165,35 @@
     }
 
     // --- LOGIKA BITESHIP ---
-    async function searchArea(query) {
-        if (query.length < 3) return;
+   async function searchArea(query) {
+    if (query.length < 3) return;
+    try {
         const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
             headers: { 'Authorization': BITES_API_KEY }
         });
-        const { areas } = await res.json();
-        const resultsBox = document.getElementById('area-results');
-        resultsBox.innerHTML = areas.map(a => `<div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">${a.name}</div>`).join('');
-        resultsBox.classList.remove('hidden');
+        const data = await res.json();
+        
+        // Cek apakah data areas ada
+        if (data.areas && data.areas.length > 0) {
+            const resultsBox = document.getElementById('area-results');
+            // Kita ambil ID yang paling spesifik (biasanya yang pertama)
+            resultsBox.innerHTML = data.areas.map(a => `
+                <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
+                    ${a.name}
+                </div>`).join('');
+            resultsBox.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error("Gagal cari area:", err);
     }
+}
 
-    function selectArea(id, name) {
-        document.getElementById('destination-id').value = id;
-        document.getElementById('destination-search').value = name;
-        document.getElementById('area-results').classList.add('hidden');
-    }
+function selectArea(id, name) {
+    console.log("ID Area Terpilih:", id); // Cek di console apakah masih kepanjangan
+    document.getElementById('destination-id').value = id;
+    document.getElementById('destination-search').value = name;
+    document.getElementById('area-results').classList.add('hidden');
+}
 
    async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
