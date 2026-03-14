@@ -107,7 +107,7 @@
     </main>
 
 <script>
-    const BITES_API_KEY = "biteship_test.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBmaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ4NTUxNH0.uVIDJzaqz4PF8q6iOBdqHNf0RfYHfUSzKcPmdJoGlPk"; 
+    const BITES_API_KEY = "biteship_test.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBGaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ5NDcxNX0.2NN3Yv4IWqYdfGnkR6CobKGQXf4S--rk0-xBYgAK4Ig"; 
     const ORIGIN_ID = "IDNP10CL1081"; 
 
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
@@ -202,26 +202,24 @@ function selectArea(id, name) {
 async function checkShippingRates() {
     let destId = document.getElementById('destination-id').value;
     
-    // Jika ID masih raksasa atau tidak ada, kita pakai ID Kuta (IDNP10CL1097) untuk tes
+    // Kita gunakan rute Jakarta untuk tes (paling stabil di server testing)
     if (!destId || destId.length > 15) {
-        console.log("ID tidak valid/terlalu panjang, menggunakan ID Kuta untuk simulasi.");
-        destId = "IDNP10CL1097"; 
+        destId = "IDNP6IDNC150IDND881"; // ID Kecamatan di Jakarta
     }
 
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
     const payload = {
-        origin_area_id: ORIGIN_ID.trim(), // IDNP10CL1081
-        destination_area_id: destId,
-        couriers: "jne,jnt,sicepat",
-        items: cartData.map(i => ({
-            name: i.nama.substring(0, 30),
-            value: Number(i.harga),
-            weight: Number(i.berat) || 200,
-            quantity: Number(i.qty),
-            length: 10, width: 10, height: 10
-        }))
+        origin_area_id: ORIGIN_ID.trim(), 
+        destination_area_id: destId.trim(),
+        couriers: "jne,jnt", // Cukup 2 ini saja dulu untuk tes
+        items: [{
+            name: "Finex Product",
+            value: 50000,
+            weight: 200,
+            quantity: 1
+        }]
     };
 
     try {
@@ -235,13 +233,15 @@ async function checkShippingRates() {
         });
         
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Rute tidak ditemukan.");
+        console.log("Respon Server:", data);
+
+        if (!res.ok) throw new Error(data.error || "Route Not Found");
 
         if (data.results && data.results.length > 0) {
             renderShippingOptions(data.results);
-            alert("Berhasil! Ongkir ditemukan 🌸");
+            alert("ASYIK! Ongkir Muncul! 🌸");
         } else {
-            alert("Rute tidak ditemukan. Cek saldo atau kurir di dashboard.");
+            alert("Saldo ada, tapi rute tidak ditemukan. Cek Alamat Toko (Origin) di dashboard.");
         }
     } catch (err) {
         alert("INFO: " + err.message);
