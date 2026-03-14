@@ -107,7 +107,7 @@
     </main>
 
 <script>
-    const BITES_API_KEY = "biteship_test.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBGaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ5NDcxNX0.2NN3Yv4IWqYdfGnkR6CobKGQXf4S--rk0-xBYgAK4Ig"; 
+    const BITES_API_KEY = "biteship_live.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBmaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ5NTE2Mn0.lu-I0J6bMZsD38H7sk8LAEB6S_a88T-laIvZX3_NzAk"; 
     const ORIGIN_ID = "IDNP10CL1081"; 
 
     let cartData = JSON.parse(sessionStorage.getItem('finexcart')) || [];
@@ -165,7 +165,10 @@
 
 async function searchArea(query) {
     const resultsBox = document.getElementById('area-results');
-    if (query.length < 3) return;
+    if (query.length < 3) { resultsBox.classList.add('hidden'); return; }
+
+    resultsBox.innerHTML = '<div class="p-4 text-slate-400 italic text-xs">Mencari...</div>';
+    resultsBox.classList.remove('hidden');
 
     try {
         const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
@@ -173,30 +176,28 @@ async function searchArea(query) {
         });
         const data = await res.json();
         
-        if (data.areas) {
+        if (data.areas && data.areas.length > 0) {
             resultsBox.innerHTML = data.areas.map(a => {
-                // Trik: Biteship sering memberikan ID gabungan. 
-                // Kita coba pecah dan ambil bagian yang paling mungkin jadi ID Kecamatan.
-                let areaId = a.id;
-                
-                // Jika ID mengandung titik (.), biasanya ID kecamatan ada di bagian awal
-                if (areaId.includes('.')) {
-                    areaId = areaId.split('.')[0];
-                }
+                // TRIK JITU: Mengambil ID Kecamatan yang bersih dari dalam ID yang panjang
+                let cleanId = a.id;
+                const match = cleanId.match(/IDNP\d+CL\d+/); // Mencari pola IDNP...CL...
+                if (match) cleanId = match[0];
+                else cleanId = cleanId.split('.')[0].substring(0, 12); // Cara cadangan
 
-                return `<div onclick="selectArea('${areaId}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
+                return `<div onclick="selectArea('${cleanId}', '${a.name}')" 
+                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-xs">
                     ${a.name}
                 </div>`;
             }).join('');
-            resultsBox.classList.remove('hidden');
         }
     } catch (err) { console.error(err); }
 }
+
 function selectArea(id, name) {
-    console.log("ID Yang Dipilih Sekarang:", id); // Cek apakah sudah ada 'CL'-nya
     document.getElementById('destination-id').value = id;
     document.getElementById('destination-search').value = name;
     document.getElementById('area-results').classList.add('hidden');
+    console.log("ID Siap Kirim:", id);
 }
     
 async function checkShippingRates() {
