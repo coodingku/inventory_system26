@@ -14,7 +14,7 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff0f3; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; font-size: 14px; }
         .input-field:focus { border-color: #ff85a2; box-shadow: 0 0 0 2px #ffe5ec; }
-        .courier-box { transition: all 0.2s ease; border: 2px solid #f1f5f9; }
+        .courier-box { transition: all 0.2s ease; border: 2px solid #f1f5f9; cursor: pointer; }
         .courier-box.active { border-color: #f72585; background: #fff0f3; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
@@ -40,10 +40,6 @@
                     <span class="text-slate-400 text-xs uppercase font-bold">Subtotal Produk</span>
                     <span id="txt-subtotal" class="text-slate-600 font-bold">Rp 0</span>
                 </div>
-                <div id="row-diskon" class="flex justify-between items-center mb-1 hidden">
-                    <span class="text-green-500 text-xs uppercase font-bold">Total Diskon Online</span>
-                    <span id="txt-diskon" class="text-green-500 font-bold">- Rp 0</span>
-                </div>
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-slate-400 text-xs uppercase font-bold">Ongkos Kirim</span>
                     <span id="txt-ongkir" class="text-slate-600 font-bold">Rp 0</span>
@@ -53,7 +49,6 @@
                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Bayar</p>
                         <h2 id="txt-total" class="text-2xl font-black text-[#f72585]">Rp 0</h2>
                     </div>
-                    <div id="badge-hemat" class="hidden bg-green-100 text-green-600 text-[10px] font-black px-3 py-1 rounded-full uppercase">Hemat Rp 0</div>
                 </div>
             </div>
         </div>
@@ -67,7 +62,7 @@
                 <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
                 
                 <div class="relative">
-                    <input type="text" id="destination-search" onkeyup="searchArea(this.value)" class="input-field" placeholder="Ketik Kecamatan Tujuan (Contoh: Kuta)...">
+                    <input type="text" id="destination-search" onkeyup="searchArea(this.value)" class="input-field" placeholder="Ketik Kecamatan Tujuan..." autocomplete="off">
                     <div id="area-results" class="absolute z-50 w-full bg-white shadow-xl rounded-2xl mt-1 max-h-48 overflow-y-auto hidden text-xs border border-slate-100 no-scrollbar"></div>
                     <input type="hidden" id="destination-id">
                 </div>
@@ -91,7 +86,7 @@
                     <div class="w-10 h-10 bg-white text-pink-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-bolt-lightning"></i></div>
                     <div>
                         <p class="font-bold text-slate-700 text-sm">Otomatis (Midtrans)</p>
-                        <p class="text-[10px] text-slate-400">Virtual Account, QRIS, E-Wallet</p>
+                        <p class="text-[10px] text-slate-400">VA, QRIS, E-Wallet</p>
                     </div>
                 </div>
                 <i class="fas fa-circle-check text-pink-500"></i>
@@ -133,128 +128,81 @@
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
-        let subtotalTanpaDiskon = 0; let totalDiskon = 0; subtotalFinal = 0;
+        subtotalFinal = 0;
         
         container.innerHTML = cartData.map(item => {
-            const hargaNormal = item.harga_normal || item.harga;
-            const subNormal = item.qty * hargaNormal;
-            const subFinal = item.qty * item.harga;
-            subtotalTanpaDiskon += subNormal; subtotalFinal += subFinal; totalDiskon += (subNormal - subFinal);
+            const sub = item.qty * item.harga;
+            subtotalFinal += sub;
             return `<div class="flex justify-between items-start">
                 <div><p class="font-bold text-slate-700">${item.nama}</p>
-                <div class="flex items-center gap-2">
-                    ${hargaNormal > item.harga ? `<span class="text-[10px] text-slate-300 line-through">Rp ${hargaNormal.toLocaleString()}</span>` : ''}
-                    <span class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</span>
-                </div></div><p class="font-bold text-slate-800">Rp ${subFinal.toLocaleString()}</p></div>`;
+                <p class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</p></div>
+                <p class="font-bold text-slate-800">Rp ${sub.toLocaleString()}</p></div>`;
         }).join('');
-        document.getElementById('txt-subtotal').innerText = "Rp " + subtotalTanpaDiskon.toLocaleString();
-        if (totalDiskon > 0) {
-            document.getElementById('row-diskon').classList.remove('hidden');
-            document.getElementById('txt-diskon').innerText = "- Rp " + totalDiskon.toLocaleString();
-            document.getElementById('badge-hemat').classList.remove('hidden');
-            document.getElementById('badge-hemat').innerText = "Hemat Rp " + totalDiskon.toLocaleString();
-        }
+        
+        document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
         updateTotalDisplay();
     }
 
     function updateTotalDisplay() {
-        const totalBayar = subtotalFinal + shippingCost;
+        const total = subtotalFinal + shippingCost;
         document.getElementById('txt-ongkir').innerText = "Rp " + shippingCost.toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + total.toLocaleString();
     }
 
-async function searchArea(query) {
-    const resultsBox = document.getElementById('area-results');
-    if (query.length < 3) { resultsBox.classList.add('hidden'); return; }
-
-    resultsBox.innerHTML = '<div class="p-4 text-slate-400 italic text-xs">Mencari...</div>';
-    resultsBox.classList.remove('hidden');
-
-    try {
-        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
-            headers: { 'Authorization': BITES_API_KEY.trim() }
-        });
-        const data = await res.json();
-        
-        if (data.areas && data.areas.length > 0) {
-            resultsBox.innerHTML = data.areas.map(a => {
-                // TRIK JITU: Mengambil ID Kecamatan yang bersih dari dalam ID yang panjang
-                let cleanId = a.id;
-                const match = cleanId.match(/IDNP\d+CL\d+/); // Mencari pola IDNP...CL...
-                if (match) cleanId = match[0];
-                else cleanId = cleanId.split('.')[0].substring(0, 12); // Cara cadangan
-
-                return `<div onclick="selectArea('${cleanId}', '${a.name}')" 
-                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-xs">
-                    ${a.name}
-                </div>`;
-            }).join('');
-        }
-    } catch (err) { console.error(err); }
-}
-
-function selectArea(id, name) {
-    document.getElementById('destination-id').value = id;
-    document.getElementById('destination-search').value = name;
-    document.getElementById('area-results').classList.add('hidden');
-    console.log("ID Siap Kirim:", id);
-}
-    
-async function checkShippingRates() {
-    let destId = document.getElementById('destination-id').value;
-    
-    // Kita gunakan rute Jakarta untuk tes (paling stabil di server testing)
-    if (!destId || destId.length > 15) {
-        destId = "IDNP6IDNC150IDND881"; // ID Kecamatan di Jakarta
+    async function searchArea(query) {
+        const box = document.getElementById('area-results');
+        if (query.length < 3) return box.classList.add('hidden');
+        try {
+            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
+                headers: { 'Authorization': BITES_API_KEY.trim() }
+            });
+            const data = await res.json();
+            if (data.areas) {
+                box.innerHTML = data.areas.map(a => {
+                    let cleanId = a.id;
+                    const match = cleanId.match(/IDNP\d+CL\d+/);
+                    if (match) cleanId = match[0];
+                    return `<div onclick="selectArea('${cleanId}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-xs">${a.name}</div>`;
+                }).join('');
+                box.classList.remove('hidden');
+            }
+        } catch (e) { console.error(e); }
     }
 
-    const btn = document.getElementById('btn-cek-ongkir');
-    btn.innerText = "MENGHITUNG...";
-
-    const payload = {
-        origin_area_id: ORIGIN_ID.trim(), 
-        destination_area_id: destId.trim(),
-        couriers: "jne,jnt", // Cukup 2 ini saja dulu untuk tes
-        items: [{
-            name: "Finex Product",
-            value: 50000,
-            weight: 200,
-            quantity: 1
-        }]
-    };
-
-    try {
-        const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
-            method: 'POST',
-            headers: { 
-                'Authorization': BITES_API_KEY.trim(), 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await res.json();
-        console.log("Respon Server:", data);
-
-        if (!res.ok) throw new Error(data.error || "Route Not Found");
-
-        if (data.results && data.results.length > 0) {
-            renderShippingOptions(data.results);
-            alert("ASYIK! Ongkir Muncul! 🌸");
-        } else {
-            alert("Saldo ada, tapi rute tidak ditemukan. Cek Alamat Toko (Origin) di dashboard.");
-        }
-    } catch (err) {
-        alert("INFO: " + err.message);
-    } finally {
-        btn.innerText = "Cek Ongkos Kirim 🚚";
+    function selectArea(id, name) {
+        document.getElementById('destination-id').value = id;
+        document.getElementById('destination-search').value = name;
+        document.getElementById('area-results').classList.add('hidden');
     }
-}
+
+    async function checkShippingRates() {
+        const destId = document.getElementById('destination-id').value;
+        if (!destId) return alert("Pilih kecamatan dulu! 🌸");
+        const btn = document.getElementById('btn-cek-ongkir');
+        btn.innerText = "MENGHITUNG...";
+        try {
+            const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+                method: 'POST',
+                headers: { 'Authorization': BITES_API_KEY.trim(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    origin_area_id: ORIGIN_ID,
+                    destination_area_id: destId,
+                    couriers: "jne,jnt,sicepat",
+                    items: cartData.map(i => ({ name: i.nama, value: i.harga, weight: 200, quantity: i.qty }))
+                })
+            });
+            const data = await res.json();
+            if (data.results) renderShippingOptions(data.results);
+            else alert("Gagal memuat kurir. Lewati saja jika perlu.");
+        } catch (e) { alert("Error Biteship."); }
+        finally { btn.innerText = "Cek Ongkos Kirim 🚚"; }
+    }
+
     function renderShippingOptions(rates) {
         const container = document.getElementById('shipping-options');
         container.innerHTML = rates.map(r => `
-            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center cursor-pointer hover:border-pink-300 transition-all courier-box bg-white mb-2">
-                <div><p class="text-[10px] font-black uppercase text-slate-400">${r.courier_name} - ${r.courier_service}</p>
+            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2">
+                <div><p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name}</p>
                 <p class="text-xs font-bold text-slate-700">${r.duration}</p></div>
                 <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
             </div>`).join('');
@@ -273,8 +221,10 @@ async function checkShippingRates() {
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
-        const courier = document.getElementById('selected-courier-name').value;
-        if (!name || !phone || !address || !courier) return alert("Lengkapi data! 🌸");
+        const destName = document.getElementById('destination-search').value;
+        const courier = document.getElementById('selected-courier-name').value || "Manual/Belum Pilih";
+
+        if (!name || !phone || !address) return alert("Lengkapi Nama & Alamat! 🌸");
 
         const btn = document.getElementById('btn-order');
         btn.innerText = "Processing..."; btn.disabled = true;
@@ -283,14 +233,17 @@ async function checkShippingRates() {
             const { data: { user } } = await db.auth.getUser();
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
             const finalAmount = subtotalFinal + shippingCost;
+
             const { data: midtrans } = await db.functions.invoke('swift-function', {
                 body: { order_id: inv, amount: finalAmount, customer_name: name, customer_email: customerEmail }
             });
 
+            if (!midtrans?.token) throw new Error("Gagal Midtrans.");
+
             const { data: trx } = await db.from('transaksi_online').insert([{
-                no_invoice: inv, customer_id: user.id, nama_penerima: name, wa_penerima: phone,
-                alamat_kirim: `${address} (${document.getElementById('destination-search').value})`,
-                kurir: courier, ongkos_kirim: shippingCost, grand_total: finalAmount, status_order: 'Pending', snap_token: midtrans.token
+                no_invoice: inv, customer_id: user?.id, nama_penerima: name, wa_penerima: phone,
+                alamat_kirim: `${address} (${destName})`, kurir: courier, ongkos_kirim: shippingCost,
+                grand_total: finalAmount, status_order: 'Pending', snap_token: midtrans.token
             }]).select().single();
 
             const details = cartData.map(item => ({
@@ -302,9 +255,12 @@ async function checkShippingRates() {
             window.snap.pay(midtrans.token, {
                 onSuccess: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
                 onPending: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
-                onClose: () => { alert("Pesanan disimpan."); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
+                onClose: () => { alert("Segera bayar ya! 🌸"); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
             });
-        } catch (e) { alert("Error!"); btn.innerText = "BAYAR SEKARANG ✨"; btn.disabled = false; }
+        } catch (e) { 
+            alert("Error: " + e.message); 
+            btn.innerText = "BAYAR SEKARANG ✨"; btn.disabled = false; 
+        }
     }
 </script>
 </body>
