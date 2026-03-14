@@ -163,40 +163,38 @@
         document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
     }
 
-  async function searchArea(query) {
+ async function searchArea(query) {
     const resultsBox = document.getElementById('area-results');
-    if (query.length < 3) {
-        resultsBox.classList.add('hidden');
-        return;
-    }
+    if (query.length < 3) { resultsBox.classList.add('hidden'); return; }
 
-    // Tampilkan pesan loading agar Allberto tahu sistem sedang bekerja
-    resultsBox.innerHTML = '<div class="p-4 text-slate-400 italic">Mencari kecamatan...</div>';
+    resultsBox.innerHTML = '<div class="p-4 text-slate-400 italic text-[10px]">Mencari kecamatan...</div>';
     resultsBox.classList.remove('hidden');
 
     try {
         const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
-            headers: { 'Authorization': BITES_API_KEY }
+            headers: { 'Authorization': BITES_API_KEY.trim() }
         });
         const data = await res.json();
         
-        console.log("Data dari Biteship:", data); // Intip hasilnya di F12
-
         if (data.areas && data.areas.length > 0) {
-            // Kita hapus filter length < 20 agar semua kecamatan muncul
-            resultsBox.innerHTML = data.areas.map(a => `
-                <div onclick="selectArea('${a.id}', '${a.name}')" 
-                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
+            resultsBox.innerHTML = data.areas.map(a => {
+                // LOGIKA PEMBERSIH: Jika ID sangat panjang, kita ambil bagian IDNP-nya saja
+                let cleanId = a.id;
+                if (cleanId.length > 20) {
+                    const parts = cleanId.split('.'); // Coba pecah jika ada titik
+                    cleanId = parts[0].substring(0, 12); // Ambil 12 karakter pertama (Standar IDNP)
+                    // Jika formatnya IDNP...CL... kita ambil pola itu
+                    const match = a.id.match(/IDNP\d+CL\d+/);
+                    if (match) cleanId = match[0];
+                }
+                
+                return `<div onclick="selectArea('${cleanId}', '${a.name}')" 
+                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
                     ${a.name}
-                </div>`).join('');
-            resultsBox.classList.remove('hidden');
-        } else {
-            resultsBox.innerHTML = '<div class="p-4 text-red-400">Kecamatan tidak ditemukan.</div>';
+                </div>`;
+            }).join('');
         }
-    } catch (err) {
-        console.error("Error Biteship:", err);
-        resultsBox.innerHTML = '<div class="p-4 text-red-400">Gagal memuat data.</div>';
-    }
+    } catch (err) { console.error(err); }
 }
     function selectArea(id, name) {
         document.getElementById('destination-id').value = id;
@@ -206,20 +204,20 @@
 
 async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Pilih kecamatan dari daftar hasil pencarian ya! 🌸");
+    if (!destId) return alert("Pilih kecamatan dari daftar dulu! 🌸");
     
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
     const payload = {
-        origin_area_id: ORIGIN_ID.trim(), // Pastikan tidak ada spasi
-        destination_area_id: destId,
+        origin_area_id: ORIGIN_ID.trim(),
+        destination_area_id: destId.trim(),
         couriers: "jne,jnt,sicepat,gojek,grab",
         items: cartData.map(i => ({
-            name: i.nama,
-            value: i.harga,
-            weight: i.berat || 200,
-            quantity: i.qty,
+            name: i.nama.substring(0, 30),
+            value: Number(i.harga),
+            weight: Number(i.berat) || 200,
+            quantity: Number(i.qty),
             length: 10, width: 10, height: 10
         }))
     };
@@ -235,26 +233,15 @@ async function checkShippingRates() {
         });
         
         const data = await res.json();
-        
-        if (!res.ok) {
-            console.error("Biteship Error:", data);
-            // CEK KHUSUS: Jika origin_area_id bermasalah
-            if (data.error && data.error.includes("origin")) {
-                throw new Error("Alamat TOKO Allberto belum benar. Cek menu Location > Origin di Biteship.");
-            }
-            throw new Error(data.error || "Rute tidak ditemukan.");
-        }
+        if (!res.ok) throw new Error(data.error || "Gagal memuat rute.");
 
         if (data.results && data.results.length > 0) {
             renderShippingOptions(data.results);
-            // Scroll otomatis ke daftar kurir agar Allberto tidak bingung
-            document.getElementById('shipping-options').scrollIntoView({ behavior: 'smooth' });
         } else {
-            alert("Maaf, kurir tidak tersedia untuk rute ini. Coba pilih kecamatan lain. 🌸");
+            alert("Kurir tidak tersedia. Coba kecamatan lain! 🌸");
         }
-
     } catch (err) {
-        console.error("Detail Error:", err);
+        console.error(err);
         alert("INFO: " + err.message);
     } finally {
         btn.innerText = "Cek Ongkos Kirim 🚚";
