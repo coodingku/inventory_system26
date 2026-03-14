@@ -3,159 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | Finex Beauty</title>
+    <title>Laporan Transaksi | Finex Admin 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-online.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="supabase-online.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
+        .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; color: #64748b; }
+        .sidebar-link:hover { background: #fff1f2; color: #f72585; }
+        .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
+        .stat-card { background: white; border-radius: 24px; padding: 20px; border: 1px solid #f1f5f9; }
+        .table-container { background: white; border-radius: 32px; border: 1px solid #f1f5f9; overflow: hidden; }
+        .input-date { border-radius: 12px; border: 1px solid #e2e8f0; padding: 8px 12px; outline: none; font-size: 12px; font-weight: 600; }
+        select { border-radius: 12px; border: 1px solid #e2e8f0; padding: 8px 12px; outline: none; font-size: 12px; font-weight: 600; }
+    </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body class="flex min-h-screen">
 
-    <div class="flex">
-        <aside class="w-64 bg-slate-800 min-h-screen text-white p-6 sticky top-0 h-screen">
-            <h2 class="text-2xl font-bold mb-10 text-pink-400">Finex Admin ✨</h2>
-            <nav class="space-y-4">
-                <button onclick="showSection('section-customer')" class="block w-full text-left hover:text-pink-300 transition"><i class="fas fa-users mr-2"></i> Data Customer</button>
-                <button onclick="showSection('section-transaksi')" class="block w-full text-left hover:text-pink-300 transition"><i class="fas fa-file-invoice-dollar mr-2"></i> Laporan Transaksi</button>
-            </nav>
-        </aside>
+    <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex">
+        <div class="mb-10 px-2">
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
+            <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Beauty Bloom POS</p>
+        </div>
+        <nav class="flex-1 overflow-y-auto">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
+            <a href="dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-chart-pie w-5"></i> Dashboard
+            </a>
+            <a href="admin-online.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-shopping-basket w-5"></i> Pesanan Online
+            </a>
+            <a href="admin-laporan.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-file-alt w-5"></i> Laporan Transaksi
+            </a>
+            <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-users w-5"></i> Data Customer
+            </a>
+        </nav>
+        <div class="mt-auto">
+            <button onclick="logout()" class="sidebar-link flex items-center gap-3 px-4 py-3 text-red-400 font-bold text-sm w-full">
+                <i class="fas fa-sign-out-alt w-5"></i> Keluar
+            </button>
+        </div>
+    </aside>
 
-        <main class="flex-1 p-8">
-            
-            <section id="section-customer" class="admin-section">
-                <h3 class="text-2xl font-bold text-slate-800 mb-6">Data Customer Terdaftar</h3>
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
-                            <tr>
-                                <th class="p-4">Nama</th>
-                                <th class="p-4">Email</th>
-                                <th class="p-4">WhatsApp</th>
-                                <th class="p-4">Alamat Default</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-customer" class="text-sm divide-y">
-                            </tbody>
-                    </table>
+    <main class="flex-1 p-4 md:p-10">
+        <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div>
+                <h2 class="text-2xl font-black text-slate-800">Rekap Laporan 📈</h2>
+                <p class="text-slate-500 text-sm">Analisa pendapatan dan riwayat transaksi.</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="exportExcel()" class="px-5 py-3 bg-green-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition">
+                    <i class="fas fa-file-excel mr-2"></i> EXCEL
+                </button>
+                <button onclick="exportPDF()" class="px-5 py-3 bg-red-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-red-100 hover:bg-red-600 transition">
+                    <i class="fas fa-file-pdf mr-2"></i> PDF
+                </button>
+            </div>
+        </header>
+
+        <div class="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm mb-8 flex flex-wrap gap-6 items-end">
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mulai Tanggal</label>
+                <input type="date" id="date-start" class="input-date">
+            </div>
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sampai Tanggal</label>
+                <input type="date" id="date-end" class="input-date">
+            </div>
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status Laporan</label>
+                <select id="filter-status">
+                    <option value="Semua">Semua Status</option>
+                    <option value="Selesai">Selesai (Success)</option>
+                    <option value="Terkirim">Terkirim</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Batal">Batal</option>
+                </select>
+            </div>
+            <button onclick="loadLaporan()" class="bg-slate-800 text-white px-8 py-3 rounded-2xl text-xs font-bold hover:bg-slate-700 transition shadow-lg shadow-slate-100">
+                <i class="fas fa-sync-alt mr-2"></i> REFRESH LAPORAN
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="stat-card flex items-center gap-4">
+                <div class="w-12 h-12 bg-pink-50 text-pink-500 rounded-2xl flex items-center justify-center text-xl">
+                    <i class="fas fa-coins"></i>
                 </div>
-            </section>
-
-            <section id="section-transaksi" class="admin-section hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold text-slate-800">Laporan Transaksi Online</h3>
-                    <select id="filter-status" onchange="loadTransaksi()" class="p-2 border rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-pink-300">
-                        <option value="Semua">Semua Status</option>
-                        <option value="Selesai">Selesai</option>
-                        <option value="Terkirim">Terkirim</option>
-                        <option value="Pending">Pending / Belum Bayar</option>
-                        <option value="Batal">Dibatalkan</option>
-                    </select>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Omzet</p>
+                    <h3 id="summary-revenue" class="text-xl font-black text-slate-800">Rp 0</h3>
                 </div>
-
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
-                            <tr>
-                                <th class="p-4">Invoice</th>
-                                <th class="p-4">Penerima</th>
-                                <th class="p-4">Kurir</th>
-                                <th class="p-4">Total</th>
-                                <th class="p-4">Status</th>
-                                <th class="p-4">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-transaksi" class="text-sm divide-y">
-                            </tbody>
-                    </table>
+            </div>
+            <div class="stat-card flex items-center gap-4">
+                <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center text-xl">
+                    <i class="fas fa-shopping-cart"></i>
                 </div>
-            </section>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Transaksi</p>
+                    <h3 id="summary-count" class="text-xl font-black text-slate-800">0 Pesanan</h3>
+                </div>
+            </div>
+        </div>
 
-        </main>
-    </div>
+        <div class="table-container shadow-sm bg-white">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                    <tr>
+                        <th class="p-6">Tanggal</th>
+                        <th class="p-6">Invoice</th>
+                        <th class="p-6">Customer</th>
+                        <th class="p-6">Metode/Kurir</th>
+                        <th class="p-6">Total Pendapatan</th>
+                        <th class="p-6 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="table-laporan" class="text-sm divide-y divide-slate-50">
+                    <tr><td colspan="6" class="p-10 text-center text-slate-400 italic">Silakan filter untuk memuat data.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
 
-<script>
-    // Fungsi navigasi antar section
-    function showSection(id) {
-        document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
-        document.getElementById(id).classList.remove('hidden');
-        if(id === 'section-customer') loadCustomers();
-        if(id === 'section-transaksi') loadTransaksi();
-    }
+    <script>
+        let reportData = [];
 
-    // 1. LOAD DATA CUSTOMER
-    async function loadCustomers() {
-        const { data, error } = await db.from('customers').select('*').order('created_at', { ascending: false });
-        if (error) return console.error(error);
+        window.onload = () => {
+            // Set default tanggal ke bulan ini
+            const date = new Date();
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+            document.getElementById('date-start').value = firstDay;
+            document.getElementById('date-end').value = lastDay;
+            loadLaporan();
+        };
 
-        const tbody = document.getElementById('table-customer');
-        tbody.innerHTML = data.map(c => `
-            <tr class="hover:bg-slate-50">
-                <td class="p-4 font-bold">${c.full_name || '-'}</td>
-                <td class="p-4">${c.email || '-'}</td>
-                <td class="p-4">${c.phone_number || '-'}</td>
-                <td class="p-4 text-xs text-slate-500">${c.address_shipping || '-'}</td>
-            </tr>
-        `).join('');
-    }
+        async function loadLaporan() {
+            const status = document.getElementById('filter-status').value;
+            const start = document.getElementById('date-start').value;
+            const end = document.getElementById('date-end').value;
 
-    // 2. LOAD DATA TRANSAKSI DENGAN FILTER
-    async function loadTransaksi() {
-        const filter = document.getElementById('filter-status').value;
-        let query = db.from('transaksi_online').select('*').order('created_at', { ascending: false });
+            let query = db.from('transaksi_online').select('*').order('created_at', { ascending: false });
 
-        // Terapkan filter jika bukan 'Semua'
-        if (filter !== "Semua") {
-            query = query.eq('status_order', filter);
+            if (status !== "Semua") query = query.eq('status_order', status);
+            if (start) query = query.gte('created_at', `${start}T00:00:00`);
+            if (end) query = query.lte('created_at', `${end}T23:59:59`);
+
+            const { data, error } = await query;
+            reportData = data || [];
+
+            const container = document.getElementById('table-laporan');
+            let totalRev = 0;
+
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(t => {
+                    totalRev += parseFloat(t.grand_total);
+                    let statusColor = "bg-slate-100 text-slate-500";
+                    if (t.status_order === 'Selesai') statusColor = "bg-green-50 text-green-500";
+                    if (t.status_order === 'Batal') statusColor = "bg-red-50 text-red-500";
+                    
+                    return `
+                    <tr class="hover:bg-slate-50 transition-all">
+                        <td class="p-6 text-slate-500 font-medium">${new Date(t.created_at).toLocaleDateString('id-ID')}</td>
+                        <td class="p-6 font-bold text-pink-600">${t.no_invoice}</td>
+                        <td class="p-6">
+                            <p class="font-bold text-slate-800">${t.nama_penerima}</p>
+                        </td>
+                        <td class="p-6 text-[10px] font-bold text-slate-400 uppercase">${t.kurir || 'Self Pickup'}</td>
+                        <td class="p-6 font-black text-slate-800">Rp ${parseFloat(t.grand_total).toLocaleString()}</td>
+                        <td class="p-6 text-center">
+                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${statusColor}">
+                                ${t.status_order}
+                            </span>
+                        </td>
+                    </tr>`;
+                }).join('');
+                
+                document.getElementById('summary-revenue').innerText = "Rp " + totalRev.toLocaleString();
+                document.getElementById('summary-count').innerText = data.length + " Pesanan";
+            } else {
+                container.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400 italic">Data tidak ditemukan untuk periode ini.</td></tr>`;
+                document.getElementById('summary-revenue').innerText = "Rp 0";
+                document.getElementById('summary-count').innerText = "0 Pesanan";
+            }
         }
 
-        const { data, error } = await query;
-        if (error) return console.error(error);
+        function exportExcel() {
+            if (reportData.length === 0) return alert("Pilih data dulu!");
+            const exportRows = reportData.map(t => ({
+                "Tanggal": new Date(t.created_at).toLocaleDateString(),
+                "Invoice": t.no_invoice,
+                "Nama Customer": t.nama_penerima,
+                "Kurir/Metode": t.kurir,
+                "Total (Rp)": t.grand_total,
+                "Status": t.status_order
+            }));
+            const ws = XLSX.utils.json_to_sheet(exportRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Laporan_Finex");
+            XLSX.writeFile(wb, `Laporan_Finex_${Date.now()}.xlsx`);
+        }
 
-        const tbody = document.getElementById('table-transaksi');
-        tbody.innerHTML = data.map(t => {
-            // Warna label status
-            let color = "bg-slate-100 text-slate-600";
-            if (t.status_order === 'Selesai') color = "bg-green-100 text-green-600";
-            if (t.status_order === 'Batal') color = "bg-red-100 text-red-600";
-            if (t.status_order === 'Terkirim') color = "bg-blue-100 text-blue-600";
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            doc.text("LAPORAN PENDAPATAN FINEX BEAUTY BLOOM", 14, 20);
+            doc.setFontSize(10);
+            doc.text(`Periode: ${document.getElementById('date-start').value} - ${document.getElementById('date-end').value}`, 14, 28);
+            
+            const tableBody = reportData.map(t => [
+                new Date(t.created_at).toLocaleDateString(),
+                t.no_invoice,
+                t.nama_penerima,
+                t.kurir,
+                `Rp ${parseFloat(t.grand_total).toLocaleString()}`,
+                t.status_order
+            ]);
 
-            return `
-                <tr class="hover:bg-slate-50">
-                    <td class="p-4 font-mono font-bold text-pink-600">${t.no_invoice}</td>
-                    <td class="p-4">
-                        <p class="font-bold">${t.nama_penerima}</p>
-                        <p class="text-[10px] text-slate-400">${t.wa_penerima}</p>
-                    </td>
-                    <td class="p-4 text-xs uppercase">${t.kurir}</td>
-                    <td class="p-4 font-bold">Rp ${t.grand_total.toLocaleString()}</td>
-                    <td class="p-4">
-                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${color}">
-                            ${t.status_order}
-                        </span>
-                    </td>
-                    <td class="p-4">
-                        <button onclick="updateStatus('${t.id}', 'Selesai')" class="text-green-500 hover:text-green-700 mr-2" title="Selesaikan"><i class="fas fa-check-circle"></i></button>
-                        <button onclick="updateStatus('${t.id}', 'Batal')" class="text-red-500 hover:text-red-700" title="Batalkan"><i class="fas fa-times-circle"></i></button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
+            doc.autoTable({
+                startY: 35,
+                head: [['Tanggal', 'Invoice', 'Customer', 'Kurir', 'Total', 'Status']],
+                body: tableBody,
+                headStyles: { fillColor: [247, 37, 133] }
+            });
 
-    // 3. UPDATE STATUS ORDER
-    async function updateStatus(id, newStatus) {
-        if(!confirm(`Ubah status transaksi menjadi ${newStatus}?`)) return;
-        
-        const { error } = await db.from('transaksi_online')
-            .update({ status_order: newStatus })
-            .eq('id', id);
+            doc.save(`PDF_Laporan_Finex_${Date.now()}.pdf`);
+        }
 
-        if (error) alert("Gagal update status");
-        else loadTransaksi();
-    }
-
-    // Jalankan load pertama kali
-    window.onload = () => loadCustomers();
-</script>
+        function logout() {
+            sessionStorage.clear();
+            window.location.replace('login.html');
+        }
+    </script>
 </body>
 </html>
