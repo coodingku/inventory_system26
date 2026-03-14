@@ -11,7 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
-        .sidebar-nav::-webkit-scrollbar { width: 0px; }
         .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; color: #64748b; }
         .sidebar-link:hover { background: #fff1f2; color: #f72585; }
         .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
@@ -24,9 +23,8 @@
         input:checked + .slider { background-color: #f72585; }
         input:checked + .slider:before { transform: translateX(18px); }
 
-        /* Modal Custom */
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 32px; width: 95%; max-width: 500px; padding: 32px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .modal-content { background: white; border-radius: 32px; width: 95%; max-width: 500px; padding: 32px; max-height: 90vh; overflow-y: auto; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
@@ -37,25 +35,22 @@
             <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
             <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Beauty Bloom POS</p>
         </div>
-        <nav class="flex-1 sidebar-nav overflow-y-auto">
+        <nav class="flex-1 overflow-y-auto no-scrollbar">
             <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
             <a href="dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm"><i class="fas fa-chart-pie w-5"></i> Dashboard</a>
             <a href="produk.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm"><i class="fas fa-boxes w-5"></i> Katalog Produk</a>
             <a href="admin-online.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm"><i class="fas fa-shopping-basket w-5"></i> Pesanan Online</a>
             <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm"><i class="fas fa-users w-5"></i> Data Customer</a>
         </nav>
-        <div class="mt-auto">
-            <button onclick="logout()" class="sidebar-link flex items-center gap-3 px-4 py-3 text-red-400 font-bold text-sm w-full"><i class="fas fa-sign-out-alt w-5"></i> Keluar</button>
-        </div>
     </aside>
 
     <main class="flex-1 p-4 md:p-10 max-w-6xl">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
             <div>
                 <h2 class="text-2xl font-black text-slate-800">Manajemen Produk 📦</h2>
-                <p class="text-slate-500 text-sm">Kelola harga online dan diskon promo.</p>
+                <p class="text-slate-500 text-sm">Kelola harga toko, harga online, dan promo.</p>
             </div>
-            <button onclick="openModal()" class="bg-[#f72585] text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-pink-100 hover:opacity-90 flex items-center gap-2">
+            <button onclick="openModal()" class="bg-[#f72585] text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-pink-100 flex items-center gap-2">
                 <i class="fas fa-plus"></i> Produk Baru
             </button>
         </header>
@@ -66,9 +61,10 @@
                     <thead class="bg-slate-50/50">
                         <tr>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Produk</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Harga Offline</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Harga Online</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Diskon</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Toko (Offline)</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-pink-500">Website (Online)</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tampil Online</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Promo</th>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
                         </tr>
                     </thead>
@@ -98,44 +94,43 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-2 mb-1 block">Harga Toko (Offline)</label>
-                        <input type="number" id="prod-harga" placeholder="Harga Jual" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm font-bold">
+                        <input type="number" id="prod-harga" placeholder="0" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm font-bold">
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-pink-400 uppercase ml-2 mb-1 block">Harga Website (Online)</label>
-                        <input type="number" id="prod-harga-online" placeholder="Harga Online" class="w-full p-4 bg-pink-50/50 rounded-2xl outline-none border-none text-sm font-bold text-pink-600">
+                        <input type="number" id="prod-harga-online" placeholder="0" class="w-full p-4 bg-pink-50/50 rounded-2xl outline-none border-none text-sm font-bold text-pink-600">
                     </div>
                 </div>
 
                 <div class="p-4 bg-slate-50 rounded-[24px] space-y-3">
                     <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-600">Aktifkan Diskon Online</span>
+                        <span class="text-xs font-bold text-slate-600">Aktifkan Promo Online</span>
                         <label class="switch">
                             <input type="checkbox" id="prod-is-diskon">
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <input type="number" id="prod-nominal-diskon" placeholder="Nominal Diskon (Contoh: 5000)" class="w-full p-3 bg-white rounded-xl outline-none text-xs border border-slate-100">
-                    
+                    <input type="number" id="prod-nominal-diskon" placeholder="Potongan Harga (Rp)" class="w-full p-3 bg-white rounded-xl outline-none text-xs border border-slate-100">
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Mulai Diskon</label>
+                            <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Mulai Promo</label>
                             <input type="datetime-local" id="prod-diskon-mulai" class="w-full p-2 bg-white rounded-lg text-[10px] border border-slate-100">
                         </div>
                         <div>
-                            <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Berakhir Diskon</label>
+                            <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Akhir Promo</label>
                             <input type="datetime-local" id="prod-diskon-akhir" class="w-full p-2 bg-white rounded-lg text-[10px] border border-slate-100">
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="prod-stok" placeholder="Stok Sekarang" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
+                    <input type="number" id="prod-stok" placeholder="Stok" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
                     <select id="prod-kategori" class="p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm text-slate-500"></select>
                 </div>
 
                 <div class="flex gap-3 mt-6">
                     <button type="button" onclick="closeModal()" class="flex-1 py-4 font-bold text-slate-400 bg-slate-50 rounded-2xl">Batal</button>
-                    <button type="submit" id="btnSimpan" class="flex-[2] py-4 font-bold text-white bg-[#f72585] rounded-2xl shadow-lg shadow-pink-100 uppercase tracking-widest text-xs">Simpan</button>
+                    <button type="submit" id="btnSimpan" class="flex-[2] py-4 font-bold text-white bg-[#f72585] rounded-2xl shadow-lg shadow-pink-100 uppercase text-xs">Simpan Data</button>
                 </div>
             </form>
         </div>
@@ -163,28 +158,42 @@
     function renderTable(data) {
         const tbody = document.getElementById('product-list');
         tbody.innerHTML = data.map(p => `
-            <tr class="hover:bg-slate-50/50 transition-all">
-                <td class="px-8 py-6">
+            <tr class="hover:bg-slate-50/50 transition-all text-sm">
+                <td class="px-8 py-5">
                     <div class="flex items-center gap-4">
-                        <img src="${p.image_url || 'https://via.placeholder.com/100'}" class="w-10 h-10 rounded-xl object-cover border border-slate-100">
+                        <img src="${p.image_url || 'https://placehold.co/100'}" class="w-10 h-10 rounded-xl object-cover border border-slate-100">
                         <div>
-                            <p class="font-bold text-slate-800 text-sm mb-0.5">${p.nama_barang}</p>
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${p.stok_sekarang || 0} Stok Tersisa</p>
+                            <p class="font-bold text-slate-800">${p.nama_barang}</p>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase">${p.stok_sekarang || 0} Stok</p>
                         </div>
                     </div>
                 </td>
-                <td class="px-8 py-6 text-sm text-slate-500">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
-                <td class="px-8 py-6 text-sm font-black text-pink-600">Rp ${(p.harga_online || 0).toLocaleString()}</td>
-                <td class="px-8 py-6 text-center">
-                    ${p.is_diskon ? '<span class="px-2 py-1 bg-green-50 text-green-500 rounded text-[10px] font-bold">AKTIF 🔥</span>' : '<span class="text-slate-300 text-[10px]">Non-aktif</span>'}
+                <td class="px-8 py-5 text-slate-500 font-medium">Rp ${(p.harga_jual || 0).toLocaleString()}</td>
+                <td class="px-8 py-5 text-pink-600 font-black">Rp ${(p.harga_online || 0).toLocaleString()}</td>
+                
+                <td class="px-8 py-5 text-center">
+                    <label class="switch">
+                        <input type="checkbox" ${p.tampil_online ? 'checked' : ''} onchange="toggleOnlineStatus('${p.id}', this.checked)">
+                        <span class="slider"></span>
+                    </label>
                 </td>
-                <td class="px-8 py-6 text-right">
+
+                <td class="px-8 py-5 text-center">
+                    ${p.is_diskon ? '<span class="px-2 py-1 bg-green-50 text-green-500 rounded text-[10px] font-bold">PROMO 🔥</span>' : '<span class="text-slate-200 text-[10px]">Normal</span>'}
+                </td>
+                
+                <td class="px-8 py-5 text-right">
                     <div class="flex justify-end gap-2">
                         <button onclick="editProduk('${p.id}')" class="w-8 h-8 bg-slate-50 text-slate-400 hover:text-pink-500 rounded-lg"><i class="fas fa-edit text-[10px]"></i></button>
                         <button onclick="hapusProduk('${p.id}')" class="w-8 h-8 bg-slate-50 text-slate-400 hover:text-red-500 rounded-lg"><i class="fas fa-trash text-[10px]"></i></button>
                     </div>
                 </td>
             </tr>`).join('');
+    }
+
+    async function toggleOnlineStatus(id, status) {
+        await db.from('produk').update({ tampil_online: status }).eq('id', id);
+        fetchProduk();
     }
 
     function editProduk(id) {
@@ -198,7 +207,6 @@
         document.getElementById('prod-is-diskon').checked = p.is_diskon;
         document.getElementById('prod-nominal-diskon').value = p.nominal_diskon || 0;
         
-        // Format tanggal agar masuk ke input datetime-local
         if (p.diskon_mulai) document.getElementById('prod-diskon-mulai').value = p.diskon_mulai.slice(0, 16);
         if (p.diskon_akhir) document.getElementById('prod-diskon-akhir').value = p.diskon_akhir.slice(0, 16);
         
@@ -232,13 +240,7 @@
         };
 
         const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
-        
-        if (!res.error) {
-            closeModal();
-            fetchProduk();
-        } else {
-            alert("Gagal simpan: " + res.error.message);
-        }
+        if (!res.error) { closeModal(); fetchProduk(); }
         btn.disabled = false;
     };
 
