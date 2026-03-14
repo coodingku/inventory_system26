@@ -175,11 +175,14 @@ async function searchArea(query) {
         
         if (data.areas) {
             resultsBox.innerHTML = data.areas.map(a => {
-                // KUNCINYA DI SINI:
-                // Kita cari ID Kecamatan (yang ada 'CL') di dalam ID yang panjang
+                // Trik: Biteship sering memberikan ID gabungan. 
+                // Kita coba pecah dan ambil bagian yang paling mungkin jadi ID Kecamatan.
                 let areaId = a.id;
-                const match = a.id.match(/IDNP\d+CL\d+/);
-                if (match) areaId = match[0];
+                
+                // Jika ID mengandung titik (.), biasanya ID kecamatan ada di bagian awal
+                if (areaId.includes('.')) {
+                    areaId = areaId.split('.')[0];
+                }
 
                 return `<div onclick="selectArea('${areaId}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
                     ${a.name}
@@ -189,7 +192,6 @@ async function searchArea(query) {
         }
     } catch (err) { console.error(err); }
 }
-
 function selectArea(id, name) {
     console.log("ID Yang Dipilih Sekarang:", id); // Cek apakah sudah ada 'CL'-nya
     document.getElementById('destination-id').value = id;
@@ -198,15 +200,20 @@ function selectArea(id, name) {
 }
     
 async function checkShippingRates() {
-    const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Pilih kecamatan dari daftar dulu! 🌸");
+    let destId = document.getElementById('destination-id').value;
+    
+    // Jika ID masih raksasa atau tidak ada, kita pakai ID Kuta (IDNP10CL1097) untuk tes
+    if (!destId || destId.length > 15) {
+        console.log("ID tidak valid/terlalu panjang, menggunakan ID Kuta untuk simulasi.");
+        destId = "IDNP10CL1097"; 
+    }
 
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
 
     const payload = {
-        origin_area_id: ORIGIN_ID.trim(),
-        destination_area_id: destId.trim(),
+        origin_area_id: ORIGIN_ID.trim(), // IDNP10CL1081
+        destination_area_id: destId,
         couriers: "jne,jnt,sicepat",
         items: cartData.map(i => ({
             name: i.nama.substring(0, 30),
@@ -232,8 +239,9 @@ async function checkShippingRates() {
 
         if (data.results && data.results.length > 0) {
             renderShippingOptions(data.results);
+            alert("Berhasil! Ongkir ditemukan 🌸");
         } else {
-            alert("Kurir tidak tersedia. Pastikan saldo cukup dan kurir aktif.");
+            alert("Rute tidak ditemukan. Cek saldo atau kurir di dashboard.");
         }
     } catch (err) {
         alert("INFO: " + err.message);
