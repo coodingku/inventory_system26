@@ -13,35 +13,20 @@
     <style>
         :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; --accent-peach: #ffb3c1; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; }
-        
-        /* Glassmorphism Header */
         .glass-header { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.2); }
-        
-        /* Product Styling */
         .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); box-shadow: 0 4px 15px rgba(255, 133, 162, 0.05); }
         .product-card:active { transform: scale(0.96); }
         .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #fffafa; cursor: pointer; }
         .img-container img { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* Modals & Overlay */
         .modal-overlay { position: fixed; inset: 0; background: rgba(247, 37, 133, 0.1); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
         .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -15px 35px rgba(0,0,0,0.1); }
         .detail-modal.active, .activity-modal.active { bottom: 0; }
-        
         .profile-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 90%; max-width: 400px; background: white; border-radius: 35px; z-index: 2000; display: none; opacity: 0; transition: all 0.3s ease; padding: 30px; }
         .profile-modal.active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        
-        /* Status Badges */
         .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
         .status-pending { background: #fee2e2; color: #ef4444; }
-        .status-dikemas { background: #fef3c7; color: #d97706; }
-        .status-dikirim { background: #e0f2fe; color: #0284c7; }
-        .status-selesai { background: #dcfce7; color: #16a34a; }
-
         .input-bloom { width: 100%; padding: 12px 15px; background: var(--soft-pink); border-radius: 15px; font-size: 14px; outline: none; border: 1px solid transparent; }
-        .input-bloom:focus { border-color: var(--primary-pink); background: white; }
-
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
@@ -133,15 +118,18 @@
         loadOnlineMenu();
     };
 
-    // FUNGSI PINTAR: HITUNG HARGA AKTIF (PROMO & SMART PRICE)
+    // FUNGSI PINTAR: HITUNG HARGA AKTIF (SMART PRICE + POTONG DISKON)
     function getActivePrice(p) {
-        const basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+        // 1. Ambil Harga Dasar (Online lebih prioritas)
+        let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+        
+        // 2. Cek Masa Promo
         const sekarang = new Date();
         const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai) : null;
         const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir) : null;
-
         const isPromo = p.is_diskon && (!tglMulai || sekarang >= tglMulai) && (!tglAkhir || sekarang <= tglAkhir);
 
+        // 3. Jika Promo, potong dengan nominal_diskon
         if (isPromo) {
             return basePrice - (p.nominal_diskon || 0);
         }
@@ -157,7 +145,7 @@
         const display = document.getElementById('onlineDisplay');
 
         if (!data || data.length === 0) {
-            display.innerHTML = `<div class="col-span-2 py-20 text-center text-slate-400">Produk Bloom belum tersedia 🌸</div>`;
+            display.innerHTML = `<div class="col-span-2 py-20 text-center text-slate-400">Produk belum tersedia 🌸</div>`;
             return;
         }
 
@@ -168,7 +156,7 @@
 
             return `
             <div class="product-card">
-                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${finalPrice}, '${p.image_url}', '${p.keterangan || ''}')">
+                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${finalPrice}, ${normalPrice}, '${p.image_url}', '${p.keterangan || ''}')">
                     <img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300?text=Beauty+Bloom'">
                 </div>
                 <div class="p-4 bg-white">
@@ -179,19 +167,35 @@
                             ${isDiskon ? `<p class="text-[9px] text-slate-400 line-through">Rp ${normalPrice.toLocaleString()}</p>` : ''}
                             <p class="font-black text-[#ff85a2] text-sm">Rp ${finalPrice.toLocaleString()}</p>
                         </div>
-                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${finalPrice})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
+                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${finalPrice}, ${normalPrice})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
                     </div>
                 </div>
             </div>`}).join('');
     }
 
-    // UPDATE: Open Detail Sekarang Menampilkan Keterangan/Ukuran
-    function openDetail(id, nama, harga, img, desc) {
+    function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
+        const idx = shopCart.findIndex(c => c.id === id);
+        if (idx > -1) {
+            shopCart[idx].qty++;
+        } else {
+            // Kita simpan HARGA FINAL yang sudah dipotong diskon
+            shopCart.push({ 
+                id, 
+                nama, 
+                harga: hargaFinal, 
+                harga_normal: hargaNormal, 
+                qty: 1 
+            });
+        }
+        document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
+    }
+
+    function openDetail(id, nama, harga, hargaNormal, img, desc) {
         document.getElementById('detail-name').innerText = nama;
         document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
         document.getElementById('detail-img').src = img || 'https://placehold.co/300';
-        document.getElementById('detail-desc').innerText = desc || 'Detail produk belum diisi oleh admin.';
-        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga); closeAllModals(); };
+        document.getElementById('detail-desc').innerText = desc || 'Detail produk belum diisi.';
+        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga, hargaNormal); closeAllModals(); };
         document.getElementById('productDetailModal').classList.add('active');
         document.getElementById('modalOverlay').classList.add('active');
     }
@@ -199,33 +203,24 @@
     async function openActivity() {
         const { data: { user } } = await db.auth.getUser();
         const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
-
         const container = document.getElementById('activityList');
         if (data && data.length > 0) {
-            container.innerHTML = data.map(trx => {
-                const status = (trx.status_order || 'Pending').toLowerCase();
-                return `
-                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4">
-                    <div class="flex justify-between items-start mb-3">
+            container.innerHTML = data.map(trx => `
+                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4 text-xs">
+                    <div class="flex justify-between items-start mb-2">
                         <div>
-                            <p class="text-[10px] font-black text-pink-300 uppercase">${trx.no_invoice}</p>
-                            <p class="text-[11px] font-bold text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
+                            <p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p>
+                            <p class="text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
                         </div>
-                        <span class="status-badge status-${status}">${trx.status_order}</span>
+                        <span class="status-badge status-${(trx.status_order || 'pending').toLowerCase()}">${trx.status_order}</span>
                     </div>
-                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3 mt-1">
-                        <div>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase">Total</p>
-                            <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                        </div>
-                        <div class="flex gap-2">
-                             <button onclick="alert('Lacak pesanan bisa dicek melalui WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
-                        </div>
+                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-2 mt-1">
+                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                        <button onclick="alert('Lacak pesanan via WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
                     </div>
-                </div>`;
-            }).join('');
+                </div>`).join('');
         } else {
-            container.innerHTML = `<p class="text-center text-slate-300 py-10">Belum ada pesanan nih. 🌸</p>`;
+            container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Belum ada pesanan 🌸</p>`;
         }
         document.getElementById('activityModal').classList.add('active');
         document.getElementById('modalOverlay').classList.add('active');
@@ -255,17 +250,8 @@
         if (!error) { alert("Profil Diperbarui! ✨"); closeAllModals(); }
     }
 
-    function addToOnlineCart(id, nama, harga) {
-        const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) shopCart[idx].qty++; else shopCart.push({ id, nama, harga, qty: 1 });
-        document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
-    }
-
     function closeAllModals() {
-        document.getElementById('activityModal').classList.remove('active');
-        document.getElementById('productDetailModal').classList.remove('active');
-        document.getElementById('profileModal').classList.remove('active');
-        document.getElementById('modalOverlay').classList.remove('active');
+        document.querySelectorAll('.detail-modal, .activity-modal, .profile-modal, .modal-overlay').forEach(el => el.classList.remove('active'));
     }
 
     function goToCheckout() {
@@ -275,10 +261,7 @@
     }
 
     async function logoutCustomer() {
-        if(confirm("Keluar dari akun?")) {
-            await db.auth.signOut();
-            window.location.replace('login-customer.html');
-        }
+        if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); }
     }
 </script>
 </body>
