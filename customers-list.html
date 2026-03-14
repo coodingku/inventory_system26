@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Pengguna | Finex Bloom 🌸</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="supabase-online.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
+        .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; color: #64748b; }
+        .sidebar-link:hover { background: #fff1f2; color: #f72585; }
+        .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
+        .table-container { background: white; border-radius: 32px; border: 1px solid #f1f5f9; overflow: hidden; }
+        .search-input { border-radius: 16px; border: 1px solid #e2e8f0; padding: 10px 20px; outline: none; transition: all 0.3s; }
+        .search-input:focus { border-color: #f72585; box-shadow: 0 0 0 4px rgba(247, 37, 133, 0.1); }
+    </style>
+</head>
+<body class="flex min-h-screen">
+
+    <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex">
+        <div class="mb-10 px-2">
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
+            <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Beauty Bloom POS</p>
+        </div>
+        <nav class="flex-1 overflow-y-auto">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
+            <a href="dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-chart-pie w-5"></i> Dashboard
+            </a>
+            <a href="admin-online.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-shopping-basket w-5"></i> Pesanan Online
+            </a>
+            <a href="admin-laporan.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-file-alt w-5"></i> Laporan Transaksi
+            </a>
+            <a href="customers-list.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm">
+                <i class="fas fa-users w-5"></i> Data Customer
+            </a>
+        </nav>
+        <div class="mt-auto">
+            <button onclick="logout()" class="sidebar-link flex items-center gap-3 px-4 py-3 text-red-400 font-bold text-sm w-full">
+                <i class="fas fa-sign-out-alt w-5"></i> Keluar
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-4 md:p-10">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h2 class="text-2xl font-black text-slate-800">Data Customer 👥</h2>
+                <p class="text-slate-500 text-sm">Daftar pengguna terdaftar di database <span class="font-bold text-pink-500">users</span>.</p>
+            </div>
+            <div class="relative w-full md:w-72">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="search-user" onkeyup="filterUser()" placeholder="Cari nama atau email..." class="search-input w-full pl-11 text-sm">
+            </div>
+        </header>
+
+        <div class="table-container shadow-sm bg-white">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                    <tr>
+                        <th class="p-6">Nama Lengkap</th>
+                        <th class="p-6">Email Akun</th>
+                        <th class="p-6">No. WhatsApp</th>
+                        <th class="p-6">Alamat Utama</th>
+                        <th class="p-6">Tgl Join</th>
+                    </tr>
+                </thead>
+                <tbody id="table-users" class="text-sm divide-y divide-slate-50">
+                    <tr><td colspan="5" class="p-10 text-center text-slate-400">Menghubungkan ke tabel users...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        let allUsers = [];
+
+        window.onload = () => loadUsers();
+
+        async function loadUsers() {
+            // Mengambil data dari tabel 'users' sesuai permintaan
+            const { data, error } = await db.from('users').select('*').order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error(error);
+                document.getElementById('table-users').innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-400 italic">Gagal memuat tabel 'users'. Pastikan tabel tersedia.</td></tr>`;
+                return;
+            }
+
+            allUsers = data || [];
+            renderTable(allUsers);
+        }
+
+        function renderTable(data) {
+            const container = document.getElementById('table-users');
+            
+            if (data.length > 0) {
+                container.innerHTML = data.map(u => `
+                    <tr class="hover:bg-slate-50 transition-all group">
+                        <td class="p-6 font-bold text-slate-800">${u.full_name || 'No Name'}</td>
+                        <td class="p-6 text-slate-600 font-medium">${u.email}</td>
+                        <td class="p-6">
+                            <a href="https://wa.me/${u.phone}" target="_blank" class="text-pink-500 font-bold hover:underline">
+                                <i class="fab fa-whatsapp mr-1"></i> ${u.phone || '-'}
+                            </a>
+                        </td>
+                        <td class="p-6 text-xs text-slate-400 max-w-xs truncate">${u.address || '-'}</td>
+                        <td class="p-6 text-slate-400 text-[11px] font-bold uppercase">
+                            ${new Date(u.created_at).toLocaleDateString('id-ID')}
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                container.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-slate-400">Belum ada user terdaftar.</td></tr>`;
+            }
+        }
+
+        function filterUser() {
+            const keyword = document.getElementById('search-user').value.toLowerCase();
+            const filtered = allUsers.filter(u => 
+                (u.full_name && u.full_name.toLowerCase().includes(keyword)) || 
+                (u.email && u.email.toLowerCase().includes(keyword))
+            );
+            renderTable(filtered);
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>
