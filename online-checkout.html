@@ -163,23 +163,41 @@
         document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
     }
 
-    async function searchArea(query) {
-        if (query.length < 3) return;
-        try {
-            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
-                headers: { 'Authorization': BITES_API_KEY }
-            });
-            const data = await res.json();
-            if (data.areas) {
-                const resultsBox = document.getElementById('area-results');
-                // Filter agar hanya ID yang valid (biasanya ID kecamatan tidak kepanjangan)
-                const validAreas = data.areas.filter(a => a.id.length < 20);
-                resultsBox.innerHTML = validAreas.map(a => `<div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">${a.name}</div>`).join('');
-                resultsBox.classList.remove('hidden');
-            }
-        } catch (err) { console.error(err); }
+  async function searchArea(query) {
+    const resultsBox = document.getElementById('area-results');
+    if (query.length < 3) {
+        resultsBox.classList.add('hidden');
+        return;
     }
 
+    // Tampilkan pesan loading agar Allberto tahu sistem sedang bekerja
+    resultsBox.innerHTML = '<div class="p-4 text-slate-400 italic">Mencari kecamatan...</div>';
+    resultsBox.classList.remove('hidden');
+
+    try {
+        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
+            headers: { 'Authorization': BITES_API_KEY }
+        });
+        const data = await res.json();
+        
+        console.log("Data dari Biteship:", data); // Intip hasilnya di F12
+
+        if (data.areas && data.areas.length > 0) {
+            // Kita hapus filter length < 20 agar semua kecamatan muncul
+            resultsBox.innerHTML = data.areas.map(a => `
+                <div onclick="selectArea('${a.id}', '${a.name}')" 
+                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
+                    ${a.name}
+                </div>`).join('');
+            resultsBox.classList.remove('hidden');
+        } else {
+            resultsBox.innerHTML = '<div class="p-4 text-red-400">Kecamatan tidak ditemukan.</div>';
+        }
+    } catch (err) {
+        console.error("Error Biteship:", err);
+        resultsBox.innerHTML = '<div class="p-4 text-red-400">Gagal memuat data.</div>';
+    }
+}
     function selectArea(id, name) {
         document.getElementById('destination-id').value = id;
         document.getElementById('destination-search').value = name;
