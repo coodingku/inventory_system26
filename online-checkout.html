@@ -67,7 +67,7 @@
                 <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
                 
                 <div class="relative">
-                    <input type="text" id="destination-search" onkeyup="searchArea(this.value)" class="input-field" placeholder="Ketik Kecamatan/Kota Tujuan...">
+                    <input type="text" id="destination-search" onkeyup="searchArea(this.value)" class="input-field" placeholder="Ketik Kecamatan Tujuan (Contoh: Kuta)...">
                     <div id="area-results" class="absolute z-50 w-full bg-white shadow-xl rounded-2xl mt-1 max-h-48 overflow-y-auto hidden text-xs border border-slate-100 no-scrollbar"></div>
                     <input type="hidden" id="destination-id">
                 </div>
@@ -88,9 +88,7 @@
             </h3>
             <div class="p-4 border-2 border-pink-500 bg-pink-50 rounded-2xl flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-white text-pink-500 rounded-full flex items-center justify-center shadow-sm">
-                        <i class="fas fa-bolt-lightning"></i>
-                    </div>
+                    <div class="w-10 h-10 bg-white text-pink-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-bolt-lightning"></i></div>
                     <div>
                         <p class="font-bold text-slate-700 text-sm">Otomatis (Midtrans)</p>
                         <p class="text-[10px] text-slate-400">Virtual Account, QRIS, E-Wallet</p>
@@ -117,10 +115,7 @@
     let shippingCost = 0;
     let customerEmail = "";
 
-    window.onload = async () => {
-        renderCheckout();
-        await loadCustomerData();
-    };
+    window.onload = async () => { renderCheckout(); await loadCustomerData(); };
 
     async function loadCustomerData() {
         const { data: { user } } = await db.auth.getUser();
@@ -138,31 +133,20 @@
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
-        let subtotalTanpaDiskon = 0;
-        let totalDiskon = 0;
-        subtotalFinal = 0;
+        let subtotalTanpaDiskon = 0; let totalDiskon = 0; subtotalFinal = 0;
         
         container.innerHTML = cartData.map(item => {
             const hargaNormal = item.harga_normal || item.harga;
             const subNormal = item.qty * hargaNormal;
             const subFinal = item.qty * item.harga;
-            subtotalTanpaDiskon += subNormal;
-            subtotalFinal += subFinal;
-            totalDiskon += (subNormal - subFinal);
-
-            return `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="font-bold text-slate-700">${item.nama}</p>
-                        <div class="flex items-center gap-2">
-                            ${hargaNormal > item.harga ? `<span class="text-[10px] text-slate-300 line-through">Rp ${hargaNormal.toLocaleString()}</span>` : ''}
-                            <span class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</span>
-                        </div>
-                    </div>
-                    <p class="font-bold text-slate-800">Rp ${subFinal.toLocaleString()}</p>
-                </div>`;
+            subtotalTanpaDiskon += subNormal; subtotalFinal += subFinal; totalDiskon += (subNormal - subFinal);
+            return `<div class="flex justify-between items-start">
+                <div><p class="font-bold text-slate-700">${item.nama}</p>
+                <div class="flex items-center gap-2">
+                    ${hargaNormal > item.harga ? `<span class="text-[10px] text-slate-300 line-through">Rp ${hargaNormal.toLocaleString()}</span>` : ''}
+                    <span class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</span>
+                </div></div><p class="font-bold text-slate-800">Rp ${subFinal.toLocaleString()}</p></div>`;
         }).join('');
-
         document.getElementById('txt-subtotal').innerText = "Rp " + subtotalTanpaDiskon.toLocaleString();
         if (totalDiskon > 0) {
             document.getElementById('row-diskon').classList.remove('hidden');
@@ -179,87 +163,64 @@
         document.getElementById('txt-total').innerText = "Rp " + totalBayar.toLocaleString();
     }
 
-async function searchArea(query) {
-    if (query.length < 3) return;
-    try {
-        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
-            headers: { 'Authorization': BITES_API_KEY }
-        });
-        const data = await res.json();
-        
-        if (data.areas && data.areas.length > 0) {
-            const resultsBox = document.getElementById('area-results');
-            // FILTER: Kita hanya ambil area yang tipenya 'kecamatan' atau 'administrative_area_level_3'
-            // ID yang benar biasanya tidak sepanjang yang Allberto dapatkan tadi.
-            resultsBox.innerHTML = data.areas.map(a => `
-                <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">
-                    <p class="text-[11px] leading-tight">${a.name}</p>
-                </div>`).join('');
-            resultsBox.classList.remove('hidden');
-        }
-    } catch (err) { console.error("Search Gagal:", err); }
-}
-
-function selectArea(id, name) {
-    // KITA BERSIHKAN ID: Jika ID mengandung 'IDZ' (kode pos), kita coba bersihkan 
-    // agar hanya ID Kecamatan yang masuk.
-    document.getElementById('destination-id').value = id;
-    document.getElementById('destination-search').value = name;
-    document.getElementById('area-results').classList.add('hidden');
-    console.log("ID Masuk ke Sistem:", id);
-}
-
-async function checkShippingRates() {
-    const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Mohon pilih kecamatan dari hasil pencarian yang muncul! 🌸");
-    
-    const btn = document.getElementById('btn-cek-ongkir');
-    btn.innerText = "MENGHITUNG...";
-
-   // Ganti baris payload ini untuk TES SAJA
-const payload = {
-    origin_area_id: "IDNP10CL1081", 
-    destination_area_id: "IDNP10CL1097", // Ini ID Kuta (ID Pendek & Valid)
-    couriers: "jne,jnt,sicepat,gojek,grab",
-    // ...
-        items: cartData.map(i => ({
-            name: i.nama,
-            value: i.harga,
-            weight: i.berat || 200,
-            quantity: i.qty,
-            length: 10, width: 10, height: 10 // Dimensi default
-        }))
-    };
-
-    try {
-        const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
-            method: 'POST',
-            headers: { 'Authorization': BITES_API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Rute tidak ditemukan.");
-
-        if (data.results && data.results.length > 0) {
-            renderShippingOptions(data.results);
-        } else {
-            alert("Kurir tidak tersedia. Pastikan JNE/J&T sudah di-Enable di dashboard.");
-        }
-    } catch (err) {
-        alert("Gagal memuat ongkir: " + err.message);
-    } finally {
-        btn.innerText = "Cek Ongkos Kirim 🚚";
+    async function searchArea(query) {
+        if (query.length < 3) return;
+        try {
+            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
+                headers: { 'Authorization': BITES_API_KEY }
+            });
+            const data = await res.json();
+            if (data.areas) {
+                const resultsBox = document.getElementById('area-results');
+                // Filter agar hanya ID yang valid (biasanya ID kecamatan tidak kepanjangan)
+                const validAreas = data.areas.filter(a => a.id.length < 20);
+                resultsBox.innerHTML = validAreas.map(a => `<div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600">${a.name}</div>`).join('');
+                resultsBox.classList.remove('hidden');
+            }
+        } catch (err) { console.error(err); }
     }
-}
+
+    function selectArea(id, name) {
+        document.getElementById('destination-id').value = id;
+        document.getElementById('destination-search').value = name;
+        document.getElementById('area-results').classList.add('hidden');
+    }
+
+    async function checkShippingRates() {
+        const destId = document.getElementById('destination-id').value;
+        if (!destId) return alert("Pilih kecamatan dari daftar! 🌸");
+        const btn = document.getElementById('btn-cek-ongkir');
+        btn.innerText = "MENGHITUNG...";
+
+        const payload = {
+            origin_area_id: ORIGIN_ID,
+            destination_area_id: destId,
+            couriers: "jne,jnt,sicepat,gojek,grab",
+            items: cartData.map(i => ({
+                name: i.nama, value: i.harga, weight: i.berat || 200, quantity: i.qty,
+                length: 10, width: 10, height: 10
+            }))
+        };
+
+        try {
+            const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+                method: 'POST',
+                headers: { 'Authorization': BITES_API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.results) renderShippingOptions(data.results);
+            else throw new Error(data.error || "Rute tidak ditemukan");
+        } catch (err) { alert(err.message); } 
+        finally { btn.innerText = "Cek Ongkos Kirim 🚚"; }
+    }
+
     function renderShippingOptions(rates) {
         const container = document.getElementById('shipping-options');
         container.innerHTML = rates.map(r => `
             <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center cursor-pointer hover:border-pink-300 transition-all courier-box bg-white mb-2">
-                <div>
-                    <p class="text-[10px] font-black uppercase text-slate-400">${r.courier_name} - ${r.courier_service}</p>
-                    <p class="text-xs font-bold text-slate-700">${r.duration}</p>
-                </div>
+                <div><p class="text-[10px] font-black uppercase text-slate-400">${r.courier_name} - ${r.courier_service}</p>
+                <p class="text-xs font-bold text-slate-700">${r.duration}</p></div>
                 <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
             </div>`).join('');
     }
@@ -278,28 +239,24 @@ const payload = {
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
         const courier = document.getElementById('selected-courier-name').value;
-        if (!name || !phone || !address || !courier) return alert("Lengkapi data pengiriman dan kurir! 🌸");
+        if (!name || !phone || !address || !courier) return alert("Lengkapi data! 🌸");
 
         const btn = document.getElementById('btn-order');
-        btn.innerText = "Processing...";
-        btn.disabled = true;
+        btn.innerText = "Processing..."; btn.disabled = true;
 
         try {
             const { data: { user } } = await db.auth.getUser();
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
             const finalAmount = subtotalFinal + shippingCost;
-
-            const { data: midtrans, error: errFunc } = await db.functions.invoke('swift-function', {
+            const { data: midtrans } = await db.functions.invoke('swift-function', {
                 body: { order_id: inv, amount: finalAmount, customer_name: name, customer_email: customerEmail }
             });
-            if (errFunc || !midtrans?.token) throw new Error("Gagal Midtrans.");
 
-            const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
+            const { data: trx } = await db.from('transaksi_online').insert([{
                 no_invoice: inv, customer_id: user.id, nama_penerima: name, wa_penerima: phone,
                 alamat_kirim: `${address} (${document.getElementById('destination-search').value})`,
                 kurir: courier, ongkos_kirim: shippingCost, grand_total: finalAmount, status_order: 'Pending', snap_token: midtrans.token
             }]).select().single();
-            if (errTrx) throw errTrx;
 
             const details = cartData.map(item => ({
                 transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama, qty: item.qty,
@@ -312,7 +269,7 @@ const payload = {
                 onPending: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
                 onClose: () => { alert("Pesanan disimpan."); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
             });
-        } catch (e) { alert(e.message); btn.innerText = "BAYAR SEKARANG ✨"; btn.disabled = false; }
+        } catch (e) { alert("Error!"); btn.innerText = "BAYAR SEKARANG ✨"; btn.disabled = false; }
     }
 </script>
 </body>
