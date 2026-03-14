@@ -38,9 +38,7 @@
         .status-dikemas { background: #fef3c7; color: #d97706; }
         .status-dikirim { background: #e0f2fe; color: #0284c7; }
         .status-selesai { background: #dcfce7; color: #16a34a; }
-        .status-dibatalkan { background: #f1f5f9; color: #64748b; }
 
-        /* Input Styling */
         .input-bloom { width: 100%; padding: 12px 15px; background: var(--soft-pink); border-radius: 15px; font-size: 14px; outline: none; border: 1px solid transparent; }
         .input-bloom:focus { border-color: var(--primary-pink); background: white; }
 
@@ -56,7 +54,7 @@
             <h1 class="text-xl font-extrabold text-slate-800">Beauty Bloom 🌸</h1>
         </div>
         <button onclick="openProfile()" class="w-10 h-10 bg-pink-50 rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm active:scale-90 transition-all">
-            <i class="fa-solid fa-user-heart"></i>
+            <i class="fa-solid fa-user"></i>
         </button>
     </header>
 
@@ -90,7 +88,7 @@
             </div>
             <h2 id="detail-name" class="text-2xl font-black text-slate-800"></h2>
             <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
-            <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4"></p>
+            <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
             <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg">TAMBAH KERANJANG ✨</button>
         </div>
     </div>
@@ -106,7 +104,7 @@
             <input type="number" id="p-phone" class="input-bloom" placeholder="628xxx">
             <textarea id="p-address" class="input-bloom h-20 resize-none" placeholder="Alamat Pengiriman"></textarea>
         </div>
-        <button onclick="saveProfile()" id="btnSaveProfile" class="w-full py-4 bg-[#f72585] text-white rounded-2xl font-bold mt-6 shadow-lg active:scale-95 transition-all">SIMPAN PERUBAHAN</button>
+        <button onclick="saveProfile()" id="btnSaveProfile" class="w-full py-4 bg-[#f72585] text-white rounded-2xl font-bold mt-6 shadow-lg">SIMPAN PERUBAHAN</button>
         <button onclick="logoutCustomer()" class="w-full mt-6 text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">Logout Akun</button>
     </div>
 
@@ -135,6 +133,21 @@
         loadOnlineMenu();
     };
 
+    // FUNGSI PINTAR: HITUNG HARGA AKTIF (PROMO & SMART PRICE)
+    function getActivePrice(p) {
+        const basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+        const sekarang = new Date();
+        const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai) : null;
+        const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir) : null;
+
+        const isPromo = p.is_diskon && (!tglMulai || sekarang >= tglMulai) && (!tglAkhir || sekarang <= tglAkhir);
+
+        if (isPromo) {
+            return basePrice - (p.nominal_diskon || 0);
+        }
+        return basePrice;
+    }
+
     async function loadOnlineMenu() {
         const q = document.getElementById('search').value;
         let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
@@ -148,19 +161,39 @@
             return;
         }
 
-        display.innerHTML = data.map(p => `
+        display.innerHTML = data.map(p => {
+            const finalPrice = getActivePrice(p);
+            const normalPrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+            const isDiskon = finalPrice < normalPrice;
+
+            return `
             <div class="product-card">
-                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${p.harga_jual}, '${p.image_url}', '${p.deskripsi || ''}')">
-                    <img src="${p.image_url || 'https://via.placeholder.com/300'}" onerror="this.src='https://via.placeholder.com/300?text=Beauty+Bloom'">
+                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${finalPrice}, '${p.image_url}', '${p.keterangan || ''}')">
+                    <img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300?text=Beauty+Bloom'">
                 </div>
                 <div class="p-4 bg-white">
                     <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
-                    <div class="flex justify-between items-center mt-3">
-                        <p class="font-black text-[#ff85a2] text-sm">Rp ${p.harga_jual.toLocaleString()}</p>
-                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
+                    <p class="text-[9px] text-slate-400 mb-2 truncate italic">${p.keterangan || ''}</p>
+                    <div class="flex justify-between items-center mt-1">
+                        <div>
+                            ${isDiskon ? `<p class="text-[9px] text-slate-400 line-through">Rp ${normalPrice.toLocaleString()}</p>` : ''}
+                            <p class="font-black text-[#ff85a2] text-sm">Rp ${finalPrice.toLocaleString()}</p>
+                        </div>
+                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${finalPrice})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`}).join('');
+    }
+
+    // UPDATE: Open Detail Sekarang Menampilkan Keterangan/Ukuran
+    function openDetail(id, nama, harga, img, desc) {
+        document.getElementById('detail-name').innerText = nama;
+        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
+        document.getElementById('detail-img').src = img || 'https://placehold.co/300';
+        document.getElementById('detail-desc').innerText = desc || 'Detail produk belum diisi oleh admin.';
+        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga); closeAllModals(); };
+        document.getElementById('productDetailModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
     }
 
     async function openActivity() {
@@ -171,8 +204,6 @@
         if (data && data.length > 0) {
             container.innerHTML = data.map(trx => {
                 const status = (trx.status_order || 'Pending').toLowerCase();
-                const canCancel = trx.status_order === 'Pending';
-
                 return `
                 <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4">
                     <div class="flex justify-between items-start mb-3">
@@ -188,50 +219,31 @@
                             <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
                         </div>
                         <div class="flex gap-2">
-                            ${canCancel ? 
-                                `<button onclick="batalPesananCustomer('${trx.id}')" class="text-[10px] font-bold text-red-500 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : 
-                                `<button onclick="alert('Pesanan sudah diproses admin. Silakan hubungi WA toko untuk pembatalan.')" class="text-[10px] font-bold text-slate-300 border border-slate-50 px-3 py-2 rounded-xl">Batal Terkunci</button>`
-                            }
-                            <button onclick="alert('Detail pesanan bisa dicek melalui WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
+                             <button onclick="alert('Lacak pesanan bisa dicek melalui WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
                         </div>
                     </div>
                 </div>`;
             }).join('');
         } else {
-            container.innerHTML = `<p class="text-center text-slate-300 py-10">Belum ada pesanan nih. Yuk belanja! 🌸</p>`;
+            container.innerHTML = `<p class="text-center text-slate-300 py-10">Belum ada pesanan nih. 🌸</p>`;
         }
         document.getElementById('activityModal').classList.add('active');
         document.getElementById('modalOverlay').classList.add('active');
     }
 
-    async function batalPesananCustomer(id) {
-        if (!confirm("Yakin ingin membatalkan pesanan? 🌸")) return;
-        const { error } = await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
-        if (!error) {
-            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: 'Dibatalkan', keterangan: 'Dibatalkan oleh pelanggan.' }]);
-            alert("Pesanan berhasil dibatalkan.");
-            openActivity();
-        }
-    }
-
     async function openProfile() {
         const { data: { user } } = await db.auth.getUser();
         const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
-        
-        document.getElementById('p-name').value = data?.full_name || user.user_metadata?.full_name || "";
+        document.getElementById('p-name').value = data?.full_name || "";
         document.getElementById('p-email').value = user.email;
         document.getElementById('p-phone').value = data?.phone_number || "";
         document.getElementById('p-address').value = data?.address_shipping || "";
-        
         document.getElementById('profileModal').classList.add('active');
         document.getElementById('modalOverlay').classList.add('active');
     }
 
     async function saveProfile() {
         const { data: { user } } = await db.auth.getUser();
-        const btn = document.getElementById('btnSaveProfile');
-        btn.innerText = "MENYIMPAN...";
-        
         const { error } = await db.from('customers').upsert({
             id: user.id,
             full_name: document.getElementById('p-name').value,
@@ -240,25 +252,13 @@
             email: user.email,
             updated_at: new Date().toISOString()
         });
-        
-        if (!error) { alert("Profil Berhasil Diperbarui! ✨"); closeAllModals(); }
-        btn.innerText = "SIMPAN PERUBAHAN";
+        if (!error) { alert("Profil Diperbarui! ✨"); closeAllModals(); }
     }
 
     function addToOnlineCart(id, nama, harga) {
         const idx = shopCart.findIndex(c => c.id === id);
         if (idx > -1) shopCart[idx].qty++; else shopCart.push({ id, nama, harga, qty: 1 });
         document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
-    }
-
-    function openDetail(id, nama, harga, img, desc) {
-        document.getElementById('detail-name').innerText = nama;
-        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-        document.getElementById('detail-img').src = img || 'https://via.placeholder.com/300';
-        document.getElementById('detail-desc').innerText = desc || 'Rahasia kecantikan Beauty Bloom.';
-        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga); closeAllModals(); };
-        document.getElementById('productDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
     }
 
     function closeAllModals() {
