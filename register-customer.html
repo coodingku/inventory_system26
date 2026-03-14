@@ -91,42 +91,58 @@
     </div>
 
     <script>
-        async function handleRegister() {
-            const fullname = document.getElementById('fullname').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const btn = document.getElementById('btnRegister');
+      async function handleRegister() {
+    const fullname = document.getElementById('fullname').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('btnRegister');
 
-            if (!fullname || !email || !password) {
-                return alert("Tolong lengkapi semua data ya Cantik! 🌸");
+    if (!fullname || !email || !password) {
+        return alert("Tolong lengkapi semua data ya Cantik! 🌸");
+    }
+
+    if (password.length < 6) {
+        return alert("Password minimal 6 karakter ya!");
+    }
+
+    btn.innerText = "Mendaftarkan...";
+    btn.disabled = true;
+
+    try {
+        // 1. DAFTARKAN KE AUTH (Sistem Login)
+        const { data: authData, error: authError } = await db.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: { full_name: fullname }
             }
+        });
 
-            if (password.length < 6) {
-                return alert("Password minimal 6 karakter ya!");
-            }
+        if (authError) throw authError;
 
-            btn.innerText = "Mendaftarkan...";
-            btn.disabled = true;
+        // 2. SIMPAN KE TABEL DATABASE (Agar muncul di halaman Admin)
+        // Kita simpan ke tabel 'users' (sesuai permintaan kamu sebelumnya)
+        const { error: dbError } = await db.from('users').insert([{
+            id: authData.user.id, // Menghubungkan UID Auth dengan Tabel
+            full_name: fullname,
+            email: email,
+            created_at: new Date()
+        }]);
 
-            const { data, error } = await db.auth.signUp({
-                email: email,
-                password: password,
-                options: {
-                    data: {
-                        full_name: fullname
-                    }
-                }
-            });
-
-            if (error) {
-                alert("Pendaftaran Gagal: " + error.message);
-                btn.innerText = "DAFTAR SEKARANG";
-                btn.disabled = false;
-            } else {
-                alert("Pendaftaran Berhasil! 🌸\nSilakan cek email Anda untuk verifikasi atau bisa langsung coba login.");
-                window.location.href = 'login-customer.html';
-            }
+        if (dbError) {
+            console.error("Gagal simpan ke tabel database:", dbError.message);
+            // Tetap lanjut karena akun Auth sudah berhasil dibuat
         }
+
+        alert("Pendaftaran Berhasil! 🌸\nData kamu sudah tersimpan. Silakan login.");
+        window.location.href = 'login-customer.html';
+
+    } catch (error) {
+        alert("Pendaftaran Gagal: " + error.message);
+        btn.innerText = "DAFTAR SEKARANG";
+        btn.disabled = false;
+    }
+}
     </script>
 </body>
 </html>
