@@ -185,23 +185,22 @@
             </div>`}).join('');
     }
 
-    function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
-        const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) {
-            shopCart[idx].qty++;
-        } else {
-            // Kita simpan HARGA FINAL yang sudah dipotong diskon
-            shopCart.push({ 
-                id, 
-                nama, 
-                harga: hargaFinal, 
-                harga_normal: hargaNormal, 
-                qty: 1 
-            });
-        }
-        document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
+  function addToOnlineCart(id, nama, hargaFinal, hargaNormal, berat) {
+    const idx = shopCart.findIndex(c => c.id === id);
+    if (idx > -1) {
+        shopCart[idx].qty++;
+    } else {
+        shopCart.push({ 
+            id, 
+            nama, 
+            harga: hargaFinal, 
+            harga_normal: hargaNormal, 
+            berat: berat || 200, // Ambil berat dari database
+            qty: 1 
+        });
     }
-
+    document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
+}
     function openDetail(id, nama, harga, hargaNormal, img, desc) {
         document.getElementById('detail-name').innerText = nama;
         document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
