@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-online.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -53,7 +54,7 @@
                 <h2 class="text-2xl font-black text-slate-800">Manajemen Saldo 💰</h2>
                 <p class="text-slate-500 text-sm">Persetujuan penarikan dan laporan mutasi saldo.</p>
             </div>
-            <button id="btnAudio" onclick="enableAudio()" class="bg-amber-100 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 border border-amber-200">
+            <button id="btnAudio" onclick="enableAudio()" class="bg-amber-100 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 border border-amber-200 shadow-sm">
                 <i class="fas fa-volume-mute"></i> Aktifkan Suara
             </button>
         </header>
@@ -70,33 +71,37 @@
         <div class="flex flex-col md:flex-row justify-between items-end gap-4 mb-6 no-print">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Mulai</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Mulai Tanggal</label>
                     <input type="date" id="filterMulai" onchange="loadHistoryTable()" class="w-full mt-1 px-4 py-2 bg-white rounded-xl border border-slate-100 text-xs outline-none focus:ring-2 focus:ring-pink-200">
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Tipe</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Filter Jenis</label>
                     <select id="filterTipe" onchange="loadHistoryTable()" class="w-full mt-1 px-4 py-2 bg-white rounded-xl border border-slate-100 text-xs outline-none focus:ring-2 focus:ring-pink-200">
                         <option value="SEMUA">Semua Transaksi</option>
-                        <option value="TOPUP">Hanya Top Up</option>
-                        <option value="WITHDRAW">Hanya Penarikan</option>
+                        <option value="TOPUP">Hanya Top Up (+)</option>
+                        <option value="WITHDRAW">Hanya Penarikan (-)</option>
                     </select>
                 </div>
                 <div class="flex gap-2 items-end">
-                    <button onclick="exportExcel()" class="flex-1 bg-green-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase"><i class="fas fa-file-excel mr-1"></i> Excel</button>
-                    <button onclick="exportPDF()" class="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase"><i class="fas fa-file-pdf mr-1"></i> PDF</button>
+                    <button onclick="exportExcel()" class="flex-1 bg-green-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase shadow-md hover:bg-green-600 transition-all">
+                        <i class="fas fa-file-excel mr-1"></i> Excel
+                    </button>
+                    <button onclick="exportPDF()" class="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase shadow-md hover:bg-red-600 transition-all">
+                        <i class="fas fa-file-pdf mr-1"></i> PDF
+                    </button>
                 </div>
             </div>
         </div>
 
         <div class="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
             <table class="w-full text-left" id="historyTable">
-                <thead class="bg-slate-50">
+                <thead class="bg-slate-50/50">
                     <tr>
-                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
-                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice / Customer</th>
-                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tipe</th>
-                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nominal</th>
-                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+                        <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer & Invoice</th>
+                        <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tipe</th>
+                        <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Nominal</th>
+                        <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody id="historyBody" class="text-xs divide-y divide-slate-50"></tbody>
@@ -118,7 +123,7 @@
         const msg = new SpeechSynthesisUtterance("Notifikasi sistem keuangan aktif");
         msg.lang = "id-ID";
         window.speechSynthesis.speak(msg);
-        document.getElementById('btnAudio').className = "bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2";
+        document.getElementById('btnAudio').className = "bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm";
         document.getElementById('btnAudio').innerHTML = '<i class="fas fa-volume-up"></i> Suara Aktif';
     }
 
@@ -130,8 +135,8 @@
     }
 
     function subscribeRealtime() {
-        db.channel('finance_channel').on('postgres_changes', { event: '*', schema: 'public', table: 'withdraw_requests' }, () => { loadWithdrawRequests(); loadHistoryTable(); }).subscribe();
-        db.channel('topup_channel').on('postgres_changes', { event: '*', schema: 'public', table: 'topup_history' }, () => { loadHistoryTable(); }).subscribe();
+        db.channel('finance').on('postgres_changes', { event: '*', schema: 'public', table: 'withdraw_requests' }, () => { loadWithdrawRequests(); loadHistoryTable(); }).subscribe();
+        db.channel('topup').on('postgres_changes', { event: '*', schema: 'public', table: 'topup_history' }, () => { loadHistoryTable(); }).subscribe();
     }
 
     async function loadWithdrawRequests() {
@@ -161,59 +166,83 @@
         const mulai = document.getElementById('filterMulai').value;
         let combinedData = [];
 
-        // Ambil Topup
+        // Fetch Topup data (As seen in your 5757.PNG)
         if (tipe === 'SEMUA' || tipe === 'TOPUP') {
             let q = db.from('topup_history').select('*, customers(full_name)');
             if (mulai) q = q.gte('created_at', mulai);
             const { data } = await q;
-            if (data) combinedData.push(...data.map(d => ({ ...d, tipe: 'TOPUP' })));
+            if (data) combinedData.push(...data.map(d => ({ ...d, jenis: 'TOPUP' })));
         }
 
-        // Ambil Withdraw
+        // Fetch Withdraw data
         if (tipe === 'SEMUA' || tipe === 'WITHDRAW') {
             let q = db.from('withdraw_requests').select('*, customers(full_name)');
             if (mulai) q = q.gte('created_at', mulai);
             const { data } = await q;
-            if (data) combinedData.push(...data.map(d => ({ ...d, tipe: 'WITHDRAW' })));
+            if (data) combinedData.push(...data.map(d => ({ ...d, jenis: 'WITHDRAW' })));
         }
 
+        // Sort by date descending
         combinedData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         const body = document.getElementById('historyBody');
         body.innerHTML = combinedData.map(h => `
             <tr class="hover:bg-slate-50 transition-all">
-                <td class="px-6 py-4 text-slate-500">${new Date(h.created_at).toLocaleDateString('id-ID')}</td>
-                <td class="px-6 py-4"><p class="font-bold text-slate-700">${h.no_invoice}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${h.customers?.full_name || 'Customer'}</p></td>
-                <td class="px-6 py-4 text-center"><span class="status-badge ${h.tipe === 'TOPUP' ? 'bg-topup' : 'bg-withdraw'}">${h.tipe}</span></td>
-                <td class="px-6 py-4 font-black ${h.tipe === 'TOPUP' ? 'text-green-500' : 'text-red-500'}">Rp ${h.nominal.toLocaleString()}</td>
-                <td class="px-6 py-4"><span class="font-bold ${h.status === 'SUCCESS' ? 'text-green-500' : 'text-orange-400'}">${h.status}</span></td>
+                <td class="px-6 py-4 text-slate-500 font-bold">${new Date(h.created_at).toLocaleDateString('id-ID')}</td>
+                <td class="px-6 py-4">
+                    <p class="font-black text-slate-700 uppercase text-[11px]">${h.no_invoice}</p>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">${h.customers?.full_name || 'Customer'}</p>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="status-badge ${h.jenis === 'TOPUP' ? 'bg-topup' : 'bg-withdraw'}">${h.jenis}</span>
+                </td>
+                <td class="px-6 py-4 text-right font-black ${h.jenis === 'TOPUP' ? 'text-green-500' : 'text-red-500'}">
+                    ${h.jenis === 'TOPUP' ? '+' : '-'} Rp ${h.nominal.toLocaleString()}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="font-bold text-[10px] uppercase ${h.status === 'SUCCESS' ? 'text-green-500' : (h.status === 'PENDING' ? 'text-orange-400' : 'text-slate-300')}">
+                        ${h.status}
+                    </span>
+                </td>
             </tr>`).join('');
     }
 
     async function approveWithdraw(wdId, customerId, nominal) {
-        if (!confirm("Transfer manual sudah dilakukan?")) return;
+        if (!confirm("Anda sudah transfer dana? Klik OK untuk memotong saldo customer.")) return;
         const { data: u } = await db.from('customers').select('saldo').eq('id', customerId).single();
+        if (u.saldo < nominal) return alert("Saldo tidak cukup!");
+        
         await db.from('customers').update({ saldo: u.saldo - nominal }).eq('id', customerId);
         await db.from('withdraw_requests').update({ status: 'SUCCESS' }).eq('id', wdId);
+        
         loadWithdrawRequests(); loadHistoryTable();
     }
 
     async function rejectWithdraw(id) {
-        if (confirm("Tolak permintaan?")) { await db.from('withdraw_requests').update({ status: 'REJECTED' }).eq('id', id); loadWithdrawRequests(); loadHistoryTable(); }
+        if (confirm("Tolak permintaan?")) { 
+            await db.from('withdraw_requests').update({ status: 'REJECTED' }).eq('id', id); 
+            loadWithdrawRequests(); loadHistoryTable(); 
+        }
     }
 
     function exportExcel() {
         const table = document.getElementById("historyTable");
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Saldo" });
-        XLSX.writeFile(wb, `Laporan_Keuangan_Bloom_${new Date().toLocaleDateString()}.xlsx`);
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Keuangan Saldo" });
+        XLSX.writeFile(wb, `Laporan_Saldo_Bloom_${new Date().toLocaleDateString()}.xlsx`);
     }
 
     function exportPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Laporan Keuangan Saldo Beauty Bloom", 14, 15);
-        doc.autoTable({ html: '#historyTable', startY: 20, theme: 'striped', headStyles: { fillColor: [247, 37, 133] } });
-        doc.save(`Laporan_Keuangan_Bloom_${new Date().toLocaleDateString()}.pdf`);
+        doc.text("Laporan Mutasi Saldo Beauty Bloom", 14, 15);
+        doc.autoTable({ 
+            html: '#historyTable', 
+            startY: 20, 
+            theme: 'striped', 
+            headStyles: { fillColor: [247, 37, 133], fontSize: 8 },
+            bodyStyles: { fontSize: 7 }
+        });
+        doc.save(`Laporan_Saldo_Bloom_${new Date().toLocaleDateString()}.pdf`);
     }
 </script>
 </body>
