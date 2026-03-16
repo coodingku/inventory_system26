@@ -428,16 +428,16 @@ async function viewDetailTrx(trx) {
                 }
             });
 
-            // JIKA MIDTRANS MENGATAKAN SUDAH BAYAR (Dikemas/capture)
-            if (sync && (sync.status === 'Dikemas' || sync.status === 'capture')) {
+            // FIX: Cek status 'settlement' atau 'capture' (Ini standar dari Midtrans)
+            if (sync && (sync.status === 'settlement' || sync.status === 'capture')) {
                 
-                // --- KUNCI: UPDATE PERMANEN KE DATABASE SUPABASE ---
+                // --- KUNCI: UPDATE DATABASE JADI 'Dikemas' ---
                 const { error: dbError } = await db.from('transaksi_online')
                     .update({ status_order: 'Dikemas' })
                     .eq('no_invoice', trx.no_invoice);
 
                 if (!dbError) {
-                    trx.status_order = 'Dikemas'; // Ubah tampilan lokal
+                    trx.status_order = 'Dikemas'; // Ubah tampilan lokal agar customer senang
                     console.log("Database updated: Dikemas");
                 }
             } 
@@ -449,14 +449,14 @@ async function viewDetailTrx(trx) {
                 trx.status_order = 'Dibatalkan';
             }
         } catch (e) {
-            console.log("Pesan: Belum ada dana masuk di Midtrans.");
+            console.log("Belum ada dana masuk di Midtrans.");
         }
     }
 
-    // 3. Render Status Akhir ke Layar
+    // 3. Render Status Akhir ke Layar (Gunakan huruf kapital agar rapi)
     document.getElementById('v-status').innerText = trx.status_order.toUpperCase();
     
-    // 4. Render Item Produk (Tetap pakai proteksi nama agar tidak kosong)
+    // 4. Render Item Produk
     const container = document.getElementById('v-items');
     let items = [];
     try {
@@ -473,15 +473,15 @@ async function viewDetailTrx(trx) {
         container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
     }
 
-    // 5. LOGIKA TOMBOL WA (Disesuaikan dengan status terbaru)
+    // 5. LOGIKA TOMBOL WA
     const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
     btnWA.style.display = "flex"; 
 
-    const statusSekarang = trx.status_order.toUpperCase();
+    const statusSekarang = trx.status_order; // Tidak perlu UpperCase di sini untuk perbandingan string tepat
     if (statusSekarang === 'Dikemas' || statusSekarang === 'SUDAH BAYAR') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
         btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (statusSekarang === 'DIBATALKAN') {
+    } else if (statusSekarang === 'Dibatalkan' || statusSekarang === 'DIBATALKAN') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
         btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
     } else {
