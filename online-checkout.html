@@ -102,9 +102,11 @@
     </main>
 
 <script>
+   <script>
     const BITES_API_KEY = "biteship_live.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoid2Vic2l0ZSBmaW5leCIsInVzZXJJZCI6IjY5YjUzYTFjZmExYTg5MmM2Y2MxOTYzNyIsImlhdCI6MTc3MzQ5NTE2Mn0.lu-I0J6bMZsD38H7sk8LAEB6S_a88T-laIvZX3_NzAk"; 
     const ORIGIN_ID = "IDNP10CL1081"; 
 
+    // TETAP menggunakan localStorage agar sinkron dengan online-shop.html
     let cartData = JSON.parse(localStorage.getItem('finexcart')) || [];
     let subtotalFinal = 0;
     let shippingCost = 0;
@@ -126,14 +128,16 @@
     }
 
     function renderCheckout() {
+        // Jika keranjang kosong, kembali ke toko
         if (cartData.length === 0) return window.location.href = "online-shop.html";
+        
         const container = document.getElementById('checkout-list');
         subtotalFinal = 0;
         
         container.innerHTML = cartData.map(item => {
             const sub = item.qty * item.harga;
             subtotalFinal += sub;
-            return `<div class="flex justify-between items-start">
+            return `<div class="flex justify-between items-start mb-2">
                 <div><p class="font-bold text-slate-700">${item.nama}</p>
                 <p class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</p></div>
                 <p class="font-bold text-slate-800">Rp ${sub.toLocaleString()}</p></div>`;
@@ -149,6 +153,7 @@
         document.getElementById('txt-total').innerText = "Rp " + total.toLocaleString();
     }
 
+    // --- FUNGSI AREA & ONGKIR (TETAP ADA) ---
     async function searchArea(query) {
         const box = document.getElementById('area-results');
         if (query.length < 3) return box.classList.add('hidden');
@@ -193,7 +198,6 @@
             });
             const data = await res.json();
             if (data.results) renderShippingOptions(data.results);
-            else alert("Gagal memuat kurir. Lewati saja jika perlu.");
         } catch (e) { alert("Error Biteship."); }
         finally { btn.innerText = "Cek Ongkos Kirim 🚚"; }
     }
@@ -217,6 +221,7 @@
         updateTotalDisplay();
     }
 
+    // --- FUNGSI PROSES ORDER (DENGAN PERBAIKAN PEMBERSIHAN KERANJANG) ---
     async function processOrder() {
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
@@ -252,10 +257,16 @@
             }));
             await db.from('transaksi_online_detail').insert(details);
 
+            // --- KUNCI: HAPUS KERANJANG SEBELUM BAYAR ---
+            localStorage.removeItem('finexcart'); 
+
             window.snap.pay(midtrans.token, {
-                onSuccess: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
-                onPending: () => { sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; },
-                onClose: () => { alert("Segera bayar ya! 🌸"); sessionStorage.removeItem('finexcart'); window.location.href = "online-shop.html"; }
+                onSuccess: () => { window.location.href = "online-shop.html"; },
+                onPending: () => { window.location.href = "online-shop.html"; },
+                onClose: () => { 
+                    alert("Pesanan dicatat. Selesaikan pembayaran segera ya! 🌸"); 
+                    window.location.href = "online-shop.html"; 
+                }
             });
         } catch (e) { 
             alert("Error: " + e.message); 
