@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daftar Akun | Beauty Bloom 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -24,7 +24,6 @@
         <div class="inline-flex items-center justify-center w-16 h-16 bg-pink-50 rounded-full mb-4 text-pink-500 text-3xl">
             <i class="fa-solid fa-user-plus"></i>
         </div>
-        
         <h1 class="text-2xl font-black text-slate-800 mb-1">Daftar Akun Baru</h1>
         <p class="text-sm text-slate-400 mb-6 font-bold uppercase tracking-wider">Beauty Bloom Community</p>
 
@@ -33,7 +32,6 @@
                 <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Nama Lengkap</label>
                 <input type="text" id="fullname" placeholder="Nama Lengkap" class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Email</label>
@@ -44,12 +42,10 @@
                     <input type="number" id="phone" placeholder="628123..." class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
                 </div>
             </div>
-            
             <div>
                 <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Alamat Pengiriman</label>
                 <textarea id="address" placeholder="Alamat lengkap..." rows="2" class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm resize-none"></textarea>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Password</label>
@@ -65,10 +61,6 @@
         <button onclick="handleRegister()" id="btnRegister" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-6 active:scale-95 transition-all">
             DAFTAR SEKARANG ✨
         </button>
-
-        <p class="mt-6 text-xs text-slate-400 font-semibold">
-            Sudah punya akun? <a href="login-customer.html" class="text-pink-500 font-bold hover:underline">Masuk</a>
-        </p>
     </div>
 
     <script>
@@ -82,7 +74,7 @@
             const btn = document.getElementById('btnRegister');
 
             if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
-                return alert("Lengkapi semua data ya Cantik! 🌸");
+                return alert("Lengkapi semua data ya! 🌸");
             }
             if (password !== confirmPassword) {
                 return alert("Password tidak cocok! ❌");
@@ -92,19 +84,17 @@
             btn.disabled = true;
 
             try {
-                // 1. Sign Up ke Auth
+                // 1. Daftar ke Auth
                 const { data: authData, error: authError } = await db.auth.signUp({
-                    email: email,
-                    password: password
+                    email: email, password: password
                 });
-
                 if (authError) throw authError;
-                const user = authData.user;
 
-                // 2. Jeda agar Auth stabil
+                const user = authData.user;
+                // 2. Tunggu 1 detik agar Auth sinkron
                 await new Promise(res => setTimeout(res, 1000));
 
-                // 3. Simpan ke tabel customers
+                // 3. Simpan ke tabel customers (Pakai upsert agar tidak Conflict)
                 const { error: dbError } = await db.from('customers').upsert([{
                     id: user.id, 
                     full_name: fullname,
@@ -112,15 +102,15 @@
                     phone_number: phone, 
                     address_shipping: address,
                     created_at: new Date()
-                }]);
+                }], { on_conflict: 'id' });
 
                 if (dbError) throw dbError;
 
-                alert("Berhasil! 🌸");
+                alert("Pendaftaran Berhasil! 🌸");
                 window.location.href = 'login-customer.html';
 
             } catch (error) {
-                console.error(error);
+                console.error("Error Detail:", error);
                 alert("Gagal: " + error.message);
                 btn.innerText = "DAFTAR SEKARANG ✨";
                 btn.disabled = false;
