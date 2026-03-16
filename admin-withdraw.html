@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel | Withdraw Beauty Bloom</title>
+    <title>Admin Panel | Keuangan Beauty Bloom</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-online.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -14,20 +18,20 @@
         .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; }
         .sidebar-link:hover { background: #fff1f2; color: #f72585; }
         .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
-        .card-wd { transition: all 0.3s ease; border: 1px solid #f1f5f9; }
-        .card-wd:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05); }
+        .status-badge { padding: 4px 10px; border-radius: 10px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+        .bg-topup { background: #dcfce7; color: #16a34a; }
+        .bg-withdraw { background: #fee2e2; color: #ef4444; }
+        @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body class="flex">
 
-    <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex">
+    <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex no-print">
         <div class="mb-10 px-2">
             <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
-            <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Withdraw System</p>
+            <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Finance Manager</p>
         </div>
-
         <nav class="flex-1 sidebar-nav overflow-y-auto">
-            <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
             <a href="dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 text-slate-500 font-bold text-sm">
                 <i class="fas fa-chart-pie w-5"></i> Dashboard
             </a>
@@ -35,7 +39,7 @@
                 <i class="fas fa-shopping-basket w-5"></i> Pesanan Online
             </a>
             <a href="admin-withdraw.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fas fa-money-bill-transfer w-5"></i> Penarikan Saldo
+                <i class="fas fa-money-bill-transfer w-5"></i> Keuangan Saldo
             </a>
             <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 text-slate-500 font-bold text-sm">
                 <i class="fas fa-users w-5"></i> Data Customer
@@ -44,20 +48,59 @@
     </aside>
 
     <main class="flex-1 p-4 md:p-10 max-w-6xl">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 no-print">
             <div>
-                <h2 class="text-2xl font-black text-slate-800">Persetujuan Tarik Dana 💸</h2>
-                <p class="text-slate-500 text-sm">Kelola saldo keluar dengan sistem keamanan admin.</p>
+                <h2 class="text-2xl font-black text-slate-800">Manajemen Saldo 💰</h2>
+                <p class="text-slate-500 text-sm">Persetujuan penarikan dan laporan mutasi saldo.</p>
             </div>
-            <div class="flex gap-2">
-                <button id="btnAudio" onclick="enableAudio()" class="bg-amber-100 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm border border-amber-200">
-                    <i class="fas fa-volume-mute"></i> Aktifkan Suara
-                </button>
-            </div>
+            <button id="btnAudio" onclick="enableAudio()" class="bg-amber-100 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 border border-amber-200">
+                <i class="fas fa-volume-mute"></i> Aktifkan Suara
+            </button>
         </header>
 
-        <div id="wdList" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <p class="col-span-full text-center py-20 text-slate-400 italic">Memuat data penarikan... ✨</p>
+        <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 no-print">
+            <i class="fas fa-clock text-pink-400"></i> Menunggu Persetujuan
+        </h3>
+        <div id="wdList" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 no-print">
+            <p class="col-span-full text-center py-10 text-slate-400 italic">Memuat data... ✨</p>
+        </div>
+
+        <hr class="border-slate-100 mb-12 no-print">
+
+        <div class="flex flex-col md:flex-row justify-between items-end gap-4 mb-6 no-print">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Mulai</label>
+                    <input type="date" id="filterMulai" onchange="loadHistoryTable()" class="w-full mt-1 px-4 py-2 bg-white rounded-xl border border-slate-100 text-xs outline-none focus:ring-2 focus:ring-pink-200">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Tipe</label>
+                    <select id="filterTipe" onchange="loadHistoryTable()" class="w-full mt-1 px-4 py-2 bg-white rounded-xl border border-slate-100 text-xs outline-none focus:ring-2 focus:ring-pink-200">
+                        <option value="SEMUA">Semua Transaksi</option>
+                        <option value="TOPUP">Hanya Top Up</option>
+                        <option value="WITHDRAW">Hanya Penarikan</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 items-end">
+                    <button onclick="exportExcel()" class="flex-1 bg-green-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase"><i class="fas fa-file-excel mr-1"></i> Excel</button>
+                    <button onclick="exportPDF()" class="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase"><i class="fas fa-file-pdf mr-1"></i> PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
+            <table class="w-full text-left" id="historyTable">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice / Customer</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tipe</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nominal</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody" class="text-xs divide-y divide-slate-50"></tbody>
+            </table>
         </div>
     </main>
 
@@ -66,114 +109,111 @@
 
     window.onload = async () => {
         loadWithdrawRequests();
+        loadHistoryTable();
         subscribeRealtime();
     };
 
-    // 1. AKTIFKAN AUDIO (Wajib diklik 1x)
     function enableAudio() {
         isVoiceActive = true;
-        const msg = new SpeechSynthesisUtterance("Notifikasi penarikan aktif");
+        const msg = new SpeechSynthesisUtterance("Notifikasi sistem keuangan aktif");
         msg.lang = "id-ID";
         window.speechSynthesis.speak(msg);
-        const btn = document.getElementById('btnAudio');
-        btn.innerHTML = '<i class="fas fa-volume-up"></i> Suara Aktif';
-        btn.className = "bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm";
+        document.getElementById('btnAudio').className = "bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2";
+        document.getElementById('btnAudio').innerHTML = '<i class="fas fa-volume-up"></i> Suara Aktif';
     }
 
-    // 2. FUNGSI SUARA MANUSIA MENYEBUT NAMA
-    function playVoiceNotification(name) {
+    function playVoice(name) {
         if (!isVoiceActive) return;
-        const text = `Ada pesan masuk, penarikan kembali saldo di akun atas nama ${name}`;
-        const message = new SpeechSynthesisUtterance(text);
-        message.lang = "id-ID";
-        message.rate = 0.9;
-        window.speechSynthesis.speak(message);
+        const msg = new SpeechSynthesisUtterance(`Ada pesan masuk, penarikan kembali saldo di akun atas nama ${name}`);
+        msg.lang = "id-ID";
+        window.speechSynthesis.speak(msg);
     }
 
-    // 3. REALTIME MONITORING
     function subscribeRealtime() {
-        db.channel('withdraw_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'withdraw_requests' }, payload => {
-            loadWithdrawRequests();
-            // Ambil nama dari payload atau fetch ulang
-            fetchUserName(payload.new.customer_id);
-        })
-        .subscribe();
+        db.channel('finance_channel').on('postgres_changes', { event: '*', schema: 'public', table: 'withdraw_requests' }, () => { loadWithdrawRequests(); loadHistoryTable(); }).subscribe();
+        db.channel('topup_channel').on('postgres_changes', { event: '*', schema: 'public', table: 'topup_history' }, () => { loadHistoryTable(); }).subscribe();
     }
 
-    async function fetchUserName(id) {
-        const { data } = await db.from('customers').select('full_name').eq('id', id).single();
-        if (data) playVoiceNotification(data.full_name);
-    }
-
-    // 4. LOAD DATA
     async function loadWithdrawRequests() {
-        const { data, error } = await db
-            .from('withdraw_requests')
-            .select('*, customers(full_name, saldo)')
-            .eq('status', 'PENDING')
-            .order('created_at', { ascending: false });
-
+        const { data } = await db.from('withdraw_requests').select('*, customers(full_name, saldo)').eq('status', 'PENDING').order('created_at', { ascending: false });
         const container = document.getElementById('wdList');
         if (data && data.length > 0) {
+            if (isVoiceActive) playVoice(data[0].customers.full_name);
             container.innerHTML = data.map(wd => `
-                <div class="card-wd bg-white p-6 rounded-[30px] shadow-sm">
+                <div class="bg-white p-6 rounded-[25px] border border-slate-100 shadow-sm transition-all hover:shadow-md">
                     <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-[9px] font-black text-pink-400 uppercase tracking-widest">${wd.no_invoice}</p>
-                            <h3 class="text-lg font-black text-slate-800">${wd.customers.full_name}</h3>
-                            <p class="text-[10px] text-slate-400 font-bold">${new Date(wd.created_at).toLocaleString('id-ID')}</p>
-                        </div>
-                        <div class="bg-pink-50 px-4 py-2 rounded-2xl">
-                            <p class="text-[10px] text-pink-400 font-bold uppercase">Nominal</p>
-                            <p class="text-lg font-black text-pink-500">Rp ${wd.nominal.toLocaleString()}</p>
-                        </div>
+                        <div><p class="text-[9px] font-black text-pink-400 uppercase tracking-widest">${wd.no_invoice}</p><h4 class="font-black text-slate-800 text-lg">${wd.customers.full_name}</h4></div>
+                        <div class="text-right"><p class="text-[9px] font-bold text-slate-400 uppercase">Tarik</p><p class="text-lg font-black text-red-500">Rp ${wd.nominal.toLocaleString()}</p></div>
                     </div>
-
-                    <div class="bg-slate-50 rounded-2xl p-4 mb-5 border border-slate-100">
-                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Tujuan Transfer</p>
-                        <p class="text-sm font-bold text-slate-700">${wd.bank_name} - ${wd.account_number}</p>
-                        <p class="text-xs text-slate-500">A/n ${wd.account_name}</p>
+                    <div class="bg-slate-50 rounded-2xl p-4 mb-4 text-[11px] border border-slate-100">
+                        <p class="font-bold text-slate-700">${wd.bank_name} - ${wd.account_number}</p><p class="text-slate-500">A/n ${wd.account_name}</p>
                     </div>
-
                     <div class="flex gap-2">
-                        <button onclick="approveWithdraw('${wd.id}', '${wd.customer_id}', ${wd.nominal})" 
-                            class="flex-1 bg-slate-900 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all">
-                            APPROVE & POTONG SALDO
-                        </button>
-                        <button onclick="rejectWithdraw('${wd.id}')" 
-                            class="px-4 py-3 bg-slate-100 text-slate-400 rounded-2xl font-black text-[10px] uppercase hover:bg-red-50 hover:text-red-500 transition-all">
-                            TOLAK
-                        </button>
+                        <button onclick="approveWithdraw('${wd.id}', '${wd.customer_id}', ${wd.nominal})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase">Approve & Potong</button>
+                        <button onclick="rejectWithdraw('${wd.id}')" class="px-4 py-3 bg-slate-100 text-slate-400 rounded-xl font-black text-[10px] uppercase">Tolak</button>
                     </div>
-                </div>
-            `).join('');
-        } else {
-            container.innerHTML = `<div class="col-span-full text-center py-20 bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-300 italic">Belum ada permintaan penarikan 🌸</div>`;
+                </div>`).join('');
+        } else { container.innerHTML = `<p class="col-span-full text-center py-10 text-slate-300 italic">Tidak ada antrian penarikan 🌸</p>`; }
+    }
+
+    async function loadHistoryTable() {
+        const tipe = document.getElementById('filterTipe').value;
+        const mulai = document.getElementById('filterMulai').value;
+        let combinedData = [];
+
+        // Ambil Topup
+        if (tipe === 'SEMUA' || tipe === 'TOPUP') {
+            let q = db.from('topup_history').select('*, customers(full_name)');
+            if (mulai) q = q.gte('created_at', mulai);
+            const { data } = await q;
+            if (data) combinedData.push(...data.map(d => ({ ...d, tipe: 'TOPUP' })));
         }
+
+        // Ambil Withdraw
+        if (tipe === 'SEMUA' || tipe === 'WITHDRAW') {
+            let q = db.from('withdraw_requests').select('*, customers(full_name)');
+            if (mulai) q = q.gte('created_at', mulai);
+            const { data } = await q;
+            if (data) combinedData.push(...data.map(d => ({ ...d, tipe: 'WITHDRAW' })));
+        }
+
+        combinedData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const body = document.getElementById('historyBody');
+        body.innerHTML = combinedData.map(h => `
+            <tr class="hover:bg-slate-50 transition-all">
+                <td class="px-6 py-4 text-slate-500">${new Date(h.created_at).toLocaleDateString('id-ID')}</td>
+                <td class="px-6 py-4"><p class="font-bold text-slate-700">${h.no_invoice}</p><p class="text-[10px] text-slate-400 font-bold uppercase">${h.customers?.full_name || 'Customer'}</p></td>
+                <td class="px-6 py-4 text-center"><span class="status-badge ${h.tipe === 'TOPUP' ? 'bg-topup' : 'bg-withdraw'}">${h.tipe}</span></td>
+                <td class="px-6 py-4 font-black ${h.tipe === 'TOPUP' ? 'text-green-500' : 'text-red-500'}">Rp ${h.nominal.toLocaleString()}</td>
+                <td class="px-6 py-4"><span class="font-bold ${h.status === 'SUCCESS' ? 'text-green-500' : 'text-orange-400'}">${h.status}</span></td>
+            </tr>`).join('');
     }
 
     async function approveWithdraw(wdId, customerId, nominal) {
-        if (!confirm("Konfirmasi: Anda sudah transfer dana secara manual ke customer?")) return;
-
-        const { data: user } = await db.from('customers').select('saldo').eq('id', customerId).single();
-        if (user.saldo < nominal) return alert("Saldo customer tidak mencukupi!");
-
-        const saldoBaru = user.saldo - nominal;
-        const { error: err1 } = await db.from('customers').update({ saldo: saldoBaru }).eq('id', customerId);
-        const { error: err2 } = await db.from('withdraw_requests').update({ status: 'SUCCESS' }).eq('id', wdId);
-
-        if (!err1 && !err2) {
-            alert("Berhasil! Saldo telah dipotong.");
-            loadWithdrawRequests();
-        }
+        if (!confirm("Transfer manual sudah dilakukan?")) return;
+        const { data: u } = await db.from('customers').select('saldo').eq('id', customerId).single();
+        await db.from('customers').update({ saldo: u.saldo - nominal }).eq('id', customerId);
+        await db.from('withdraw_requests').update({ status: 'SUCCESS' }).eq('id', wdId);
+        loadWithdrawRequests(); loadHistoryTable();
     }
 
-    async function rejectWithdraw(wdId) {
-        if (confirm("Tolak permintaan ini?")) {
-            await db.from('withdraw_requests').update({ status: 'REJECTED' }).eq('id', wdId);
-            loadWithdrawRequests();
-        }
+    async function rejectWithdraw(id) {
+        if (confirm("Tolak permintaan?")) { await db.from('withdraw_requests').update({ status: 'REJECTED' }).eq('id', id); loadWithdrawRequests(); loadHistoryTable(); }
+    }
+
+    function exportExcel() {
+        const table = document.getElementById("historyTable");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan Saldo" });
+        XLSX.writeFile(wb, `Laporan_Keuangan_Bloom_${new Date().toLocaleDateString()}.xlsx`);
+    }
+
+    function exportPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("Laporan Keuangan Saldo Beauty Bloom", 14, 15);
+        doc.autoTable({ html: '#historyTable', startY: 20, theme: 'striped', headStyles: { fillColor: [247, 37, 133] } });
+        doc.save(`Laporan_Keuangan_Bloom_${new Date().toLocaleDateString()}.pdf`);
     }
 </script>
 </body>
