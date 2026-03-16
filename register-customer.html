@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daftar Akun | Beauty Bloom</title>
+    <title>Daftar Akun | Beauty Bloom 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
@@ -63,49 +63,49 @@
 
         <div class="space-y-3 text-left">
             <div>
-                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Nama Lengkap</label>
+                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Nama Lengkap</label>
                 <input type="text" id="fullname" placeholder="Contoh: Bunga Lestari" 
                     class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Alamat Email</label>
+                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Alamat Email</label>
                     <input type="email" id="email" placeholder="email@contoh.com" 
                         class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">WhatsApp (628...)</label>
+                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">WhatsApp (628...)</label>
                     <input type="number" id="phone" placeholder="628123..." 
                         class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
                 </div>
             </div>
             
             <div>
-                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Alamat Lengkap</label>
+                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Alamat Lengkap</label>
                 <textarea id="address" placeholder="Jl. Raya No. 1, Desa, Kec, Kota" rows="2"
                     class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm resize-none"></textarea>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Password</label>
+                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Password</label>
                     <input type="password" id="password" placeholder="Minimal 6 karakter" 
                         class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Konfirmasi</label>
+                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Konfirmasi</label>
                     <input type="password" id="confirm-password" placeholder="Ulangi password" 
                         class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
                 </div>
             </div>
         </div>
 
-        <button onclick="handleRegister()" id="btnRegister" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-6 active:scale-95 transition-all">
-            DAFTAR SEKARANG
+        <button onclick="handleRegister()" id="btnRegister" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-8 active:scale-95 transition-all">
+            DAFTAR SEKARANG ✨
         </button>
 
-        <p class="mt-6 text-xs text-slate-400 font-semibold">
+        <p class="mt-8 text-xs text-slate-400 font-semibold">
             Sudah punya akun? 
             <a href="login-customer.html" class="text-pink-500 font-bold hover:underline">Masuk di sini</a>
         </p>
@@ -121,57 +121,54 @@
             const confirmPassword = document.getElementById('confirm-password').value;
             const btn = document.getElementById('btnRegister');
 
-            // 1. Validasi Input Kosong
+            // 1. Validasi Input
             if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
-                return alert("Tolong lengkapi semua data ya Cantik! 🌸");
+                return alert("Lengkapi semua data dulu ya Cantik! 🌸");
             }
 
-            // 2. Validasi Panjang Password
             if (password.length < 6) {
                 return alert("Password minimal 6 karakter ya!");
             }
 
-            // 3. Validasi Kesesuaian Password
             if (password !== confirmPassword) {
-                return alert("Ups! Konfirmasi password tidak cocok. Pastikan keduanya sama ya! ❌");
+                return alert("Ups! Password dan Konfirmasi tidak cocok. ❌");
             }
 
             btn.innerText = "Mendaftarkan...";
             btn.disabled = true;
 
             try {
-                // 1. DAFTARKAN KE AUTH
+                // 2. DAFTARKAN KE SUPABASE AUTH (Login System)
                 const { data: authData, error: authError } = await db.auth.signUp({
                     email: email,
                     password: password,
                     options: {
-                        data: { 
-                            full_name: fullname,
-                            phone: phone
-                        }
+                        data: { full_name: fullname }
                     }
                 });
 
                 if (authError) throw authError;
 
-                // 2. SIMPAN KE TABEL DATABASE 'users'
-                const { error: dbError } = await db.from('users').insert([{
+                // 3. SIMPAN KE TABEL DATABASE 'customers' (Profil System)
+                // Sesuai gambar: phone_number & address_shipping
+                const { error: dbError } = await db.from('customers').insert([{
                     id: authData.user.id, 
                     full_name: fullname,
                     email: email,
-                    phone: phone,
-                    address: address,
+                    phone_number: phone, 
+                    address_shipping: address,
                     created_at: new Date()
                 }]);
 
                 if (dbError) throw dbError;
 
-                alert("Pendaftaran Berhasil! 🌸\nData kamu sudah tersimpan. Silakan login.");
+                alert("Pendaftaran Berhasil! 🌸\nProfil kamu sudah tersimpan. Silakan masuk.");
                 window.location.href = 'login-customer.html';
 
             } catch (error) {
-                alert("Pendaftaran Gagal: " + error.message);
-                btn.innerText = "DAFTAR SEKARANG";
+                console.error("Detail Error:", error);
+                alert("Gagal Daftar: " + error.message);
+                btn.innerText = "DAFTAR SEKARANG ✨";
                 btn.disabled = false;
             }
         }
