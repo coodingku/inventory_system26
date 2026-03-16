@@ -27,7 +27,7 @@
         .detail-modal.active, .activity-modal.active { bottom: 0; }
         .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
         .status-pending { background: #fee2e2; color: #ef4444; }
-        .status-settlement { background: #dcfce7; color: #16a34a; }
+        .status-Dikemas { background: #dcfce7; color: #16a34a; }
         .status-dibatalkan { background: #f1f5f9; color: #64748b; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -428,17 +428,17 @@ async function viewDetailTrx(trx) {
                 }
             });
 
-            // JIKA MIDTRANS MENGATAKAN SUDAH BAYAR (settlement/capture)
-            if (sync && (sync.status === 'settlement' || sync.status === 'capture')) {
+            // JIKA MIDTRANS MENGATAKAN SUDAH BAYAR (Dikemas/capture)
+            if (sync && (sync.status === 'Dikemas' || sync.status === 'capture')) {
                 
                 // --- KUNCI: UPDATE PERMANEN KE DATABASE SUPABASE ---
                 const { error: dbError } = await db.from('transaksi_online')
-                    .update({ status_order: 'SETTLEMENT' })
+                    .update({ status_order: 'Dikemas' })
                     .eq('no_invoice', trx.no_invoice);
 
                 if (!dbError) {
-                    trx.status_order = 'SETTLEMENT'; // Ubah tampilan lokal
-                    console.log("Database updated: SETTLEMENT");
+                    trx.status_order = 'Dikemas'; // Ubah tampilan lokal
+                    console.log("Database updated: Dikemas");
                 }
             } 
             // JIKA EXPIRED
@@ -478,7 +478,7 @@ async function viewDetailTrx(trx) {
     btnWA.style.display = "flex"; 
 
     const statusSekarang = trx.status_order.toUpperCase();
-    if (statusSekarang === 'SETTLEMENT' || statusSekarang === 'SUDAH BAYAR') {
+    if (statusSekarang === 'Dikemas' || statusSekarang === 'SUDAH BAYAR') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
         btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
     } else if (statusSekarang === 'DIBATALKAN') {
@@ -522,7 +522,7 @@ function confirmToAdmin() {
     const noInv = activeTrx.no_invoice;
     const total = parseFloat(activeTrx.grand_total || 0).toLocaleString();
 
-    if (activeTrx.status_order === 'SETTLEMENT' || activeTrx.status_order === 'Sudah Bayar') {
+    if (activeTrx.status_order === 'Dikemas' || activeTrx.status_order === 'Sudah Bayar') {
         pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya sudah membayar pesanan *${noInv}*%0AMohon segera diproses kemas ya kak! ✨`;
     } else if (activeTrx.status_order === 'Dibatalkan') {
         pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin bertanya mengenai pesanan *${noInv}* yang berstatus *DIBATALKAN*. Mohon informasinya ya kak. 🙏`;
