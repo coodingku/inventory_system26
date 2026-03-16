@@ -413,13 +413,12 @@
 async function viewDetailTrx(trx) {
     activeTrx = trx;
     
-    // 1. Tampilkan status loading sementara saat mengecek ke server
-    document.getElementById('v-status').innerText = "MENGECEK STATUS...";
+    // 1. Tampilkan status pengecekan live
+    document.getElementById('v-status').innerText = "MENGECEK PEMBAYARAN... ✨";
     document.getElementById('v-invoice').innerText = trx.no_invoice;
     document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total || 0).toLocaleString();
 
     // 2. LOGIKA CEK STATUS LIVE KE SMART-ENDPOINT
-    // Hanya cek jika status saat ini masih 'Pending'
     if (trx.status_order.toUpperCase() === 'PENDING') {
         try {
             const { data: sync, error } = await db.functions.invoke('smart-endpoint', {
@@ -429,23 +428,35 @@ async function viewDetailTrx(trx) {
                 }
             });
 
+            // JIKA MIDTRANS MENGATAKAN SUDAH BAYAR (settlement/capture)
             if (sync && (sync.status === 'settlement' || sync.status === 'capture')) {
-                // Update variabel lokal agar UI berubah
-                trx.status_order = 'SETTLEMENT';
-                // Opsional: Refresh list pesanan di background
-                if(typeof openActivity === 'function') openActivity(); 
-            } else if (sync && sync.status === 'expire') {
+                
+                // --- KUNCI: UPDATE PERMANEN KE DATABASE SUPABASE ---
+                const { error: dbError } = await db.from('transaksi_online')
+                    .update({ status_order: 'SETTLEMENT' })
+                    .eq('no_invoice', trx.no_invoice);
+
+                if (!dbError) {
+                    trx.status_order = 'SETTLEMENT'; // Ubah tampilan lokal
+                    console.log("Database updated: SETTLEMENT");
+                }
+            } 
+            // JIKA EXPIRED
+            else if (sync && sync.status === 'expire') {
+                await db.from('transaksi_online')
+                    .update({ status_order: 'Dibatalkan' })
+                    .eq('no_invoice', trx.no_invoice);
                 trx.status_order = 'Dibatalkan';
             }
         } catch (e) {
-            console.log("Belum ada pembayaran terdeteksi di Midtrans.");
+            console.log("Pesan: Belum ada dana masuk di Midtrans.");
         }
     }
 
-    // 3. Update Text Status Akhir
+    // 3. Render Status Akhir ke Layar
     document.getElementById('v-status').innerText = trx.status_order.toUpperCase();
     
-    // 4. Render Item Produk
+    // 4. Render Item Produk (Tetap pakai proteksi nama agar tidak kosong)
     const container = document.getElementById('v-items');
     let items = [];
     try {
@@ -462,20 +473,17 @@ async function viewDetailTrx(trx) {
         container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
     }
 
-    // 5. LOGIKA TOMBOL WA DINAMIS
+    // 5. LOGIKA TOMBOL WA (Disesuaikan dengan status terbaru)
     const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
     btnWA.style.display = "flex"; 
 
-    const currentStatus = trx.status_order.toUpperCase();
-    if (currentStatus === 'SETTLEMENT' || currentStatus === 'SUDAH BAYAR') {
+    const statusSekarang = trx.status_order.toUpperCase();
+    if (statusSekarang === 'SETTLEMENT' || statusSekarang === 'SUDAH BAYAR') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
         btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (currentStatus === 'DIBATALKAN') {
+    } else if (statusSekarang === 'DIBATALKAN') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
         btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (currentStatus === 'SELESAI') {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> BELI LAGI / KOMPLAIN';
-        btnWA.className = "flex-1 py-4 bg-pink-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
     } else {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI BAYAR';
         btnWA.className = "flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
