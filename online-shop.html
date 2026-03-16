@@ -374,28 +374,83 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
-    async function cancelOrder(id, inv) {
-        if (confirm(`Batal pesanan ${inv}?`)) {
-            await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
-            openActivity();
+   // 1. FUNGSI LIHAT DETAIL (DENGAN TOMBOL KONFIRMASI DINAMIS)
+function viewDetailTrx(trx) {
+    activeTrx = trx;
+    document.getElementById('v-invoice').innerText = trx.no_invoice;
+    document.getElementById('v-status').innerText = trx.status_order;
+    document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
+    
+    const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+    document.getElementById('v-items').innerHTML = items.map(it => `
+        <div class="flex justify-between bg-slate-50 p-3 rounded-xl">
+            <div class="flex-1 text-[11px] font-bold">${it.nama || it.name} (${it.qty}x)</div>
+            <p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p>
+        </div>`).join('');
+
+    // --- LOGIKA TOMBOL KONFIRMASI WA ---
+    const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
+    
+    // Jika status sudah SETTLEMENT (Sudah Bayar), ubah teks jadi "MINTA KEMAS"
+    if (trx.status_order === 'SETTLEMENT') {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
+        btnWA.style.display = "flex";
+    } 
+    // Jika status Dibatalkan atau Selesai, sembunyikan tombol WA
+    else if (trx.status_order === 'Dibatalkan' || trx.status_order === 'Selesai') {
+        btnWA.style.display = "none";
+    }
+    // Jika masih Pending, teks standar
+    else {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI BAYAR';
+        btnWA.style.display = "flex";
+    }
+
+    document.getElementById('trxDetailModal').classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+// 2. FUNGSI KIRIM PESAN WA (KONFIRMASI ADMIN)
+function confirmToAdmin() {
+    if (!activeTrx) return;
+    
+    let pesanWA = "";
+    if (activeTrx.status_order === 'SETTLEMENT') {
+        // Pesan jika sudah bayar
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya sudah membayar pesanan *${activeTrx.no_invoice}*%0AStatus: *LUNAS (Settlement)*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0AMohon pesanan saya segera *DIKEMAS* ya kak, terima kasih! ✨`;
+    } else {
+        // Pesan jika masih pending
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin konfirmasi pesanan *${activeTrx.no_invoice}*%0AStatus: *PENDING*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0ASaya akan segera melakukan pembayaran. ✨`;
+    }
+
+    window.open(`https://wa.me/6281239739396?text=${pesanWA}`, '_blank');
+}
+
+// 3. FUNGSI BATAL PESANAN (DENGAN ALASAN)
+async function cancelOrder(id, inv) {
+    const alasan = prompt("Mohon maaf Kak, apa alasan pembatalannya? (Misal: Salah alamat / Mau ganti produk)");
+    
+    if (alasan) {
+        // Update di Database
+        const { error } = await db.from('transaksi_online')
+            .update({ status_order: 'Dibatalkan' })
+            .eq('id', id);
+
+        if (!error) {
+            // Kirim WA Sopan ke Admin
+            const pesanBatal = `Halo Admin Beauty Bloom! 🌸%0A%0AMohon maaf admin, pesanan saya dengan nomor *${inv}* sudah saya *BATALKAN*.%0A%0A*Alasan:* ${alasan}%0A%0AMohon maaf atas ketidaknyamanannya, terima kasih. 🙏`;
+            
+            window.open(`https://wa.me/6281239739396?text=${pesanBatal}`, '_blank');
+            
+            alert("Pesanan berhasil dibatalkan. Pesan pembatalan dikirim ke Admin 🌸");
+            openActivity(); // Refresh list
+        } else {
+            alert("Gagal membatalkan pesanan.");
         }
+    } else {
+        alert("Pembatalan dibatalkan (alasan harus diisi).");
     }
-
-    function viewDetailTrx(trx) {
-        activeTrx = trx;
-        document.getElementById('v-invoice').innerText = trx.no_invoice;
-        document.getElementById('v-status').innerText = trx.status_order;
-        document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
-        const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-        document.getElementById('v-items').innerHTML = items.map(it => `<div class="flex justify-between bg-slate-50 p-3 rounded-xl"><div class="flex-1 text-[11px] font-bold">${it.nama || it.name} (${it.qty}x)</div><p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p></div>`).join('');
-        document.getElementById('trxDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-
-    function confirmToAdmin() {
-        const text = `Konfirmasi Pesanan: ${activeTrx.no_invoice} - Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}`;
-        window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(text)}`, '_blank');
-    }
+}
 
     function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
 </script>
