@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finex Beauty Bloom | Online Shop</title>
+    <title>Finex Beauty Bloom | Online Shop 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
@@ -18,7 +18,7 @@
         .product-card:active { transform: scale(0.96); }
         .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #fffafa; cursor: pointer; }
         .img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(247, 37, 133, 0.1); backdrop-filter: blur(4px); display: none; z-index: 999; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
         .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -15px 35px rgba(0,0,0,0.1); }
         .detail-modal.active, .activity-modal.active { bottom: 0; }
@@ -56,38 +56,42 @@
 
     <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
 
-   <div id="trxDetailModal" class="detail-modal">
-    <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-    <div class="px-6 pb-10" id="printableArea">
-        <div class="text-center mb-6">
-            <h3 class="text-lg font-black text-slate-800">Rincian Pesanan 🌸</h3>
-            <p id="v-invoice" class="text-[10px] font-bold text-pink-400 uppercase tracking-widest"></p>
-        </div>
-        
-        <div id="v-items" class="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
-            </div>
-
-        <div class="bg-pink-50 rounded-2xl p-4 mb-6">
-            <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">Status:</span>
-                <span id="v-status" class="font-bold text-pink-500"></span>
-            </div>
-            <div class="flex justify-between text-sm pt-2 border-t border-pink-100">
-                <span class="font-bold text-slate-700">Total Bayar:</span>
-                <span id="v-total" class="font-black text-pink-500"></span>
-            </div>
-        </div>
-
-        <div class="flex gap-3">
-            <button onclick="confirmToAdmin()" class="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                <i class="fab fa-whatsapp"></i> KONFIRMASI WA
-            </button>
-            <button onclick="closeTrxDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-xs">
-                TUTUP
-            </button>
+    <div id="activityModal" class="activity-modal">
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
+        <div class="px-6 pb-10">
+            <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Lacak Pesanan 🚚</h2>
+            <div id="activityList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
+            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">Tutup</button>
         </div>
     </div>
-</div>
+
+    <div id="trxDetailModal" class="detail-modal">
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
+        <div class="px-6 pb-10">
+            <div class="text-center mb-6">
+                <h3 class="text-lg font-black text-slate-800">Rincian Belanja 🛍️</h3>
+                <p id="v-invoice" class="text-[10px] font-bold text-pink-400 uppercase tracking-widest"></p>
+            </div>
+            <div id="v-items" class="space-y-3 mb-6 max-h-60 overflow-y-auto no-scrollbar pr-2"></div>
+            <div class="bg-pink-50 rounded-2xl p-4 mb-6">
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-slate-400">Status:</span>
+                    <span id="v-status" class="font-bold text-pink-500 italic uppercase"></span>
+                </div>
+                <div class="flex justify-between text-sm pt-2 border-t border-pink-100">
+                    <span class="font-bold text-slate-700">Total Bayar:</span>
+                    <span id="v-total" class="font-black text-pink-500"></span>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="confirmToAdmin()" class="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <i class="fab fa-whatsapp"></i> KONFIRMASI WA
+                </button>
+                <button onclick="closeTrxDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-xs">TUTUP</button>
+            </div>
+        </div>
+    </div>
+
     <div id="productDetailModal" class="detail-modal">
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
         <div class="px-6 pb-10 text-center">
@@ -108,7 +112,7 @@
         </div>
         <div class="space-y-3">
             <input type="text" id="p-name" class="input-bloom" placeholder="Nama Lengkap">
-            <input type="text" id="p-email" class="input-bloom opacity-50" readonly>
+            <input type="text" id="p-email" class="input-bloom opacity-50" readonly title="Email tidak bisa diubah">
             <input type="number" id="p-phone" class="input-bloom" placeholder="628xxx">
             <textarea id="p-address" class="input-bloom h-20 resize-none" placeholder="Alamat Pengiriman"></textarea>
         </div>
@@ -133,27 +137,23 @@
     </nav>
 
 <script>
-    // Inisialisasi Keranjang dari LocalStorage agar data tidak hilang saat refresh
     let shopCart = JSON.parse(localStorage.getItem('finexcart')) || [];
+    let activeTrx = null;
 
     window.onload = async () => {
         const { data: { session } } = await db.auth.getSession();
         if (!session) {
             window.location.replace('login-customer.html');
         } else {
-            // Tampilkan jumlah keranjang saat ini
             updateCartDisplay();
-            // Ambil nama dari profil customers
             loadCustomerData(session.user.id);
             loadOnlineMenu();
         }
     };
 
-    // FUNGSI MENAMPILKAN NAMA CUSTOMER
     async function loadCustomerData(userId) {
         const { data: profile } = await db.from('customers').select('full_name').eq('id', userId).single();
         if (profile) {
-            // Gunakan nama depan saja agar lebih manis
             const firstName = profile.full_name.split(' ')[0];
             document.getElementById('welcome-msg').innerText = `Halo, ${firstName}! ✨`;
         }
@@ -165,9 +165,7 @@
         const sekarang = new Date().getTime();
         const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai).getTime() : null;
         const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir).getTime() : null;
-        const sudahMulai = !tglMulai || sekarang >= tglMulai;
-        const belumSelesai = !tglAkhir || sekarang <= tglAkhir;
-        if (p.is_diskon && sudahMulai && belumSelesai) {
+        if (p.is_diskon && (!tglMulai || sekarang >= tglMulai) && (!tglAkhir || sekarang <= tglAkhir)) {
             return basePrice - (p.nominal_diskon || 0);
         }
         return basePrice;
@@ -208,18 +206,14 @@
 
     function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
         const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) {
-            shopCart[idx].qty++;
-        } else {
-            shopCart.push({ id, nama, harga: hargaFinal, harga_normal: hargaNormal, qty: 1 });
-        }
+        if (idx > -1) { shopCart[idx].qty++; } 
+        else { shopCart.push({ id, nama, harga: hargaFinal, harga_normal: hargaNormal, qty: 1 }); }
         updateCartDisplay();
     }
 
     function updateCartDisplay() {
         const count = shopCart.reduce((total, item) => total + item.qty, 0);
         document.getElementById('cart-count').innerText = count;
-        // Simpan ke localStorage & sessionStorage agar sinkron ke halaman checkout
         localStorage.setItem('finexcart', JSON.stringify(shopCart));
         sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
     }
@@ -238,10 +232,8 @@
         const { data: { user } } = await db.auth.getUser();
         const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
         const container = document.getElementById('activityList');
-        
         if (data && data.length > 0) {
             container.innerHTML = data.map(trx => {
-                // Simpan data transaksi ke dalam string JSON untuk dikirim ke fungsi detail
                 const strData = JSON.stringify(trx).replace(/'/g, "&apos;");
                 return `
                 <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4 text-xs">
@@ -265,39 +257,28 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
-    // Fungsi menampilkan detail spesifik
-    let activeTrx = null; // Untuk menyimpan data transaksi yang sedang dilihat
     function viewDetailTrx(trx) {
         activeTrx = trx;
         document.getElementById('v-invoice').innerText = trx.no_invoice;
         document.getElementById('v-status').innerText = trx.status_order;
         document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
-        
-        // Parse items (asumsi kolom items berisi JSON string dari keranjang)
         const items = JSON.parse(trx.items);
-        const itemContainer = document.getElementById('v-items');
-        
-        itemContainer.innerHTML = items.map(it => `
+        document.getElementById('v-items').innerHTML = items.map(it => `
             <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
                 <div class="flex-1">
                     <p class="font-bold text-slate-700 text-[11px]">${it.nama}</p>
                     <p class="text-[10px] text-slate-400">${it.qty} x Rp ${it.harga.toLocaleString()}</p>
                 </div>
                 <p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p>
-            </div>
-        `).join('');
-
-        // Tampilkan modal detail
+            </div>`).join('');
         document.getElementById('trxDetailModal').classList.add('active');
     }
 
-    function closeTrxDetail() {
-        document.getElementById('trxDetailModal').classList.remove('active');
-    }
+    function closeTrxDetail() { document.getElementById('trxDetailModal').classList.remove('active'); }
 
     function confirmToAdmin() {
         if(!activeTrx) return;
-        const phoneAdmin = "6281234567890"; // GANTI DENGAN NOMOR ADMIN KAMU
+        const phoneAdmin = "6281234567890"; // GANTI NOMOR ADMIN
         const text = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin konfirmasi pesanan:%0A%0ANo Invoice: *${activeTrx.no_invoice}*%0AStatus: *${activeTrx.status_order}*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0AMohon bantuannya ya! ✨`;
         window.open(`https://wa.me/${phoneAdmin}?text=${text}`, '_blank');
     }
@@ -305,10 +286,12 @@
     async function openProfile() {
         const { data: { user } } = await db.auth.getUser();
         const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
-        document.getElementById('p-name').value = data?.full_name || "";
-        document.getElementById('p-email').value = user.email;
-        document.getElementById('p-phone').value = data?.phone_number || "";
-        document.getElementById('p-address').value = data?.address_shipping || "";
+        if(data) {
+            document.getElementById('p-name').value = data.full_name;
+            document.getElementById('p-email').value = user.email;
+            document.getElementById('p-phone').value = data.phone_number;
+            document.getElementById('p-address').value = data.address_shipping;
+        }
         document.getElementById('profileModal').classList.add('active');
         document.getElementById('modalOverlay').classList.add('active');
     }
@@ -325,7 +308,7 @@
         });
         if (!error) { 
             alert("Profil Diperbarui! ✨"); 
-            loadCustomerData(user.id); // Refresh nama di header
+            loadCustomerData(user.id);
             closeAllModals(); 
         }
     }
@@ -336,14 +319,13 @@
 
     function goToCheckout() {
         if (shopCart.length === 0) return alert("Pilih produk dulu! 🌸");
-        // Pastikan data terakhir tersimpan sebelum pindah
         sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
         window.location.href = "online-checkout.html";
     }
 
     async function logoutCustomer() {
         if(confirm("Keluar dari akun?")) { 
-            localStorage.removeItem('finexcart'); // Opsional: hapus keranjang saat logout
+            localStorage.removeItem('finexcart');
             await db.auth.signOut(); 
             window.location.replace('login-customer.html'); 
         }
