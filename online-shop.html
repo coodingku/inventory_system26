@@ -57,6 +57,36 @@
 
     <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
 
+    <div id="cartModal" class="side-modal">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-black text-slate-800">Bag Belanja 🛍️</h2>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
+        </div>
+        <div id="cartList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pr-2"></div>
+        <div class="mt-8 pt-6 border-t border-dashed border-pink-100">
+            <div class="flex justify-between mb-6">
+                <span class="font-bold text-slate-400">Total:</span>
+                <span id="cart-total-modal" class="font-black text-pink-500 text-xl">Rp 0</span>
+            </div>
+            <button onclick="goToCheckout('PROSES')" class="w-full py-5 bg-slate-900 text-white rounded-[22px] font-black shadow-lg uppercase text-[10px] tracking-widest">Lanjut Checkout 🌸</button>
+        </div>
+    </div>
+
+    <div id="profileModal" class="side-modal">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-black text-slate-800">Profil Saya ✨</h2>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
+        </div>
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-sm">
+                <i class="fa-solid fa-user text-2xl text-pink-400"></i>
+            </div>
+            <h3 id="p-name" class="font-black text-slate-800 italic">Nama Pengguna</h3>
+            <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@bloom.com</p>
+        </div>
+        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase">Keluar Akun</button>
+    </div>
+
     <div id="walletModal" class="side-modal">
         <div class="flex justify-between items-center mb-8">
             <h2 class="text-xl font-black text-slate-800">Dompet Cantik ✨</h2>
@@ -70,7 +100,7 @@
             <button onclick="requestTopUp()" class="flex flex-col items-center justify-center p-5 bg-pink-50 rounded-3xl border border-pink-100"><i class="fa-solid fa-arrow-up text-pink-500 mb-2"></i><span class="text-[10px] font-black uppercase">Isi Saldo</span></button>
             <button onclick="requestWithdraw()" class="flex flex-col items-center justify-center p-5 bg-slate-50 rounded-3xl border border-slate-100"><i class="fa-solid fa-money-bill-transfer text-slate-400 mb-2"></i><span class="text-[10px] font-black uppercase">Tarik Dana</span></button>
         </div>
-        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Riwayat Saldo</h4>
+        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mutasi Saldo</h4>
         <div id="walletHistory" class="space-y-3 overflow-y-auto max-h-[40vh] no-scrollbar"></div>
     </div>
 
@@ -143,6 +173,7 @@
         }
     }
 
+    // LOGIKA PRODUK & HARGA
     function getActivePrice(p) {
         let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
         if (!p.is_diskon) return { price: basePrice, isDiscount: false, normal: basePrice };
@@ -172,65 +203,13 @@
                         <p class="text-[9px] text-slate-400 ${pr.isDiscount ? 'line-through' : ''}">Rp ${pr.normal.toLocaleString()}</p>
                         <p class="font-black text-[#ff85a2] text-sm">Rp ${pr.price.toLocaleString()}</p>
                     </div>
-                    <button onclick="event.stopPropagation(); addToOnlineCart('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal})" class="w-full mt-3 bg-pink-50 text-pink-500 py-2 rounded-xl text-[10px] font-black">TAMBAH ✨</button>
+                    <button onclick="event.stopPropagation(); addToOnlineCart('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal})" class="w-full mt-3 bg-pink-50 text-pink-500 py-2 rounded-xl text-[10px] font-black active:scale-95 transition-all">TAMBAH ✨</button>
                 </div>
             </div>`;
         }).join('');
     }
 
-    async function openActivity() {
-        const { data: { user } } = await db.auth.getUser();
-        const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
-        const container = document.getElementById('activityList');
-        if (data && data.length > 0) {
-            container.innerHTML = data.map(trx => {
-                const s = (trx.status_order || 'pending').toLowerCase();
-                const str = JSON.stringify(trx).replace(/'/g, "&apos;");
-                const btnBatal = (s === 'pending') ? `<button onclick="cancelOrder('${trx.id}', '${trx.no_invoice}')" class="text-[9px] font-bold text-red-400 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : '';
-                return `
-                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm mb-4 text-xs">
-                    <div class="flex justify-between items-start mb-2">
-                        <div><p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p><p class="text-slate-400 text-[10px]">${new Date(trx.created_at).toLocaleDateString()}</p></div>
-                        <span class="status-badge status-${s}">${trx.status_order}</span>
-                    </div>
-                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3">
-                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                        <div class="flex gap-2">${btnBatal}<button onclick='viewDetailTrx(${str})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button></div>
-                    </div>
-                </div>`;
-            }).join('');
-        } else { container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Belum ada pesanan 🌸</p>`; }
-        document.getElementById('activityModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-
-    async function cancelOrder(id, inv) {
-        if (confirm(`Batal pesanan ${inv}?`)) {
-            const { error } = await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
-            if (!error) { alert("Dibatalkan 🌸"); openActivity(); }
-        }
-    }
-
-    function viewDetailTrx(trx) {
-        activeTrx = trx;
-        document.getElementById('v-invoice').innerText = trx.no_invoice;
-        document.getElementById('v-status').innerText = trx.status_order;
-        document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
-        const container = document.getElementById('v-items');
-        try {
-            const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-            container.innerHTML = items.map(it => `<div class="flex justify-between bg-slate-50 p-3 rounded-xl"><div class="flex-1"><p class="font-bold text-slate-700 text-[11px]">${it.nama || it.name}</p><p class="text-[10px] text-slate-400">${it.qty}x</p></div><p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p></div>`).join('');
-        } catch (e) { container.innerHTML = "Detail error."; }
-        document.getElementById('trxDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-
-    function confirmToAdmin() {
-        if (!activeTrx) return;
-        const text = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin konfirmasi pesanan:%0ANo Invoice: *${activeTrx.no_invoice}*%0AStatus: *${activeTrx.status_order}*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0AMohon bantuannya ya! ✨`;
-        window.open(`https://wa.me/6281234567890?text=${text}`, '_blank');
-    }
-
+    // LOGIKA KERANJANG (BAG)
     function openDetail(id, nama, harga, hargaNormal, img, desc) {
         document.getElementById('detail-name').innerText = nama;
         document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
@@ -254,6 +233,65 @@
         localStorage.setItem('finexcart', JSON.stringify(shopCart));
     }
 
+    function renderCart() {
+        const container = document.getElementById('cartList');
+        let total = 0;
+        if (shopCart.length === 0) {
+            container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Bag kamu kosong 🌸</p>`;
+            document.getElementById('cart-total-modal').innerText = "Rp 0";
+            return;
+        }
+        container.innerHTML = shopCart.map((item, index) => {
+            total += (item.harga * item.qty);
+            return `
+            <div class="flex items-center gap-4 bg-pink-50/30 p-3 rounded-2xl border border-pink-50">
+                <div class="flex-1"><h4 class="font-bold text-slate-800 text-[11px] truncate uppercase">${item.nama}</h4><p class="text-pink-500 font-black text-[10px]">Rp ${item.harga.toLocaleString()}</p></div>
+                <div class="flex items-center gap-3 bg-white px-3 py-1 rounded-xl shadow-sm">
+                    <button onclick="updateQty(${index}, -1)" class="text-pink-400 font-bold">-</button>
+                    <span class="text-xs font-black text-slate-700">${item.qty}</span>
+                    <button onclick="updateQty(${index}, 1)" class="text-pink-400 font-bold">+</button>
+                </div>
+            </div>`;
+        }).join('');
+        document.getElementById('cart-total-modal').innerText = "Rp " + total.toLocaleString();
+    }
+
+    function updateQty(index, change) {
+        shopCart[index].qty += change;
+        if (shopCart[index].qty <= 0) shopCart.splice(index, 1);
+        updateCartDisplay();
+        renderCart();
+    }
+
+    function goToCheckout(mode = 'VIEW') {
+        if (shopCart.length > 0) {
+            if (mode === 'PROSES') window.location.href = "online-checkout.html";
+            else {
+                renderCart();
+                document.getElementById('cartModal').classList.add('active');
+                document.getElementById('modalOverlay').classList.add('active');
+            }
+        } else alert("Kosong!");
+    }
+
+    // LOGIKA PROFIL
+    function openProfile() {
+        if (!userData) return;
+        document.getElementById('p-name').innerText = userData.full_name;
+        document.getElementById('p-email').innerText = userData.email;
+        document.getElementById('profileModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    async function logoutCustomer() {
+        if (confirm("Keluar akun?")) {
+            await db.auth.signOut();
+            localStorage.removeItem('finexcart');
+            window.location.replace('login-customer.html');
+        }
+    }
+
+    // LOGIKA SALDO & WALLET
     function toggleWallet() { document.getElementById('walletModal').classList.toggle('active'); document.getElementById('modalOverlay').classList.toggle('active'); }
     
     async function requestTopUp() {
@@ -271,104 +309,95 @@
         } catch (e) { alert("Sibuk."); }
     }
 
-   async function requestWithdraw() {
-    // 1. Cek saldo minimal
-    if (userData.saldo < 10000) {
-        return alert("Saldo minimal untuk penarikan adalah Rp 10.000 🌸");
+    async function requestWithdraw() {
+        if (userData.saldo < 10000) return alert("Saldo min Rp 10.000 🌸");
+        const amount = prompt(`Berapa saldo ditarik? (Max: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
+        if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) return alert("Nominal salah.");
+        const bank = prompt("Nama Bank:");
+        const noRek = prompt("No Rekening:");
+        const an = prompt("Nama Pemilik:");
+        if (!bank || !noRek || !an) return alert("Data tidak lengkap.");
+        const inv = "WD-" + Date.now();
+        const { error } = await db.from('withdraw_requests').insert([{ no_invoice: inv, customer_id: userData.id, nominal: parseInt(amount), bank_name: bank, account_number: noRek, account_name: an, status: 'PENDING' }]);
+        if (!error) {
+            window.open(`https://wa.me/6281239739396?text=Tarik Saldo Rp ${amount} (Ref: ${inv})`, '_blank');
+            location.reload();
+        }
     }
 
-    // 2. Input Data
-    const amount = prompt(`Berapa saldo yang ingin ditarik?\n(Maksimal: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
-    if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) {
-        return alert("Nominal tidak valid atau saldo tidak cukup.");
-    }
-
-    const bank = prompt("Nama Bank (Contoh: BCA / Dana / Mandiri):");
-    const noRek = prompt("Nomor Rekening / Nomor HP:");
-    const an = prompt("Nama Pemilik Rekening:");
-
-    if (!bank || !noRek || !an) return alert("Data harus lengkap ya cantik! ✨");
-
-    const inv = "WD-" + Date.now();
-
-    // 3. Simpan ke Database
-    const { error } = await db.from('withdraw_requests').insert([{
-        no_invoice: inv,
-        customer_id: userData.id,
-        nominal: parseInt(amount),
-        bank_name: bank,
-        account_number: noRek,
-        account_name: an,
-        status: 'PENDING'
-    }]);
-
-    if (!error) {
-        // 4. Kirim WA Otomatis
-        const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon segera diproses ya, terima kasih! ✨`;
-        window.open(`https://wa.me/6281239739396?text=${pesan}`, '_blank');
-        
-        alert("Permintaan penarikan sudah dikirim ke Admin! 🌸");
-        location.reload(); // Refresh untuk melihat riwayat jika perlu
-    } else {
-        alert("Gagal mengirim permintaan.");
-    }
-}
-
-   async function loadWalletHistory(userId) {
-    // 1. Ambil data dari Topup History
-    const { data: topups } = await db.from('topup_history')
-        .select('*')
-        .eq('customer_id', userId);
-
-    // 2. Ambil data dari Withdraw Requests
-    const { data: withdraws } = await db.from('withdraw_requests')
-        .select('*')
-        .eq('customer_id', userId);
-
-    // 3. Gabungkan dan urutkan berdasarkan tanggal terbaru
-    let combined = [];
-    if (topups) combined.push(...topups.map(t => ({ ...t, jenis: 'ISI SALDO' })));
-    if (withdraws) combined.push(...withdraws.map(w => ({ ...w, jenis: 'PENARIKAN' })));
-
-    combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    // 4. Batasi hanya 10 riwayat terakhir
-    const displayData = combined.slice(0, 10);
-
-    const container = document.getElementById('walletHistory');
-    
-    if (displayData.length > 0) {
-        container.innerHTML = displayData.map(h => {
-            // Tentukan warna berdasarkan status
-            let colorStatus = "text-orange-400"; // Default Pending
-            if (h.status === 'SUCCESS') colorStatus = "text-green-500";
-            if (h.status === 'REJECTED' || h.status === 'Dibatalkan') colorStatus = "text-red-500";
-
-            // Tentukan simbol + atau -
-            const simbol = h.jenis === 'ISI SALDO' ? '+' : '-';
-            const colorNominal = h.jenis === 'ISI SALDO' ? 'text-green-600' : 'text-slate-800';
-
-            return `
-                <div class="bg-white border border-slate-50 p-4 rounded-2xl text-[10px] mb-2 shadow-sm">
+    async function loadWalletHistory(userId) {
+        const { data: t } = await db.from('topup_history').select('*').eq('customer_id', userId);
+        const { data: w } = await db.from('withdraw_requests').select('*').eq('customer_id', userId);
+        let combined = [];
+        if (t) combined.push(...t.map(i => ({ ...i, jenis: 'ISI SALDO' })));
+        if (w) combined.push(...w.map(i => ({ ...i, jenis: 'PENARIKAN' })));
+        combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const container = document.getElementById('walletHistory');
+        if (combined.length > 0) {
+            container.innerHTML = combined.slice(0, 10).map(h => {
+                let color = h.status === 'SUCCESS' ? 'text-green-500' : (h.status === 'PENDING' ? 'text-orange-400' : 'text-red-500');
+                let simbol = h.jenis === 'ISI SALDO' ? '+' : '-';
+                return `
+                <div class="bg-white border border-slate-50 p-4 rounded-2xl text-[10px] mb-2">
                     <div class="flex justify-between items-start">
-                        <div>
-                            <p class="font-black text-slate-800 uppercase">${h.no_invoice}</p>
-                            <p class="text-slate-400">${new Date(h.created_at).toLocaleDateString('id-ID')} • ${h.jenis}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-black ${colorNominal}">${simbol} Rp ${h.nominal.toLocaleString()}</p>
-                            <p class="font-bold uppercase tracking-tighter ${colorStatus}" style="font-size: 8px;">${h.status}</p>
-                        </div>
+                        <div><p class="font-black text-slate-800 uppercase">${h.no_invoice}</p><p class="text-slate-400">${new Date(h.created_at).toLocaleDateString()} • ${h.jenis}</p></div>
+                        <div class="text-right"><p class="font-black">${simbol} Rp ${h.nominal.toLocaleString()}</p><p class="font-bold uppercase ${color}" style="font-size: 8px;">${h.status}</p></div>
                     </div>
                 </div>`;
-        }).join('');
-    } else {
-        container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Belum ada mutasi saldo 🌸</p>`;
+            }).join('');
+        } else container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Kosong 🌸</p>`;
     }
-}
-    function openProfile() { alert("Profil segera hadir!"); }
-    function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay, .detail-modal').forEach(el => el.classList.remove('active')); }
-    function goToCheckout() { if (shopCart.length > 0) window.location.href = "online-checkout.html"; else alert("Kosong!"); }
+
+    // LOGIKA PESANAN (ACTIVITY)
+    async function openActivity() {
+        const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
+        const container = document.getElementById('activityList');
+        if (data && data.length > 0) {
+            container.innerHTML = data.map(trx => {
+                const s = (trx.status_order || 'pending').toLowerCase();
+                const str = JSON.stringify(trx).replace(/'/g, "&apos;");
+                const btnB = s === 'pending' ? `<button onclick="cancelOrder('${trx.id}', '${trx.no_invoice}')" class="text-[9px] font-bold text-red-400 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : '';
+                return `
+                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm mb-4 text-xs">
+                    <div class="flex justify-between items-start mb-2">
+                        <div><p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p><p class="text-slate-400 text-[10px]">${new Date(trx.created_at).toLocaleDateString()}</p></div>
+                        <span class="status-badge status-${s}">${trx.status_order}</span>
+                    </div>
+                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3">
+                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                        <div class="flex gap-2">${btnB}<button onclick='viewDetailTrx(${str})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-widest">Detail</button></div>
+                    </div>
+                </div>`;
+            }).join('');
+        } else container.innerHTML = `<p class="text-center py-10 italic">Belum ada pesanan 🌸</p>`;
+        document.getElementById('activityModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    async function cancelOrder(id, inv) {
+        if (confirm(`Batal pesanan ${inv}?`)) {
+            await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
+            openActivity();
+        }
+    }
+
+    function viewDetailTrx(trx) {
+        activeTrx = trx;
+        document.getElementById('v-invoice').innerText = trx.no_invoice;
+        document.getElementById('v-status').innerText = trx.status_order;
+        document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
+        const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+        document.getElementById('v-items').innerHTML = items.map(it => `<div class="flex justify-between bg-slate-50 p-3 rounded-xl"><div class="flex-1 text-[11px] font-bold">${it.nama || it.name} (${it.qty}x)</div><p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p></div>`).join('');
+        document.getElementById('trxDetailModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function confirmToAdmin() {
+        const text = `Konfirmasi Pesanan: ${activeTrx.no_invoice} - Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}`;
+        window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
 </script>
 </body>
 </html>
