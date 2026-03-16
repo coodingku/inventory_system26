@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daftar Akun | Beauty Bloom 🌸</title>
+    <title>Daftar Akun | Finex Beauty Bloom 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
@@ -82,7 +82,7 @@
             </div>
             
             <div>
-                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Alamat Lengkap</label>
+                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase tracking-widest">Alamat Pengiriman</label>
                 <textarea id="address" placeholder="Jl. Raya No. 1, Desa, Kec, Kota" rows="2"
                     class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm resize-none"></textarea>
             </div>
@@ -101,81 +101,81 @@
             </div>
         </div>
 
-        <button onclick="handleRegister()" id="btnRegister" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-8 active:scale-95 transition-all">
+        <button onclick="handleRegister()" id="btnRegister" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg mt-6 active:scale-95 transition-all">
             DAFTAR SEKARANG ✨
         </button>
 
-        <p class="mt-8 text-xs text-slate-400 font-semibold">
+        <p class="mt-6 text-xs text-slate-400 font-semibold">
             Sudah punya akun? 
             <a href="login-customer.html" class="text-pink-500 font-bold hover:underline">Masuk di sini</a>
         </p>
     </div>
 
     <script>
-    async function handleRegister() {
-        // Ambil data dari input
-        const fullname = document.getElementById('fullname').value;
-        const email = document.getElementById('email').value;
-        const phone = document.getElementById('phone').value;
-        const address = document.getElementById('address').value;
-        const password = document.getElementById('password').value;
-        const confirmPassword = document.getElementById('confirm-password').value;
-        const btn = document.getElementById('btnRegister');
+        async function handleRegister() {
+            const fullname = document.getElementById('fullname').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            const address = document.getElementById('address').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const btn = document.getElementById('btnRegister');
 
-        // 1. Validasi Input
-        if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
-            return alert("Tolong lengkapi semua data ya Cantik! 🌸");
+            if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
+                return alert("Lengkapi semua data dulu ya Cantik! 🌸");
+            }
+
+            if (password.length < 6) {
+                return alert("Password minimal 6 karakter ya!");
+            }
+
+            if (password !== confirmPassword) {
+                return alert("Ups! Password dan Konfirmasi tidak cocok. ❌");
+            }
+
+            btn.innerText = "Mendaftarkan...";
+            btn.disabled = true;
+
+            try {
+                // 1. DAFTARKAN KE SUPABASE AUTH (Login System)
+                const { data: authData, error: authError } = await db.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: { full_name: fullname }
+                    }
+                });
+
+                if (authError) throw authError;
+
+                const user = authData.user;
+                if (!user) throw new Error("Gagal membuat akun login.");
+
+                // 2. JEDA 1 DETIK (Menunggu Sinkronisasi Server Supabase)
+                await new Promise(res => setTimeout(res, 1000));
+
+                // 3. SIMPAN KE TABEL DATABASE 'customers'
+                const { error: dbError } = await db.from('customers').upsert([{
+                    id: user.id, 
+                    full_name: fullname,
+                    email: email,
+                    phone_number: phone, 
+                    address_shipping: address,
+                    created_at: new Date()
+                }]);
+
+                if (dbError) throw dbError;
+
+                alert("Pendaftaran Berhasil! 🌸 Profil kamu sudah tersimpan.");
+                window.location.href = 'login-customer.html';
+
+            } catch (error) {
+                console.error("Detail Error:", error);
+                alert("Gagal Daftar: " + (error.message || "Terjadi kesalahan sistem"));
+                btn.innerText = "DAFTAR SEKARANG ✨";
+                btn.disabled = false;
+            }
         }
-
-        if (password.length < 6) {
-            return alert("Password minimal 6 karakter ya!");
-        }
-
-        if (password !== confirmPassword) {
-            return alert("Konfirmasi password tidak cocok! ❌");
-        }
-
-        btn.innerText = "Mendaftarkan...";
-        btn.disabled = true;
-
-        try {
-            // 2. DAFTARKAN KE SUPABASE AUTH
-            const { data: authData, error: authError } = await db.auth.signUp({
-                email: email,
-                password: password,
-                options: {
-                    data: { full_name: fullname }
-                }
-            });
-
-            if (authError) throw authError;
-
-            const user = authData.user;
-            if (!user) throw new Error("Gagal membuat akun login.");
-
-            // 3. SIMPAN KE TABEL DATABASE 'customers'
-            // Menggunakan upsert agar tidak error 409 jika terjadi bentrok data
-            const { error: dbError } = await db.from('customers').upsert([{
-                id: user.id, 
-                full_name: fullname,
-                email: email,
-                phone_number: phone, 
-                address_shipping: address,
-                created_at: new Date()
-            }], { on_conflict: 'id' });
-
-            if (dbError) throw dbError;
-
-            alert("Pendaftaran Berhasil! 🌸 Profil kamu sudah tersimpan.");
-            window.location.href = 'login-customer.html';
-
-        } catch (error) {
-            console.error("Detail Error:", error);
-            alert("Gagal Daftar: " + (error.message || "Terjadi kesalahan sistem"));
-            btn.innerText = "DAFTAR SEKARANG ✨";
-            btn.disabled = false;
-        }
-    } // Penutup fungsi handleRegister
-</script>
+    </script>
 </body>
 </html>
