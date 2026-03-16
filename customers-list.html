@@ -52,7 +52,7 @@
         <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h2 class="text-2xl font-black text-slate-800">Data Customer 👥</h2>
-                <p class="text-slate-500 text-sm">Daftar pengguna terdaftar di database <span class="font-bold text-pink-500">users</span>.</p>
+                <p class="text-slate-500 text-sm">Daftar pengguna terdaftar di database <span class="font-bold text-pink-500">customers</span>.</p>
             </div>
             <div class="relative w-full md:w-72">
                 <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
@@ -72,7 +72,7 @@
                     </tr>
                 </thead>
                 <tbody id="table-users" class="text-sm divide-y divide-slate-50">
-                    <tr><td colspan="5" class="p-10 text-center text-slate-400">Menghubungkan ke tabel users...</td></tr>
+                    <tr><td colspan="5" class="p-10 text-center text-slate-400">Menghubungkan ke tabel customers...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -84,12 +84,12 @@
         window.onload = () => loadUsers();
 
         async function loadUsers() {
-            // Mengambil data dari tabel 'users' sesuai permintaan
-            const { data, error } = await db.from('users').select('*').order('created_at', { ascending: false });
+            // BERUBAH: Dari 'users' menjadi 'customers'
+            const { data, error } = await db.from('customers').select('*').order('created_at', { ascending: false });
             
             if (error) {
                 console.error(error);
-                document.getElementById('table-users').innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-400 italic">Gagal memuat tabel 'users'. Pastikan tabel tersedia.</td></tr>`;
+                document.getElementById('table-users').innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-400 italic">Gagal memuat tabel 'customers'. Pastikan tabel tersedia.</td></tr>`;
                 return;
             }
 
@@ -106,11 +106,11 @@
                         <td class="p-6 font-bold text-slate-800">${u.full_name || 'No Name'}</td>
                         <td class="p-6 text-slate-600 font-medium">${u.email}</td>
                         <td class="p-6">
-                            <a href="https://wa.me/${u.phone}" target="_blank" class="text-pink-500 font-bold hover:underline">
-                                <i class="fab fa-whatsapp mr-1"></i> ${u.phone || '-'}
+                            <a href="https://wa.me/${u.phone_number}" target="_blank" class="text-pink-500 font-bold hover:underline">
+                                <i class="fab fa-whatsapp mr-1"></i> ${u.phone_number || '-'}
                             </a>
                         </td>
-                        <td class="p-6 text-xs text-slate-400 max-w-xs truncate">${u.address || '-'}</td>
+                        <td class="p-6 text-xs text-slate-400 max-w-xs truncate">${u.address_shipping || '-'}</td>
                         <td class="p-6 text-slate-400 text-[11px] font-bold uppercase">
                             ${new Date(u.created_at).toLocaleDateString('id-ID')}
                         </td>
