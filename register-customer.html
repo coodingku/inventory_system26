@@ -112,61 +112,72 @@
     </div>
 
     <script>
-      async function handleRegister() {
-    const fullname = document.getElementById('fullname').value;
-    const email = document.getElementById('email').value;
-    const phone = document.getElementById('phone').value;
-    const address = document.getElementById('address').value;
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-    const btn = document.getElementById('btnRegister');
+    <script>
+    async function handleRegister() {
+        // Ambil data dari input
+        const fullname = document.getElementById('fullname').value;
+        const email = document.getElementById('email').value;
+        const phone = document.getElementById('phone').value;
+        const address = document.getElementById('address').value;
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        const btn = document.getElementById('btnRegister');
 
-    if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
-        return alert("Lengkapi semua data dulu ya! 🌸");
-    }
+        // 1. Validasi Input
+        if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
+            return alert("Tolong lengkapi semua data ya Cantik! 🌸");
+        }
 
-    if (password !== confirmPassword) {
-        return alert("Password tidak cocok! ❌");
-    }
+        if (password.length < 6) {
+            return alert("Password minimal 6 karakter ya!");
+        }
 
-    btn.innerText = "Mendaftarkan...";
-    btn.disabled = true;
+        if (password !== confirmPassword) {
+            return alert("Konfirmasi password tidak cocok! ❌");
+        }
 
-  // ... (bagian validasi password tetap sama) ...
+        btn.innerText = "Mendaftarkan...";
+        btn.disabled = true;
 
-try {
-    // 1. DAFTARKAN KE AUTH
-    const { data: authData, error: authError } = await db.auth.signUp({
-        email: email,
-        password: password,
-    });
+        try {
+            // 2. DAFTARKAN KE SUPABASE AUTH
+            const { data: authData, error: authError } = await db.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: { full_name: fullname }
+                }
+            });
 
-    if (authError) throw authError;
+            if (authError) throw authError;
 
-    const user = authData.user;
-    if (!user) throw new Error("Gagal membuat akun login.");
+            const user = authData.user;
+            if (!user) throw new Error("Gagal membuat akun login.");
 
-    // 2. SIMPAN KE TABEL CUSTOMERS (Gunakan upsert agar tidak 409)
-    const { error: dbError } = await db.from('customers').upsert([{
-        id: user.id, 
-        full_name: fullname,
-        email: email,
-        phone_number: phone, 
-        address_shipping: address,
-        created_at: new Date()
-    }], { on_conflict: 'id' });
+            // 3. SIMPAN KE TABEL DATABASE 'customers'
+            // Menggunakan upsert agar tidak error 409 jika terjadi bentrok data
+            const { error: dbError } = await db.from('customers').upsert([{
+                id: user.id, 
+                full_name: fullname,
+                email: email,
+                phone_number: phone, 
+                address_shipping: address,
+                created_at: new Date()
+            }], { on_conflict: 'id' });
 
-    if (dbError) throw dbError;
+            if (dbError) throw dbError;
 
-    alert("Pendaftaran Berhasil! 🌸 Silakan login.");
-    window.location.href = 'login-customer.html';
+            alert("Pendaftaran Berhasil! 🌸 Profil kamu sudah tersimpan.");
+            window.location.href = 'login-customer.html';
 
-} catch (error) {
-    console.error("Detail Error:", error);
-    alert("Gagal: " + error.message);
-    btn.innerText = "DAFTAR SEKARANG ✨";
-    btn.disabled = false;
-}
+        } catch (error) {
+            console.error("Detail Error:", error);
+            alert("Gagal Daftar: " + (error.message || "Terjadi kesalahan sistem"));
+            btn.innerText = "DAFTAR SEKARANG ✨";
+            btn.disabled = false;
+        }
+    } // Penutup fungsi handleRegister
+</script>
     </script>
 </body>
 </html>
