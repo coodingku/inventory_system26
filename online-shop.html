@@ -374,9 +374,7 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
-   // 1. FUNGSI LIHAT DETAIL (DENGAN TOMBOL KONFIRMASI DINAMIS)
-// 1. FUNGSI LIHAT DETAIL (DENGAN PROTEKSI ERROR MAP)
-function viewDetailTrx(trx) {
+ function viewDetailTrx(trx) {
     activeTrx = trx;
     document.getElementById('v-invoice').innerText = trx.no_invoice;
     document.getElementById('v-status').innerText = trx.status_order;
@@ -384,40 +382,43 @@ function viewDetailTrx(trx) {
     
     const container = document.getElementById('v-items');
     
-    // Proteksi jika data items kosong
+    // Ambil data produk
     let items = [];
     try {
         items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-    } catch (e) { console.error("Format items salah"); }
+    } catch (e) { console.error("Data produk tidak terbaca"); }
 
     if (items && Array.isArray(items)) {
         container.innerHTML = items.map(it => `
-            <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2">
-                <div class="flex-1 text-[11px] font-bold">${it.nama || it.name} (${it.qty}x)</div>
-                <p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p>
+            <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2 text-[11px]">
+                <div class="flex-1 font-bold text-slate-700">${it.nama || it.name} (${it.qty}x)</div>
+                <p class="font-bold text-slate-800">Rp ${(it.qty * (it.harga || 0)).toLocaleString()}</p>
             </div>`).join('');
     } else {
         container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
     }
 
-    // --- LOGIKA TOMBOL WA DINAMIS ---
+    // --- LOGIKA TOMBOL WA (SELALU MUNCUL) ---
     const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
+    btnWA.style.display = "flex"; // Pastikan selalu terlihat
+
     if (trx.status_order === 'SETTLEMENT' || trx.status_order === 'Sudah Bayar') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
         btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-        btnWA.style.display = "flex";
-    } else if (trx.status_order === 'Dibatalkan' || trx.status_order === 'Selesai') {
-        btnWA.style.display = "none";
+    } else if (trx.status_order === 'Dibatalkan') {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
+        btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
+    } else if (trx.status_order === 'Selesai') {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> BELI LAGI / KOMPLAIN';
+        btnWA.className = "flex-1 py-4 bg-pink-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
     } else {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI BAYAR';
         btnWA.className = "flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-        btnWA.style.display = "flex";
     }
 
     document.getElementById('trxDetailModal').classList.add('active');
     document.getElementById('modalOverlay').classList.add('active');
 }
-
 // 2. FUNGSI BATAL PESANAN DENGAN ALASAN & WA
 async function cancelOrder(id, inv) {
     const alasan = prompt("Mohon maaf admin pesanan saya sudah saya batalkan dengan alasan:");
@@ -441,18 +442,25 @@ async function cancelOrder(id, inv) {
     }
 }
 
-// 3. FUNGSI KONFIRMASI WA (SESUAI STATUS)
 function confirmToAdmin() {
     if (!activeTrx) return;
+    
     let pesanWA = "";
+    const noInv = activeTrx.no_invoice;
+    const total = parseFloat(activeTrx.grand_total || 0).toLocaleString();
+
     if (activeTrx.status_order === 'SETTLEMENT' || activeTrx.status_order === 'Sudah Bayar') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya sudah membayar pesanan *${activeTrx.no_invoice}*%0AStatus: *Sudah Bayar*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0AMohon pesanan saya segera *DIKEMAS* ya kak, terima kasih! ✨`;
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya sudah membayar pesanan *${noInv}*%0AMohon segera diproses kemas ya kak! ✨`;
+    } else if (activeTrx.status_order === 'Dibatalkan') {
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin bertanya mengenai pesanan *${noInv}* yang berstatus *DIBATALKAN*. Mohon informasinya ya kak. 🙏`;
+    } else if (activeTrx.status_order === 'Selesai') {
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0APesanan *${noInv}* sudah saya terima. Terima kasih ya kak! ✨`;
     } else {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin konfirmasi pesanan *${activeTrx.no_invoice}*%0AStatus: *PENDING*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0ASaya akan segera melakukan pembayaran. ✨`;
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin konfirmasi pesanan *${noInv}* (Rp ${total}). Mohon instruksi pembayarannya kak. ✨`;
     }
+
     window.open(`https://wa.me/6281239739396?text=${pesanWA}`, '_blank');
 }
-
     function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
 </script>
 </body>
