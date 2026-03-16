@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel | Pesanan Online Bloom</title>
+    <title>Admin Panel | Pesanan Online Bloom 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,16 +12,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
-        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+        .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
         .pending { background: #fee2e2; color: #ef4444; }
-        .dikemas { background: #fef3c7; color: #d97706; }
+        .proses, .dikemas { background: #fef3c7; color: #d97706; }
         .dikirim { background: #e0f2fe; color: #0284c7; }
-        .selesai { background: #f3e8ff; color: #7e22ce; }
+        .selesai { background: #dcfce7; color: #16a34a; }
         .dibatalkan { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
         
         .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; }
         .sidebar-link:hover { background: #fff1f2; color: #f72585; }
         .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
+
+        .card-table { border-radius: 30px; }
+        .btn-action { transition: all 0.2s active:scale-95; }
 
         @media print {
             aside, header, .filter-section, .no-print { display: none !important; }
@@ -65,17 +68,17 @@
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
             <div>
                 <h2 class="text-2xl font-black text-slate-800">Manajemen Pesanan Online 🛒</h2>
-                <p class="text-slate-500 text-sm">Real-time update dengan notifikasi suara.</p>
+                <p class="text-slate-500 text-sm">Kelola pengiriman dan pantau pembayaran lunas.</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 no-print">
                 <button id="btnAudio" onclick="enableAudio()" class="bg-amber-100 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm border border-amber-200">
-                    <i class="fas fa-volume-mute"></i> Aktifkan Suara
+                    <i class="fas fa-volume-mute"></i> Suara
                 </button>
                 <button onclick="exportToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg">
                     <i class="fas fa-file-excel"></i> Excel
                 </button>
                 <button onclick="window.print()" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-print"></i> PDF / Cetak
+                    <i class="fas fa-print"></i> PDF
                 </button>
             </div>
         </header>
@@ -95,15 +98,14 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden card-table">
+        <div class="bg-white rounded-[35px] shadow-sm border border-slate-100 overflow-hidden card-table">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse" id="mainTable">
                     <thead class="bg-slate-50/50 border-b border-slate-50">
                         <tr>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Invoice & Customer</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Total & Bayar</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px]">Status</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[2px] text-center no-print">Aksi Operasional</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Detail Pesanan</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center no-print">Aksi Operasional</th>
                         </tr>
                     </thead>
                     <tbody id="orderList" class="divide-y divide-slate-50"></tbody>
@@ -121,39 +123,24 @@
         subscribeRealtime();
     };
 
-    // 1. FUNGSI REALTIME (Cek Perubahan DB Tanpa Refresh)
     function subscribeRealtime() {
         db.channel('online_orders')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transaksi_online' }, payload => {
-            if (isVoiceActive) playVoiceNotification();
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transaksi_online' }, payload => {
+            if (payload.eventType === 'INSERT' && isVoiceActive) playVoiceNotification();
             loadOrders();
-        })
-        .subscribe();
+        }).subscribe();
     }
 
-    // 2. FUNGSI SUARA MANUSIA (3x)
     function playVoiceNotification() {
-        const text = "Ada pesanan masuk";
+        const text = "Ada pesanan online masuk";
         const message = new SpeechSynthesisUtterance(text);
         message.lang = "id-ID";
-        message.rate = 0.9;
-        let count = 0;
-        const speak = () => {
-            if (count < 3) {
-                window.speechSynthesis.speak(message);
-                count++;
-                message.onend = () => setTimeout(speak, 500);
-            }
-        };
-        speak();
+        window.speechSynthesis.speak(message);
     }
 
-    // 3. AKTIFKAN AUDIO (Wajib diklik 1x agar Browser Beri Izin)
     function enableAudio() {
         isVoiceActive = true;
-        const msg = new SpeechSynthesisUtterance("Notifikasi suara aktif");
-        msg.lang = "id-ID";
-        window.speechSynthesis.speak(msg);
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Notifikasi suara aktif"));
         const btn = document.getElementById('btnAudio');
         btn.innerHTML = '<i class="fas fa-volume-up"></i> Suara Aktif';
         btn.className = "bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm";
@@ -169,87 +156,107 @@
     function renderTable(data) {
         const container = document.getElementById('orderList');
         container.innerHTML = data.map(trx => {
-            const statusStyle = trx.status_order.toLowerCase();
+            const s = trx.status_order;
+            const statusClass = s.toLowerCase();
+            const total = parseFloat(trx.grand_total || 0).toLocaleString();
+            
             return `
-            <tr class="hover:bg-slate-50/50 transition-all">
+            <tr class="hover:bg-slate-50/40 transition-all">
                 <td class="px-8 py-6">
-                    <p class="font-black text-slate-800 text-sm mb-1">${trx.no_invoice}</p>
-                    <p class="text-xs text-slate-500 font-bold">${trx.nama_penerima}</p>
-                    <div class="flex items-center gap-2 mt-1 no-print">
-                        <button onclick="sendWA('${trx.wa_penerima}', '${trx.nama_penerima}', '${trx.no_invoice}', '${trx.status_order}')" class="text-[10px] text-green-500 font-bold hover:underline flex items-center gap-1">
-                            <i class="fab fa-whatsapp"></i> Hubungi Customer
-                        </button>
-                    </div>
-                    <p class="text-[10px] text-slate-400 mt-1">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
+                    <p class="font-black text-slate-800 text-sm mb-0.5">${trx.no_invoice}</p>
+                    <p class="text-xs text-slate-500 font-bold uppercase">${trx.nama_penerima}</p>
+                    <p class="text-[10px] text-pink-500 font-black mt-1 italic">Rp ${total}</p>
+                    <p class="text-[9px] text-slate-400 mt-2">${new Date(trx.created_at).toLocaleString('id-ID')}</p>
                 </td>
-                <td class="px-8 py-6 font-black text-pink-500 text-sm">Rp ${parseFloat(trx.grand_total).toLocaleString()}</td>
-                <td class="px-8 py-6"><span class="status-badge ${statusStyle}">${trx.status_order}</span></td>
+                <td class="px-8 py-6 text-center">
+                    <span class="status-badge ${statusClass}">${s}</span>
+                </td>
                 <td class="px-8 py-6 no-print">
-                    <div class="flex justify-center items-center gap-3">
-                        <button onclick="printNota('${trx.id}')" class="bg-slate-100 text-slate-600 w-9 h-9 rounded-xl flex items-center justify-center hover:bg-pink-50 transition-all"><i class="fas fa-print text-xs"></i></button>
+                    <div class="flex justify-center items-center gap-2">
                         ${renderActionButton(trx)}
-                        <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-400 w-9 h-9 rounded-xl flex items-center justify-center transition-all"><i class="fas fa-expand-alt text-xs"></i></button>
+                        <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-400 w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-pink-50 transition-all" title="Detail Item">
+                            <i class="fas fa-list-ul text-xs"></i>
+                        </button>
                     </div>
                 </td>
             </tr>`;
         }).join('');
     }
 
-    function filterData() {
-        const keyword = document.getElementById('searchBox').value.toLowerCase();
-        const start = document.getElementById('dateStart').value;
-        const end = document.getElementById('dateEnd').value;
-        let filtered = rawData.filter(item => {
-            const matchSearch = item.no_invoice.toLowerCase().includes(keyword) || item.nama_penerima.toLowerCase().includes(keyword);
-            const itemDate = item.created_at.split('T')[0];
-            let matchDate = true;
-            if (start && end) matchDate = (itemDate >= start && itemDate <= end);
-            return matchSearch && matchDate;
-        });
-        renderTable(filtered);
-    }
-
     function renderActionButton(trx) {
-        const showBatal = (trx.status_order !== 'Selesai' && trx.status_order !== 'Dibatalkan');
-        const btnBatal = showBatal ? `<button onclick="updateStatus('${trx.id}', 'Dibatalkan')" class="text-red-400"><i class="fas fa-times-circle text-lg"></i></button>` : '';
-        if (trx.status_order === 'Pending') return `<button onclick="updateStatus('${trx.id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl">KEMAS</button> ${btnBatal}`;
-        if (trx.status_order === 'Dikemas') return `<button onclick="updateStatus('${trx.id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-xl">KIRIM</button> ${btnBatal}`;
-        if (trx.status_order === 'Dikirim') return `<button onclick="updateStatus('${trx.id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-4 py-2 rounded-xl italic">SELESAI</button> ${btnBatal}`;
-        return `<span class="text-slate-300 text-[10px] font-bold">LUNAS</span>`;
-    }
+        const s = trx.status_order;
+        const id = trx.id;
+        
+        // Tombol Batal muncul selama status bukan Selesai/Batal
+        const canCancel = (s !== 'Selesai' && s !== 'Dibatalkan');
+        const btnBatal = canCancel ? `
+            <button onclick="updateStatus('${id}', 'Dibatalkan')" class="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Batalkan">
+                <i class="fas fa-times text-xs"></i>
+            </button>` : '';
 
-    function sendWA(phone, name, inv, status) {
-        const cleanPhone = phone.replace(/[^0-9]/g, "");
-        const msg = `Halo Kak ${name}, kami dari *Beauty Bloom* 🌸\n\nMau menginfokan pesanan *${inv}* saat ini sudah *${status}*. Terima kasih! ✨`;
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-    }
-
-    async function printNota(id) {
-        const { data: header } = await db.from('transaksi_online').select('*').eq('id', id).single();
-        const { data: items } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
-        const printWindow = window.open('', '_blank');
-        let itemHtml = items.map(i => `<tr><td>${i.nama_barang}<br><small>${i.qty} x ${i.harga_satuan}</small></td><td style="text-align:right">${i.qty*i.harga_satuan}</td></tr>`).join('');
-        printWindow.document.write(`<html><body style="font-family:monospace;width:80mm;padding:10px;font-size:12px;"><center><strong>BEAUTY BLOOM</strong><br>Online Nota<br>---</center>Inv: ${header.no_invoice}<br>Cust: ${header.nama_penerima}<br>---<table style="width:100%">${itemHtml}</table>---<br>TOTAL: Rp ${parseFloat(header.grand_total).toLocaleString()}</body></html>`);
-        printWindow.document.close();
-        printWindow.print();
-    }
-
-    function exportToExcel() {
-        const table = document.getElementById("mainTable");
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Laporan" });
-        XLSX.writeFile(wb, "Laporan_Bloom.xlsx");
+        // Logika Tombol Alur Kerja
+        if (s === 'Pending') {
+            return `<button onclick="updateStatus('${id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Kemas Manual</button> ${btnBatal}`;
+        }
+        if (s === 'PROSES' || s === 'Dikemas') {
+            return `<button onclick="updateStatus('${id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase italic">Kirim Barang</button> ${btnBatal}`;
+        }
+        if (s === 'Dikirim') {
+            return `<button onclick="updateStatus('${id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Selesaikan</button> ${btnBatal}`;
+        }
+        if (s === 'Selesai') {
+            return `<div class="flex items-center gap-1 text-green-500 font-black text-[9px]"><i class="fas fa-check-double"></i> TRANSAKSI BERHASIL</div>`;
+        }
+        return `<span class="text-slate-300 text-[10px] font-bold">DITUTUP</span>`;
     }
 
     async function updateStatus(id, statusBaru) {
-        if (statusBaru === 'Dibatalkan' && !confirm("Batalkan pesanan?")) return;
-        await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
-        await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: 'Update Admin' }]);
-        loadOrders();
+        let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
+        if (statusBaru === 'Dibatalkan') confirmText = "⚠️ APAKAH ANDA YAKIN INGIN MEMBATALKAN PESANAN INI?";
+        
+        if (!confirm(confirmText)) return;
+
+        try {
+            const { error } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
+            if (error) throw error;
+            
+            // Catat ke log histori
+            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: 'Update via Admin Panel' }]);
+            
+            loadOrders();
+        } catch (err) {
+            alert("Error: " + err.message);
+        }
     }
 
     async function viewDetail(id) {
         const { data } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
-        if (data) alert("RINCIAN:\n\n" + data.map(i => `- ${i.nama_barang} (${i.qty}x)`).join('\n'));
+        if (data && data.length > 0) {
+            let list = data.map(i => `📍 ${i.nama_barang} (${i.qty}x)`).join('\n');
+            alert("RINCIAN BARANG:\n\n" + list);
+        } else {
+            alert("Data produk tidak ditemukan.");
+        }
+    }
+
+    function filterData() {
+        const kw = document.getElementById('searchBox').value.toLowerCase();
+        const start = document.getElementById('dateStart').value;
+        const end = document.getElementById('dateEnd').value;
+        
+        let filtered = rawData.filter(i => {
+            const matchKw = i.no_invoice.toLowerCase().includes(kw) || i.nama_penerima.toLowerCase().includes(kw);
+            const tgl = i.created_at.split('T')[0];
+            let matchTgl = true;
+            if (start && end) matchTgl = (tgl >= start && tgl <= end);
+            return matchKw && matchTgl;
+        });
+        renderTable(filtered);
+    }
+
+    function exportToExcel() {
+        const wb = XLSX.utils.table_to_book(document.getElementById("mainTable"));
+        XLSX.writeFile(wb, "Pesanan_Online_BeautyBloom.xlsx");
     }
 
     function logout() { sessionStorage.clear(); window.location.replace('login.html'); }
