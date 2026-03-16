@@ -220,24 +220,58 @@
     }
 
     async function requestTopUp() {
-        const nominal = prompt("Nominal Top Up (Min Rp 10.000):", "50000");
-        if (!nominal || isNaN(nominal) || nominal < 10000) return alert("Minimal Rp 10.000 ya!");
+    const nominal = prompt("Nominal Top Up (Min Rp 10.000):", "50000");
+    if (!nominal || isNaN(nominal) || nominal < 10000) return alert("Minimal Rp 10.000 ya! 🌸");
 
-        const invoice = "TOPUP-" + Date.now();
-        await db.from('topup_history').insert([{ no_invoice: invoice, customer_id: userData.id, nominal: parseInt(nominal), status: 'PENDING' }]);
+    const invoice = "TOPUP-" + Date.now();
+    
+    // Simpan ke history
+    const { error: dbError } = await db.from('topup_history').insert([{ 
+        no_invoice: invoice, 
+        customer_id: userData.id, 
+        nominal: parseInt(nominal), 
+        status: 'PENDING' 
+    }]);
 
-        try {
-            const res = await fetch("https://uojhjskgughhwxtdsfvm.supabase.co/functions/v1/smart-endpoint", {
-                method: 'POST',
-                body: JSON.stringify({ order_id: invoice, amount: parseInt(nominal), customer_name: userData.full_name, customer_email: userData.email })
+    if(dbError) return alert("Gagal koneksi ke database.");
+
+    try {
+        const res = await fetch("https://uojhjskgughhwxtdsfvm.supabase.co/functions/v1/smart-endpoint", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json' // WAJIB ADA
+            },
+            body: JSON.stringify({ 
+                order_id: invoice, 
+                amount: parseInt(nominal), 
+                customer_name: userData.full_name, 
+                customer_email: userData.email 
+            })
+        });
+
+        // Cek jika server kirim error (misal 500 atau 404)
+        if (!res.ok) {
+            const errLog = await res.text();
+            console.error("Detail Error Server:", errLog);
+            throw new Error("Server Error");
+        }
+
+        const snapData = await res.json();
+        
+        if (snapData.token) {
+            window.snap.pay(snapData.token, { 
+                onSuccess: () => { alert("Top Up Berhasil! ✨"); location.reload(); },
+                onPending: () => { alert("Selesaikan pembayaran di ATM/M-Banking ya! 🌸"); },
+                onClose: () => { console.log('Customer menutup popup'); }
             });
-            const snapData = await res.json();
-            if (snapData.token) {
-                window.snap.pay(snapData.token, { onSuccess: () => { location.reload(); } });
-            }
-        } catch (e) { alert("Sistem sibuk."); }
+        } else {
+            alert("Gagal mendapatkan token dari Midtrans.");
+        }
+    } catch (e) { 
+        console.error("Error Fetch:", e);
+        alert("Sistem sibuk / Koneksi terputus. Coba refresh halaman."); 
     }
-
+}
     function requestWithdraw() {
         const amount = prompt(`Berapa saldo ditarik? (Max: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
         if (!amount || amount > userData.saldo) return alert("Saldo tidak cukup.");
