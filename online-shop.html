@@ -271,7 +271,48 @@
         } catch (e) { alert("Sibuk."); }
     }
 
-    function requestWithdraw() { window.open(`https://wa.me/6281234567890?text=Tarik Saldo Rp ${userData.saldo}`, '_blank'); }
+   async function requestWithdraw() {
+    // 1. Cek saldo minimal
+    if (userData.saldo < 10000) {
+        return alert("Saldo minimal untuk penarikan adalah Rp 10.000 🌸");
+    }
+
+    // 2. Input Data
+    const amount = prompt(`Berapa saldo yang ingin ditarik?\n(Maksimal: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
+    if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) {
+        return alert("Nominal tidak valid atau saldo tidak cukup.");
+    }
+
+    const bank = prompt("Nama Bank (Contoh: BCA / Dana / Mandiri):");
+    const noRek = prompt("Nomor Rekening / Nomor HP:");
+    const an = prompt("Nama Pemilik Rekening:");
+
+    if (!bank || !noRek || !an) return alert("Data harus lengkap ya cantik! ✨");
+
+    const inv = "WD-" + Date.now();
+
+    // 3. Simpan ke Database
+    const { error } = await db.from('withdraw_requests').insert([{
+        no_invoice: inv,
+        customer_id: userData.id,
+        nominal: parseInt(amount),
+        bank_name: bank,
+        account_number: noRek,
+        account_name: an,
+        status: 'PENDING'
+    }]);
+
+    if (!error) {
+        // 4. Kirim WA Otomatis
+        const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon segera diproses ya, terima kasih! ✨`;
+        window.open(`https://wa.me/6281239739396?text=${pesan}`, '_blank');
+        
+        alert("Permintaan penarikan sudah dikirim ke Admin! 🌸");
+        location.reload(); // Refresh untuk melihat riwayat jika perlu
+    } else {
+        alert("Gagal mengirim permintaan.");
+    }
+}
 
     async function loadWalletHistory(userId) {
         const { data } = await db.from('topup_history').select('*').eq('customer_id', userId).order('created_at', {ascending: false}).limit(5);
