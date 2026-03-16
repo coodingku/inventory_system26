@@ -112,66 +112,70 @@
     </div>
 
     <script>
-        async function handleRegister() {
-            const fullname = document.getElementById('fullname').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-            const address = document.getElementById('address').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
-            const btn = document.getElementById('btnRegister');
+      async function handleRegister() {
+    const fullname = document.getElementById('fullname').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
+    const address = document.getElementById('address').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const btn = document.getElementById('btnRegister');
 
-            // 1. Validasi Input
-            if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
-                return alert("Lengkapi semua data dulu ya Cantik! 🌸");
+    if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
+        return alert("Lengkapi semua data dulu ya! 🌸");
+    }
+
+    if (password !== confirmPassword) {
+        return alert("Password tidak cocok! ❌");
+    }
+
+    btn.innerText = "Mendaftarkan...";
+    btn.disabled = true;
+
+    try {
+        // 1. PROSES SIGN UP (Bikin Akun Auth)
+        const { data, error: authError } = await db.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: { full_name: fullname }
             }
+        });
 
-            if (password.length < 6) {
-                return alert("Password minimal 6 karakter ya!");
-            }
+        if (authError) throw authError;
 
-            if (password !== confirmPassword) {
-                return alert("Ups! Password dan Konfirmasi tidak cocok. ❌");
-            }
+        // CEK APAKAH USER BERHASIL DIBUAT
+        const user = data.user;
+        if (!user) throw new Error("Gagal mendapatkan data user dari Auth.");
 
-            btn.innerText = "Mendaftarkan...";
-            btn.disabled = true;
+        // 2. JEDA SEJENAK (Agar Trigger di Supabase tidak bentrok)
+        // Terkadang database butuh sekian milidetik untuk mengenali User ID baru
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-            try {
-                // 2. DAFTARKAN KE SUPABASE AUTH (Login System)
-                const { data: authData, error: authError } = await db.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        data: { full_name: fullname }
-                    }
-                });
+        // 3. SIMPAN PROFIL KE TABEL CUSTOMERS
+        const { error: dbError } = await db.from('customers').insert([{
+            id: user.id, // ID yang didapat dari Auth di atas
+            full_name: fullname,
+            email: email,
+            phone_number: phone,
+            address_shipping: address
+        }]);
 
-                if (authError) throw authError;
-
-                // 3. SIMPAN KE TABEL DATABASE 'customers' (Profil System)
-                // Sesuai gambar: phone_number & address_shipping
-                const { error: dbError } = await db.from('customers').insert([{
-                    id: authData.user.id, 
-                    full_name: fullname,
-                    email: email,
-                    phone_number: phone, 
-                    address_shipping: address,
-                    created_at: new Date()
-                }]);
-
-                if (dbError) throw dbError;
-
-                alert("Pendaftaran Berhasil! 🌸\nProfil kamu sudah tersimpan. Silakan masuk.");
-                window.location.href = 'login-customer.html';
-
-            } catch (error) {
-                console.error("Detail Error:", error);
-                alert("Gagal Daftar: " + error.message);
-                btn.innerText = "DAFTAR SEKARANG ✨";
-                btn.disabled = false;
-            }
+        if (dbError) {
+            // Jika gagal simpan profil, kita beri info tapi akun sudah terlanjur jadi di Auth
+            console.error("Detail Error DB:", dbError);
+            throw new Error("Gagal menyimpan profil: " + dbError.message);
         }
+
+        alert("Pendaftaran Berhasil! 🌸 Akun dan profil sudah aktif.");
+        window.location.href = 'login-customer.html';
+
+    } catch (error) {
+        alert("Pendaftaran Gagal: " + error.message);
+        btn.innerText = "DAFTAR SEKARANG ✨";
+        btn.disabled = false;
+    }
+}
     </script>
 </body>
 </html>
