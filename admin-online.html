@@ -192,32 +192,52 @@ function renderTable(data) {
         }).join('');
     }
 
-    function renderActionButton(trx) {
+   function renderActionButton(trx) {
         const s = trx.status_order;
         const id = trx.id;
         
-        // Tombol Batal muncul selama status bukan Selesai/Batal
+        // 1. Tombol Batal (Muncul selama status bukan Selesai/Dibatalkan)
         const canCancel = (s !== 'Selesai' && s !== 'Dibatalkan');
         const btnBatal = canCancel ? `
             <button onclick="updateStatus('${id}', 'Dibatalkan')" class="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Batalkan">
                 <i class="fas fa-times text-xs"></i>
             </button>` : '';
 
-        // Logika Tombol Alur Kerja
+        // 2. Tombol Print Nota (Selalu muncul untuk membantu admin cetak invoice)
+        const btnPrint = `
+            <button onclick="printNota('${id}')" class="bg-slate-100 text-slate-600 w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-pink-100 transition-all shadow-sm" title="Cetak Nota">
+                <i class="fas fa-print text-xs"></i>
+            </button>`;
+
+        let btnUtama = '';
+
+        // 3. Logika Tombol Alur Kerja
         if (s === 'Pending') {
-            return `<button onclick="updateStatus('${id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Kemas Manual</button> ${btnBatal}`;
+            btnUtama = `<button onclick="updateStatus('${id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Kemas Manual</button>`;
         }
-        if (s === 'PROSES' || s === 'Dikemas') {
-            return `<button onclick="updateStatus('${id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase italic">Kirim Barang</button> ${btnBatal}`;
+        else if (s === 'PROSES' || s === 'Dikemas') {
+            btnUtama = `<button onclick="updateStatus('${id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase italic">Kirim Barang</button>`;
         }
-        if (s === 'Dikirim') {
-            return `<button onclick="updateStatus('${id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Selesaikan</button> ${btnBatal}`;
+        else if (s === 'Dikirim') {
+            btnUtama = `<button onclick="updateStatus('${id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Selesaikan</button>`;
         }
-        if (s === 'Selesai') {
-            return `<div class="flex items-center gap-1 text-green-500 font-black text-[9px]"><i class="fas fa-check-double"></i> TRANSAKSI BERHASIL</div>`;
+        else if (s === 'Selesai') {
+            btnUtama = `<div class="flex items-center gap-1 text-green-500 font-black text-[9px] uppercase"><i class="fas fa-check-double"></i> Transaksi Berhasil</div>`;
+        } else {
+            btnUtama = `<span class="text-slate-300 text-[10px] font-bold">DITUTUP</span>`;
         }
-        return `<span class="text-slate-300 text-[10px] font-bold">DITUTUP</span>`;
+
+        // Gabungkan semua tombol agar tampil sejajar
+        return `
+            <div class="flex justify-center items-center gap-2">
+                ${btnPrint}
+                ${btnUtama}
+                ${btnBatal}
+            </div>
+        `;
     }
+
+    
 
     function sendWA(phone, name, inv, status) {
         if (!phone) return alert("Nomor WhatsApp tidak ditemukan!");
@@ -234,7 +254,6 @@ function renderTable(data) {
         
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
     }
-
     async function updateStatus(id, statusBaru) {
         let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
         if (statusBaru === 'Dibatalkan') confirmText = "⚠️ APAKAH ANDA YAKIN INGIN MEMBATALKAN PESANAN INI?";
@@ -284,6 +303,8 @@ function renderTable(data) {
         XLSX.writeFile(wb, "Pesanan_Online_BeautyBloom.xlsx");
     }
 
+    
+    
     function logout() { sessionStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
