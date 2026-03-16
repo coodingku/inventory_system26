@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finex Beauty Bloom | Online Shop</title>
+    <title>Finex Beauty Bloom | Online Shop 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
@@ -11,176 +11,232 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; --accent-peach: #ffb3c1; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; }
-        .glass-header { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.2); }
-        .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); box-shadow: 0 4px 15px rgba(255, 133, 162, 0.05); }
-        .product-card:active { transform: scale(0.96); }
-        .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #fffafa; cursor: pointer; }
-        .img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(247, 37, 133, 0.1); backdrop-filter: blur(4px); display: none; z-index: 999; }
+        :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; overflow-x: hidden; }
+        
+        /* Glassmorphism UI */
+        .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.2); }
+        .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(255, 133, 162, 0.1); }
+        
+        /* Keranjang Sidebar */
+        .cart-sidebar { position: fixed; top: 0; right: 0; height: 100%; width: 100%; max-width: 350px; background: white; z-index: 1000; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(100%); box-shadow: -10px 0 30px rgba(0,0,0,0.1); }
+        .cart-sidebar.active { transform: translateX(0); }
+        
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
-        .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -15px 35px rgba(0,0,0,0.1); }
-        .detail-modal.active, .activity-modal.active { bottom: 0; }
-        .profile-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 90%; max-width: 400px; background: white; border-radius: 35px; z-index: 2000; display: none; opacity: 0; transition: all 0.3s ease; padding: 30px; }
-        .profile-modal.active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-        .status-pending { background: #fee2e2; color: #ef4444; }
-        .input-bloom { width: 100%; padding: 12px 15px; background: var(--soft-pink); border-radius: 15px; font-size: 14px; outline: none; border: 1px solid transparent; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .btn-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); color: white; }
     </style>
 </head>
-<body class="pb-28">
+<body class="pb-24">
 
     <header class="glass-header sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
         <div>
-            <p class="text-[10px] font-bold text-[#ff4d6d] uppercase tracking-widest">Finex Store</p>
+            <p id="welcome-text" class="text-[10px] font-bold text-pink-400 uppercase tracking-widest italic">Halo, Cantik! ✨</p>
             <h1 class="text-xl font-extrabold text-slate-800">Beauty Bloom 🌸</h1>
         </div>
-        <button onclick="openProfile()" class="w-10 h-10 bg-pink-50 rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm active:scale-90 transition-all">
-            <i class="fa-solid fa-user"></i>
-        </button>
+        <div class="flex gap-3">
+            <button onclick="openProfile()" class="w-10 h-10 bg-white rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm">
+                <i class="fa-solid fa-user"></i>
+            </button>
+        </div>
     </header>
 
     <section class="px-6 mt-6">
         <div class="relative">
             <i class="fas fa-search absolute left-5 top-4 text-pink-300"></i>
-            <input type="text" id="search" onkeyup="loadOnlineMenu()" class="w-full pl-12 pr-4 py-4 bg-white rounded-3xl border-none shadow-sm focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Cari perawatan cantikmu...">
+            <input type="text" id="search" onkeyup="loadOnlineMenu()" class="w-full pl-12 pr-4 py-4 bg-white rounded-3xl border-none shadow-sm outline-none focus:ring-2 focus:ring-pink-300" placeholder="Cari skincare favoritmu...">
         </div>
     </section>
 
     <main class="px-6 mt-8">
-        <div id="onlineDisplay" class="grid grid-cols-2 gap-5"></div>
+        <div id="onlineDisplay" class="grid grid-cols-2 gap-4">
+            </div>
     </main>
 
-    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
-
-    <div id="activityModal" class="activity-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10">
-            <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Lacak Pesanan 🚚</h2>
-            <div id="activityList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">Tutup Menu</button>
+    <div id="modalOverlay" class="modal-overlay" onclick="toggleCart()"></div>
+    <div id="cartSidebar" class="cart-sidebar flex flex-col p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-black text-slate-800">Keranjang 🛍️</h2>
+            <button onclick="toggleCart()"><i class="fa-solid fa-xmark text-xl text-slate-400"></i></button>
         </div>
-    </div>
-
-    <div id="productDetailModal" class="detail-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10 text-center">
-            <div class="aspect-square rounded-[30px] mb-6 overflow-hidden bg-pink-50 h-64 mx-auto border-4 border-white shadow-lg">
-                <img id="detail-img" src="" class="w-full h-full object-cover">
+        
+        <div id="cartItems" class="flex-1 overflow-y-auto space-y-4">
             </div>
-            <h2 id="detail-name" class="text-2xl font-black text-slate-800"></h2>
-            <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
-            <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
-            <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg">TAMBAH KERANJANG ✨</button>
+
+        <div class="mt-auto border-t pt-6">
+            <div class="flex justify-between mb-4">
+                <span class="font-bold text-slate-500">Total</span>
+                <span id="cartTotal" class="font-black text-pink-500 text-xl">Rp 0</span>
+            </div>
+            <button onclick="goToCheckout()" class="w-full btn-pink py-4 rounded-2xl font-black tracking-widest shadow-lg active:scale-95 transition-all">
+                CHECKOUT ✨
+            </button>
         </div>
     </div>
 
-    <div id="profileModal" class="profile-modal">
-        <div class="text-center mb-6">
-            <i class="fa-solid fa-circle-user text-5xl text-pink-200"></i>
-            <h2 class="text-xl font-black mt-2 text-slate-800">Akun Saya</h2>
-        </div>
-        <div class="space-y-3">
-            <input type="text" id="p-name" class="input-bloom" placeholder="Nama Lengkap">
-            <input type="text" id="p-email" class="input-bloom opacity-50" readonly>
-            <input type="number" id="p-phone" class="input-bloom" placeholder="628xxx">
-            <textarea id="p-address" class="input-bloom h-20 resize-none" placeholder="Alamat Pengiriman"></textarea>
-        </div>
-        <button onclick="saveProfile()" id="btnSaveProfile" class="w-full py-4 bg-[#f72585] text-white rounded-2xl font-bold mt-6 shadow-lg">SIMPAN PERUBAHAN</button>
-        <button onclick="logoutCustomer()" class="w-full mt-6 text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">Logout Akun</button>
-    </div>
-
-    <nav class="bottom-nav">
-        <a href="online-shop.html" class="flex flex-col items-center text-[#ff85a2]">
-            <i class="fas fa-home text-2xl"></i>
-            <span class="text-[9px] font-black mt-1 uppercase">Beranda</span>
-        </a>
-        <button onclick="openActivity()" class="flex flex-col items-center text-slate-300">
-            <i class="fas fa-receipt text-2xl"></i>
-            <span class="text-[9px] font-black mt-1 uppercase">Pesanan</span>
+    <nav class="fixed bottom-0 left-0 right-0 bg-white flex justify-around py-4 px-6 rounded-t-[35px] shadow-[0_-10px_30px_rgba(255,133,162,0.1)] z-[100]">
+        <button class="flex flex-col items-center text-pink-500">
+            <i class="fas fa-home text-xl"></i>
+            <span class="text-[9px] font-bold mt-1 uppercase">Shop</span>
         </button>
-        <button onclick="goToCheckout()" class="flex flex-col items-center text-slate-300 relative">
-            <i class="fas fa-shopping-bag text-2xl"></i>
-            <span id="cart-count" class="absolute -top-2 -right-3 bg-[#f72585] text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white shadow-sm">0</span>
-            <span class="text-[9px] font-black mt-1 uppercase">Keranjang</span>
+        <button onclick="toggleCart()" class="flex flex-col items-center text-slate-300 relative">
+            <i class="fas fa-shopping-bag text-xl"></i>
+            <span id="cart-count" class="absolute -top-2 -right-3 bg-pink-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">0</span>
+            <span class="text-[9px] font-bold mt-1 uppercase">Cart</span>
+        </button>
+        <button onclick="openProfile()" class="flex flex-col items-center text-slate-300">
+            <i class="fas fa-heart text-xl"></i>
+            <span class="text-[9px] font-bold mt-1 uppercase">Account</span>
         </button>
     </nav>
 
-<script>
-  <script>
-    let shopCart = JSON.parse(localStorage.getItem('finexcart')) || []; // Ambil dari storage agar tidak hilang saat refresh
+    <script>
+        let shopCart = JSON.parse(localStorage.getItem('finexcart')) || [];
 
-    window.onload = async () => {
-        const { data: { session } } = await db.auth.getSession();
-        if (!session) {
-            window.location.replace('login-customer.html');
-        } else {
-            loadCustomerData(session.user.id); // Panggil fungsi ambil nama
-            updateCartCount();
+        window.onload = async () => {
+            const { data: { session } } = await db.auth.getSession();
+            if (!session) return window.location.replace('login-customer.html');
+            
+            loadCustomerName(session.user.id);
             loadOnlineMenu();
+            updateCartUI();
+        };
+
+        // 1. TAMPILKAN NAMA CUSTOMER
+        async function loadCustomerName(userId) {
+            const { data } = await db.from('customers').select('full_name').eq('id', userId).single();
+            if (data) {
+                document.getElementById('welcome-text').innerText = `Halo, ${data.full_name.split(' ')[0]}! ✨`;
+            }
         }
-    };
 
-    // --- 1. FUNGSI MENAMPILKAN NAMA CUSTOMER ---
-    async function loadCustomerData(userId) {
-        const { data: profile } = await db
-            .from('customers')
-            .select('full_name')
-            .eq('id', userId)
-            .single();
-
-        if (profile) {
-            // Kita ganti judul "Beauty Bloom" menjadi sapaan personal
-            document.querySelector('h1.text-xl').innerText = `Halo, ${profile.full_name.split(' ')[0]}! 🌸`;
+        // 2. LOGIKA HARGA DISKON
+        function getActivePrice(p) {
+            let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+            if (!p.is_diskon) return basePrice;
+            const sekarang = new Date().getTime();
+            const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai).getTime() : null;
+            const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir).getTime() : null;
+            if ((!tglMulai || sekarang >= tglMulai) && (!tglAkhir || sekarang <= tglAkhir)) {
+                return basePrice - (p.nominal_diskon || 0);
+            }
+            return basePrice;
         }
-    }
 
-    // --- 2. LOGIKA KERANJANG BELANJA ---
-    function updateCartCount() {
-        const count = shopCart.reduce((s, i) => s + i.qty, 0);
-        document.getElementById('cart-count').innerText = count;
-        // Simpan ke localStorage supaya persisten
-        localStorage.setItem('finexcart', JSON.stringify(shopCart));
-    }
+        // 3. LOAD PRODUK
+        async function loadOnlineMenu() {
+            const search = document.getElementById('search').value;
+            let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
+            if (search) query = query.ilike('nama_barang', `%${search}%`);
+            
+            const { data } = await query.order('nama_barang');
+            const display = document.getElementById('onlineDisplay');
 
-    function addToOnlineCart(id, nama, hargaFinal, hargaNormal, image) {
-        const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) {
-            shopCart[idx].qty++;
-        } else {
-            shopCart.push({ 
-                id, 
-                nama, 
-                harga: hargaFinal, 
-                harga_normal: hargaNormal, 
-                image: image || 'https://placehold.co/300',
-                qty: 1 
-            });
+            if (!data || data.length === 0) {
+                display.innerHTML = `<p class="col-span-2 text-center text-slate-400 py-20">Produk tidak ditemukan 🌸</p>`;
+                return;
+            }
+
+            display.innerHTML = data.map(p => {
+                const finalPrice = getActivePrice(p);
+                const normalPrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+                return `
+                <div class="product-card">
+                    <div class="aspect-square bg-slate-50 overflow-hidden">
+                        <img src="${p.image_url || 'https://placehold.co/300'}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-slate-700 text-xs truncate uppercase">${p.nama_barang}</h4>
+                        <div class="mt-2 flex justify-between items-end">
+                            <div>
+                                ${finalPrice < normalPrice ? `<p class="text-[9px] text-slate-400 line-through">Rp ${normalPrice.toLocaleString()}</p>` : ''}
+                                <p class="font-black text-pink-500 text-sm">Rp ${finalPrice.toLocaleString()}</p>
+                            </div>
+                            <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${finalPrice}, '${p.image_url}')" class="w-8 h-8 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
         }
-        updateCartCount();
-        
-        // Animasi feedback sederhana
-        const btn = event.currentTarget;
-        const originalIcon = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check text-xs"></i>';
-        setTimeout(() => btn.innerHTML = originalIcon, 1000);
-    }
 
-    // Fungsi navigasi ke Checkout
-    function goToCheckout() {
-        if (shopCart.length === 0) return alert("Keranjang belanja kamu masih kosong! 🌸");
-        // Kita gunakan sessionStorage untuk komunikasi antar halaman sesuai standar kamu
-        sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
-        window.location.href = "online-checkout.html";
-    }
+        // 4. LOGIKA KERANJANG
+        function addToCart(id, nama, harga, img) {
+            const idx = shopCart.findIndex(item => item.id === id);
+            if (idx > -1) {
+                shopCart[idx].qty++;
+            } else {
+                shopCart.push({ id, nama, harga, img, qty: 1 });
+            }
+            saveAndRefresh();
+            // Animasi feedback kecil
+            alert(`${nama} masuk keranjang! ✨`);
+        }
 
-    // --- SISANYA TETAP SAMA (loadOnlineMenu, getActivePrice, dll) ---
-    // Pastikan pada pemanggilan addToOnlineCart di loadOnlineMenu, tambahkan parameter image:
-    // addToOnlineCart('${p.id}', '${p.nama_barang}', ${finalPrice}, ${normalPrice}, '${p.image_url}')
-</script>
-</script>
+        function updateQty(id, delta) {
+            const idx = shopCart.findIndex(item => item.id === id);
+            shopCart[idx].qty += delta;
+            if (shopCart[idx].qty <= 0) shopCart.splice(idx, 1);
+            saveAndRefresh();
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('finexcart', JSON.stringify(shopCart));
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const container = document.getElementById('cartItems');
+            const countBadge = document.getElementById('cart-count');
+            const totalText = document.getElementById('cartTotal');
+            
+            let total = 0;
+            let count = 0;
+
+            if (shopCart.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 text-sm mt-10">Keranjang kosong 🌸</p>`;
+            } else {
+                container.innerHTML = shopCart.map(item => {
+                    total += (item.harga * item.qty);
+                    count += item.qty;
+                    return `
+                    <div class="flex items-center gap-3 bg-pink-50/50 p-3 rounded-2xl">
+                        <img src="${item.img}" class="w-12 h-12 rounded-xl object-cover">
+                        <div class="flex-1">
+                            <h4 class="text-[11px] font-bold text-slate-700 truncate">${item.nama}</h4>
+                            <p class="text-[10px] text-pink-500 font-bold">Rp ${item.harga.toLocaleString()}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 bg-white rounded-lg shadow-sm text-xs">-</button>
+                            <span class="text-xs font-bold">${item.qty}</span>
+                            <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 bg-white rounded-lg shadow-sm text-xs">+</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            countBadge.innerText = count;
+            totalText.innerText = `Rp ${total.toLocaleString()}`;
+        }
+
+        function toggleCart() {
+            document.getElementById('cartSidebar').classList.toggle('active');
+            document.getElementById('modalOverlay').classList.toggle('active');
+        }
+
+        function goToCheckout() {
+            if (shopCart.length === 0) return alert("Pilih produk dulu! 🌸");
+            sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
+            window.location.href = "online-checkout.html";
+        }
+
+        function openProfile() {
+            // Sesuai alur kamu sebelumnya: buka modal profil atau pindah halaman
+            alert("Membuka profil customer...");
+        }
+    </script>
 </body>
 </html>
