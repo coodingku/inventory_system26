@@ -153,7 +153,7 @@
         renderTable(data);
     }
 
-    function renderTable(data) {
+function renderTable(data) {
         const container = document.getElementById('orderList');
         container.innerHTML = data.map(trx => {
             const s = trx.status_order;
@@ -164,8 +164,17 @@
             <tr class="hover:bg-slate-50/40 transition-all">
                 <td class="px-8 py-6">
                     <p class="font-black text-slate-800 text-sm mb-0.5">${trx.no_invoice}</p>
-                    <p class="text-xs text-slate-500 font-bold uppercase">${trx.nama_penerima}</p>
-                    <p class="text-[10px] text-pink-500 font-black mt-1 italic">Rp ${total}</p>
+                    <p class="text-xs text-slate-500 font-bold uppercase">${trx.nama_penerima || 'Tanpa Nama'}</p>
+                    
+                    <div class="flex flex-col gap-1 mt-2 no-print">
+                        <p class="text-[10px] text-slate-400 font-bold"><i class="fas fa-phone-alt"></i> ${trx.wa_penerima || '-'}</p>
+                        <button onclick="sendWA('${trx.wa_penerima}', '${trx.nama_penerima}', '${trx.no_invoice}', '${trx.status_order}')" 
+                                class="text-[10px] text-green-500 font-black hover:text-green-600 flex items-center gap-1 w-fit bg-green-50 px-2 py-1 rounded-lg">
+                            <i class="fab fa-whatsapp"></i> HUBUNGI CUSTOMER
+                        </button>
+                    </div>
+
+                    <p class="text-[10px] text-pink-500 font-black mt-2 italic">Total: Rp ${total}</p>
                     <p class="text-[9px] text-slate-400 mt-2">${new Date(trx.created_at).toLocaleString('id-ID')}</p>
                 </td>
                 <td class="px-8 py-6 text-center">
@@ -174,7 +183,7 @@
                 <td class="px-8 py-6 no-print">
                     <div class="flex justify-center items-center gap-2">
                         ${renderActionButton(trx)}
-                        <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-400 w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-pink-50 transition-all" title="Detail Item">
+                        <button onclick="viewDetail('${trx.id}')" class="bg-slate-100 text-slate-400 w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-pink-50 transition-all">
                             <i class="fas fa-list-ul text-xs"></i>
                         </button>
                     </div>
