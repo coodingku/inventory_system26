@@ -136,45 +136,45 @@
             btn.innerText = "Mendaftarkan...";
             btn.disabled = true;
 
-            try {
-                // 1. DAFTARKAN KE SUPABASE AUTH (Login System)
-                const { data: authData, error: authError } = await db.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        data: { full_name: fullname }
-                    }
-                });
+          try {
+            // 1. DAFTARKAN KE AUTH (Hanya email & password)
+            const { data: authData, error: authError } = await db.auth.signUp({
+                email: email,
+                password: password,
+            });
 
-                if (authError) throw authError;
+            if (authError) throw authError;
+            const user = authData.user;
+            if (!user) throw new Error("Gagal membuat akun login.");
 
-                const user = authData.user;
-                if (!user) throw new Error("Gagal membuat akun login.");
+            // 2. KUNCI SUKSES: Jeda 1 detik agar ID terdaftar sempurna di sistem pusat
+            await new Promise(res => setTimeout(res, 1000));
 
-                // 2. JEDA 1 DETIK (Menunggu Sinkronisasi Server Supabase)
-                await new Promise(res => setTimeout(res, 1000));
+            // 3. SIMPAN KE TABEL CUSTOMERS (Gunakan upsert agar tidak 409)
+            const { error: dbError } = await db.from('customers').upsert([{
+                id: user.id, 
+                full_name: fullname,
+                email: email,
+                phone_number: phone, 
+                address_shipping: address,
+                created_at: new Date()
+            }], { on_conflict: 'id' });
 
-                // 3. SIMPAN KE TABEL DATABASE 'customers'
-                const { error: dbError } = await db.from('customers').upsert([{
-                    id: user.id, 
-                    full_name: fullname,
-                    email: email,
-                    phone_number: phone, 
-                    address_shipping: address,
-                    created_at: new Date()
-                }]);
+            if (dbError) throw dbError;
 
-                if (dbError) throw dbError;
+            alert("Pendaftaran Berhasil! 🌸 Profil kamu sudah tersimpan.");
+            window.location.href = 'login-customer.html';
 
-                alert("Pendaftaran Berhasil! 🌸 Profil kamu sudah tersimpan.");
-                window.location.href = 'login-customer.html';
-
-            } catch (error) {
-                console.error("Detail Error:", error);
-                alert("Gagal Daftar: " + (error.message || "Terjadi kesalahan sistem"));
-                btn.innerText = "DAFTAR SEKARANG ✨";
-                btn.disabled = false;
+        } catch (error) {
+            console.error("Detail Error:", error);
+            // Jika error karena relasi lagi, infokan Allberto
+            if (error.code === "23503") {
+                alert("Gagal: Database masih terkunci ke tabel 'users'. Pastikan sudah RUN SQL di langkah 1 tadi ya!");
+            } else {
+                alert("Gagal Daftar: " + (error.message || "Terjadi kesalahan"));
             }
+            btn.innerText = "DAFTAR SEKARANG ✨";
+            btn.disabled = false;
         }
     </script>
 </body>
