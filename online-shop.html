@@ -147,7 +147,7 @@
         <a href="online-shop.html" class="flex flex-col items-center text-[#ff85a2]"><i class="fas fa-home text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Beranda</span></a>
         <button onclick="openActivity()" class="flex flex-col items-center text-slate-300"><i class="fas fa-receipt text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Pesanan</span></button>
         <button onclick="toggleWallet()" class="flex flex-col items-center text-slate-300"><i class="fas fa-wallet text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Saldo</span></button>
-        <button onclick="goToCheckout()" class="flex flex-col items-center text-slate-300 relative"><i class="fas fa-shopping-bag text-2xl"></i><span id="cart-count" class="absolute -top-2 -right-3 bg-[#f72585] text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white shadow-sm">0</span><span class="text-[9px] font-black mt-1 uppercase">Bag</span></button>
+        <button onclick="goToCheckout('VIEW')" class="flex flex-col items-center text-slate-300 relative"><i class="fas fa-shopping-bag text-2xl"></i><span id="cart-count" class="absolute -top-2 -right-3 bg-[#f72585] text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white shadow-sm">0</span><span class="text-[9px] font-black mt-1 uppercase">Bag</span></button>
     </nav>
 
 <script>
@@ -173,7 +173,6 @@
         }
     }
 
-    // LOGIKA PRODUK & HARGA
     function getActivePrice(p) {
         let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
         if (!p.is_diskon) return { price: basePrice, isDiscount: false, normal: basePrice };
@@ -209,7 +208,6 @@
         }).join('');
     }
 
-    // LOGIKA KERANJANG (BAG)
     function openDetail(id, nama, harga, hargaNormal, img, desc) {
         document.getElementById('detail-name').innerText = nama;
         document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
@@ -229,7 +227,8 @@
 
     function updateCartDisplay() {
         const count = shopCart.reduce((total, item) => total + item.qty, 0);
-        document.getElementById('cart-count').innerText = count;
+        const countEl = document.getElementById('cart-count');
+        if(countEl) countEl.innerText = count;
         localStorage.setItem('finexcart', JSON.stringify(shopCart));
     }
 
@@ -263,23 +262,21 @@
         renderCart();
     }
 
-   function goToCheckout(mode = 'VIEW') {
-    if (shopCart.length > 0) {
-        if (mode === 'PROSES') {
-            // Jika mode PROSES, langsung pindah halaman
-            window.location.href = "online-checkout.html";
+    // FIX: Fungsi Checkout agar pindah halaman jika mode PROSES
+    function goToCheckout(mode = 'VIEW') {
+        if (shopCart.length > 0) {
+            if (mode === 'PROSES') {
+                window.location.href = "online-checkout.html";
+            } else {
+                renderCart();
+                document.getElementById('cartModal').classList.add('active');
+                document.getElementById('modalOverlay').classList.add('active');
+            }
         } else {
-            // Jika mode VIEW (default), tampilkan modal keranjang
-            renderCart();
-            document.getElementById('cartModal').classList.add('active');
-            document.getElementById('modalOverlay').classList.add('active');
+            alert("Bag masih kosong! 🌸");
         }
-    } else {
-        alert("Pilih perawatan dulu ya cantik! 🌸");
     }
-}
 
-    // LOGIKA PROFIL
     function openProfile() {
         if (!userData) return;
         document.getElementById('p-name').innerText = userData.full_name;
@@ -296,7 +293,6 @@
         }
     }
 
-    // LOGIKA SALDO & WALLET
     function toggleWallet() { document.getElementById('walletModal').classList.toggle('active'); document.getElementById('modalOverlay').classList.toggle('active'); }
     
     async function requestTopUp() {
@@ -311,56 +307,25 @@
             });
             const d = await res.json();
             if (d.token) window.snap.pay(d.token, { onSuccess: () => location.reload() });
-        } catch (e) { alert("Sibuk."); }
+        } catch (e) { alert("Sistem sibuk."); }
     }
 
-   async function requestWithdraw() {
-    // 1. Cek saldo minimal
-    if (userData.saldo < 10000) {
-        return alert("Saldo minimal untuk penarikan adalah Rp 10.000 🌸");
+    async function requestWithdraw() {
+        if (userData.saldo < 10000) return alert("Saldo min Rp 10.000 🌸");
+        const amount = prompt(`Berapa saldo ditarik? (Max: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
+        if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) return alert("Nominal salah.");
+        const bank = prompt("Nama Bank:");
+        const noRek = prompt("No Rekening:");
+        const an = prompt("Nama Pemilik:");
+        if (!bank || !noRek || !an) return alert("Data tidak lengkap.");
+        const inv = "WD-" + Date.now();
+        const { error } = await db.from('withdraw_requests').insert([{ no_invoice: inv, customer_id: userData.id, nominal: parseInt(amount), bank_name: bank, account_number: noRek, account_name: an, status: 'PENDING' }]);
+        if (!error) {
+            window.open(`https://wa.me/6281239739396?text=Tarik Saldo Rp ${amount} (Ref: ${inv})`, '_blank');
+            location.reload();
+        }
     }
 
-    // 2. Input Data Nominal
-    const amount = prompt(`Berapa saldo yang ingin ditarik?\n(Maksimal: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
-    if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) {
-        return alert("Nominal tidak valid atau saldo tidak cukup.");
-    }
-
-    // 3. Input Data Rekening
-    const bank = prompt("Nama Bank (Contoh: BCA / Dana / Mandiri):");
-    if (!bank) return;
-    const noRek = prompt("Nomor Rekening / Nomor HP:");
-    if (!noRek) return;
-    const an = prompt("Nama Pemilik Rekening (Atas Nama):");
-    if (!an) return;
-
-    const inv = "WD-" + Date.now();
-
-    // 4. Simpan ke Database
-    const { error } = await db.from('withdraw_requests').insert([{
-        no_invoice: inv,
-        customer_id: userData.id,
-        nominal: parseInt(amount),
-        bank_name: bank,
-        account_number: noRek,
-        account_name: an,
-        status: 'PENDING'
-    }]);
-
-    if (!error) {
-        // 5. FORMAT PESAN WA SESUAI PERMINTAAN KAMU
-        const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon segera diproses ya, terima kasih! ✨`;
-        
-        // Membuka WhatsApp
-        window.open(`https://wa.me/6281239739396?text=${pesan}`, '_blank');
-        
-        alert("Permintaan penarikan berhasil dikirim! 🌸");
-        location.reload(); 
-    } else {
-        alert("Gagal mengirim permintaan ke sistem.");
-        console.error(error);
-    }
-}
     async function loadWalletHistory(userId) {
         const { data: t } = await db.from('topup_history').select('*').eq('customer_id', userId);
         const { data: w } = await db.from('withdraw_requests').select('*').eq('customer_id', userId);
@@ -384,7 +349,6 @@
         } else container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Kosong 🌸</p>`;
     }
 
-    // LOGIKA PESANAN (ACTIVITY)
     async function openActivity() {
         const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
         const container = document.getElementById('activityList');
@@ -410,94 +374,43 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
- function viewDetailTrx(trx) {
-    activeTrx = trx;
-    document.getElementById('v-invoice').innerText = trx.no_invoice;
-    document.getElementById('v-status').innerText = trx.status_order;
-    document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total || 0).toLocaleString();
-    
-    const container = document.getElementById('v-items');
-    
-    // Ambil data produk
-    let items = [];
-    try {
-        items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-    } catch (e) { console.error("Data produk tidak terbaca"); }
-
-    if (items && Array.isArray(items)) {
-        container.innerHTML = items.map(it => `
-            <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2 text-[11px]">
-                <div class="flex-1 font-bold text-slate-700">${it.nama || it.name} (${it.qty}x)</div>
-                <p class="font-bold text-slate-800">Rp ${(it.qty * (it.harga || 0)).toLocaleString()}</p>
-            </div>`).join('');
-    } else {
-        container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
-    }
-
-    // --- LOGIKA TOMBOL WA (SELALU MUNCUL) ---
-    const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
-    btnWA.style.display = "flex"; // Pastikan selalu terlihat
-
-    if (trx.status_order === 'SETTLEMENT' || trx.status_order === 'Sudah Bayar') {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
-        btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (trx.status_order === 'Dibatalkan') {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
-        btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (trx.status_order === 'Selesai') {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> BELI LAGI / KOMPLAIN';
-        btnWA.className = "flex-1 py-4 bg-pink-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI BAYAR';
-        btnWA.className = "flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    }
-
-    document.getElementById('trxDetailModal').classList.add('active');
-    document.getElementById('modalOverlay').classList.add('active');
-}
-// 2. FUNGSI BATAL PESANAN DENGAN ALASAN & WA
-async function cancelOrder(id, inv) {
-    const alasan = prompt("Mohon maaf admin pesanan saya sudah saya batalkan dengan alasan:");
-    
-    if (alasan !== null && alasan !== "") {
-        const { error } = await db.from('transaksi_online')
-            .update({ status_order: 'Dibatalkan' })
-            .eq('id', id);
-
-        if (!error) {
-            const pesanBatal = `Halo Admin Beauty Bloom! 🌸%0A%0AMohon maaf admin, pesanan saya dengan nomor *${inv}* sudah saya *BATALKAN*.%0A%0A*Alasan:* ${alasan}%0A%0AMohon maaf atas ketidaknyamanannya, terima kasih. 🙏`;
-            window.open(`https://wa.me/6281239739396?text=${pesanBatal}`, '_blank');
-            
-            alert("Pesanan berhasil dibatalkan 🌸");
-            openActivity(); 
-        } else {
-            alert("Gagal membatalkan pesanan di database.");
+    async function cancelOrder(id, inv) {
+        const alasan = prompt("Mohon maaf kak, alasan pembatalan?");
+        if (alasan) {
+            await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
+            window.open(`https://wa.me/6281239739396?text=Batal: ${inv}. Alasan: ${alasan}`, '_blank');
+            openActivity();
         }
-    } else if (alasan === "") {
-        alert("Alasan harus diisi ya cantik! 😊");
-    }
-}
-
-function confirmToAdmin() {
-    if (!activeTrx) return;
-    
-    let pesanWA = "";
-    const noInv = activeTrx.no_invoice;
-    const total = parseFloat(activeTrx.grand_total || 0).toLocaleString();
-
-    if (activeTrx.status_order === 'SETTLEMENT' || activeTrx.status_order === 'Sudah Bayar') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya sudah membayar pesanan *${noInv}*%0AMohon segera diproses kemas ya kak! ✨`;
-    } else if (activeTrx.status_order === 'Dibatalkan') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin bertanya mengenai pesanan *${noInv}* yang berstatus *DIBATALKAN*. Mohon informasinya ya kak. 🙏`;
-    } else if (activeTrx.status_order === 'Selesai') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0APesanan *${noInv}* sudah saya terima. Terima kasih ya kak! ✨`;
-    } else {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin konfirmasi pesanan *${noInv}* (Rp ${total}). Mohon instruksi pembayarannya kak. ✨`;
     }
 
-    window.open(`https://wa.me/6281239739396?text=${pesanWA}`, '_blank');
-}
-    function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
+    function viewDetailTrx(trx) {
+        activeTrx = trx;
+        document.getElementById('v-invoice').innerText = trx.no_invoice;
+        document.getElementById('v-status').innerText = trx.status_order;
+        document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total || 0).toLocaleString();
+        const container = document.getElementById('v-items');
+        let items = [];
+        try { items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items; } catch (e) { }
+        if (items && Array.isArray(items)) {
+            container.innerHTML = items.map(it => `
+                <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2 text-[11px]">
+                    <div class="flex-1 font-bold text-slate-700">${it.nama || it.name} (${it.qty}x)</div>
+                    <p class="font-bold text-slate-800">Rp ${(it.qty * (it.harga || 0)).toLocaleString()}</p>
+                </div>`).join('');
+        }
+        document.getElementById('trxDetailModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function confirmToAdmin() {
+        if (!activeTrx) return;
+        const text = `Halo Admin! Konfirmasi pesanan ${activeTrx.no_invoice} (Rp ${parseFloat(activeTrx.grand_total).toLocaleString()})`;
+        window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    function closeAllModals() { 
+        document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); 
+    }
 </script>
 </body>
 </html>
