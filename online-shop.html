@@ -26,6 +26,8 @@
         .profile-modal.active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
         .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
         .status-pending { background: #fee2e2; color: #ef4444; }
+        .status-dibatalkan { background: #f1f5f9; color: #64748b; }
+        .status-dikemas { background: #fff7ed; color: #ea580c; }
         .input-bloom { width: 100%; padding: 12px 15px; background: var(--soft-pink); border-radius: 15px; font-size: 14px; outline: none; border: 1px solid transparent; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -112,7 +114,7 @@
         </div>
         <div class="space-y-3">
             <input type="text" id="p-name" class="input-bloom" placeholder="Nama Lengkap">
-            <input type="text" id="p-email" class="input-bloom opacity-50" readonly title="Email tidak bisa diubah">
+            <input type="text" id="p-email" class="input-bloom opacity-50" readonly>
             <input type="number" id="p-phone" class="input-bloom" placeholder="628xxx">
             <textarea id="p-address" class="input-bloom h-20 resize-none" placeholder="Alamat Pengiriman"></textarea>
         </div>
@@ -230,23 +232,45 @@
 
     async function openActivity() {
         const { data: { user } } = await db.auth.getUser();
+
+        // AUTO-CANCEL 24 JAM
+        const batasWaktu = new Date();
+        batasWaktu.setHours(batasWaktu.getHours() - 24);
+        await db.from('transaksi_online')
+            .update({ status_order: 'Dibatalkan' })
+            .eq('customer_id', user.id)
+            .eq('status_order', 'Pending')
+            .lt('created_at', batasWaktu.toISOString());
+
         const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
         const container = document.getElementById('activityList');
+
         if (data && data.length > 0) {
             container.innerHTML = data.map(trx => {
+                const status = (trx.status_order || 'pending').toLowerCase();
                 const strData = JSON.stringify(trx).replace(/'/g, "&apos;");
+                
+                const tombolBatal = (status === 'pending') 
+                    ? `<button onclick="cancelOrder('${trx.id}', '${trx.no_invoice}')" class="text-[9px] font-bold text-red-400 border border-red-100 px-3 py-2 rounded-xl hover:bg-red-50">Batal Pesan</button>` 
+                    : '';
+
                 return `
                 <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4 text-xs">
                     <div class="flex justify-between items-start mb-2">
                         <div>
                             <p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p>
-                            <p class="text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
+                            <p class="text-slate-400 text-[10px]">${new Date(trx.created_at).toLocaleString('id-ID')}</p>
                         </div>
-                        <span class="status-badge status-${(trx.status_order || 'pending').toLowerCase()}">${trx.status_order}</span>
+                        <span class="status-badge status-${status}">${trx.status_order}</span>
                     </div>
-                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-2 mt-1">
-                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                        <button onclick='viewDetailTrx(${strData})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-wider">Detail</button>
+                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3 mt-1">
+                        <div>
+                            <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${tombolBatal}
+                            <button onclick='viewDetailTrx(${strData})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-wider">Detail</button>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
@@ -257,22 +281,24 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
-   function viewDetailTrx(trx) {
+    async function cancelOrder(trxId, invoice) {
+        if (confirm(`Apakah kamu yakin ingin membatalkan pesanan ${invoice}?`)) {
+            const { error } = await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', trxId);
+            if (!error) { alert("Pesanan dibatalkan 🌸"); openActivity(); }
+        }
+    }
+
+    function viewDetailTrx(trx) {
         activeTrx = trx;
         document.getElementById('v-invoice').innerText = trx.no_invoice;
         document.getElementById('v-status').innerText = trx.status_order;
         document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
-        
         const itemContainer = document.getElementById('v-items');
-        
         try {
-            // CEK: Jika kolom items kosong atau string "undefined"
             if (!trx.items || trx.items === "undefined") {
-                itemContainer.innerHTML = `<p class="text-center text-slate-400 text-[10px] py-4 italic">Rincian barang tidak tersedia untuk pesanan ini.</p>`;
+                itemContainer.innerHTML = `<p class="text-center text-slate-400 text-[10px] py-4 italic">Rincian tidak tersedia.</p>`;
             } else {
-                // Parse items dengan aman
                 const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-                
                 itemContainer.innerHTML = items.map(it => `
                     <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
                         <div class="flex-1">
@@ -282,11 +308,7 @@
                         <p class="font-bold text-slate-800 text-[11px]">Rp ${((it.qty || it.quantity) * (it.harga || it.price)).toLocaleString()}</p>
                     </div>`).join('');
             }
-        } catch (e) {
-            console.error("Gagal parse JSON:", e);
-            itemContainer.innerHTML = `<p class="text-center text-red-400 text-[10px] py-4 italic">Format data pesanan tidak sesuai.</p>`;
-        }
-
+        } catch (e) { itemContainer.innerHTML = `<p class="text-center text-red-400 text-[10px] py-4">Data error.</p>`; }
         document.getElementById('trxDetailModal').classList.add('active');
     }
 
@@ -322,11 +344,7 @@
             email: user.email,
             updated_at: new Date().toISOString()
         });
-        if (!error) { 
-            alert("Profil Diperbarui! ✨"); 
-            loadCustomerData(user.id);
-            closeAllModals(); 
-        }
+        if (!error) { alert("Profil Diperbarui! ✨"); loadCustomerData(user.id); closeAllModals(); }
     }
 
     function closeAllModals() {
@@ -340,11 +358,7 @@
     }
 
     async function logoutCustomer() {
-        if(confirm("Keluar dari akun?")) { 
-            localStorage.removeItem('finexcart');
-            await db.auth.signOut(); 
-            window.location.replace('login-customer.html'); 
-        }
+        if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); }
     }
 </script>
 </body>
