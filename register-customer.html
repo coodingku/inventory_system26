@@ -132,49 +132,40 @@
     btn.innerText = "Mendaftarkan...";
     btn.disabled = true;
 
-    try {
-        // 1. PROSES SIGN UP (Bikin Akun Auth)
-        const { data, error: authError } = await db.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: { full_name: fullname }
-            }
-        });
+  // ... (bagian validasi password tetap sama) ...
 
-        if (authError) throw authError;
+try {
+    // 1. DAFTARKAN KE AUTH
+    const { data: authData, error: authError } = await db.auth.signUp({
+        email: email,
+        password: password,
+    });
 
-        // CEK APAKAH USER BERHASIL DIBUAT
-        const user = data.user;
-        if (!user) throw new Error("Gagal mendapatkan data user dari Auth.");
+    if (authError) throw authError;
 
-        // 2. JEDA SEJENAK (Agar Trigger di Supabase tidak bentrok)
-        // Terkadang database butuh sekian milidetik untuk mengenali User ID baru
-        await new Promise(resolve => setTimeout(resolve, 500));
+    const user = authData.user;
+    if (!user) throw new Error("Gagal membuat akun login.");
 
-        // 3. SIMPAN PROFIL KE TABEL CUSTOMERS
-        const { error: dbError } = await db.from('customers').insert([{
-            id: user.id, // ID yang didapat dari Auth di atas
-            full_name: fullname,
-            email: email,
-            phone_number: phone,
-            address_shipping: address
-        }]);
+    // 2. SIMPAN KE TABEL CUSTOMERS (Gunakan upsert agar tidak 409)
+    const { error: dbError } = await db.from('customers').upsert([{
+        id: user.id, 
+        full_name: fullname,
+        email: email,
+        phone_number: phone, 
+        address_shipping: address,
+        created_at: new Date()
+    }], { on_conflict: 'id' });
 
-        if (dbError) {
-            // Jika gagal simpan profil, kita beri info tapi akun sudah terlanjur jadi di Auth
-            console.error("Detail Error DB:", dbError);
-            throw new Error("Gagal menyimpan profil: " + dbError.message);
-        }
+    if (dbError) throw dbError;
 
-        alert("Pendaftaran Berhasil! 🌸 Akun dan profil sudah aktif.");
-        window.location.href = 'login-customer.html';
+    alert("Pendaftaran Berhasil! 🌸 Silakan login.");
+    window.location.href = 'login-customer.html';
 
-    } catch (error) {
-        alert("Pendaftaran Gagal: " + error.message);
-        btn.innerText = "DAFTAR SEKARANG ✨";
-        btn.disabled = false;
-    }
+} catch (error) {
+    console.error("Detail Error:", error);
+    alert("Gagal: " + error.message);
+    btn.innerText = "DAFTAR SEKARANG ✨";
+    btn.disabled = false;
 }
     </script>
 </body>
