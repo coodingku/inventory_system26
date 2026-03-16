@@ -56,15 +56,38 @@
 
     <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
 
-    <div id="activityModal" class="activity-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10">
-            <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Lacak Pesanan 🚚</h2>
-            <div id="activityList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">Tutup Menu</button>
+   <div id="trxDetailModal" class="detail-modal">
+    <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
+    <div class="px-6 pb-10" id="printableArea">
+        <div class="text-center mb-6">
+            <h3 class="text-lg font-black text-slate-800">Rincian Pesanan 🌸</h3>
+            <p id="v-invoice" class="text-[10px] font-bold text-pink-400 uppercase tracking-widest"></p>
+        </div>
+        
+        <div id="v-items" class="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
+            </div>
+
+        <div class="bg-pink-50 rounded-2xl p-4 mb-6">
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Status:</span>
+                <span id="v-status" class="font-bold text-pink-500"></span>
+            </div>
+            <div class="flex justify-between text-sm pt-2 border-t border-pink-100">
+                <span class="font-bold text-slate-700">Total Bayar:</span>
+                <span id="v-total" class="font-black text-pink-500"></span>
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="confirmToAdmin()" class="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                <i class="fab fa-whatsapp"></i> KONFIRMASI WA
+            </button>
+            <button onclick="closeTrxDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-xs">
+                TUTUP
+            </button>
         </div>
     </div>
-
+</div>
     <div id="productDetailModal" class="detail-modal">
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
         <div class="px-6 pb-10 text-center">
@@ -215,8 +238,12 @@
         const { data: { user } } = await db.auth.getUser();
         const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
         const container = document.getElementById('activityList');
+        
         if (data && data.length > 0) {
-            container.innerHTML = data.map(trx => `
+            container.innerHTML = data.map(trx => {
+                // Simpan data transaksi ke dalam string JSON untuk dikirim ke fungsi detail
+                const strData = JSON.stringify(trx).replace(/'/g, "&apos;");
+                return `
                 <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4 text-xs">
                     <div class="flex justify-between items-start mb-2">
                         <div>
@@ -227,14 +254,52 @@
                     </div>
                     <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-2 mt-1">
                         <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                        <button onclick="alert('Lacak pesanan via WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
+                        <button onclick='viewDetailTrx(${strData})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-wider">Detail</button>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         } else {
             container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Belum ada pesanan 🌸</p>`;
         }
         document.getElementById('activityModal').classList.add('active');
         document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    // Fungsi menampilkan detail spesifik
+    let activeTrx = null; // Untuk menyimpan data transaksi yang sedang dilihat
+    function viewDetailTrx(trx) {
+        activeTrx = trx;
+        document.getElementById('v-invoice').innerText = trx.no_invoice;
+        document.getElementById('v-status').innerText = trx.status_order;
+        document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
+        
+        // Parse items (asumsi kolom items berisi JSON string dari keranjang)
+        const items = JSON.parse(trx.items);
+        const itemContainer = document.getElementById('v-items');
+        
+        itemContainer.innerHTML = items.map(it => `
+            <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                <div class="flex-1">
+                    <p class="font-bold text-slate-700 text-[11px]">${it.nama}</p>
+                    <p class="text-[10px] text-slate-400">${it.qty} x Rp ${it.harga.toLocaleString()}</p>
+                </div>
+                <p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p>
+            </div>
+        `).join('');
+
+        // Tampilkan modal detail
+        document.getElementById('trxDetailModal').classList.add('active');
+    }
+
+    function closeTrxDetail() {
+        document.getElementById('trxDetailModal').classList.remove('active');
+    }
+
+    function confirmToAdmin() {
+        if(!activeTrx) return;
+        const phoneAdmin = "6281234567890"; // GANTI DENGAN NOMOR ADMIN KAMU
+        const text = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin konfirmasi pesanan:%0A%0ANo Invoice: *${activeTrx.no_invoice}*%0AStatus: *${activeTrx.status_order}*%0ATotal: *Rp ${parseFloat(activeTrx.grand_total).toLocaleString()}*%0A%0AMohon bantuannya ya! ✨`;
+        window.open(`https://wa.me/${phoneAdmin}?text=${text}`, '_blank');
     }
 
     async function openProfile() {
