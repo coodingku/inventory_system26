@@ -155,6 +155,87 @@
         };
     }
 
+    // TAMBAHKAN KODE INI DI DALAM TAG <script>
+async function openActivity() {
+    const { data: { user } } = await db.auth.getUser();
+
+    // 1. AUTO-CANCEL 24 JAM (Opsional tapi bagus untuk kebersihan data)
+    const batasWaktu = new Date();
+    batasWaktu.setHours(batasWaktu.getHours() - 24);
+    await db.from('transaksi_online')
+        .update({ status_order: 'Dibatalkan' })
+        .eq('customer_id', user.id)
+        .eq('status_order', 'Pending')
+        .lt('created_at', batasWaktu.toISOString());
+
+    // 2. AMBIL DATA PESANAN
+    const { data, error } = await db.from('transaksi_online')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false });
+
+    const container = document.getElementById('activityList');
+
+    if (data && data.length > 0) {
+        container.innerHTML = data.map(trx => {
+            const status = (trx.status_order || 'pending').toLowerCase();
+            const strData = JSON.stringify(trx).replace(/'/g, "&apos;");
+            
+            return `
+            <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4 text-xs">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p>
+                        <p class="text-slate-400 text-[10px]">${new Date(trx.created_at).toLocaleString('id-ID')}</p>
+                    </div>
+                    <span class="status-badge status-${status}">${trx.status_order}</span>
+                </div>
+                <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3 mt-1">
+                    <div>
+                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick='viewDetailTrx(${strData})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-wider">Detail</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Belum ada pesanan 🌸</p>`;
+    }
+
+    // Munculkan Modalnya
+    document.getElementById('activityModal').classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+// Tambahkan juga fungsi pendukung detailnya agar tidak error saat diklik "Detail"
+function viewDetailTrx(trx) {
+    activeTrx = trx;
+    document.getElementById('v-invoice').innerText = trx.no_invoice;
+    document.getElementById('v-status').innerText = trx.status_order;
+    document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
+    
+    const itemContainer = document.getElementById('v-items');
+    try {
+        const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+        itemContainer.innerHTML = items.map(it => `
+            <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                <div class="flex-1">
+                    <p class="font-bold text-slate-700 text-[11px]">${it.nama || it.name}</p>
+                    <p class="text-[10px] text-slate-400">${it.qty || it.quantity}x</p>
+                </div>
+                <p class="font-bold text-slate-800 text-[11px]">Rp ${((it.qty || it.quantity) * (it.harga || it.price)).toLocaleString()}</p>
+            </div>`).join('');
+    } catch (e) {
+        itemContainer.innerHTML = `<p class="text-center text-red-400 text-[10px] py-4">Data rincian tidak terbaca.</p>`;
+    }
+    
+    document.getElementById('trxDetailModal').classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+    
     async function loadOnlineMenu() {
         const q = document.getElementById('search').value;
         let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
