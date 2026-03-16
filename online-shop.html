@@ -110,170 +110,77 @@
     </nav>
 
 <script>
-    let shopCart = [];
+  <script>
+    let shopCart = JSON.parse(localStorage.getItem('finexcart')) || []; // Ambil dari storage agar tidak hilang saat refresh
 
     window.onload = async () => {
         const { data: { session } } = await db.auth.getSession();
-        if (!session) window.location.replace('login-customer.html');
-        loadOnlineMenu();
+        if (!session) {
+            window.location.replace('login-customer.html');
+        } else {
+            loadCustomerData(session.user.id); // Panggil fungsi ambil nama
+            updateCartCount();
+            loadOnlineMenu();
+        }
     };
 
-   function getActivePrice(p) {
-        // 1. Ambil Harga Dasar (Online lebih prioritas)
-        let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
-        
-        // Jika saklar diskon mati, langsung kembalikan harga dasar
-        if (!p.is_diskon) return basePrice;
+    // --- 1. FUNGSI MENAMPILKAN NAMA CUSTOMER ---
+    async function loadCustomerData(userId) {
+        const { data: profile } = await db
+            .from('customers')
+            .select('full_name')
+            .eq('id', userId)
+            .single();
 
-        // 2. Ambil waktu sekarang dalam milidetik
-        const sekarang = new Date().getTime();
-
-        // 3. Konversi waktu mulai & akhir ke milidetik
-        // Kita gunakan .getTime() agar perbandingannya angka murni (millisecond)
-        const tglMulai = p.diskon_mulai ? new Date(p.diskon_mulai).getTime() : null;
-        const tglAkhir = p.diskon_akhir ? new Date(p.diskon_akhir).getTime() : null;
-
-        // 4. Logika Validasi: 
-        // Diskon aktif jika: (Tidak ada tgl mulai ATAU sudah lewat tgl mulai) 
-        // DAN (Tidak ada tgl akhir ATAU belum lewat tgl akhir)
-        const sudahMulai = !tglMulai || sekarang >= tglMulai;
-        const belumSelesai = !tglAkhir || sekarang <= tglAkhir;
-
-        const isPromo = p.is_diskon && sudahMulai && belumSelesai;
-
-        // 5. Jika Promo, potong harganya
-        if (isPromo) {
-            return basePrice - (p.nominal_diskon || 0);
+        if (profile) {
+            // Kita ganti judul "Beauty Bloom" menjadi sapaan personal
+            document.querySelector('h1.text-xl').innerText = `Halo, ${profile.full_name.split(' ')[0]}! 🌸`;
         }
-        
-        return basePrice;
-    }
-    async function loadOnlineMenu() {
-        const q = document.getElementById('search').value;
-        let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
-        if (q) query = query.ilike('nama_barang', `%${q}%`);
-        
-        const { data } = await query.order('nama_barang');
-        const display = document.getElementById('onlineDisplay');
-
-        if (!data || data.length === 0) {
-            display.innerHTML = `<div class="col-span-2 py-20 text-center text-slate-400">Produk belum tersedia 🌸</div>`;
-            return;
-        }
-
-        display.innerHTML = data.map(p => {
-            const finalPrice = getActivePrice(p);
-            const normalPrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
-            const isDiskon = finalPrice < normalPrice;
-
-            return `
-            <div class="product-card">
-                <div class="img-container" onclick="openDetail('${p.id}', '${p.nama_barang}', ${finalPrice}, ${normalPrice}, '${p.image_url}', '${p.keterangan || ''}')">
-                    <img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300?text=Beauty+Bloom'">
-                </div>
-                <div class="p-4 bg-white">
-                    <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
-                    <p class="text-[9px] text-slate-400 mb-2 truncate italic">${p.keterangan || ''}</p>
-                    <div class="flex justify-between items-center mt-1">
-                        <div>
-                            ${isDiskon ? `<p class="text-[9px] text-slate-400 line-through">Rp ${normalPrice.toLocaleString()}</p>` : ''}
-                            <p class="font-black text-[#ff85a2] text-sm">Rp ${finalPrice.toLocaleString()}</p>
-                        </div>
-                        <button onclick="addToOnlineCart('${p.id}', '${p.nama_barang}', ${finalPrice}, ${normalPrice})" class="bg-pink-50 text-[#ff85a2] w-9 h-9 rounded-xl flex items-center justify-center active:bg-pink-500 active:text-white transition-all"><i class="fas fa-plus text-xs"></i></button>
-                    </div>
-                </div>
-            </div>`}).join('');
     }
 
-  function addToOnlineCart(id, nama, hargaFinal, hargaNormal, berat) {
-    const idx = shopCart.findIndex(c => c.id === id);
-    if (idx > -1) {
-        shopCart[idx].qty++;
-    } else {
-        shopCart.push({ 
-            id, 
-            nama, 
-            harga: hargaFinal, 
-            harga_normal: hargaNormal, 
-            berat: berat || 200, // Ambil berat dari database
-            qty: 1 
-        });
-    }
-    document.getElementById('cart-count').innerText = shopCart.reduce((s, i) => s + i.qty, 0);
-}
-    function openDetail(id, nama, harga, hargaNormal, img, desc) {
-        document.getElementById('detail-name').innerText = nama;
-        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-        document.getElementById('detail-img').src = img || 'https://placehold.co/300';
-        document.getElementById('detail-desc').innerText = desc || 'Detail produk belum diisi.';
-        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga, hargaNormal); closeAllModals(); };
-        document.getElementById('productDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
+    // --- 2. LOGIKA KERANJANG BELANJA ---
+    function updateCartCount() {
+        const count = shopCart.reduce((s, i) => s + i.qty, 0);
+        document.getElementById('cart-count').innerText = count;
+        // Simpan ke localStorage supaya persisten
+        localStorage.setItem('finexcart', JSON.stringify(shopCart));
     }
 
-    async function openActivity() {
-        const { data: { user } } = await db.auth.getUser();
-        const { data } = await db.from('transaksi_online').select('*').eq('customer_id', user.id).order('created_at', { ascending: false });
-        const container = document.getElementById('activityList');
-        if (data && data.length > 0) {
-            container.innerHTML = data.map(trx => `
-                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm relative mb-4 text-xs">
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p>
-                            <p class="text-slate-400">${new Date(trx.created_at).toLocaleDateString('id-ID')}</p>
-                        </div>
-                        <span class="status-badge status-${(trx.status_order || 'pending').toLowerCase()}">${trx.status_order}</span>
-                    </div>
-                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-2 mt-1">
-                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                        <button onclick="alert('Lacak pesanan via WhatsApp konfirmasi.')" class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase">Detail</button>
-                    </div>
-                </div>`).join('');
+    function addToOnlineCart(id, nama, hargaFinal, hargaNormal, image) {
+        const idx = shopCart.findIndex(c => c.id === id);
+        if (idx > -1) {
+            shopCart[idx].qty++;
         } else {
-            container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Belum ada pesanan 🌸</p>`;
+            shopCart.push({ 
+                id, 
+                nama, 
+                harga: hargaFinal, 
+                harga_normal: hargaNormal, 
+                image: image || 'https://placehold.co/300',
+                qty: 1 
+            });
         }
-        document.getElementById('activityModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
+        updateCartCount();
+        
+        // Animasi feedback sederhana
+        const btn = event.currentTarget;
+        const originalIcon = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check text-xs"></i>';
+        setTimeout(() => btn.innerHTML = originalIcon, 1000);
     }
 
-    async function openProfile() {
-        const { data: { user } } = await db.auth.getUser();
-        const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
-        document.getElementById('p-name').value = data?.full_name || "";
-        document.getElementById('p-email').value = user.email;
-        document.getElementById('p-phone').value = data?.phone_number || "";
-        document.getElementById('p-address').value = data?.address_shipping || "";
-        document.getElementById('profileModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-
-    async function saveProfile() {
-        const { data: { user } } = await db.auth.getUser();
-        const { error } = await db.from('customers').upsert({
-            id: user.id,
-            full_name: document.getElementById('p-name').value,
-            phone_number: document.getElementById('p-phone').value,
-            address_shipping: document.getElementById('p-address').value,
-            email: user.email,
-            updated_at: new Date().toISOString()
-        });
-        if (!error) { alert("Profil Diperbarui! ✨"); closeAllModals(); }
-    }
-
-    function closeAllModals() {
-        document.querySelectorAll('.detail-modal, .activity-modal, .profile-modal, .modal-overlay').forEach(el => el.classList.remove('active'));
-    }
-
+    // Fungsi navigasi ke Checkout
     function goToCheckout() {
-        if (shopCart.length === 0) return alert("Pilih produk dulu! 🌸");
+        if (shopCart.length === 0) return alert("Keranjang belanja kamu masih kosong! 🌸");
+        // Kita gunakan sessionStorage untuk komunikasi antar halaman sesuai standar kamu
         sessionStorage.setItem('finexcart', JSON.stringify(shopCart));
         window.location.href = "online-checkout.html";
     }
 
-    async function logoutCustomer() {
-        if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); }
-    }
+    // --- SISANYA TETAP SAMA (loadOnlineMenu, getActivePrice, dll) ---
+    // Pastikan pada pemanggilan addToOnlineCart di loadOnlineMenu, tambahkan parameter image:
+    // addToOnlineCart('${p.id}', '${p.nama_barang}', ${finalPrice}, ${normalPrice}, '${p.image_url}')
+</script>
 </script>
 </body>
 </html>
