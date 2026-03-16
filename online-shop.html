@@ -410,15 +410,43 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
- function viewDetailTrx(trx) {
+async function viewDetailTrx(trx) {
     activeTrx = trx;
+    
+    // 1. Tampilkan status loading sementara saat mengecek ke server
+    document.getElementById('v-status').innerText = "MENGECEK STATUS...";
     document.getElementById('v-invoice').innerText = trx.no_invoice;
-    document.getElementById('v-status').innerText = trx.status_order;
     document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total || 0).toLocaleString();
+
+    // 2. LOGIKA CEK STATUS LIVE KE SMART-ENDPOINT
+    // Hanya cek jika status saat ini masih 'Pending'
+    if (trx.status_order.toUpperCase() === 'PENDING') {
+        try {
+            const { data: sync, error } = await db.functions.invoke('smart-endpoint', {
+                body: { 
+                    action: 'check_status', 
+                    order_id: trx.no_invoice 
+                }
+            });
+
+            if (sync && (sync.status === 'settlement' || sync.status === 'capture')) {
+                // Update variabel lokal agar UI berubah
+                trx.status_order = 'SETTLEMENT';
+                // Opsional: Refresh list pesanan di background
+                if(typeof openActivity === 'function') openActivity(); 
+            } else if (sync && sync.status === 'expire') {
+                trx.status_order = 'Dibatalkan';
+            }
+        } catch (e) {
+            console.log("Belum ada pembayaran terdeteksi di Midtrans.");
+        }
+    }
+
+    // 3. Update Text Status Akhir
+    document.getElementById('v-status').innerText = trx.status_order.toUpperCase();
     
+    // 4. Render Item Produk
     const container = document.getElementById('v-items');
-    
-    // Ambil data produk
     let items = [];
     try {
         items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
@@ -427,24 +455,25 @@
     if (items && Array.isArray(items)) {
         container.innerHTML = items.map(it => `
             <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2 text-[11px]">
-                <div class="flex-1 font-bold text-slate-700">${it.nama || it.name} (${it.qty}x)</div>
+                <div class="flex-1 font-bold text-slate-700">${it.nama || it.nama_barang || it.name} (${it.qty}x)</div>
                 <p class="font-bold text-slate-800">Rp ${(it.qty * (it.harga || 0)).toLocaleString()}</p>
             </div>`).join('');
     } else {
         container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
     }
 
-    // --- LOGIKA TOMBOL WA (SELALU MUNCUL) ---
+    // 5. LOGIKA TOMBOL WA DINAMIS
     const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
-    btnWA.style.display = "flex"; // Pastikan selalu terlihat
+    btnWA.style.display = "flex"; 
 
-    if (trx.status_order === 'SETTLEMENT' || trx.status_order === 'Sudah Bayar') {
+    const currentStatus = trx.status_order.toUpperCase();
+    if (currentStatus === 'SETTLEMENT' || currentStatus === 'SUDAH BAYAR') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
         btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (trx.status_order === 'Dibatalkan') {
+    } else if (currentStatus === 'DIBATALKAN') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
         btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (trx.status_order === 'Selesai') {
+    } else if (currentStatus === 'SELESAI') {
         btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> BELI LAGI / KOMPLAIN';
         btnWA.className = "flex-1 py-4 bg-pink-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
     } else {
