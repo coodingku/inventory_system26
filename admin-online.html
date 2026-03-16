@@ -237,6 +237,72 @@ function renderTable(data) {
         `;
     }
 
+    async function printNota(id) {
+        try {
+            // Ambil data header transaksi
+            const { data: header, error: hError } = await db.from('transaksi_online').select('*').eq('id', id).single();
+            // Ambil data detail barang
+            const { data: items, error: iError } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
+            
+            if (hError || !header) return alert("Data nota tidak ditemukan!");
+
+            const printWindow = window.open('', '_blank');
+            
+            // Buat baris barang untuk tabel nota
+            let itemHtml = items.map(i => `
+                <tr>
+                    <td style="padding: 5px 0;">
+                        ${i.nama_barang}<br>
+                        <small>${i.qty} x Rp ${parseFloat(i.harga_satuan).toLocaleString()}</small>
+                    </td>
+                    <td style="text-align:right; vertical-align:top; padding: 5px 0;">
+                        Rp ${(i.qty * i.harga_satuan).toLocaleString()}
+                    </td>
+                </tr>`).join('');
+
+            // Desain struk thermal (lebar 70-80mm)
+            printWindow.document.write(`
+                <html>
+                <head><title>Print Nota - ${header.no_invoice}</title></head>
+                <body style="font-family: 'Courier New', Courier, monospace; width: 70mm; padding: 5px; font-size: 12px; color: #000;">
+                    <center>
+                        <strong style="font-size: 16px;">FINEX BEAUTY BLOOM 🌸</strong><br>
+                        Nota Pesanan Online<br>
+                        --------------------------------
+                    </center>
+                    Nota : ${header.no_invoice}<br>
+                    Tgl  : ${new Date(header.created_at).toLocaleString('id-ID')}<br>
+                    Cust : ${header.nama_penerima}<br>
+                    --------------------------------
+                    <table style="width:100%; border-collapse: collapse;">
+                        ${itemHtml}
+                        <tr><td colspan="2">--------------------------------</td></tr>
+                        <tr>
+                            <td>Ongkir:</td>
+                            <td style="text-align:right">Rp ${parseFloat(header.ongkos_kirim || 0).toLocaleString()}</td>
+                        </tr>
+                        <tr style="font-weight:bold; font-size: 14px;">
+                            <td>TOTAL:</td>
+                            <td style="text-align:right">Rp ${parseFloat(header.grand_total).toLocaleString()}</td>
+                        </tr>
+                    </table>
+                    --------------------------------
+                    <center><br>Terima kasih sudah belanja cantik!<br>IG: @finexbeautybloom</center>
+                    <script>
+                        window.onload = function() { 
+                            window.print(); 
+                            setTimeout(function(){ window.close(); }, 500); 
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        } catch (e) {
+            alert("Gagal print: " + e.message);
+        }
+    }
+
     
 
     function sendWA(phone, name, inv, status) {
