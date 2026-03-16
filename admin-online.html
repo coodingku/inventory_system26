@@ -219,6 +219,22 @@ function renderTable(data) {
         return `<span class="text-slate-300 text-[10px] font-bold">DITUTUP</span>`;
     }
 
+    function sendWA(phone, name, inv, status) {
+        if (!phone) return alert("Nomor WhatsApp tidak ditemukan!");
+        
+        // Membersihkan nomor (menghilangkan spasi/strip)
+        let cleanPhone = phone.replace(/[^0-9]/g, "");
+        
+        // Pastikan awalan 62
+        if (cleanPhone.startsWith("0")) {
+            cleanPhone = "62" + cleanPhone.slice(1);
+        }
+
+        const msg = `Halo Kak ${name}, kami dari *Finex Beauty Bloom* 🌸\n\nMau menginfokan pesanan *${inv}* saat ini statusnya: *${status.toUpperCase()}*.\n\nTerima kasih sudah belanja cantik! ✨`;
+        
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
     async function updateStatus(id, statusBaru) {
         let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
         if (statusBaru === 'Dibatalkan') confirmText = "⚠️ APAKAH ANDA YAKIN INGIN MEMBATALKAN PESANAN INI?";
