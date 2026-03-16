@@ -257,20 +257,36 @@
         document.getElementById('modalOverlay').classList.add('active');
     }
 
-    function viewDetailTrx(trx) {
+   function viewDetailTrx(trx) {
         activeTrx = trx;
         document.getElementById('v-invoice').innerText = trx.no_invoice;
         document.getElementById('v-status').innerText = trx.status_order;
         document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total).toLocaleString();
-        const items = JSON.parse(trx.items);
-        document.getElementById('v-items').innerHTML = items.map(it => `
-            <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
-                <div class="flex-1">
-                    <p class="font-bold text-slate-700 text-[11px]">${it.nama}</p>
-                    <p class="text-[10px] text-slate-400">${it.qty} x Rp ${it.harga.toLocaleString()}</p>
-                </div>
-                <p class="font-bold text-slate-800 text-[11px]">Rp ${(it.qty * it.harga).toLocaleString()}</p>
-            </div>`).join('');
+        
+        const itemContainer = document.getElementById('v-items');
+        
+        try {
+            // CEK: Jika kolom items kosong atau string "undefined"
+            if (!trx.items || trx.items === "undefined") {
+                itemContainer.innerHTML = `<p class="text-center text-slate-400 text-[10px] py-4 italic">Rincian barang tidak tersedia untuk pesanan ini.</p>`;
+            } else {
+                // Parse items dengan aman
+                const items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+                
+                itemContainer.innerHTML = items.map(it => `
+                    <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-700 text-[11px]">${it.nama || it.name || 'Produk'}</p>
+                            <p class="text-[10px] text-slate-400">${it.qty || it.quantity} x Rp ${(it.harga || it.price).toLocaleString()}</p>
+                        </div>
+                        <p class="font-bold text-slate-800 text-[11px]">Rp ${((it.qty || it.quantity) * (it.harga || it.price)).toLocaleString()}</p>
+                    </div>`).join('');
+            }
+        } catch (e) {
+            console.error("Gagal parse JSON:", e);
+            itemContainer.innerHTML = `<p class="text-center text-red-400 text-[10px] py-4 italic">Format data pesanan tidak sesuai.</p>`;
+        }
+
         document.getElementById('trxDetailModal').classList.add('active');
     }
 
