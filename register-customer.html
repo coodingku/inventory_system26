@@ -87,10 +87,17 @@
                     class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm resize-none"></textarea>
             </div>
 
-            <div>
-                <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Password</label>
-                <input type="password" id="password" placeholder="Minimal 6 karakter" 
-                    class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Password</label>
+                    <input type="password" id="password" placeholder="Minimal 6 karakter" 
+                        class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-pink-400 ml-2 uppercase">Konfirmasi</label>
+                    <input type="password" id="confirm-password" placeholder="Ulangi password" 
+                        class="input-bloom w-full p-3.5 rounded-2xl outline-none text-slate-700 text-sm">
+                </div>
             </div>
         </div>
 
@@ -111,21 +118,29 @@
             const phone = document.getElementById('phone').value;
             const address = document.getElementById('address').value;
             const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
             const btn = document.getElementById('btnRegister');
 
-            if (!fullname || !email || !password || !phone || !address) {
+            // 1. Validasi Input Kosong
+            if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
                 return alert("Tolong lengkapi semua data ya Cantik! 🌸");
             }
 
+            // 2. Validasi Panjang Password
             if (password.length < 6) {
                 return alert("Password minimal 6 karakter ya!");
+            }
+
+            // 3. Validasi Kesesuaian Password
+            if (password !== confirmPassword) {
+                return alert("Ups! Konfirmasi password tidak cocok. Pastikan keduanya sama ya! ❌");
             }
 
             btn.innerText = "Mendaftarkan...";
             btn.disabled = true;
 
             try {
-                // 1. DAFTARKAN KE AUTH (Supabase Authentication)
+                // 1. DAFTARKAN KE AUTH
                 const { data: authData, error: authError } = await db.auth.signUp({
                     email: email,
                     password: password,
@@ -140,7 +155,6 @@
                 if (authError) throw authError;
 
                 // 2. SIMPAN KE TABEL DATABASE 'users'
-                // Pastikan kolom di tabel 'users' adalah: id, full_name, email, phone, address
                 const { error: dbError } = await db.from('users').insert([{
                     id: authData.user.id, 
                     full_name: fullname,
