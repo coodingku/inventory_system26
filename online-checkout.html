@@ -47,13 +47,13 @@
                     <span id="txt-ongkir" class="text-slate-600 font-bold">Rp 0</span>
                 </div>
 
-                <div id="row-diskon-khusus" class="flex justify-between items-center mb-3 hidden">
-                    <div class="flex flex-col">
-                        <span class="text-pink-600 text-[10px] font-black uppercase tracking-wider">Diskon Member Khusus 🎁</span>
-                        <span class="text-[8px] text-slate-400 font-bold italic">Otomatis Aktif (Sudah 5x Belanja > 200rb)</span>
-                    </div>
-                    <span id="txt-diskon-member" class="text-pink-600 font-black">- Rp 0</span>
-                </div>
+               <div id="row-diskon-khusus" class="flex justify-between items-center mb-3 hidden">
+    <div class="flex flex-col">
+        <span class="text-pink-600 text-[10px] font-black uppercase tracking-wider">Loyalty Reward Member 🎁</span>
+        <span id="txt-syarat-info" class="text-[8px] text-slate-400 font-bold italic">Otomatis Aktif</span>
+    </div>
+    <span id="txt-diskon-member" class="text-pink-600 font-black">- Rp 0</span>
+</div>
 
                 <div class="flex justify-between items-end border-t border-slate-50 pt-3">
                     <div>
@@ -194,25 +194,28 @@ async function checkLoyaltyAutomatically(userId) {
             const isSiklusReward = (totalValidCount > 0 && totalValidCount % targetCount === 0);
 
             // JIKA masuk siklus DAN belanjaan sekarang cukup nominalnya: BERI DISKON
-            if (isSiklusReward && currentSubtotal >= minNominal) {
-                diskonLoyalty = discountAmount;
-                
-                document.getElementById('row-diskon-khusus').classList.remove('hidden');
-                document.getElementById('txt-syarat-info').innerText = `Loyalty Reward Belanja ke-${totalValidCount + 1} ✨`;
-                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
-                
-                console.log("Siklus Terdeteksi! Member berhak dapat diskon.");
-            } 
-            // JIKA TIDAK: HARGA TETAP SEPERTI BIASA
-            else {
-                diskonLoyalty = 0;
-                document.getElementById('row-diskon-khusus').classList.add('hidden');
-                console.log("Harga Normal (Syarat target/nominal belum terpenuhi).");
-            }
+         // ... (bagian atas tetap sama) ...
 
-            // Selalu update tampilan total akhir
-            updateTotalDisplay();
+        if (isSiklusReward && currentSubtotal >= minNominal) {
+            diskonLoyalty = discountAmount;
+            
+            const rowEl = document.getElementById('row-diskon-khusus');
+            const infoEl = document.getElementById('txt-syarat-info');
+            const diskonEl = document.getElementById('txt-diskon-member');
 
+            // Cek dulu apakah elemennya ada, baru isi datanya
+            if (rowEl) rowEl.classList.remove('hidden');
+            if (infoEl) infoEl.innerText = `Loyalty Reward Belanja ke-${totalValidCount + 1} ✨`;
+            if (diskonEl) diskonEl.innerText = "- Rp " + diskonLoyalty.toLocaleString();
+            
+            console.log("Siklus Terdeteksi! Diskon terpasang.");
+        } else {
+            diskonLoyalty = 0;
+            const rowEl = document.getElementById('row-diskon-khusus');
+            if (rowEl) rowEl.classList.add('hidden');
+        }
+
+        updateTotalDisplay();
         } catch (err) {
             console.error("Loyalty System Error:", err);
         }
