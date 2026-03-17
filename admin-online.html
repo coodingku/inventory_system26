@@ -217,43 +217,44 @@
         return `<div class="flex justify-center items-center gap-2">${btnPrint} ${btnUtama} ${btnBatal}</div>`;
     }
 
-  async function updateStatus(id, statusBaru) {
+async function updateStatus(id, statusBaru) {
     let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
-    if (statusBaru === 'Dibatalkan') confirmText = "⚠️ BATALKAN PESANAN? (Saldo akan direfund otomatis jika status sudah Terbayar/Dikemas)";
+    if (statusBaru === 'Dibatalkan') {
+        confirmText = "⚠️ BATALKAN PESANAN?\n\nDana akan dikembalikan ke Saldo Akun jika status pesanan saat ini sudah melewati tahap PENDING.";
+    }
+    
     if (!confirm(confirmText)) return;
 
     try {
-        // 1. Ambil data transaksi saat ini (untuk cek status lama & metode bayar)
+        // 1. Ambil data transaksi saat ini
         const { data: trx, error: errTrx } = await db.from('transaksi_online').select('*').eq('id', id).single();
         if (errTrx) throw errTrx;
 
-        // Simpan status lama sebelum diupdate
         const statusLama = trx.status_order;
 
-        // 2. LOGIKA REFUND KHUSUS PEMBATALAN
+        // 2. LOGIKA REFUND OTOMATIS SAAT PEMBATALAN
         if (statusBaru === 'Dibatalkan') {
             
-            /* KUNCI PERBAIKAN: 
-               Refund hanya diproses jika:
-               - Metode bayarnya Saldo Akun (atau Manual tanpa snap_token)
-               - DAN status pesanan saat ini BUKAN 'Pending' (artinya sudah lunas/dikemas/dikirim)
-            */
-            const isSaldo = (trx.kurir === 'Saldo Akun' || (trx.kurir === 'Manual' && !trx.snap_token));
-            const sudahBayar = (statusLama !== 'Pending');
-
-            if (isSaldo && sudahBayar) {
-                console.log("Status sah untuk refund: ", statusLama);
+            // SYARAT REFUND: Status lama BUKAN 'Pending' (Berarti sudah lunas/dikemas/dikirim)
+            if (statusLama !== 'Pending' && statusLama !== 'Dibatalkan') {
                 
+                console.log("Memulai refund otomatis karena status awal adalah:", statusLama);
+                
+                // Ambil saldo terbaru customer
                 const { data: profile } = await db.from('customers').select('saldo').eq('id', trx.customer_id).single();
+                
                 if (profile) {
                     const nominalRefund = Number(trx.grand_total);
+                    const saldoBaru = Number(profile.saldo || 0) + nominalRefund;
+
+                    // Update Saldo Customer (Refund ke Akun)
                     const { error: errRefund } = await db.from('customers').update({ 
-                        saldo: Number(profile.saldo) + nominalRefund 
+                        saldo: saldoBaru 
                     }).eq('id', trx.customer_id);
 
                     if (errRefund) throw new Error("Gagal refund saldo. Cek RLS!");
 
-                    // Catat riwayat refund agar transparan
+                    // Masukkan ke riwayat mutasi sebagai REFUND
                     await db.from('topup_history').insert([{ 
                         no_invoice: 'REFUND-' + trx.no_invoice, 
                         customer_id: trx.customer_id, 
@@ -261,10 +262,10 @@
                         status: 'SUCCESS' 
                     }]);
                     
-                    alert(`Pesanan ${statusLama} dibatalkan. Saldo Rp ${nominalRefund.toLocaleString()} telah dikembalikan. 🌸`);
+                    alert(`Pesanan (${statusLama}) berhasil dibatalkan. Dana Rp ${nominalRefund.toLocaleString()} telah dikembalikan ke Saldo Akun customer. 🌸`);
                 }
-            } else if (isSaldo && !sudahBayar) {
-                alert("Pesanan masih PENDING dibatalkan. Tidak ada refund karena belum ada pembayaran sah. ✨");
+            } else {
+                console.log("Batal tanpa refund karena status masih Pending.");
             }
         }
 
@@ -276,7 +277,7 @@
         await db.from('transaksi_online_log').insert([{ 
             transaksi_id: id, 
             status: statusBaru, 
-            keterangan: `Update dari ${statusLama} ke ${statusBaru}` 
+            keterangan: `Update dari ${statusLama} ke ${statusBaru} (Refund Checked)` 
         }]);
 
         alert("Status Berhasil Diperbarui! ✨");
