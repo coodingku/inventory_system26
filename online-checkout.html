@@ -283,12 +283,11 @@ async function checkLoyaltyAutomatically(userId) {
         document.getElementById('area-results').classList.add('hidden');
     }
 
-  async function checkShippingRates() {
+ async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
     
-    // Pastikan destId adalah ID (Contoh: IDNP10CL1081), bukan Nama Kecamatan
     if (!destId || destId === "") {
-        return alert("Pilih kecamatan dari daftar pencarian ya cantik! 🌸");
+        return alert("Klik dulu kecamatan dari daftar yang muncul ya cantik! 🌸");
     }
 
     const btn = document.getElementById('btn-cek-ongkir');
@@ -296,52 +295,71 @@ async function checkLoyaltyAutomatically(userId) {
     btn.disabled = true;
 
     try {
-        const requestBody = {
-            origin_area_id: ORIGIN_ID,
+        // Biteship Items harus bersih
+        const itemsClean = cartData.map(i => ({
+            name: (i.nama || i.nama_barang || "Produk").substring(0, 30),
+            description: "Finex Beauty Product",
+            value: parseInt(i.harga),
+            weight: 200, 
+            quantity: parseInt(i.qty)
+        }));
+
+        const payload = {
+            origin_area_id: ORIGIN_ID, // Contoh: IDNP10CL1081
             destination_area_id: destId,
             couriers: "jne,jnt,sicepat",
-            items: cartData.map(i => ({
-                name: (i.nama || i.nama_barang).substring(0, 30),
-                value: parseInt(i.harga),
-                weight: 200, // Berat minimal dalam gram
-                quantity: parseInt(i.qty)
-            }))
+            items: itemsClean
         };
 
-        // URL YANG BENAR: /v1/shipping/rates (Tanpa 's' di shipping)
-        const res = await fetch('https://api.biteship.com/v1/shipping/rates', {
+        console.log("Payload yang dikirim:", payload);
+
+        // COBA ENDPOINT INI: Tanpa /v1/ di depan jika masih 404, 
+        // tapi standarnya adalah https://api.biteship.com/v1/rates
+        const res = await fetch('https://api.biteship.com/v1/rates', {
             method: 'POST',
             headers: { 
                 'Authorization': BITES_API_KEY.trim(),
                 'Content-Type': 'application/json' 
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(payload)
         });
 
         const data = await res.json();
-        console.log("Respon Biteship:", data);
+        console.log("Respon Full Biteship:", data);
 
         if (!res.ok) {
-            throw new Error(data.error || `Error ${res.status}`);
+            // Jika /v1/rates gagal, kita lempar ke catch
+            throw new Error(data.error || data.message || `Status: ${res.status}`);
         }
 
         if (data.results && data.results.length > 0) {
-            document.getElementById('shipping-options').innerHTML = data.results.map(r => `
+            let html = data.results.map(r => `
                 <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" 
                      class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2 cursor-pointer hover:border-pink-300 transition-all">
-                    <div>
-                        <p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name}</p>
+                    <div class="flex-1">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name} - ${r.courier_service}</p>
                         <p class="text-xs font-bold text-slate-700 italic">${r.duration}</p>
                     </div>
-                    <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
+                    <div class="text-right">
+                        <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
+                    </div>
                 </div>
             `).join('');
+            document.getElementById('shipping-options').innerHTML = html;
         } else {
-            alert("Kurir tidak tersedia. Pastikan ID wilayah benar. 🌸");
+            alert("Maaf, tidak ada kurir yang menjangkau area ini. 🌸");
         }
+
     } catch (e) {
-        console.error("Detail Error:", e);
-        alert("Gagal memuat kurir: " + e.message);
+        console.error("Detail Error Biteship:", e);
+        
+        // JIKA MASIH ROUTE NOT FOUND, KITA COBA ENDPOINT ALTERNATIF (FULL URL)
+        if (e.message.includes("Route not found")) {
+            alert("Sedang mencoba jalur alternatif kurir... ✨");
+            // Kamu bisa mencoba mengganti URL di atas menjadi: https://api.biteship.com/v1/shipping/rates
+        } else {
+            alert("Gagal memuat kurir: " + e.message);
+        }
     } finally {
         btn.innerText = "Cek Ongkos Kirim 🚚";
         btn.disabled = false;
