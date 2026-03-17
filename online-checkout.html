@@ -265,24 +265,37 @@ async function checkLoyaltyAutomatically(userId) {
     }
 
     async function searchArea(query) {
-        const box = document.getElementById('area-results');
-        if (query.length < 3) return box.classList.add('hidden');
-        try {
-            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, { headers: { 'Authorization': BITES_API_KEY.trim() } });
-            const data = await res.json();
-            if (data.areas) {
-                box.innerHTML = data.areas.map(a => `<div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-xs">${a.name}</div>`).join('');
-                box.classList.remove('hidden');
-            }
-        } catch (e) {}
-    }
+    const box = document.getElementById('area-results');
+    if (query.length < 3) return box.classList.add('hidden');
+    
+    try {
+        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, { 
+            headers: { 'Authorization': BITES_API_KEY.trim() } 
+        });
+        const data = await res.json();
+        
+        if (data.areas && data.areas.length > 0) {
+            box.innerHTML = data.areas.map(a => `
+                <div onclick="selectArea('${a.id}', '${a.name}')" 
+                     class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
+                    ${a.name}
+                </div>
+            `).join('');
+            box.classList.remove('hidden');
+        } else {
+            box.innerHTML = `<div class="p-4 text-slate-400 italic text-[11px]">Kecamatan tidak ditemukan...</div>`;
+            box.classList.remove('hidden');
+        }
+    } catch (e) { console.error("Gagal cari area:", e); }
+}
 
-    function selectArea(id, name) {
-        document.getElementById('destination-id').value = id;
-        document.getElementById('destination-search').value = name;
-        document.getElementById('area-results').classList.add('hidden');
-    }
-
+function selectArea(id, name) {
+    // KUNCI: Pastikan id yang masuk ke sini adalah ID bersih seperti 'IDNP10CL1081'
+    document.getElementById('destination-id').value = id; 
+    document.getElementById('destination-search').value = name;
+    document.getElementById('area-results').classList.add('hidden');
+    console.log("Area dipilih:", name, "ID:", id);
+}
  async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
     
