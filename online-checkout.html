@@ -264,7 +264,7 @@ async function checkLoyaltyAutomatically(userId) {
         document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
     }
 
-    async function searchArea(query) {
+  async function searchArea(query) {
     const box = document.getElementById('area-results');
     if (query.length < 3) return box.classList.add('hidden');
     
@@ -275,6 +275,7 @@ async function checkLoyaltyAutomatically(userId) {
         const data = await res.json();
         
         if (data.areas && data.areas.length > 0) {
+            // KITA HANYA AMBIL .id NYA SAJA
             box.innerHTML = data.areas.map(a => `
                 <div onclick="selectArea('${a.id}', '${a.name}')" 
                      class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
@@ -282,19 +283,17 @@ async function checkLoyaltyAutomatically(userId) {
                 </div>
             `).join('');
             box.classList.remove('hidden');
-        } else {
-            box.innerHTML = `<div class="p-4 text-slate-400 italic text-[11px]">Kecamatan tidak ditemukan...</div>`;
-            box.classList.remove('hidden');
         }
-    } catch (e) { console.error("Gagal cari area:", e); }
+    } catch (e) { console.log("Gagal cari area"); }
 }
 
 function selectArea(id, name) {
-    // KUNCI: Pastikan id yang masuk ke sini adalah ID bersih seperti 'IDNP10CL1081'
+    // Memastikan ID yang masuk tidak mengandung karakter aneh
     document.getElementById('destination-id').value = id; 
     document.getElementById('destination-search').value = name;
     document.getElementById('area-results').classList.add('hidden');
-    console.log("Area dipilih:", name, "ID:", id);
+    
+    console.log("ID TUJUAN TERPILIH:", id); // Cek di console, harusnya pendek (sekitar 12-15 karakter)
 }
  async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
@@ -328,17 +327,14 @@ function selectArea(id, name) {
 
         // COBA ENDPOINT INI: Tanpa /v1/ di depan jika masih 404, 
         // tapi standarnya adalah https://api.biteship.com/v1/rates
-        const res = await fetch('https://api.biteship.com/v1/rates', {
-            method: 'POST',
-            headers: { 
-                'Authorization': BITES_API_KEY.trim(),
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-        console.log("Respon Full Biteship:", data);
+       const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
+    method: 'POST',
+    headers: { 
+        'Authorization': BITES_API_KEY.trim(),
+        'Content-Type': 'application/json' 
+    },
+    body: JSON.stringify(payload) // Pastikan variabel namanya 'payload'
+});
 
         if (!res.ok) {
             // Jika /v1/rates gagal, kita lempar ke catch
