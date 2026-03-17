@@ -24,7 +24,7 @@
         .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
 
         .card-table { border-radius: 30px; }
-        .btn-action { transition: all 0.2s active:scale-95; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
 
         @media print {
             aside, header, .filter-section, .no-print { display: none !important; }
@@ -41,7 +41,7 @@
             <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Beauty Bloom POS</p>
         </div>
 
-        <nav class="flex-1 sidebar-nav overflow-y-auto">
+        <nav class="flex-1 sidebar-nav overflow-y-auto no-scrollbar">
             <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
             <a href="dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 text-slate-500 font-bold text-sm">
                 <i class="fas fa-chart-pie w-5"></i> Dashboard
@@ -54,6 +54,9 @@
             </a>
             <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 text-slate-500 font-bold text-sm">
                 <i class="fas fa-users w-5"></i> Data Customer
+            </a>
+            <a href="pengaturan-poin.html" class="sidebar-link flex items-center gap-3 px-4 py-3 text-slate-500 font-bold text-sm">
+                <i class="fas fa-gift w-5"></i> Pengaturan Poin
             </a>
         </nav>
 
@@ -153,7 +156,7 @@
         renderTable(data);
     }
 
-function renderTable(data) {
+    function renderTable(data) {
         const container = document.getElementById('orderList');
         container.innerHTML = data.map(trx => {
             const s = trx.status_order;
@@ -165,7 +168,6 @@ function renderTable(data) {
                 <td class="px-8 py-6">
                     <p class="font-black text-slate-800 text-sm mb-0.5">${trx.no_invoice}</p>
                     <p class="text-xs text-slate-500 font-bold uppercase">${trx.nama_penerima || 'Tanpa Nama'}</p>
-                    
                     <div class="flex flex-col gap-1 mt-2 no-print">
                         <p class="text-[10px] text-slate-400 font-bold"><i class="fas fa-phone-alt"></i> ${trx.wa_penerima || '-'}</p>
                         <button onclick="sendWA('${trx.wa_penerima}', '${trx.nama_penerima}', '${trx.no_invoice}', '${trx.status_order}')" 
@@ -173,7 +175,6 @@ function renderTable(data) {
                             <i class="fab fa-whatsapp"></i> HUBUNGI CUSTOMER
                         </button>
                     </div>
-
                     <p class="text-[10px] text-pink-500 font-black mt-2 italic">Total: Rp ${total}</p>
                     <p class="text-[9px] text-slate-400 mt-2">${new Date(trx.created_at).toLocaleString('id-ID')}</p>
                 </td>
@@ -192,277 +193,104 @@ function renderTable(data) {
         }).join('');
     }
 
-   function renderActionButton(trx) {
+    function renderActionButton(trx) {
         const s = trx.status_order;
         const id = trx.id;
-        
-        // 1. Tombol Batal (Muncul selama status bukan Selesai/Dibatalkan)
         const canCancel = (s !== 'Selesai' && s !== 'Dibatalkan');
         const btnBatal = canCancel ? `
             <button onclick="updateStatus('${id}', 'Dibatalkan')" class="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm" title="Batalkan">
                 <i class="fas fa-times text-xs"></i>
             </button>` : '';
 
-        // 2. Tombol Print Nota (Selalu muncul untuk membantu admin cetak invoice)
         const btnPrint = `
             <button onclick="printNota('${id}')" class="bg-slate-100 text-slate-600 w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-pink-100 transition-all shadow-sm" title="Cetak Nota">
                 <i class="fas fa-print text-xs"></i>
             </button>`;
 
         let btnUtama = '';
+        if (s === 'Pending') btnUtama = `<button onclick="updateStatus('${id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Kemas Manual</button>`;
+        else if (s === 'PROSES' || s === 'Dikemas') btnUtama = `<button onclick="updateStatus('${id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase italic">Kirim Barang</button>`;
+        else if (s === 'Dikirim') btnUtama = `<button onclick="updateStatus('${id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Selesaikan</button>`;
+        else if (s === 'Selesai') btnUtama = `<div class="text-green-500 font-black text-[9px] uppercase tracking-widest"><i class="fas fa-check-double"></i> Berhasil</div>`;
+        else btnUtama = `<span class="text-slate-300 text-[10px] font-bold tracking-widest italic uppercase">Tutup</span>`;
 
-        // 3. Logika Tombol Alur Kerja
-        if (s === 'Pending') {
-            btnUtama = `<button onclick="updateStatus('${id}', 'Dikemas')" class="bg-slate-900 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Kemas Manual</button>`;
-        }
-        else if (s === 'PROSES' || s === 'Dikemas') {
-            btnUtama = `<button onclick="updateStatus('${id}', 'Dikirim')" class="bg-blue-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase italic">Kirim Barang</button>`;
-        }
-        else if (s === 'Dikirim') {
-            btnUtama = `<button onclick="updateStatus('${id}', 'Selesai')" class="bg-green-500 text-white text-[10px] font-black px-5 py-3 rounded-2xl shadow-lg uppercase">Selesaikan</button>`;
-        }
-        else if (s === 'Selesai') {
-            btnUtama = `<div class="flex items-center gap-1 text-green-500 font-black text-[9px] uppercase"><i class="fas fa-check-double"></i> Transaksi Berhasil</div>`;
-        } else {
-            btnUtama = `<span class="text-slate-300 text-[10px] font-bold">DITUTUP</span>`;
-        }
+        return `<div class="flex justify-center items-center gap-2">${btnPrint} ${btnUtama} ${btnBatal}</div>`;
+    }
 
-        // Gabungkan semua tombol agar tampil sejajar
-        return `
-            <div class="flex justify-center items-center gap-2">
-                ${btnPrint}
-                ${btnUtama}
-                ${btnBatal}
-            </div>
-        `;
+    async function updateStatus(id, statusBaru) {
+        let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
+        if (statusBaru === 'Dibatalkan') confirmText = "⚠️ BATALKAN PESANAN? (Saldo akan direfund otomatis jika bayar pakai Saldo)";
+        if (!confirm(confirmText)) return;
+
+        try {
+            const { data: trx, error: errTrx } = await db.from('transaksi_online').select('*').eq('id', id).single();
+            if (errTrx) throw errTrx;
+
+            // REFUND LOGIC
+            if (statusBaru === 'Dibatalkan') {
+                const isSaldo = (trx.kurir === 'Saldo Akun' || (trx.kurir === 'Manual' && !trx.snap_token));
+                if (isSaldo) {
+                    const { data: profile } = await db.from('customers').select('saldo').eq('id', trx.customer_id).single();
+                    if (profile) {
+                        const nominalRefund = Number(trx.grand_total);
+                        const { error: errRefund } = await db.from('customers').update({ saldo: Number(profile.saldo) + nominalRefund }).eq('id', trx.customer_id);
+                        if (errRefund) throw new Error("Gagal refund saldo. Cek RLS!");
+                        await db.from('topup_history').insert([{ no_invoice: 'REFUND-' + trx.no_invoice, customer_id: trx.customer_id, nominal: nominalRefund, status: 'SUCCESS' }]);
+                    }
+                }
+            }
+
+            const { error: errUpdate } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
+            if (errUpdate) throw errUpdate;
+
+            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: 'Update via Admin' }]);
+            alert("Berhasil diperbarui! ✨");
+            loadOrders();
+        } catch (err) { alert("Gagal: " + err.message); }
     }
 
     async function printNota(id) {
         try {
-            // Ambil data header transaksi
-            const { data: header, error: hError } = await db.from('transaksi_online').select('*').eq('id', id).single();
-            // Ambil data detail barang
-            const { data: items, error: iError } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
-            
-            if (hError || !header) return alert("Data nota tidak ditemukan!");
-
+            const { data: header } = await db.from('transaksi_online').select('*').eq('id', id).single();
+            const { data: items } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
+            if (!header) return alert("Data tidak ada!");
             const printWindow = window.open('', '_blank');
-            
-            // Buat baris barang untuk tabel nota
-            let itemHtml = items.map(i => `
-                <tr>
-                    <td style="padding: 5px 0;">
-                        ${i.nama_barang}<br>
-                        <small>${i.qty} x Rp ${parseFloat(i.harga_satuan).toLocaleString()}</small>
-                    </td>
-                    <td style="text-align:right; vertical-align:top; padding: 5px 0;">
-                        Rp ${(i.qty * i.harga_satuan).toLocaleString()}
-                    </td>
-                </tr>`).join('');
-
-            // Desain struk thermal (lebar 70-80mm)
-            printWindow.document.write(`
-                <html>
-                <head><title>Print Nota - ${header.no_invoice}</title></head>
-                <body style="font-family: 'Courier New', Courier, monospace; width: 70mm; padding: 5px; font-size: 12px; color: #000;">
-                    <center>
-                        <strong style="font-size: 16px;">FINEX BEAUTY BLOOM 🌸</strong><br>
-                        Nota Pesanan Online<br>
-                        --------------------------------
-                    </center>
-                    Nota : ${header.no_invoice}<br>
-                    Tgl  : ${new Date(header.created_at).toLocaleString('id-ID')}<br>
-                    Cust : ${header.nama_penerima}<br>
-                    --------------------------------
-                    <table style="width:100%; border-collapse: collapse;">
-                        ${itemHtml}
-                        <tr><td colspan="2">--------------------------------</td></tr>
-                        <tr>
-                            <td>Ongkir:</td>
-                            <td style="text-align:right">Rp ${parseFloat(header.ongkos_kirim || 0).toLocaleString()}</td>
-                        </tr>
-                        <tr style="font-weight:bold; font-size: 14px;">
-                            <td>TOTAL:</td>
-                            <td style="text-align:right">Rp ${parseFloat(header.grand_total).toLocaleString()}</td>
-                        </tr>
-                    </table>
-                    --------------------------------
-                    <center><br>Terima kasih sudah belanja cantik!<br>IG: @finexbeautybloom</center>
-                    <script>
-                        window.onload = function() { 
-                            window.print(); 
-                            setTimeout(function(){ window.close(); }, 500); 
-                        }
-                    <\/script>
-                </body>
-                </html>
-            `);
+            let itm = items.map(i => `<tr><td style="padding:5px 0">${i.nama_barang}<br><small>${i.qty}x Rp ${i.harga_satuan.toLocaleString()}</small></td><td style="text-align:right">Rp ${(i.qty*i.harga_satuan).toLocaleString()}</td></tr>`).join('');
+            printWindow.document.write(`<html><body style="font-family:monospace;width:70mm;padding:5px;font-size:12px;"><center><strong>FINEX BEAUTY BLOOM</strong><br>Online Nota<br>---</center>Nota: ${header.no_invoice}<br>Tgl: ${new Date(header.created_at).toLocaleString('id-ID')}<br>Cust: ${header.nama_penerima}<br>---<table style="width:100%">${itm}</table>---<br>Ongkir: Rp ${parseFloat(header.ongkos_kirim||0).toLocaleString()}<br><strong>TOTAL: Rp ${parseFloat(header.grand_total).toLocaleString()}</strong><br><br><center>Terima kasih! ✨</center><script>window.onload=()=>{window.print();setTimeout(()=>{window.close()},500)}<\/script></body></html>`);
             printWindow.document.close();
-        } catch (e) {
-            alert("Gagal print: " + e.message);
-        }
+        } catch (e) { alert("Gagal print"); }
     }
-
-    
 
     function sendWA(phone, name, inv, status) {
-        if (!phone) return alert("Nomor WhatsApp tidak ditemukan!");
-        
-        // Membersihkan nomor (menghilangkan spasi/strip)
-        let cleanPhone = phone.replace(/[^0-9]/g, "");
-        
-        // Pastikan awalan 62
-        if (cleanPhone.startsWith("0")) {
-            cleanPhone = "62" + cleanPhone.slice(1);
-        }
-
-        const msg = `Halo Kak ${name}, kami dari *Finex Beauty Bloom* 🌸\n\nMau menginfokan pesanan *${inv}* saat ini statusnya: *${status.toUpperCase()}*.\n\nTerima kasih sudah belanja cantik! ✨`;
-        
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+        if (!phone) return alert("No WA tidak ada!");
+        let p = phone.replace(/[^0-9]/g, "");
+        if (p.startsWith("0")) p = "62" + p.slice(1);
+        const msg = `Halo Kak ${name}, pesanan *${inv}* statusnya: *${status.toUpperCase()}*. ✨`;
+        window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`, '_blank');
     }
- async function updateStatus(id, statusBaru) {
-    let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
-    if (statusBaru === 'Dibatalkan') confirmText = "⚠️ BATALKAN PESANAN? (Saldo akan dikembalikan otomatis jika bayar pakai saldo)";
-    
-    if (!confirm(confirmText)) return;
 
-    try {
-        // 1. Ambil data transaksi untuk cek siapa pembelinya & berapa totalnya
-        const { data: trx, error: errTrx } = await db.from('transaksi_online')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (errTrx) throw new Error("Transaksi tidak ditemukan");
-
-        // 2. LOGIKA REFUND (Hanya jika status diubah ke 'Dibatalkan')
-        if (statusBaru === 'Dibatalkan') {
-            
-            // CEK: Apakah ini pembayaran saldo? 
-            // Kita cek lewat kolom kurir (Saldo Akun) ATAU jika tidak ada snap_token (VA)
-            const isSaldoPayment = (trx.kurir === 'Saldo Akun' || (trx.kurir === 'Manual' && !trx.snap_token));
-
-            if (isSaldoPayment) {
-                console.log("Memulai proses refund saldo...");
-
-                // Ambil saldo terbaru customer tersebut
-                const { data: profile, error: errProfile } = await db.from('customers')
-                    .select('saldo')
-                    .eq('id', trx.customer_id)
-                    .single();
-
-                if (profile) {
-                    const saldoLama = Number(profile.saldo || 0);
-                    const nominalRefund = Number(trx.grand_total || 0);
-                    const saldoBaru = saldoLama + nominalRefund;
-
-                    // EKSEKUSI PENGEMBALIAN SALDO
-                    const { error: errUpdateSaldo } = await db.from('customers')
-                        .update({ saldo: saldoBaru })
-                        .eq('id', trx.customer_id);
-
-                    if (errUpdateSaldo) {
-                        console.error("Gagal Refund. Cek RLS Supabase!", errUpdateSaldo);
-                        throw new Error("Gagal mengembalikan saldo. Pastikan RLS di tabel 'customers' sudah dimatikan/diizinkan.");
-                    }
-
-                    // Catat riwayat refund di tabel topup agar customer bisa lihat di mutasi
-                    await db.from('topup_history').insert([{
-                        no_invoice: 'REFUND-' + trx.no_invoice,
-                        customer_id: trx.customer_id,
-                        nominal: nominalRefund,
-                        status: 'SUCCESS'
-                    }]);
-                    
-                    console.log("Refund Berhasil!");
-                }
-            }
-        }
-
-        // 3. Update status transaksi utama menjadi 'Dibatalkan' atau status lainnya
-        const { error: errStatus } = await db.from('transaksi_online')
-            .update({ status_order: statusBaru })
-            .eq('id', id);
-
-        if (errStatus) throw errStatus;
-
-        // 4. Catat Log Operasional
-        await db.from('transaksi_online_log').insert([{ 
-            transaksi_id: id, 
-            status: statusBaru, 
-            keterangan: 'Update Admin (Refund checked)' 
-        }]);
-
-        alert(statusBaru === 'Dibatalkan' ? "Pesanan Dibatalkan & Saldo Refund Berhasil! 🌸" : "Status Diperbarui ✨");
-        loadOrders(); // Refresh tabel
-
-    } catch (err) {
-        alert("Gagal: " + err.message);
-        console.error(err);
-    }
-}
-            // 3. UPDATE STATUS TRANSAKSI UTAMA
-            const { error: errUpdate } = await db.from('transaksi_online')
-                .update({ status_order: statusBaru })
-                .eq('id', id);
-
-            if (errUpdate) throw errUpdate;
-            
-            // 4. Catat ke log histori operasional
-            let ketLog = (statusBaru === 'Dibatalkan' && trx.kurir === 'Saldo Akun') 
-                         ? 'Dibatalkan & Saldo Refunded' 
-                         : 'Update via Admin Panel';
-
-            await db.from('transaksi_online_log').insert([{ 
-                transaksi_id: id, 
-                status: statusBaru, 
-                keterangan: ketLog 
-            }]);
-            
-            // Beri notifikasi sukses
-            if (statusBaru === 'Dibatalkan' && trx.kurir === 'Saldo Akun') {
-                alert("Pesanan Dibatalkan! Saldo Rp " + Number(trx.grand_total).toLocaleString() + " telah dikembalikan ke customer. 🌸");
-            } else {
-                alert("Status berhasil diperbarui! ✨");
-            }
-
-            loadOrders(); // Refresh tabel admin
-        } catch (err) {
-            alert("Terjadi Kesalahan: " + err.message);
-        }
-    }
     async function viewDetail(id) {
         const { data } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
-        if (data && data.length > 0) {
-            let list = data.map(i => `📍 ${i.nama_barang} (${i.qty}x)`).join('\n');
-            alert("RINCIAN BARANG:\n\n" + list);
-        } else {
-            alert("Data produk tidak ditemukan.");
-        }
+        if (data) alert("DETAIL BARANG:\n\n" + data.map(i => `📍 ${i.nama_barang} (${i.qty}x)`).join('\n'));
     }
 
     function filterData() {
         const kw = document.getElementById('searchBox').value.toLowerCase();
         const start = document.getElementById('dateStart').value;
         const end = document.getElementById('dateEnd').value;
-        
-        let filtered = rawData.filter(i => {
-            const matchKw = i.no_invoice.toLowerCase().includes(kw) || i.nama_penerima.toLowerCase().includes(kw);
+        const filtered = rawData.filter(i => {
+            const mKw = i.no_invoice.toLowerCase().includes(kw) || i.nama_penerima.toLowerCase().includes(kw);
             const tgl = i.created_at.split('T')[0];
-            let matchTgl = true;
-            if (start && end) matchTgl = (tgl >= start && tgl <= end);
-            return matchKw && matchTgl;
+            let mTgl = (start && end) ? (tgl >= start && tgl <= end) : true;
+            return mKw && mTgl;
         });
         renderTable(filtered);
     }
 
     function exportToExcel() {
-        const wb = XLSX.utils.table_to_book(document.getElementById("mainTable"));
-        XLSX.writeFile(wb, "Pesanan_Online_BeautyBloom.xlsx");
+        XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById("mainTable")), "Laporan_Bloom.xlsx");
     }
 
-    
-    
     function logout() { sessionStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
