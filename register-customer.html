@@ -64,58 +64,66 @@
     </div>
 
     <script>
-        async function handleRegister() {
-            const fullname = document.getElementById('fullname').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-            const address = document.getElementById('address').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
-            const btn = document.getElementById('btnRegister');
+      async function handleRegister() {
+    const fullname = document.getElementById('fullname').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
+    const address = document.getElementById('address').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const btn = document.getElementById('btnRegister');
 
-            if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
-                return alert("Lengkapi semua data ya! 🌸");
+    if (!fullname || !email || !password || !confirmPassword || !phone || !address) {
+        return alert("Lengkapi semua data ya! 🌸");
+    }
+    if (password !== confirmPassword) {
+        return alert("Password tidak cocok! ❌");
+    }
+
+    btn.innerText = "Mendaftarkan...";
+    btn.disabled = true;
+
+    try {
+        // 1. Daftar ke Auth + ATUR REDIRECT KE LOGIN CUSTOMER
+        const { data: authData, error: authError } = await db.auth.signUp({
+            email: email, 
+            password: password,
+            options: {
+                // KUNCI: Link di email akan mengarah ke halaman ini
+                emailRedirectTo: 'https://inventory-system26.vercel.app/login-customer.html'
             }
-            if (password !== confirmPassword) {
-                return alert("Password tidak cocok! ❌");
-            }
+        });
+        
+        if (authError) throw authError;
 
-            btn.innerText = "Mendaftarkan...";
-            btn.disabled = true;
+        const user = authData.user;
+        
+        // 2. Tunggu sebentar agar Auth sinkron
+        await new Promise(res => setTimeout(res, 1000));
 
-            try {
-                // 1. Daftar ke Auth
-                const { data: authData, error: authError } = await db.auth.signUp({
-                    email: email, password: password
-                });
-                if (authError) throw authError;
+        // 3. Simpan ke tabel customers
+        const { error: dbError } = await db.from('customers').upsert([{
+            id: user.id, 
+            full_name: fullname,
+            email: email,
+            phone_number: phone, 
+            address_shipping: address,
+            created_at: new Date()
+        }], { on_conflict: 'id' });
 
-                const user = authData.user;
-                // 2. Tunggu 1 detik agar Auth sinkron
-                await new Promise(res => setTimeout(res, 1000));
+        if (dbError) throw dbError;
 
-                // 3. Simpan ke tabel customers (Pakai upsert agar tidak Conflict)
-                const { error: dbError } = await db.from('customers').upsert([{
-                    id: user.id, 
-                    full_name: fullname,
-                    email: email,
-                    phone_number: phone, 
-                    address_shipping: address,
-                    created_at: new Date()
-                }], { on_conflict: 'id' });
+        // Pesan sukses yang lebih jelas bagi customer
+        alert("Pendaftaran Berhasil! 🌸\n\nSilakan CEK EMAIL kamu untuk aktivasi akun sebelum login ya.");
+        window.location.href = 'login-customer.html';
 
-                if (dbError) throw dbError;
-
-                alert("Pendaftaran Berhasil! 🌸");
-                window.location.href = 'login-customer.html';
-
-            } catch (error) {
-                console.error("Error Detail:", error);
-                alert("Gagal: " + error.message);
-                btn.innerText = "DAFTAR SEKARANG ✨";
-                btn.disabled = false;
-            }
-        }
+    } catch (error) {
+        console.error("Error Detail:", error);
+        alert("Gagal: " + error.message);
+        btn.innerText = "DAFTAR SEKARANG ✨";
+        btn.disabled = false;
+    }
+}
     </script>
 </body>
 </html>
