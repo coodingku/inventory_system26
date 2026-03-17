@@ -163,59 +163,74 @@
         }
     }
 
-  async function checkLoyaltyAutomatically(userId) {
+async function checkLoyaltyAutomatically(userId) {
     try {
-        // 1. Ambil Aturan Reward yang di-set oleh Admin di tabel app_settings
-        const { data: settings } = await db.from('app_settings').select('*');
-        if (!settings) return;
+        console.log("Memulai pengecekan Loyalty untuk User:", userId);
 
-        // Memasukkan hasil query ke dalam variabel rules
+        // 1. AMBIL ATURAN DARI DATABASE
+        const { data: settings, error: errSettings } = await db.from('app_settings').select('*');
+        
+        if (errSettings || !settings) {
+            console.error("Gagal mengambil app_settings:", errSettings);
+            return;
+        }
+
+        // Mapping data agar mudah dipanggil
         const rules = {};
-        settings.forEach(s => rules[s.key_name] = s.value_int);
+        settings.forEach(s => {
+            rules[s.key_name] = s.value_int;
+        });
 
-        // Ambil variabel dari settingan admin
-        const targetAdmin = rules.loyalty_target_count; // Misal: 3 atau 5
-        const minNominalAdmin = rules.loyalty_min_nominal; // Misal: 200000
-        const nominalDiskonAdmin = rules.loyalty_discount_amount; // Misal: 30000
+        // Debug: Pastikan angka muncul di console
+        console.log("Aturan dari Admin:", rules);
 
-        // 2. Ambil riwayat belanja customer (Hanya status 'Selesai')
-        const { data: history } = await db.from('transaksi_online')
+        const targetCount = rules.loyalty_target_count;
+        const minNominal = rules.loyalty_min_nominal;
+        const discountAmount = rules.loyalty_discount_amount;
+
+        // 2. AMBIL RIWAYAT TRANSAKSI USER
+        const { data: history, error: errHistory } = await db.from('transaksi_online')
             .select('grand_total')
             .eq('customer_id', userId)
             .eq('status_order', 'Selesai');
 
-        if (history) {
-            // Filter: Hitung berapa banyak transaksi yang harganya memenuhi syarat nominal admin
-            const validOrders = history.filter(trx => parseFloat(trx.grand_total) >= minNominalAdmin);
-            const jumlahBelanjaLunas = validOrders.length;
-            
-            // Hitung subtotal keranjang saat ini
-            let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
-
-            /* LOGIKA DINAMIS:
-               Diskon hanya aktif jika jumlah belanja lunas TEPAT SAMA dengan target admin.
-               Contoh Admin set Target = 3:
-               - Belanja lunas 2x -> Tidak dapat.
-               - Belanja lunas 3x -> Belanja SAAT INI (ke-4) DAPAT DISKON.
-               - Belanja lunas 4x -> Belanja SAAT INI (ke-5) TIDAK DAPAT LAGI.
-            */
-            if (jumlahBelanjaLunas === targetAdmin && currentSubtotal >= minNominalAdmin) {
-                diskonLoyalty = nominalDiskonAdmin; 
-                
-                document.getElementById('row-diskon-khusus').classList.remove('hidden');
-                document.getElementById('txt-syarat-info').innerText = `Reward Spesial Belanja ke-${jumlahBelanjaLunas + 1} ✨`;
-                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
-                
-                console.log(`Loyalty Match! Target Admin ${targetAdmin} terpenuhi.`);
-            } else {
-                // Sembunyikan jika tidak pas di angka target
-                diskonLoyalty = 0;
-                document.getElementById('row-diskon-khusus').classList.add('hidden');
-            }
+        if (errHistory) {
+            console.error("Gagal mengambil histori belanja:", errHistory);
+            return;
         }
+
+        // 3. FILTER TRANSAKSI YANG SAH (> MIN NOMINAL)
+        const validOrders = history.filter(trx => parseFloat(trx.grand_total) >= minNominal);
+        const totalValidCount = validOrders.length;
+
+        console.log("Jumlah Belanja Sah:", totalValidCount, "Target:", targetCount);
+
+        // 4. HITUNG SUBTOTAL KERANJANG SAAT INI
+        let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
+
+        // 5. LOGIKA EKSEKUSI DISKON
+        // Syarat: Total belanja lunas TEPAT SAMA dengan target DAN belanjaan sekarang >= minimal nominal
+        if (totalValidCount === targetCount && currentSubtotal >= minNominal) {
+            diskonLoyalty = discountAmount;
+            
+            document.getElementById('row-diskon-khusus').classList.remove('hidden');
+            // Menampilkan teks dinamis sesuai jumlah belanja
+            const infoEl = document.getElementById('txt-syarat-info');
+            if(infoEl) infoEl.innerText = `Reward Spesial Belanja ke-${totalValidCount + 1} ✨`;
+            
+            document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
+            console.log("DISKON DITERAPKAN: Rp", diskonLoyalty);
+        } else {
+            diskonLoyalty = 0;
+            document.getElementById('row-diskon-khusus').classList.add('hidden');
+            console.log("Belum memenuhi syarat diskon.");
+        }
+
+        // Update tampilan total akhir
         updateTotalDisplay();
+
     } catch (err) {
-        console.error("Gagal memuat loyalty:", err);
+        console.error("Terjadi error sistem loyalty:", err);
     }
 }
     function selectPayment(method) {
