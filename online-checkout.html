@@ -163,29 +163,61 @@
         }
     }
 
-    async function checkLoyaltyAutomatically(userId) {
-        // Ambil riwayat belanja status 'Selesai'
+  async function checkLoyaltyAutomatically(userId) {
+    try {
+        // 1. Ambil Aturan Reward yang di-set oleh Admin di tabel app_settings
+        const { data: settings } = await db.from('app_settings').select('*');
+        if (!settings) return;
+
+        // Memasukkan hasil query ke dalam variabel rules
+        const rules = {};
+        settings.forEach(s => rules[s.key_name] = s.value_int);
+
+        // Ambil variabel dari settingan admin
+        const targetAdmin = rules.loyalty_target_count; // Misal: 3 atau 5
+        const minNominalAdmin = rules.loyalty_min_nominal; // Misal: 200000
+        const nominalDiskonAdmin = rules.loyalty_discount_amount; // Misal: 30000
+
+        // 2. Ambil riwayat belanja customer (Hanya status 'Selesai')
         const { data: history } = await db.from('transaksi_online')
             .select('grand_total')
             .eq('customer_id', userId)
             .eq('status_order', 'Selesai');
 
         if (history) {
-            // Filter: 5x belanja dengan nominal minimal 200rb
-            const validOrders = history.filter(trx => parseFloat(trx.grand_total) >= 200000);
+            // Filter: Hitung berapa banyak transaksi yang harganya memenuhi syarat nominal admin
+            const validOrders = history.filter(trx => parseFloat(trx.grand_total) >= minNominalAdmin);
+            const jumlahBelanjaLunas = validOrders.length;
             
+            // Hitung subtotal keranjang saat ini
             let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
 
-            // Syarat: 5x order valid & belanja saat ini min 200rb
-            if (validOrders.length >= 5 && currentSubtotal >= 200000) {
-                diskonLoyalty = 30000; // Contoh nominal diskon khusus member
+            /* LOGIKA DINAMIS:
+               Diskon hanya aktif jika jumlah belanja lunas TEPAT SAMA dengan target admin.
+               Contoh Admin set Target = 3:
+               - Belanja lunas 2x -> Tidak dapat.
+               - Belanja lunas 3x -> Belanja SAAT INI (ke-4) DAPAT DISKON.
+               - Belanja lunas 4x -> Belanja SAAT INI (ke-5) TIDAK DAPAT LAGI.
+            */
+            if (jumlahBelanjaLunas === targetAdmin && currentSubtotal >= minNominalAdmin) {
+                diskonLoyalty = nominalDiskonAdmin; 
+                
                 document.getElementById('row-diskon-khusus').classList.remove('hidden');
+                document.getElementById('txt-syarat-info').innerText = `Reward Spesial Belanja ke-${jumlahBelanjaLunas + 1} ✨`;
                 document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
+                
+                console.log(`Loyalty Match! Target Admin ${targetAdmin} terpenuhi.`);
+            } else {
+                // Sembunyikan jika tidak pas di angka target
+                diskonLoyalty = 0;
+                document.getElementById('row-diskon-khusus').classList.add('hidden');
             }
         }
         updateTotalDisplay();
+    } catch (err) {
+        console.error("Gagal memuat loyalty:", err);
     }
-
+}
     function selectPayment(method) {
         const total = subtotalFinal + shippingCost - diskonLoyalty;
         if (method === 'saldo' && userData.saldo < total) return alert("Saldo tidak cukup!");
