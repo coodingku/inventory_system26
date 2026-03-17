@@ -72,20 +72,25 @@
         </div>
     </div>
 
-    <div id="profileModal" class="side-modal">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800">Profil Saya ✨</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
-        </div>
-        <div class="text-center mb-8">
-            <div class="w-20 h-20 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-sm">
-                <i class="fa-solid fa-user text-2xl text-pink-400"></i>
-            </div>
-            <h3 id="p-name" class="font-black text-slate-800 italic">Nama Pengguna</h3>
-            <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@bloom.com</p>
-        </div>
-        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase">Keluar Akun</button>
+   <div id="profileModal" class="side-modal">
+    <div class="flex justify-between items-center mb-8">
+        <h2 class="text-xl font-black text-slate-800">Profil Saya ✨</h2>
+        <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
     </div>
+    
+    <div class="text-center mb-6">
+        <div class="w-20 h-20 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-sm">
+            <i class="fa-solid fa-user text-2xl text-pink-400"></i>
+        </div>
+        <h3 id="p-name" class="font-black text-slate-800 italic uppercase">Nama Pengguna</h3>
+        <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@bloom.com</p>
+    </div>
+
+    <div id="reward-section" class="mb-8">
+        </div>
+
+    <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase">Keluar Akun</button>
+</div>
 
     <div id="walletModal" class="side-modal">
         <div class="flex justify-between items-center mb-8">
@@ -155,6 +160,7 @@
     let userData = null;
     let activeTrx = null;
 
+
     window.onload = async () => {
         const { data: { session } } = await db.auth.getSession();
         if (!session) return window.location.replace('login-customer.html');
@@ -163,13 +169,62 @@
         updateCartDisplay();
     };
 
-    async function loadCustomerData(userId) {
+   async function loadCustomerData(userId) {
         const { data } = await db.from('customers').select('*').eq('id', userId).single();
         if (data) {
             userData = data;
             document.getElementById('welcome-msg').innerText = `Halo, ${data.full_name.split(' ')[0]}! ✨`;
             document.getElementById('w-saldo').innerText = "Rp " + (data.saldo || 0).toLocaleString();
+            
+            // Jalankan fungsi tampilkan reward
+            renderRewardStatus(data);
             loadWalletHistory(userId);
+        }
+    }
+
+    function renderRewardStatus(profile) {
+        const container = document.getElementById('reward-section');
+        const count = profile.total_order_count || 0;
+        const claimed = profile.is_reward_claimed;
+
+        if (count >= 5 && !claimed) {
+            container.innerHTML = `
+                <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-4 rounded-3xl text-white shadow-md">
+                    <p class="text-[9px] font-black uppercase tracking-tighter mb-1">Reward Member 🎁</p>
+                    <h4 class="text-xs font-bold mb-3">Syarat 5x belanja terpenuhi!</h4>
+                    <button onclick="claimRewardMember()" class="w-full py-2 bg-white text-pink-500 rounded-xl font-black text-[10px] uppercase">Klaim Diskon Sekarang</button>
+                </div>`;
+        } else if (claimed) {
+            container.innerHTML = `
+                <div class="bg-green-50 p-4 rounded-3xl border border-green-100 text-center">
+                    <p class="text-[10px] font-black text-green-600 uppercase">Diskon Member Aktif ✨</p>
+                    <p class="text-[8px] text-green-400 font-bold mt-1">Cek diskonmu otomatis di Checkout!</p>
+                </div>`;
+        } else {
+            let sisa = 5 - count;
+            container.innerHTML = `
+                <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
+                        <span class="text-[10px] font-bold text-pink-500">${count}/5</span>
+                    </div>
+                    <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-pink-400 h-full" style="width: ${(count/5)*100}%"></div>
+                    </div>
+                    <p class="text-[8px] text-slate-400 mt-2 font-bold italic">Belanja ${sisa}x lagi untuk dapat diskon khusus.</p>
+                </div>`;
+        }
+    }
+
+    async function claimRewardMember() {
+        if (!userData) return;
+        const { error } = await db.from('customers')
+            .update({ is_reward_claimed: true })
+            .eq('id', userData.id);
+
+        if (!error) {
+            alert("Reward diklaim! Diskon otomatis akan muncul saat kamu checkout minimal 200rb. 🌸");
+            location.reload();
         }
     }
 
