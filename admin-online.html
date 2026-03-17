@@ -320,25 +320,82 @@ function renderTable(data) {
         
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
     }
-    async function updateStatus(id, statusBaru) {
+  async function updateStatus(id, statusBaru) {
         let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
-        if (statusBaru === 'Dibatalkan') confirmText = "⚠️ APAKAH ANDA YAKIN INGIN MEMBATALKAN PESANAN INI?";
+        if (statusBaru === 'Dibatalkan') {
+            confirmText = "⚠️ APAKAH ANDA YAKIN INGIN MEMBATALKAN PESANAN INI?\n(Jika bayar pakai saldo, uang akan dikembalikan otomatis)";
+        }
         
         if (!confirm(confirmText)) return;
 
         try {
-            const { error } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
-            if (error) throw error;
+            // 1. AMBIL DATA TRANSAKSI TERLEBIH DAHULU (Untuk cek metode bayar)
+            const { data: trx, error: errTrx } = await db.from('transaksi_online')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (errTrx) throw errTrx;
+
+            // 2. LOGIKA REFUND SALDO (Hanya jika dibatalkan & bayar pakai Saldo Akun)
+            if (statusBaru === 'Dibatalkan' && trx.kurir === 'Saldo Akun') {
+                
+                // Ambil saldo terbaru customer
+                const { data: cust } = await db.from('customers')
+                    .select('saldo')
+                    .eq('id', trx.customer_id)
+                    .single();
+
+                if (cust) {
+                    const saldoBaru = Number(cust.saldo || 0) + Number(trx.grand_total);
+
+                    // Kembalikan uang ke tabel customers
+                    const { error: errRefund } = await db.from('customers')
+                        .update({ saldo: saldoBaru })
+                        .eq('id', trx.customer_id);
+
+                    if (errRefund) throw new Error("Gagal mengembalikan saldo ke customer");
+
+                    // Catat histori pengembalian di topup_history agar saldo sinkron
+                    await db.from('topup_history').insert([{
+                        no_invoice: 'REFUND-' + trx.no_invoice,
+                        customer_id: trx.customer_id,
+                        nominal: trx.grand_total,
+                        status: 'SUCCESS'
+                    }]);
+                }
+            }
+
+            // 3. UPDATE STATUS TRANSAKSI UTAMA
+            const { error: errUpdate } = await db.from('transaksi_online')
+                .update({ status_order: statusBaru })
+                .eq('id', id);
+
+            if (errUpdate) throw errUpdate;
             
-            // Catat ke log histori
-            await db.from('transaksi_online_log').insert([{ transaksi_id: id, status: statusBaru, keterangan: 'Update via Admin Panel' }]);
+            // 4. Catat ke log histori operasional
+            let ketLog = (statusBaru === 'Dibatalkan' && trx.kurir === 'Saldo Akun') 
+                         ? 'Dibatalkan & Saldo Refunded' 
+                         : 'Update via Admin Panel';
+
+            await db.from('transaksi_online_log').insert([{ 
+                transaksi_id: id, 
+                status: statusBaru, 
+                keterangan: ketLog 
+            }]);
             
-            loadOrders();
+            // Beri notifikasi sukses
+            if (statusBaru === 'Dibatalkan' && trx.kurir === 'Saldo Akun') {
+                alert("Pesanan Dibatalkan! Saldo Rp " + Number(trx.grand_total).toLocaleString() + " telah dikembalikan ke customer. 🌸");
+            } else {
+                alert("Status berhasil diperbarui! ✨");
+            }
+
+            loadOrders(); // Refresh tabel admin
         } catch (err) {
-            alert("Error: " + err.message);
+            alert("Terjadi Kesalahan: " + err.message);
         }
     }
-
     async function viewDetail(id) {
         const { data } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
         if (data && data.length > 0) {
