@@ -313,7 +313,7 @@ function selectArea(id, name) {
 
 async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
-    if (!destId) return alert("Pilih kecamatan dulu ya! 🌸");
+    if (!destId) return alert("Pilih kecamatan dulu ya cantik! 🌸");
 
     const btn = document.getElementById('btn-cek-ongkir');
     btn.innerText = "MENGHITUNG...";
@@ -321,19 +321,21 @@ async function checkShippingRates() {
 
     try {
         const payload = {
-            origin_area_id: ORIGIN_ID,
-            destination_area_id: destId,
+            origin_area_id: ORIGIN_ID.trim(), // Pastikan tidak ada spasi
+            destination_area_id: destId.trim(),
             couriers: "jne,jnt,sicepat",
             items: cartData.map(i => ({
-                name: (i.nama || i.nama_barang).substring(0, 30),
+                name: (i.nama || i.nama_barang || "Produk").substring(0, 30),
                 value: parseInt(i.harga),
                 weight: 200,
                 quantity: parseInt(i.qty)
             }))
         };
 
-        // URL YANG PALING STABIL UNTUK RATES
-        const res = await fetch('https://api.biteship.com/v1/rates', {
+        console.log("Mencoba kirim ke Biteship dengan ID:", destId);
+
+        // ENDPOINT PALING VALID MENURUT DOKUMENTASI TERBARU
+        const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
             method: 'POST',
             headers: { 
                 'Authorization': BITES_API_KEY.trim(),
@@ -342,32 +344,52 @@ async function checkShippingRates() {
             body: JSON.stringify(payload)
         });
 
-        const resultData = await res.json(); // Gunakan nama variabel resultData agar tidak bentrok
+        const resultData = await res.json();
 
-        if (!res.ok) {
-            throw new Error(resultData.error || "Gagal mengambil tarif");
-        }
-
-        if (resultData.results && resultData.results.length > 0) {
-            document.getElementById('shipping-options').innerHTML = resultData.results.map(r => `
-                <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" 
-                     class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2 cursor-pointer hover:border-pink-300">
-                    <div>
-                        <p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name} - ${r.courier_service}</p>
-                        <p class="text-xs font-bold text-slate-700 italic">${r.duration}</p>
-                    </div>
-                    <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
-                </div>
-            `).join('');
+        if (res.status === 404) {
+            // Jika masih 404, kita coba lempar ke endpoint alternatif /v1/rates
+            console.warn("404 di shippings/rates, mencoba /v1/rates...");
+            const resAlt = await fetch('https://api.biteship.com/v1/rates', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': BITES_API_KEY.trim(),
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(payload)
+            });
+            const altData = await resAlt.json();
+            if (!resAlt.ok) throw new Error(altData.error || "Route tetap tidak ditemukan.");
+            renderShippingResults(altData.results);
+        } else if (!res.ok) {
+            throw new Error(resultData.error || "Gagal mengambil tarif.");
         } else {
-            alert("Maaf, rute kurir tidak ditemukan. 🌸");
+            renderShippingResults(resultData.results);
         }
+
     } catch (e) {
         console.error("Detail Error:", e);
-        alert("Error: " + e.message);
+        alert("Gagal memuat kurir: " + e.message + "\n\nTips: Cek apakah ORIGIN_ID sudah benar.");
     } finally {
         btn.innerText = "Cek Ongkos Kirim 🚚";
         btn.disabled = false;
+    }
+}
+
+// Fungsi bantu untuk menampilkan hasil agar kode di atas tidak kepanjangan
+function renderShippingResults(results) {
+    if (results && results.length > 0) {
+        document.getElementById('shipping-options').innerHTML = results.map(r => `
+            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" 
+                 class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2 cursor-pointer hover:border-pink-300">
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name} - ${r.courier_service}</p>
+                    <p class="text-xs font-bold text-slate-700 italic">${r.duration}</p>
+                </div>
+                <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
+            </div>
+        `).join('');
+    } else {
+        alert("Maaf, rute kurir tidak ditemukan. 🌸");
     }
 }
     function selectCourier(name, price) {
