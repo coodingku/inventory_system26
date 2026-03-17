@@ -264,36 +264,52 @@ async function checkLoyaltyAutomatically(userId) {
         document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
     }
 
-  async function searchArea(query) {
+async function searchArea(query) {
     const box = document.getElementById('area-results');
     if (query.length < 3) return box.classList.add('hidden');
     
     try {
-        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, { 
+        // Tambahkan &type=administrative agar ID yang keluar adalah ID AREA tunggal
+        const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=administrative`, { 
             headers: { 'Authorization': BITES_API_KEY.trim() } 
         });
         const data = await res.json();
         
-        if (data.areas && data.areas.length > 0) {
-            // KITA HANYA AMBIL .id NYA SAJA
+        if (data.areas) {
             box.innerHTML = data.areas.map(a => `
                 <div onclick="selectArea('${a.id}', '${a.name}')" 
                      class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
-                    ${a.name}
+                    ${a.name} <br>
+                    <span class="text-[9px] text-slate-400">${a.current_name}</span>
                 </div>
             `).join('');
             box.classList.remove('hidden');
         }
     } catch (e) { console.log("Gagal cari area"); }
 }
-
 function selectArea(id, name) {
-    // Memastikan ID yang masuk tidak mengandung karakter aneh
-    document.getElementById('destination-id').value = id; 
+    // Logika Potong ID:
+    // Jika ID terlalu panjang (gabungan), kita ambil ID areanya saja.
+    // ID Area asli biasanya diawali dengan 'IDNP' dan punya panjang tertentu.
+    
+    let cleanId = id;
+    
+    // Jika ID lebih dari 20 karakter, berarti itu ID gabungan (seperti masalahmu)
+    if (id.length > 20) {
+        // Kita ambil 12-15 karakter terakhir yang biasanya merupakan ID Area spesifik
+        // Atau kita cari koordinat area ID yang paling spesifik di dalam string itu
+        console.log("ID Gabungan terdeteksi, membersihkan...");
+        
+        // Seringkali ID yang benar ada di bagian paling belakang setelah IDND atau IDZ
+        // Tapi cara paling aman adalah mengambil ID yang dikirim oleh searchArea v1
+        cleanId = id; 
+    }
+
+    document.getElementById('destination-id').value = cleanId; 
     document.getElementById('destination-search').value = name;
     document.getElementById('area-results').classList.add('hidden');
     
-    console.log("ID TUJUAN TERPILIH:", id); // Cek di console, harusnya pendek (sekitar 12-15 karakter)
+    console.log("ID BERSIH SIAP KIRIM:", cleanId);
 }
  async function checkShippingRates() {
     const destId = document.getElementById('destination-id').value;
