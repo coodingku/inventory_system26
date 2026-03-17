@@ -320,52 +320,87 @@ function renderTable(data) {
         
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
     }
-  async function updateStatus(id, statusBaru) {
-        let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
+ async function updateStatus(id, statusBaru) {
+    let confirmText = `Ubah status pesanan menjadi ${statusBaru.toUpperCase()}?`;
+    if (statusBaru === 'Dibatalkan') confirmText = "⚠️ BATALKAN PESANAN? (Saldo akan dikembalikan otomatis jika bayar pakai saldo)";
+    
+    if (!confirm(confirmText)) return;
+
+    try {
+        // 1. Ambil data transaksi untuk cek siapa pembelinya & berapa totalnya
+        const { data: trx, error: errTrx } = await db.from('transaksi_online')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (errTrx) throw new Error("Transaksi tidak ditemukan");
+
+        // 2. LOGIKA REFUND (Hanya jika status diubah ke 'Dibatalkan')
         if (statusBaru === 'Dibatalkan') {
-            confirmText = "⚠️ APAKAH ANDA YAKIN INGIN MEMBATALKAN PESANAN INI?\n(Jika bayar pakai saldo, uang akan dikembalikan otomatis)";
-        }
-        
-        if (!confirm(confirmText)) return;
+            
+            // CEK: Apakah ini pembayaran saldo? 
+            // Kita cek lewat kolom kurir (Saldo Akun) ATAU jika tidak ada snap_token (VA)
+            const isSaldoPayment = (trx.kurir === 'Saldo Akun' || (trx.kurir === 'Manual' && !trx.snap_token));
 
-        try {
-            // 1. AMBIL DATA TRANSAKSI TERLEBIH DAHULU (Untuk cek metode bayar)
-            const { data: trx, error: errTrx } = await db.from('transaksi_online')
-                .select('*')
-                .eq('id', id)
-                .single();
+            if (isSaldoPayment) {
+                console.log("Memulai proses refund saldo...");
 
-            if (errTrx) throw errTrx;
-
-            // 2. LOGIKA REFUND SALDO (Hanya jika dibatalkan & bayar pakai Saldo Akun)
-            if (statusBaru === 'Dibatalkan' && trx.kurir === 'Saldo Akun') {
-                
-                // Ambil saldo terbaru customer
-                const { data: cust } = await db.from('customers')
+                // Ambil saldo terbaru customer tersebut
+                const { data: profile, error: errProfile } = await db.from('customers')
                     .select('saldo')
                     .eq('id', trx.customer_id)
                     .single();
 
-                if (cust) {
-                    const saldoBaru = Number(cust.saldo || 0) + Number(trx.grand_total);
+                if (profile) {
+                    const saldoLama = Number(profile.saldo || 0);
+                    const nominalRefund = Number(trx.grand_total || 0);
+                    const saldoBaru = saldoLama + nominalRefund;
 
-                    // Kembalikan uang ke tabel customers
-                    const { error: errRefund } = await db.from('customers')
+                    // EKSEKUSI PENGEMBALIAN SALDO
+                    const { error: errUpdateSaldo } = await db.from('customers')
                         .update({ saldo: saldoBaru })
                         .eq('id', trx.customer_id);
 
-                    if (errRefund) throw new Error("Gagal mengembalikan saldo ke customer");
+                    if (errUpdateSaldo) {
+                        console.error("Gagal Refund. Cek RLS Supabase!", errUpdateSaldo);
+                        throw new Error("Gagal mengembalikan saldo. Pastikan RLS di tabel 'customers' sudah dimatikan/diizinkan.");
+                    }
 
-                    // Catat histori pengembalian di topup_history agar saldo sinkron
+                    // Catat riwayat refund di tabel topup agar customer bisa lihat di mutasi
                     await db.from('topup_history').insert([{
                         no_invoice: 'REFUND-' + trx.no_invoice,
                         customer_id: trx.customer_id,
-                        nominal: trx.grand_total,
+                        nominal: nominalRefund,
                         status: 'SUCCESS'
                     }]);
+                    
+                    console.log("Refund Berhasil!");
                 }
             }
+        }
 
+        // 3. Update status transaksi utama menjadi 'Dibatalkan' atau status lainnya
+        const { error: errStatus } = await db.from('transaksi_online')
+            .update({ status_order: statusBaru })
+            .eq('id', id);
+
+        if (errStatus) throw errStatus;
+
+        // 4. Catat Log Operasional
+        await db.from('transaksi_online_log').insert([{ 
+            transaksi_id: id, 
+            status: statusBaru, 
+            keterangan: 'Update Admin (Refund checked)' 
+        }]);
+
+        alert(statusBaru === 'Dibatalkan' ? "Pesanan Dibatalkan & Saldo Refund Berhasil! 🌸" : "Status Diperbarui ✨");
+        loadOrders(); // Refresh tabel
+
+    } catch (err) {
+        alert("Gagal: " + err.message);
+        console.error(err);
+    }
+}
             // 3. UPDATE STATUS TRANSAKSI UTAMA
             const { error: errUpdate } = await db.from('transaksi_online')
                 .update({ status_order: statusBaru })
