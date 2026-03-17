@@ -46,9 +46,13 @@
                     <span class="text-slate-400 text-xs uppercase font-bold">Ongkos Kirim</span>
                     <span id="txt-ongkir" class="text-slate-600 font-bold">Rp 0</span>
                 </div>
-                <div id="row-diskon" class="flex justify-between items-center mb-3 hidden">
-                    <span class="text-pink-500 text-xs uppercase font-black">Diskon Member Reward 🎁</span>
-                    <span id="txt-diskon" class="text-pink-500 font-bold">- Rp 0</span>
+
+                <div id="row-diskon-khusus" class="flex justify-between items-center mb-3 hidden">
+                    <div class="flex flex-col">
+                        <span class="text-pink-600 text-[10px] font-black uppercase tracking-wider">Diskon Member Khusus 🎁</span>
+                        <span class="text-[8px] text-slate-400 font-bold italic">Otomatis Aktif (Sudah 5x Belanja > 200rb)</span>
+                    </div>
+                    <span id="txt-diskon-member" class="text-pink-600 font-black">- Rp 0</span>
                 </div>
 
                 <div class="flex justify-between items-end border-t border-slate-50 pt-3">
@@ -72,8 +76,8 @@
                     <div id="area-results" class="absolute z-50 w-full bg-white shadow-xl rounded-2xl mt-1 max-h-48 overflow-y-auto hidden text-xs border border-slate-100 no-scrollbar"></div>
                     <input type="hidden" id="destination-id">
                 </div>
-                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap (Jl, No Rumah, RT/RW)"></textarea>
-                <button type="button" onclick="checkShippingRates()" id="btn-cek-ongkir" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-slate-200 active:scale-95 transition-all">
+                <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap"></textarea>
+                <button type="button" onclick="checkShippingRates()" id="btn-cek-ongkir" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xs font-bold uppercase tracking-widest active:scale-95 transition-all">
                     Cek Ongkos Kirim 🚚
                 </button>
                 <div id="shipping-options" class="space-y-2 mt-4"></div>
@@ -90,7 +94,7 @@
                         <div class="w-10 h-10 bg-green-50 text-green-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-wallet"></i></div>
                         <div>
                             <p class="font-bold text-slate-700 text-sm">Saldo Akun</p>
-                            <p id="txt-saldo-display" class="text-[10px] text-slate-400 font-bold uppercase">Memuat saldo...</p>
+                            <p id="txt-saldo-display" class="text-[10px] text-slate-400 font-bold uppercase">Memuat...</p>
                         </div>
                     </div>
                     <i class="fas fa-circle-check check-icon text-slate-100"></i>
@@ -100,7 +104,7 @@
                         <div class="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-bolt"></i></div>
                         <div>
                             <p class="font-bold text-slate-700 text-sm">Virtual Account (VA)</p>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase">BCA, Mandiri, BNI, BRI</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">BCA, BNI, BRI, Mandiri</p>
                         </div>
                     </div>
                     <i class="fas fa-circle-check check-icon text-slate-100"></i>
@@ -110,7 +114,7 @@
                         <div class="w-10 h-10 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-university"></i></div>
                         <div>
                             <p class="font-bold text-slate-700 text-sm">Transfer Manual</p>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase">Konfirmasi via WhatsApp</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Konfirmasi via WA</p>
                         </div>
                     </div>
                     <i class="fas fa-circle-check check-icon text-slate-100"></i>
@@ -122,7 +126,7 @@
         <input type="hidden" id="selected-shipping-cost" value="0">
         <input type="hidden" id="selected-method" value="">
 
-        <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-slate-400 to-slate-500 text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4">
+        <button onclick="processOrder()" id="btn-order" class="w-full bg-slate-400 text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4">
             PILIH METODE BAYAR ✨
         </button>
     </main>
@@ -134,7 +138,7 @@
     let cartData = JSON.parse(localStorage.getItem('finexcart')) || [];
     let subtotalFinal = 0;
     let shippingCost = 0;
-    let diskonMember = 0;
+    let diskonLoyalty = 0;
     let userData = null;
 
     window.onload = async () => { 
@@ -145,37 +149,53 @@
     async function loadCustomerData() {
         const { data: { user } } = await db.auth.getUser();
         if (user) {
-            const { data } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
-            if (data) {
-                userData = data;
-                document.getElementById('cust-name').value = data.full_name || "";
-                document.getElementById('cust-phone').value = data.phone_number || "";
-                document.getElementById('cust-address').value = data.address_shipping || "";
-                document.getElementById('txt-saldo-display').innerText = "Rp " + (data.saldo || 0).toLocaleString();
-                checkLoyalty(data);
+            const { data: profile } = await db.from('customers').select('*').eq('id', user.id).maybeSingle();
+            if (profile) {
+                userData = profile;
+                document.getElementById('cust-name').value = profile.full_name || "";
+                document.getElementById('cust-phone').value = profile.phone_number || "";
+                document.getElementById('cust-address').value = profile.address_shipping || "";
+                document.getElementById('txt-saldo-display').innerText = "Rp " + (profile.saldo || 0).toLocaleString();
+                
+                // CEK LOYALTY OTOMATIS BERDASARKAN HISTORI
+                await checkLoyaltyAutomatically(user.id);
             }
         }
     }
 
-    function checkLoyalty(profile) {
-        let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
-        if (profile.is_reward_claimed === true && currentSubtotal >= 200000) {
-            diskonMember = 25000;
-            document.getElementById('row-diskon').classList.remove('hidden');
-            document.getElementById('txt-diskon').innerText = "- Rp " + diskonMember.toLocaleString();
+    async function checkLoyaltyAutomatically(userId) {
+        // Ambil riwayat belanja status 'Selesai'
+        const { data: history } = await db.from('transaksi_online')
+            .select('grand_total')
+            .eq('customer_id', userId)
+            .eq('status_order', 'Selesai');
+
+        if (history) {
+            // Filter: 5x belanja dengan nominal minimal 200rb
+            const validOrders = history.filter(trx => parseFloat(trx.grand_total) >= 200000);
+            
+            let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
+
+            // Syarat: 5x order valid & belanja saat ini min 200rb
+            if (validOrders.length >= 5 && currentSubtotal >= 200000) {
+                diskonLoyalty = 30000; // Contoh nominal diskon khusus member
+                document.getElementById('row-diskon-khusus').classList.remove('hidden');
+                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
+            }
         }
+        updateTotalDisplay();
     }
 
     function selectPayment(method) {
-        const total = subtotalFinal + shippingCost - diskonMember;
-        if (method === 'saldo' && userData.saldo < total) return alert("Saldo kamu tidak cukup! 🌸");
+        const total = subtotalFinal + shippingCost - diskonLoyalty;
+        if (method === 'saldo' && userData.saldo < total) return alert("Saldo tidak cukup!");
 
         document.getElementById('selected-method').value = method;
         document.querySelectorAll('.payment-box').forEach(el => el.classList.remove('active', 'border-f72585'));
         document.querySelectorAll('.check-icon').forEach(el => el.classList.replace('text-pink-500', 'text-slate-100'));
         
         const activeBox = document.getElementById('pay-' + method);
-        activeBox.classList.add('active');
+        activeBox.classList.add('active', 'border-[#f72585]');
         activeBox.querySelector('.check-icon').classList.replace('text-slate-100', 'text-pink-500');
 
         const btn = document.getElementById('btn-order');
@@ -196,7 +216,7 @@
     }
 
     function updateTotalDisplay() {
-        const total = subtotalFinal + shippingCost - diskonMember;
+        const total = subtotalFinal + shippingCost - diskonLoyalty;
         document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
         document.getElementById('txt-ongkir').innerText = "Rp " + shippingCost.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
@@ -223,7 +243,7 @@
 
     async function checkShippingRates() {
         const destId = document.getElementById('destination-id').value;
-        if (!destId) return alert("Pilih kecamatan dulu!");
+        if (!destId) return alert("Pilih kecamatan!");
         document.getElementById('btn-cek-ongkir').innerText = "MENGHITUNG...";
         try {
             const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
@@ -232,12 +252,10 @@
                 body: JSON.stringify({ origin_area_id: ORIGIN_ID, destination_area_id: destId, couriers: "jne,jnt,sicepat", items: cartData.map(i => ({ name: i.nama || i.nama_barang, value: i.harga, weight: 200, quantity: i.qty })) })
             });
             const data = await res.json();
-            if (data.results) renderShippingOptions(data.results);
+            if (data.results) {
+                document.getElementById('shipping-options').innerHTML = data.results.map(r => `<div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2"><div><p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name}</p><p class="text-xs font-bold text-slate-700">${r.duration}</p></div><p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p></div>`).join('');
+            }
         } finally { document.getElementById('btn-cek-ongkir').innerText = "Cek Ongkos Kirim 🚚"; }
-    }
-
-    function renderShippingOptions(rates) {
-        document.getElementById('shipping-options').innerHTML = rates.map(r => `<div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2"><div><p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name}</p><p class="text-xs font-bold text-slate-700">${r.duration}</p></div><p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p></div>`).join('');
     }
 
     function selectCourier(name, price) {
@@ -251,9 +269,9 @@
 
     async function processOrder() {
         const method = document.getElementById('selected-method').value;
-        if (!method) return alert("Pilih metode pembayaran! 🌸");
+        if (!method) return alert("Pilih metode pembayaran!");
         
-        const totalBayar = subtotalFinal + shippingCost - diskonMember;
+        const totalBayar = subtotalFinal + shippingCost - diskonLoyalty;
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
@@ -266,22 +284,19 @@
 
         try {
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
-
-            // 1. SIMPAN TRANSAKSI
             let statusOrder = (method === 'saldo' ? 'Dikemas' : 'Pending');
+
             const { data: trx } = await db.from('transaksi_online').insert([{
                 no_invoice: inv, customer_id: userData.id, nama_penerima: name, wa_penerima: phone,
                 alamat_kirim: address, kurir: courier, ongkos_kirim: shippingCost,
                 grand_total: totalBayar, status_order: statusOrder
             }]).select().single();
 
-            // 2. SIMPAN DETAIL
             const details = cartData.map(item => ({ transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama || item.nama_barang, qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga }));
             await db.from('transaksi_online_detail').insert(details);
 
-            // 3. LOGIKA BERDASARKAN METODE
             if (method === 'saldo') {
-                await db.from('customers').update({ saldo: userData.saldo - totalBayar, is_reward_claimed: false }).eq('id', userData.id);
+                await db.from('customers').update({ saldo: userData.saldo - totalBayar }).eq('id', userData.id);
                 localStorage.removeItem('finexcart');
                 alert("Pembayaran Berhasil! 🌸");
                 window.location.href = "online-shop.html";
@@ -294,7 +309,7 @@
             } 
             else {
                 localStorage.removeItem('finexcart');
-                const waMsg = `Halo Admin! Saya sudah pesan *${inv}* total *Rp ${totalBayar.toLocaleString()}*. Mohon info rekeningnya ya 🌸`;
+                const waMsg = `Halo Admin! Pesanan *${inv}* (Rp ${totalBayar.toLocaleString()}). Mohon info rek transfer 🌸`;
                 window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(waMsg)}`, '_blank');
                 window.location.href = "online-shop.html";
             }
