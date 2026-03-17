@@ -309,54 +309,98 @@ async function checkLoyaltyAutomatically(userId) {
         updateTotalDisplay();
     }
 
-    async function processOrder() {
-        const method = document.getElementById('selected-method').value;
-        if (!method) return alert("Pilih metode pembayaran!");
+async function processOrder() {
+    const method = document.getElementById('selected-method').value;
+    if (!method) return alert("Pilih metode pembayaran! 🌸");
+    
+    const totalBayar = subtotalFinal + shippingCost - diskonLoyalty;
+    const name = document.getElementById('cust-name').value;
+    const phone = document.getElementById('cust-phone').value;
+    const address = document.getElementById('cust-address').value;
+    const courier = document.getElementById('selected-courier-name').value || "Manual";
+
+    if (!name || !address) return alert("Lengkapi Alamat!");
+
+    const btn = document.getElementById('btn-order');
+    btn.innerText = "Processing..."; btn.disabled = true;
+
+    try {
+        const inv = `BLM-${Date.now().toString().slice(-6)}`;
         
-        const totalBayar = subtotalFinal + shippingCost - diskonLoyalty;
-        const name = document.getElementById('cust-name').value;
-        const phone = document.getElementById('cust-phone').value;
-        const address = document.getElementById('cust-address').value;
-        const courier = document.getElementById('selected-courier-name').value || "Manual";
+        // Logika Kurir: Jika saldo, beri tanda khusus untuk Admin
+        const kurirDatabase = (method === 'saldo') ? 'Saldo Akun' : courier;
+        let statusOrder = (method === 'saldo' ? 'Dikemas' : 'Pending');
 
-        if (!name || !address) return alert("Lengkapi Alamat!");
+        // --- 1. PROSES PEMBAYARAN SALDO ---
+        if (method === 'saldo') {
+            // Potong Saldo di tabel customers
+            const { error: errUpdateSaldo } = await db.from('customers')
+                .update({ saldo: userData.saldo - totalBayar })
+                .eq('id', userData.id);
+            
+            if (errUpdateSaldo) throw new Error("Gagal memotong saldo.");
 
-        const btn = document.getElementById('btn-order');
-        btn.innerText = "Processing..."; btn.disabled = true;
+            // CATAT SEBAGAI 'PEMBAYARAN' DI RIWAYAT (Bukan Penarikan)
+            await db.from('topup_history').insert([{
+                no_invoice: inv,
+                customer_id: userData.id,
+                nominal: totalBayar,
+                status: 'PEMBAYARAN' // Ini kuncinya agar tidak tertukar dengan WD atau Refund
+            }]);
+        }
 
-        try {
-            const inv = `BLM-${Date.now().toString().slice(-6)}`;
-            let statusOrder = (method === 'saldo' ? 'Dikemas' : 'Pending');
+        // --- 2. SIMPAN TRANSAKSI UTAMA ---
+        const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
+            no_invoice: inv, 
+            customer_id: userData.id, 
+            nama_penerima: name, 
+            wa_penerima: phone,
+            alamat_kirim: address, 
+            kurir: kurirDatabase, 
+            ongkos_kirim: shippingCost,
+            grand_total: totalBayar, 
+            status_order: statusOrder
+        }]).select().single();
 
-            const { data: trx } = await db.from('transaksi_online').insert([{
-                no_invoice: inv, customer_id: userData.id, nama_penerima: name, wa_penerima: phone,
-                alamat_kirim: address, kurir: courier, ongkos_kirim: shippingCost,
-                grand_total: totalBayar, status_order: statusOrder
-            }]).select().single();
+        if (errTrx) throw errTrx;
 
-            const details = cartData.map(item => ({ transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama || item.nama_barang, qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga }));
-            await db.from('transaksi_online_detail').insert(details);
+        // --- 3. SIMPAN DETAIL PRODUK ---
+        const details = cartData.map(item => ({ 
+            transaksi_id: trx.id, 
+            produk_id: item.id, 
+            nama_barang: item.nama || item.nama_barang, 
+            qty: item.qty, 
+            harga_satuan: item.harga, 
+            subtotal_item: item.qty * item.harga 
+        }));
+        await db.from('transaksi_online_detail').insert(details);
 
-            if (method === 'saldo') {
-                await db.from('customers').update({ saldo: userData.saldo - totalBayar }).eq('id', userData.id);
-                localStorage.removeItem('finexcart');
-                alert("Pembayaran Berhasil! 🌸");
-                window.location.href = "online-shop.html";
-            } 
-            else if (method === 'va') {
-                const { data: midtrans } = await db.functions.invoke('smart-endpoint', { body: { action: 'generate_token', order_id: inv, amount: totalBayar, customer_name: name, customer_email: userData.email } });
-                await db.from('transaksi_online').update({ snap_token: midtrans.token }).eq('id', trx.id);
-                localStorage.removeItem('finexcart');
-                window.snap.pay(midtrans.token, { onSuccess: () => { window.location.href = "online-shop.html"; } });
-            } 
-            else {
-                localStorage.removeItem('finexcart');
-                const waMsg = `Halo Admin! Pesanan *${inv}* (Rp ${totalBayar.toLocaleString()}). Mohon info rek transfer 🌸`;
-                window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(waMsg)}`, '_blank');
-                window.location.href = "online-shop.html";
-            }
-        } catch (e) { alert(e.message); btn.disabled = false; }
+        // --- 4. PENYELESAIAN ---
+        localStorage.removeItem('finexcart');
+
+        if (method === 'saldo') {
+            alert("Pembayaran Berhasil! Pesanan sedang dikemas. 🌸");
+            window.location.href = "online-shop.html";
+        } 
+        else if (method === 'va') {
+            const { data: midtrans } = await db.functions.invoke('smart-endpoint', { 
+                body: { action: 'generate_token', order_id: inv, amount: totalBayar, customer_name: name, customer_email: userData.email } 
+            });
+            await db.from('transaksi_online').update({ snap_token: midtrans.token }).eq('id', trx.id);
+            window.snap.pay(midtrans.token, { onSuccess: () => { window.location.href = "online-shop.html"; } });
+        } 
+        else {
+            const waMsg = `Halo Admin! Pesanan *${inv}* (Rp ${totalBayar.toLocaleString()}). Mohon info rek transfer 🌸`;
+            window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(waMsg)}`, '_blank');
+            window.location.href = "online-shop.html";
+        }
+
+    } catch (e) { 
+        alert("Gagal: " + e.message); 
+        btn.disabled = false; 
+        btn.innerText = "BAYAR SEKARANG ✨";
     }
+}
 </script>
 </body>
 </html>
