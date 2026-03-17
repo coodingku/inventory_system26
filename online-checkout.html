@@ -16,6 +16,8 @@
         .input-field:focus { border-color: #ff85a2; box-shadow: 0 0 0 2px #ffe5ec; }
         .courier-box { transition: all 0.2s ease; border: 2px solid #f1f5f9; cursor: pointer; }
         .courier-box.active { border-color: #f72585; background: #fff0f3; }
+        .payment-box { transition: all 0.2s ease; border: 2px solid #f8fafc; cursor: pointer; }
+        .payment-box.active { border-color: #f72585; background: #fff0f3; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
@@ -54,10 +56,6 @@
                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Bayar</p>
                         <h2 id="txt-total" class="text-2xl font-black text-[#f72585]">Rp 0</h2>
                     </div>
-                    <div id="info-saldo" class="text-right hidden">
-                        <p class="text-[9px] text-slate-400 font-bold uppercase">Saldo Kamu</p>
-                        <p id="txt-saldo-user" class="text-xs font-black text-green-600">Rp 0</p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -69,28 +67,63 @@
             <div class="space-y-4">
                 <input type="text" id="cust-name" class="input-field" placeholder="Nama Penerima">
                 <input type="number" id="cust-phone" class="input-field" placeholder="No. WhatsApp (628...)">
-                
                 <div class="relative">
                     <input type="text" id="destination-search" onkeyup="searchArea(this.value)" class="input-field" placeholder="Ketik Kecamatan Tujuan..." autocomplete="off">
                     <div id="area-results" class="absolute z-50 w-full bg-white shadow-xl rounded-2xl mt-1 max-h-48 overflow-y-auto hidden text-xs border border-slate-100 no-scrollbar"></div>
                     <input type="hidden" id="destination-id">
                 </div>
-
                 <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap (Jl, No Rumah, RT/RW)"></textarea>
-
                 <button type="button" onclick="checkShippingRates()" id="btn-cek-ongkir" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-slate-200 active:scale-95 transition-all">
                     Cek Ongkos Kirim 🚚
                 </button>
-
                 <div id="shipping-options" class="space-y-2 mt-4"></div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-[30px] shadow-sm border border-pink-50 mb-6">
+            <h3 class="font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i class="fas fa-credit-card text-pink-400"></i> Pilih Pembayaran
+            </h3>
+            <div class="space-y-3">
+                <div onclick="selectPayment('saldo')" id="pay-saldo" class="payment-box p-4 rounded-2xl border-2 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-green-50 text-green-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-wallet"></i></div>
+                        <div>
+                            <p class="font-bold text-slate-700 text-sm">Saldo Akun</p>
+                            <p id="txt-saldo-display" class="text-[10px] text-slate-400 font-bold uppercase">Memuat saldo...</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-circle-check check-icon text-slate-100"></i>
+                </div>
+                <div onclick="selectPayment('va')" id="pay-va" class="payment-box p-4 rounded-2xl border-2 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-bolt"></i></div>
+                        <div>
+                            <p class="font-bold text-slate-700 text-sm">Virtual Account (VA)</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">BCA, Mandiri, BNI, BRI</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-circle-check check-icon text-slate-100"></i>
+                </div>
+                <div onclick="selectPayment('manual')" id="pay-manual" class="payment-box p-4 rounded-2xl border-2 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center shadow-sm"><i class="fas fa-university"></i></div>
+                        <div>
+                            <p class="font-bold text-slate-700 text-sm">Transfer Manual</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Konfirmasi via WhatsApp</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-circle-check check-icon text-slate-100"></i>
+                </div>
             </div>
         </div>
 
         <input type="hidden" id="selected-courier-name">
         <input type="hidden" id="selected-shipping-cost" value="0">
+        <input type="hidden" id="selected-method" value="">
 
-        <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg shadow-pink-200 active:scale-95 transition-all mb-4">
-            BAYAR SEKARANG ✨
+        <button onclick="processOrder()" id="btn-order" class="w-full bg-gradient-to-r from-slate-400 to-slate-500 text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4">
+            PILIH METODE BAYAR ✨
         </button>
     </main>
 
@@ -118,12 +151,7 @@
                 document.getElementById('cust-name').value = data.full_name || "";
                 document.getElementById('cust-phone').value = data.phone_number || "";
                 document.getElementById('cust-address').value = data.address_shipping || "";
-                
-                // Tampilkan Saldo
-                document.getElementById('info-saldo').classList.remove('hidden');
-                document.getElementById('txt-saldo-user').innerText = "Rp " + (data.saldo || 0).toLocaleString();
-
-                // Hitung Diskon Member jika sudah Klaim & Belanja > 200rb
+                document.getElementById('txt-saldo-display').innerText = "Rp " + (data.saldo || 0).toLocaleString();
                 checkLoyalty(data);
             }
         }
@@ -131,34 +159,39 @@
 
     function checkLoyalty(profile) {
         let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
-        
-        // Syarat: is_reward_claimed TRUE & Belanja > 200rb
         if (profile.is_reward_claimed === true && currentSubtotal >= 200000) {
-            diskonMember = 25000; // Contoh potongan 25rb
+            diskonMember = 25000;
             document.getElementById('row-diskon').classList.remove('hidden');
             document.getElementById('txt-diskon').innerText = "- Rp " + diskonMember.toLocaleString();
         }
+    }
+
+    function selectPayment(method) {
+        const total = subtotalFinal + shippingCost - diskonMember;
+        if (method === 'saldo' && userData.saldo < total) return alert("Saldo kamu tidak cukup! 🌸");
+
+        document.getElementById('selected-method').value = method;
+        document.querySelectorAll('.payment-box').forEach(el => el.classList.remove('active', 'border-f72585'));
+        document.querySelectorAll('.check-icon').forEach(el => el.classList.replace('text-pink-500', 'text-slate-100'));
+        
+        const activeBox = document.getElementById('pay-' + method);
+        activeBox.classList.add('active');
+        activeBox.querySelector('.check-icon').classList.replace('text-slate-100', 'text-pink-500');
+
+        const btn = document.getElementById('btn-order');
+        btn.className = "w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4";
+        btn.innerText = (method === 'saldo' ? "BAYAR PAKAI SALDO ✨" : (method === 'manual' ? "PESAN & KONFIRMASI WA ✨" : "BAYAR SEKARANG ✨"));
     }
 
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
         subtotalFinal = 0;
-        
         container.innerHTML = cartData.map(item => {
-            const namaItem = item.nama || item.nama_barang || "Produk";
             const sub = item.qty * item.harga;
             subtotalFinal += sub;
-            return `
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <p class="font-bold text-slate-700 uppercase text-[12px]">${namaItem}</p>
-                    <p class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</p>
-                </div>
-                <p class="font-bold text-slate-800">Rp ${sub.toLocaleString()}</p>
-            </div>`;
+            return `<div class="flex justify-between items-start mb-2"><div><p class="font-bold text-slate-700 uppercase text-[12px]">${item.nama || item.nama_barang}</p><p class="text-[11px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</p></div><p class="font-bold text-slate-800">Rp ${sub.toLocaleString()}</p></div>`;
         }).join('');
-        
         updateTotalDisplay();
     }
 
@@ -167,25 +200,13 @@
         document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
         document.getElementById('txt-ongkir').innerText = "Rp " + shippingCost.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
-
-        const btn = document.getElementById('btn-order');
-        if (userData && userData.saldo >= total && total > 0) {
-            btn.innerHTML = "BAYAR PAKAI SALDO ✨";
-            btn.className = "w-full bg-gradient-to-r from-green-400 to-green-600 text-white py-5 rounded-[22px] font-black text-lg shadow-lg shadow-green-100 active:scale-95 transition-all mb-4";
-        } else {
-            btn.innerHTML = "BAYAR SEKARANG ✨";
-            btn.className = "w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg shadow-pink-200 active:scale-95 transition-all mb-4";
-        }
     }
 
-    // --- FUNGSI BITESHIP ---
     async function searchArea(query) {
         const box = document.getElementById('area-results');
         if (query.length < 3) return box.classList.add('hidden');
         try {
-            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, {
-                headers: { 'Authorization': BITES_API_KEY.trim() }
-            });
+            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}&type=single`, { headers: { 'Authorization': BITES_API_KEY.trim() } });
             const data = await res.json();
             if (data.areas) {
                 box.innerHTML = data.areas.map(a => `<div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-xs">${a.name}</div>`).join('');
@@ -202,34 +223,21 @@
 
     async function checkShippingRates() {
         const destId = document.getElementById('destination-id').value;
-        if (!destId) return alert("Pilih kecamatan dulu! 🌸");
-        const btn = document.getElementById('btn-cek-ongkir');
-        btn.innerText = "MENGHITUNG...";
+        if (!destId) return alert("Pilih kecamatan dulu!");
+        document.getElementById('btn-cek-ongkir').innerText = "MENGHITUNG...";
         try {
             const res = await fetch('https://api.biteship.com/v1/shippings/rates', {
                 method: 'POST',
                 headers: { 'Authorization': BITES_API_KEY.trim(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    origin_area_id: ORIGIN_ID,
-                    destination_area_id: destId,
-                    couriers: "jne,jnt,sicepat",
-                    items: cartData.map(i => ({ name: i.nama || i.nama_barang, value: i.harga, weight: 200, quantity: i.qty }))
-                })
+                body: JSON.stringify({ origin_area_id: ORIGIN_ID, destination_area_id: destId, couriers: "jne,jnt,sicepat", items: cartData.map(i => ({ name: i.nama || i.nama_barang, value: i.harga, weight: 200, quantity: i.qty })) })
             });
             const data = await res.json();
             if (data.results) renderShippingOptions(data.results);
-        } catch (e) { alert("Error Biteship."); }
-        finally { btn.innerText = "Cek Ongkos Kirim 🚚"; }
+        } finally { document.getElementById('btn-cek-ongkir').innerText = "Cek Ongkos Kirim 🚚"; }
     }
 
     function renderShippingOptions(rates) {
-        const container = document.getElementById('shipping-options');
-        container.innerHTML = rates.map(r => `
-            <div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2">
-                <div><p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name}</p>
-                <p class="text-xs font-bold text-slate-700">${r.duration}</p></div>
-                <p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p>
-            </div>`).join('');
+        document.getElementById('shipping-options').innerHTML = rates.map(r => `<div onclick="selectCourier('${r.courier_name} ${r.courier_service}', ${r.price})" class="p-4 border-2 rounded-2xl flex justify-between items-center courier-box bg-white mb-2"><div><p class="text-[10px] font-black text-slate-400 uppercase">${r.courier_name}</p><p class="text-xs font-bold text-slate-700">${r.duration}</p></div><p class="font-black text-slate-800 text-sm">Rp ${r.price.toLocaleString()}</p></div>`).join('');
     }
 
     function selectCourier(name, price) {
@@ -241,15 +249,17 @@
         updateTotalDisplay();
     }
 
-    // --- PROSES ORDER ---
     async function processOrder() {
+        const method = document.getElementById('selected-method').value;
+        if (!method) return alert("Pilih metode pembayaran! 🌸");
+        
         const totalBayar = subtotalFinal + shippingCost - diskonMember;
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
         const courier = document.getElementById('selected-courier-name').value || "Manual";
 
-        if (!name || !address) return alert("Lengkapi Alamat! 🌸");
+        if (!name || !address) return alert("Lengkapi Alamat!");
 
         const btn = document.getElementById('btn-order');
         btn.innerText = "Processing..."; btn.disabled = true;
@@ -257,71 +267,38 @@
         try {
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
 
-            // A. BAYAR PAKAI SALDO
-            if (userData && userData.saldo >= totalBayar && totalBayar > 0) {
-                if (!confirm("Gunakan saldo akun untuk membayar?")) {
-                    btn.disabled = false; btn.innerText = "BAYAR SEKARANG ✨";
-                    return;
-                }
+            // 1. SIMPAN TRANSAKSI
+            let statusOrder = (method === 'saldo' ? 'Dikemas' : 'Pending');
+            const { data: trx } = await db.from('transaksi_online').insert([{
+                no_invoice: inv, customer_id: userData.id, nama_penerima: name, wa_penerima: phone,
+                alamat_kirim: address, kurir: courier, ongkos_kirim: shippingCost,
+                grand_total: totalBayar, status_order: statusOrder
+            }]).select().single();
 
-                // 1. Potong Saldo & Reset Reward Member
-                await db.from('customers').update({ 
-                    saldo: userData.saldo - totalBayar,
-                    is_reward_claimed: false // Reset status diskon setelah dipakai
-                }).eq('id', userData.id);
+            // 2. SIMPAN DETAIL
+            const details = cartData.map(item => ({ transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama || item.nama_barang, qty: item.qty, harga_satuan: item.harga, subtotal_item: item.qty * item.harga }));
+            await db.from('transaksi_online_detail').insert(details);
 
-                // 2. Simpan Transaksi (Langsung Dikemas)
-                const { data: trx } = await db.from('transaksi_online').insert([{
-                    no_invoice: inv, customer_id: userData.id, nama_penerima: name, wa_penerima: phone,
-                    alamat_kirim: address, kurir: courier, ongkos_kirim: shippingCost,
-                    grand_total: totalBayar, status_order: 'Dikemas'
-                }]).select().single();
-
-                // 3. Simpan Detail
-                const details = cartData.map(item => ({
-                    transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama || item.nama_barang, qty: item.qty,
-                    harga_satuan: item.harga, subtotal_item: item.qty * item.harga
-                }));
-                await db.from('transaksi_online_detail').insert(details);
-
+            // 3. LOGIKA BERDASARKAN METODE
+            if (method === 'saldo') {
+                await db.from('customers').update({ saldo: userData.saldo - totalBayar, is_reward_claimed: false }).eq('id', userData.id);
                 localStorage.removeItem('finexcart');
-                alert("Pembayaran Saldo Berhasil! Pesanan sedang dikemas. 🌸");
+                alert("Pembayaran Berhasil! 🌸");
                 window.location.href = "online-shop.html";
             } 
-            
-            // B. BAYAR PAKAI MIDTRANS
-            else {
-                const { data: midtrans } = await db.functions.invoke('smart-endpoint', {
-                    body: { action: 'generate_token', order_id: inv, amount: totalBayar, customer_name: name, customer_email: userData.email }
-                });
-
-                if (!midtrans?.token) throw new Error("Gagal Midtrans.");
-
-                const { data: trx } = await db.from('transaksi_online').insert([{
-                    no_invoice: inv, customer_id: userData.id, nama_penerima: name, wa_penerima: phone,
-                    alamat_kirim: address, kurir: courier, ongkos_kirim: shippingCost,
-                    grand_total: totalBayar, status_order: 'Pending', snap_token: midtrans.token
-                }]).select().single();
-
-                const details = cartData.map(item => ({
-                    transaksi_id: trx.id, produk_id: item.id, nama_barang: item.nama || item.nama_barang, qty: item.qty,
-                    harga_satuan: item.harga, subtotal_item: item.qty * item.harga
-                }));
-                await db.from('transaksi_online_detail').insert(details);
-
-                // Jika pembayaran ini sukses lewat Midtrans, reward juga harus direset (Dilakukan di Webhook/Smart-Endpoint)
-                
+            else if (method === 'va') {
+                const { data: midtrans } = await db.functions.invoke('smart-endpoint', { body: { action: 'generate_token', order_id: inv, amount: totalBayar, customer_name: name, customer_email: userData.email } });
+                await db.from('transaksi_online').update({ snap_token: midtrans.token }).eq('id', trx.id);
                 localStorage.removeItem('finexcart');
-                window.snap.pay(midtrans.token, {
-                    onSuccess: () => { window.location.href = "online-shop.html"; },
-                    onPending: () => { window.location.href = "online-shop.html"; },
-                    onClose: () => { window.location.href = "online-shop.html"; }
-                });
+                window.snap.pay(midtrans.token, { onSuccess: () => { window.location.href = "online-shop.html"; } });
+            } 
+            else {
+                localStorage.removeItem('finexcart');
+                const waMsg = `Halo Admin! Saya sudah pesan *${inv}* total *Rp ${totalBayar.toLocaleString()}*. Mohon info rekeningnya ya 🌸`;
+                window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(waMsg)}`, '_blank');
+                window.location.href = "online-shop.html";
             }
-        } catch (e) {
-            alert(e.message);
-            btn.disabled = false;
-        }
+        } catch (e) { alert(e.message); btn.disabled = false; }
     }
 </script>
 </body>
