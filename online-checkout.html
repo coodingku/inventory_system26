@@ -143,8 +143,8 @@
     
     let cartData = JSON.parse(localStorage.getItem('finexcart')) || [];
     let subtotalFinal = 0;
-    let shippingCost = 0; // Sekarang selalu 0 (Free Ongkir)
-    let insuranceCost = 0; // Biaya asuransi 35.000
+    let shippingCost = 0; 
+    let insuranceCost = 0; 
     let diskonLoyalty = 0;
     let userData = null;
 
@@ -153,7 +153,6 @@
         renderCheckout(); 
     };
 
-    // Fungsi Load Data Customer... (Tetap seperti aslinya)
     async function loadCustomerData() {
         const { data: { user } } = await db.auth.getUser();
         if (user) {
@@ -164,76 +163,55 @@
                 document.getElementById('cust-phone').value = profile.phone_number || "";
                 document.getElementById('cust-address').value = profile.address_shipping || "";
                 document.getElementById('txt-saldo-display').innerText = "Rp " + (profile.saldo || 0).toLocaleString();
+                
+                // Pastikan fungsi ini dipanggil untuk menghitung diskon
                 await checkLoyaltyAutomatically(user.id);
             }
         }
     }
 
-   async function checkLoyaltyAutomatically(userId) {
-    try {
-        // 1. Ambil Aturan dari Database
-        const { data: settings } = await db.from('app_settings').select('*');
-        if (!settings) return;
-        const rules = {};
-        settings.forEach(s => { rules[s.key_name] = s.value_int; });
+    async function checkLoyaltyAutomatically(userId) {
+        try {
+            const { data: settings } = await db.from('app_settings').select('*');
+            if (!settings) return;
+            const rules = {};
+            settings.forEach(s => { rules[s.key_name] = s.value_int; });
 
-        const targetCount = rules.loyalty_target_count;
-        const minNominal = rules.loyalty_min_nominal;
-        const discountAmount = rules.loyalty_discount_amount;
+            const targetCount = rules.loyalty_target_count;
+            const minNominal = rules.loyalty_min_nominal;
+            const discountAmount = rules.loyalty_discount_amount;
 
-        // 2. AMBIL SEMUA RIWAYAT (Selesai DAN Yang Sedang Berjalan)
-        // Kita ambil semua yang statusnya BUKAN 'Dibatalkan'
-        const { data: allHistory } = await db.from('transaksi_online')
-            .select('grand_total, status_order')
-            .eq('customer_id', userId)
-            .neq('status_order', 'Dibatalkan');
+            const { data: allHistory } = await db.from('transaksi_online')
+                .select('grand_total, status_order')
+                .eq('customer_id', userId)
+                .neq('status_order', 'Dibatalkan');
 
-        // 3. HITUNG YANG SUDAH SELESAI (Untuk syarat masuk siklus)
-        const lunasOrders = allHistory.filter(trx => 
-            trx.status_order === 'Selesai' && parseFloat(trx.grand_total) >= minNominal
-        );
-        const totalLunas = lunasOrders.length;
+            const lunasOrders = allHistory.filter(trx => 
+                trx.status_order === 'Selesai' && parseFloat(trx.grand_total) >= minNominal
+            );
+            const totalLunas = lunasOrders.length;
 
-        // 4. HITUNG YANG SEDANG BERJALAN (Untuk blokir double claim)
-        // Kita cek apakah ada pesanan yang statusnya belum selesai tapi sudah jalan
-        const ongoingOrders = allHistory.filter(trx => 
-            ['Pending', 'PROSES', 'Dikemas', 'Dikirim'].includes(trx.status_order)
-        );
-        const hasOngoing = ongoingOrders.length > 0;
+            const ongoingOrders = allHistory.filter(trx => 
+                ['Pending', 'PROSES', 'Dikemas', 'Dikirim'].includes(trx.status_order)
+            );
+            const hasOngoing = ongoingOrders.length > 0;
 
-        // 5. LOGIKA SIKLUS + PROTEKSI
-        let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
-        
-        // SYARAT DISKON:
-        // - Kelipatan target terpenuhi (totalLunas % targetCount === 0)
-        // - TIDAK ADA pesanan lain yang sedang berjalan (hasOngoing === false)
-        // - Subtotal cukup
-        const isSiklusMatch = (totalLunas > 0 && totalLunas % targetCount === 0);
+            let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
+            const isSiklusMatch = (totalLunas > 0 && totalLunas % targetCount === 0);
 
-        if (isSiklusMatch && !hasOngoing && currentSubtotal >= minNominal) {
-            diskonLoyalty = discountAmount;
-            
-            const rowEl = document.getElementById('row-diskon-khusus');
-            if (rowEl) {
-                rowEl.classList.remove('hidden');
-                document.getElementById('txt-syarat-info').innerText = `Loyalty Reward Belanja ke-${totalLunas + 1} ✨`;
-                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
-            }
-        } else {
-            diskonLoyalty = 0;
-            const rowEl = document.getElementById('row-diskon-khusus');
-            if (rowEl) rowEl.classList.add('hidden');
-            
-            if (hasOngoing && isSiklusMatch) {
-                console.log("Diskon ditahan: Selesaikan pesanan sebelumnya dulu! 🌸");
-            }
-        }
+            // PERBAIKAN: Set diskonLoyalty di sini
+            if (isSiklusMatch && !hasOngoing && currentSubtotal >= minNominal) {
+                diskonLoyalty = Number(discountAmount); 
+                document.getElementById('row-diskon-khusus').classList.remove('hidden');
+                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
+            } else {
+                diskonLoyalty = 0;
+                document.getElementById('row-diskon-khusus').classList.add('hidden');
+            }
+            updateTotalDisplay();
+        } catch (err) { console.error("Loyalty Error:", err); }
+    }
 
-        updateTotalDisplay();
-    } catch (err) {
-        console.error("Loyalty Error:", err);
-    }
-}
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
@@ -246,89 +224,28 @@
         updateTotalDisplay();
     }
 
-    // FUNGSI BARU: AKTIFKAN FREE ONGKIR INSTAN
-    function applyFreeShipping() {
-        const destId = document.getElementById('destination-id').value;
-        if (!destId) return alert("Pilih kecamatan dulu cantik! 🌸");
-        
-        shippingCost = 0; // Pastikan ongkir nol
-        document.getElementById('asuransi-container').classList.remove('hidden');
-        document.getElementById('btn-cek-ongkir').innerHTML = '<i class="fas fa-check-circle"></i> Lokasi Terkonfirmasi & Free Ongkir';
-        document.getElementById('btn-cek-ongkir').classList.replace('bg-pink-500', 'bg-green-500');
-        
-        updateTotalDisplay();
-        alert("Selamat! Kamu mendapatkan FREE ONGKIR ke seluruh Indonesia ✨");
-    }
-
-    // FUNGSI BARU: TOGGLE ASURANSI
-    function toggleAsuransi(isActive) {
-        insuranceCost = isActive ? 35000 : 0;
-        const rowAsuransi = document.getElementById('row-asuransi');
-        if (isActive) {
-            rowAsuransi.classList.remove('hidden');
-        } else {
-            rowAsuransi.classList.add('hidden');
-        }
-        updateTotalDisplay();
-    }
-
-  function updateTotalDisplay() {
-    // Pastikan diskonLoyalty dikurangi dari total
-    const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
-    
-    document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
-    
-    // Update tulisan diskon jika sedang aktif
-    if (diskonLoyalty > 0) {
-        document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
-    }
-    
-    document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
-}
-
-    // Fungsi Cari Area (Tetap Pakai Biteship Maps untuk cari nama kecamatan)
-    async function searchArea(query) {
-        const box = document.getElementById('area-results');
-        if (query.length < 3) return box.classList.add('hidden');
-        try {
-            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}`, { 
-                headers: { 'Authorization': BITES_API_KEY.trim() } 
-            });
-            const data = await res.json();
-            if (data.areas && data.areas.length > 0) {
-                box.innerHTML = data.areas.map(a => `
-                    <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
-                        <i class="fas fa-map-marker-alt text-pink-400 mr-2"></i> ${a.name} <br>
-                        <span class="text-[9px] text-slate-400 ml-6">${a.current_name}</span>
-                    </div>
-                `).join('');
-                box.classList.remove('hidden');
-            }
-        } catch (e) { console.error("Gagal cari area:", e); }
-    }
-
-    function selectArea(id, name) {
-        document.getElementById('destination-id').value = id; 
-        document.getElementById('destination-search').value = name;
-        document.getElementById('area-results').classList.add('hidden');
-    }
-
     function selectPayment(method) {
         const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
         if (method === 'saldo' && userData.saldo < total) return alert("Saldo tidak cukup!");
+        
+        // PENTING: Isi value ke hidden input
         document.getElementById('selected-method').value = method;
+        
         document.querySelectorAll('.payment-box').forEach(el => el.classList.remove('border-[#f72585]', 'bg-[#fff0f3]'));
-        const activeBox = document.getElementById('pay-' + method);
-        activeBox.classList.add('border-[#f72585]', 'bg-[#fff0f3]');
+        document.getElementById('pay-' + method).classList.add('border-[#f72585]', 'bg-[#fff0f3]');
         
         const btn = document.getElementById('btn-order');
         btn.className = "w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4";
-        btn.innerText = "PROSES PESANAN ✨";
+        
+        if(method === 'saldo') btn.innerText = "BAYAR PAKAI SALDO ✨";
+        else if(method === 'va') btn.innerText = "BAYAR VIRTUAL ACCOUNT ⚡";
+        else btn.innerText = "PESAN & KONFIRMASI WA 📱";
     }
 
     async function processOrder() {
+        // AMBIL METHOD DARI INPUT HIDDEN
         const method = document.getElementById('selected-method').value;
-        if (!method) return alert("Pilih metode pembayaran! 🌸");
+        if (!method) return alert("Pilih metode pembayaran dulu cantik! 🌸");
         
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
@@ -350,26 +267,23 @@
                 await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: totalBayar, status: 'PEMBAYARAN' }]);
             }
 
-           // Temukan bagian ini di dalam fungsi processOrder()
-const asuransiText = insuranceCost > 0 ? "AKTIF (Rp 35.000)" : "Tidak Aktif";
+            const asuransiText = insuranceCost > 0 ? "AKTIF (Rp 35.000)" : "Tidak Aktif";
 
-const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
-    no_invoice: inv, 
-    customer_id: userData.id, 
-    nama_penerima: name, 
-    wa_penerima: phone,
-    alamat_kirim: address, 
-    kurir: "Manual (Free Ongkir)", 
-    ongkos_kirim: 0,
-    
-    // PENYESUAIAN NAMA KOLOM:
-    metode_bayar: method.toUpperCase(), // Mengisi kolom metode_bayar (SALDO/VA/MANUAL)
-    diskon: diskonLoyalty,              // Mengisi kolom diskon dari Loyalty Reward
-    status_order: statusOrder,          // Mengisi kolom status_order
-    
-    grand_total: totalBayar, 
-    catatan: `Asuransi: ${asuransiText}. Wajib Video Unboxing.`
-}]).select().single();
+            // PROSES INSERT KE TABEL UTAMA
+            const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
+                no_invoice: inv, 
+                customer_id: userData.id, 
+                nama_penerima: name, 
+                wa_penerima: phone,
+                alamat_kirim: address, 
+                kurir: "Manual (Free Ongkir)", 
+                ongkos_kirim: 0,
+                metode_bayar: method.toUpperCase(), // SEKARANG PASTI TERISI
+                diskon: diskonLoyalty, 
+                status_order: statusOrder,
+                grand_total: totalBayar, 
+                catatan: `Asuransi: ${asuransiText}. Wajib Video Unboxing.`
+            }]).select().single();
 
             if (errTrx) throw errTrx;
 
@@ -382,7 +296,7 @@ const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
             localStorage.removeItem('finexcart');
             
             if (method === 'saldo') {
-                alert("Berhasil! Pesanan diproses. Pastikan rekam video unboxing ya! 🌸");
+                alert("Berhasil! Pesanan diproses. 🌸");
                 window.location.href = "online-shop.html";
             } else if (method === 'va') {
                 const { data: midtrans } = await db.functions.invoke('smart-endpoint', { 
@@ -390,7 +304,7 @@ const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
                 });
                 window.snap.pay(midtrans.token, { onSuccess: () => { window.location.href = "online-shop.html"; } });
             } else {
-                const waMsg = `Halo Admin! Saya sudah pesan *${inv}* dengan Asuransi ${asuransiText}. Total: Rp ${totalBayar.toLocaleString()}. Mohon info rek transfer 🌸`;
+                const waMsg = `Halo Admin! Saya sudah pesan *${inv}* (Bayar: MANUAL). Total: Rp ${totalBayar.toLocaleString()}. Mohon info rek transfer 🌸`;
                 window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(waMsg)}`, '_blank');
                 window.location.href = "online-shop.html";
             }
@@ -398,6 +312,54 @@ const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
             alert("Gagal: " + e.message); 
             btn.disabled = false; btn.innerText = "COBA LAGI ✨";
         }
+    }
+
+    function updateTotalDisplay() {
+        const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
+        document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
+        document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
+    }
+
+    // Fungsi pembantu lainnya tetap sama (searchArea, selectArea, dll)
+    async function searchArea(query) {
+        const box = document.getElementById('area-results');
+        if (query.length < 3) return box.classList.add('hidden');
+        try {
+            const res = await fetch(`https://api.biteship.com/v1/maps/areas?countries=ID&input=${query}`, { 
+                headers: { 'Authorization': BITES_API_KEY.trim() } 
+            });
+            const data = await res.json();
+            if (data.areas && data.areas.length > 0) {
+                box.innerHTML = data.areas.map(a => `
+                    <div onclick="selectArea('${a.id}', '${a.name}')" class="p-4 hover:bg-pink-50 cursor-pointer border-b border-slate-50 font-bold text-slate-600 text-[11px]">
+                        <i class="fas fa-map-marker-alt text-pink-400 mr-2"></i> ${a.name} <br>
+                        <span class="text-[9px] text-slate-400 ml-6">${a.current_name}</span>
+                    </div>
+                `).join('');
+                box.classList.remove('hidden');
+            }
+        } catch (e) { console.error("Gagal cari area:", e); }
+    }
+    function selectArea(id, name) {
+        document.getElementById('destination-id').value = id; 
+        document.getElementById('destination-search').value = name;
+        document.getElementById('area-results').classList.add('hidden');
+    }
+    function applyFreeShipping() {
+        const destId = document.getElementById('destination-id').value;
+        if (!destId) return alert("Pilih kecamatan dulu cantik! 🌸");
+        shippingCost = 0;
+        document.getElementById('asuransi-container').classList.remove('hidden');
+        document.getElementById('btn-cek-ongkir').innerHTML = '<i class="fas fa-check-circle"></i> Lokasi Terkonfirmasi & Free Ongkir';
+        document.getElementById('btn-cek-ongkir').classList.replace('bg-pink-500', 'bg-green-500');
+        updateTotalDisplay();
+    }
+    function toggleAsuransi(isActive) {
+        insuranceCost = isActive ? 35000 : 0;
+        const rowAsuransi = document.getElementById('row-asuransi');
+        if (isActive) rowAsuransi.classList.remove('hidden');
+        else rowAsuransi.classList.add('hidden');
+        updateTotalDisplay();
     }
 </script>
 </body>
