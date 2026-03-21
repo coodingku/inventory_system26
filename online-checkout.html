@@ -272,11 +272,19 @@
         updateTotalDisplay();
     }
 
-    function updateTotalDisplay() {
-        const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
-        document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
-        document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
+  function updateTotalDisplay() {
+    // Pastikan diskonLoyalty dikurangi dari total
+    const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
+    
+    document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
+    
+    // Update tulisan diskon jika sedang aktif
+    if (diskonLoyalty > 0) {
+        document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
     }
+    
+    document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
+}
 
     // Fungsi Cari Area (Tetap Pakai Biteship Maps untuk cari nama kecamatan)
     async function searchArea(query) {
