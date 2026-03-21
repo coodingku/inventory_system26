@@ -291,52 +291,36 @@ async function printNota(id) {
     try {
         console.log("Memulai proses print untuk ID:", id);
 
-        // 1. Ambil Header
-        const { data: header, error: errHeader } = await db.from('transaksi_online')
-            .select('*')
-            .eq('id', id)
-            .single();
-        
-        if (errHeader || !header) {
-            console.error("Header Error:", errHeader);
-            return alert("Header transaksi tidak ditemukan!");
-        }
+        // 1. Ambil Header Transaksi (Di sini kolom 'diskon' berada)
+        const { data: header, error: errHeader } = await db.from('transaksi_online').select('*').eq('id', id).single();
+        if (errHeader || !header) return alert("Header transaksi tidak ditemukan!");
 
-        // 2. Ambil Detail - Kita coba paksa string jika ada masalah tipe data
+        // 2. Ambil Detail Barang (Hanya kolom yang pasti ada: nama_barang, qty, harga_satuan)
         const { data: items, error: errItems } = await db.from('transaksi_online_detail')
-            .select('nama_barang, qty, harga_satuan, diskon')
-            .eq('transaksi_id', String(id).trim()); // Memastikan ID bersih dari spasi
+            .select('nama_barang, qty, harga_satuan')
+            .eq('transaksi_id', id);
         
-        // DEBUG LOG: Cek apa yang sebenarnya dikembalikan oleh Supabase
-        console.log("Hasil Query Detail:", items);
-        if (errItems) console.error("Error Query Detail:", errItems.message);
-
-        if (!items || items.length === 0) {
-            // Jika masih gagal, kita beri info lebih detil untuk cek di database
-            console.error("Detail kosong untuk transaksi_id:", id);
-            return alert("Detail barang tidak ditemukan!\n\nSaran: Cek tabel 'transaksi_online_detail', pastikan ada baris dengan transaksi_id: " + id);
+        if (errItems || !items || items.length === 0) {
+            console.error("Detail Error:", errItems?.message);
+            return alert("Detail barang tidak ditemukan!");
         }
 
-        // 3. Kalkulasi
-        let subtotalKotor = 0;
-        let totalDiskonItem = 0;
-        items.forEach(i => {
-            subtotalKotor += (i.qty * i.harga_satuan);
-            totalDiskonItem += (parseFloat(i.diskon) || 0);
-        });
-
+        // 3. Kalkulasi Berdasarkan Data Database
+        let subtotalKotor = items.reduce((acc, i) => acc + (i.qty * i.harga_satuan), 0);
+        
+        const nominalDiskon = parseFloat(header.diskon || 0); // Ambil diskon dari tabel transaksi_online
         const isAsuransi = header.catatan && header.catatan.includes("AKTIF") ? 35000 : 0;
         const grandTotal = parseFloat(header.grand_total || 0);
         const statusNota = header.status_order ? header.status_order.toUpperCase() : "PENDING";
 
-        // 4. Proses Cetak
         const printWindow = window.open('', '_blank');
+        
+        // 4. Mapping Baris Item
         let itm = items.map(i => `
             <tr>
                 <td style="padding: 2px 0;">
                     ${i.nama_barang.toUpperCase()}<br>
                     ${i.qty} x ${i.harga_satuan.toLocaleString()}
-                    ${i.diskon > 0 ? `<br><small style="font-size: 8px;">(Potongan: -${parseFloat(i.diskon).toLocaleString()})</small>` : ''}
                 </td>
                 <td style="text-align: right; vertical-align: bottom;">
                     ${(i.qty * i.harga_satuan).toLocaleString()}
@@ -349,12 +333,19 @@ async function printNota(id) {
             <head>
                 <style>
                     @page { margin: 0; }
-                    body { font-family: 'Courier New', monospace; width: 58mm; padding: 5px; font-size: 10px; line-height: 1.2; color: #000; }
+                    body { 
+                        font-family: 'Courier New', Courier, monospace; 
+                        width: 58mm; padding: 5px; font-size: 10px; 
+                        line-height: 1.2; color: #000;
+                    }
                     center { margin-bottom: 5px; }
                     table { width: 100%; border-collapse: collapse; margin: 4px 0; }
                     .line { border-top: 1px dashed #000; margin: 4px 0; }
                     .total-row { font-weight: bold; font-size: 11px; }
-                    .status-box { text-align: center; font-size: 12px; margin: 5px 0; font-weight: bold; border: 1px solid #000; padding: 2px; }
+                    .status-box { 
+                        text-align: center; font-size: 12px; margin: 5px 0; 
+                        font-weight: bold; border: 1px solid #000; padding: 2px;
+                    }
                 </style>
             </head>
             <body>
@@ -363,32 +354,60 @@ async function printNota(id) {
                     <span style="font-size: 8px;">Finex POS System</span><br>
                     --------------------------
                 </center>
+
                 <div class="status-box">${statusNota}</div>
+                
                 ID    : ${header.no_invoice}<br>
                 Tgl   : ${new Date(header.created_at).toLocaleDateString('id-ID')}<br>
                 Plg   : ${header.nama_penerima.substring(0, 15)}<br>
                 Bayar : ${(header.metode_bayar || 'MANUAL').toUpperCase()}<br>
+                
                 <div class="line"></div>
                 <table>${itm}</table>
                 <div class="line"></div>
+                
                 <table style="font-size: 9px;">
                     <tr><td>SUBTOTAL</td><td style="text-align:right">${subtotalKotor.toLocaleString()}</td></tr>
+                    <tr><td>ONGKIR (FREE)</td><td style="text-align:right">0</td></tr>
                     <tr><td>ASURANSI</td><td style="text-align:right">${isAsuransi.toLocaleString()}</td></tr>
-                    ${totalDiskonItem > 0 ? `<tr><td>DISKON ITEM</td><td style="text-align:right">-${totalDiskonItem.toLocaleString()}</td></tr>` : ''}
-                    <tr class="total-row"><td>TOTAL AKHIR</td><td style="text-align:right">Rp ${grandTotal.toLocaleString()}</td></tr>
+                    
+                    ${nominalDiskon > 0 ? `
+                    <tr>
+                        <td>DISKON/REWARD</td>
+                        <td style="text-align:right">-${nominalDiskon.toLocaleString()}</td>
+                    </tr>` : ''}
+                    
+                    <tr class="total-row">
+                        <td>TOTAL AKHIR</td>
+                        <td style="text-align:right">Rp ${grandTotal.toLocaleString()}</td>
+                    </tr>
                 </table>
+
                 <div class="line"></div>
-                <div style="font-size: 8px;"><strong>ALAMAT:</strong> ${header.alamat_kirim}<br><strong>WA:</strong> ${header.wa_penerima}</div>
-                <div style="text-align:center; font-size: 8px; margin-top: 10px;">WAJIB VIDEO UNBOXING<br>--- TERIMA KASIH ---</div>
-                <script>window.onload = () => { window.print(); setTimeout(() => { window.close(); }, 500); }<\/script>
+                <div style="font-size: 8px;">
+                    <strong>ALAMAT:</strong> ${header.alamat_kirim}<br>
+                    <strong>WA:</strong> ${header.wa_penerima}
+                </div>
+                
+                <div style="text-align:center; font-size: 8px; margin-top: 10px;">
+                    WAJIB VIDEO UNBOXING<br>
+                    --- TERIMA KASIH ---
+                </div>
+
+                <script>
+                    window.onload = () => {
+                        window.print();
+                        setTimeout(() => { window.close(); }, 500);
+                    }
+                <\/script>
             </body>
             </html>
         `);
         printWindow.document.close();
 
-    } catch (e) {
+    } catch (e) { 
         console.error("System Error:", e);
-        alert("Gagal print nota!");
+        alert("Gagal memproses nota."); 
     }
 }
     function sendWA(phone, name, inv, status) {
