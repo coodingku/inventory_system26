@@ -287,17 +287,104 @@ async function updateStatus(id, statusBaru) {
         alert("Gagal: " + err.message); 
     }
 }
-    async function printNota(id) {
-        try {
-            const { data: header } = await db.from('transaksi_online').select('*').eq('id', id).single();
-            const { data: items } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
-            if (!header) return alert("Data tidak ada!");
-            const printWindow = window.open('', '_blank');
-            let itm = items.map(i => `<tr><td style="padding:5px 0">${i.nama_barang}<br><small>${i.qty}x Rp ${i.harga_satuan.toLocaleString()}</small></td><td style="text-align:right">Rp ${(i.qty*i.harga_satuan).toLocaleString()}</td></tr>`).join('');
-            printWindow.document.write(`<html><body style="font-family:monospace;width:70mm;padding:5px;font-size:12px;"><center><strong>FINEX BEAUTY BLOOM</strong><br>Online Nota<br>---</center>Nota: ${header.no_invoice}<br>Tgl: ${new Date(header.created_at).toLocaleString('id-ID')}<br>Cust: ${header.nama_penerima}<br>---<table style="width:100%">${itm}</table>---<br>Ongkir: Rp ${parseFloat(header.ongkos_kirim||0).toLocaleString()}<br><strong>TOTAL: Rp ${parseFloat(header.grand_total).toLocaleString()}</strong><br><br><center>Terima kasih! ✨</center><script>window.onload=()=>{window.print();setTimeout(()=>{window.close()},500)}<\/script></body></html>`);
-            printWindow.document.close();
-        } catch (e) { alert("Gagal print"); }
+async function printNota(id) {
+    try {
+        const { data: header } = await db.from('transaksi_online').select('*').eq('id', id).single();
+        const { data: items } = await db.from('transaksi_online_detail').select('*').eq('transaksi_id', id);
+        
+        if (!header || !items) return alert("Data tidak ditemukan!");
+
+        // Deteksi Asuransi dari Catatan
+        const isAsuransi = header.catatan && header.catatan.includes("AKTIF") ? "Rp 35.000" : "Rp 0";
+
+        const printWindow = window.open('', '_blank');
+        
+        // Membuat baris produk
+        let itm = items.map(i => `
+            <tr>
+                <td style="padding: 2px 0;">
+                    ${i.nama_barang.toUpperCase()}<br>
+                    ${i.qty} x ${i.harga_satuan.toLocaleString()}
+                </td>
+                <td style="text-align: right; vertical-align: bottom;">
+                    ${(i.qty * i.harga_satuan).toLocaleString()}
+                </td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <style>
+                    @page { margin: 0; }
+                    body { 
+                        font-family: 'Courier New', Courier, monospace; 
+                        width: 58mm; /* Standar Thermal Bluetooth */
+                        padding: 5px; 
+                        font-size: 11px; 
+                        line-height: 1.2;
+                        color: #000;
+                    }
+                    center { margin-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin: 5px 0; }
+                    .line { border-top: 1px dashed #000; margin: 5px 0; }
+                    .total-row { font-weight: bold; font-size: 13px; }
+                    .footer { font-size: 9px; margin-top: 10px; text-align: center; }
+                </style>
+            </head>
+            <body>
+                <center>
+                    <strong style="font-size: 14px;">BEAUTY BLOOM</strong><br>
+                    <span style="font-size: 9px;">Jl. Tukad Badung, Renon, Denpasar</span><br>
+                    --------------------------
+                </center>
+                
+                ID: ${header.no_invoice}<br>
+                Tgl: ${new Date(header.created_at).toLocaleDateString('id-ID')}<br>
+                Plg: ${header.nama_penerima.substring(0, 15)}<br>
+                
+                <div class="line"></div>
+                <table>${itm}</table>
+                <div class="line"></div>
+                
+                <table style="font-size: 10px;">
+                    <tr><td>ONGKIR (FREE)</td><td style="text-align:right">0</td></tr>
+                    <tr><td>ASURANSI</td><td style="text-align:right">${isAsuransi}</td></tr>
+                    ${header.diskon_loyalty > 0 ? `<tr><td>REWARD</td><td style="text-align:right">-${header.diskon_loyalty.toLocaleString()}</td></tr>` : ''}
+                    <tr class="total-row">
+                        <td>TOTAL</td>
+                        <td style="text-align:right">Rp ${parseFloat(header.grand_total).toLocaleString()}</td>
+                    </tr>
+                </table>
+
+                <div class="line"></div>
+                <div style="font-size: 9px;">
+                    <strong>ALAMAT KIRIM:</strong><br>
+                    ${header.alamat_kirim}<br>
+                    <strong>WA:</strong> ${header.wa_penerima}
+                </div>
+                
+                <div class="footer">
+                    WAJIB VIDEO UNBOXING<br>
+                    UNTUK KLAIM ASURANSI ✨<br>
+                    --- Terima Kasih ---
+                </div>
+
+                <script>
+                    window.onload = () => {
+                        window.print();
+                        setTimeout(() => { window.close(); }, 500);
+                    }
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    } catch (e) { 
+        console.error(e);
+        alert("Gagal print: " + e.message); 
     }
+}
 
     function sendWA(phone, name, inv, status) {
         if (!phone) return alert("No WA tidak ada!");
