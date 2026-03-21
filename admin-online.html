@@ -289,9 +289,9 @@ async function updateStatus(id, statusBaru) {
 }
 async function printNota(id) {
     try {
-        console.log("Memulai proses print untuk ID:", id);
+        console.log("Memulai proses print untuk ID Transaksi:", id);
 
-        // 1. Ambil Header (Ambil kolom diskon dari sini)
+        // 1. Ambil Header (Data utama nota + Diskon)
         const { data: header, error: errHeader } = await db.from('transaksi_online')
             .select('*')
             .eq('id', id)
@@ -299,36 +299,32 @@ async function printNota(id) {
         
         if (errHeader || !header) {
             console.error("Header Error:", errHeader);
-            return alert("Header transaksi tidak ditemukan!");
+            return alert("Data nota tidak ditemukan!");
         }
 
-        // 2. Ambil Detail (Pastikan kolom-kolom ini ada di tabel transaksi_online_detail)
-        // Kita HANYA ambil nama_barang, qty, dan harga_satuan agar tidak error 400 lagi
+        // 2. Ambil Detail (Ambil Nama Barang menggunakan transaksi_id)
+        // Kita hanya ambil kolom yang pasti ada agar tidak Error 400
         const { data: items, error: errItems } = await db.from('transaksi_online_detail')
-            .select('nama_barang, qty, harga_satuan')
+            .select('nama_barang, qty, harga_satuan, produk_id')
             .eq('transaksi_id', id);
         
-        if (errItems) {
-            console.error("Database Error Detail:", errItems.message);
-            return alert("Gagal mengambil detail barang: " + errItems.message);
-        }
-
-        if (!items || items.length === 0) {
-            console.warn("Detail kosong. Mencoba mencocokkan tipe data ID...");
-            // Jika kosong, ada kemungkinan masalah tipe data UUID vs String di Supabase
-            return alert("Data barang tidak ditemukan di tabel detail. Periksa apakah ID transaksi sudah sesuai.");
+        if (errItems || !items || items.length === 0) {
+            console.error("Detail Error:", errItems?.message);
+            // Log untuk debug jika masih kosong
+            console.log("Mencoba cek isi tabel detail...");
+            return alert("Nama barang tidak muncul karena detail transaksi tidak ditemukan di database.");
         }
 
         // 3. Kalkulasi
         const subtotalKotor = items.reduce((acc, i) => acc + (i.qty * i.harga_satuan), 0);
-        const nominalDiskon = parseFloat(header.diskon || 0);
+        const nominalDiskon = parseFloat(header.diskon || 0); // Diskon diambil dari tabel transaksi_online
         const nominalAsuransi = header.catatan && header.catatan.includes("AKTIF") ? 35000 : 0;
         const grandTotal = parseFloat(header.grand_total || 0);
 
-        // 4. Proses Render Nota
+        // 4. Proses Cetak
         const printWindow = window.open('', '_blank');
         
-        // Loop Nama Barang
+        // Render baris barang
         let itm = items.map(i => `
             <tr>
                 <td style="padding: 2px 0;">
@@ -348,12 +344,12 @@ async function printNota(id) {
                     @page { margin: 0; }
                     body { 
                         font-family: 'Courier New', monospace; 
-                        width: 58mm; padding: 5px; font-size: 10px; 
+                        width: 58mm; padding: 4px; font-size: 10px; 
                         line-height: 1.2; color: #000;
                     }
                     center { margin-bottom: 5px; }
-                    table { width: 100%; border-collapse: collapse; margin: 5px 0; }
-                    .line { border-top: 1px dashed #000; margin: 5px 0; }
+                    table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+                    .line { border-top: 1px dashed #000; margin: 4px 0; }
                     .total-row { font-weight: bold; font-size: 11px; }
                 </style>
             </head>
@@ -367,7 +363,6 @@ async function printNota(id) {
                 ID    : ${header.no_invoice}<br>
                 Tgl   : ${new Date(header.created_at).toLocaleDateString('id-ID')}<br>
                 Plg   : ${header.nama_penerima.substring(0, 15)}<br>
-                Status: ${header.status_order.toUpperCase()}<br>
                 
                 <div class="line"></div>
                 <table>${itm}</table>
@@ -413,7 +408,7 @@ async function printNota(id) {
 
     } catch (e) {
         console.error("System Error:", e);
-        alert("Gagal memproses nota.");
+        alert("Gagal memproses nota!");
     }
 }
     function sendWA(phone, name, inv, status) {
