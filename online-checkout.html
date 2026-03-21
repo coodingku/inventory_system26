@@ -325,11 +325,10 @@ async function checkShippingRates() {
             destination_area_id: destId.trim(),
             couriers: "jne,jnt,sicepat",
             items: cartData.map(i => ({
-                name: (i.nama || i.nama_barang || "Produk").substring(0, 30),
-                description: "Produk Kecantikan", // Tambahkan deskripsi
-                value: Number(i.harga), // Pastikan bertipe Number
-                weight: 200, // Berat per item (gram)
-                quantity: Number(i.qty) // Pastikan bertipe Number
+                name: (i.nama || i.nama_barang || "Produk BeautyBloom").substring(0, 30),
+                value: Number(i.harga), // WAJIB NUMBER
+                weight: 200,            // Gram
+                quantity: Number(i.qty) // WAJIB NUMBER
             }))
         };
 
@@ -343,18 +342,28 @@ async function checkShippingRates() {
         });
 
         const result = await response.json();
+        console.log("Full Debug Response:", result);
 
-        if (response.ok && result.success) { // Pastikan cek result.success
+        if (response.ok && result.success === true) {
             renderShippingResults(result.results);
         } else {
-            // Jika error karena verifikasi, pesan dari Biteship biasanya ada di result.message
-            let errorMsg = result.message || "Pastikan akun Biteship sudah diverifikasi KTP & isi saldo di dashboard mereka. 🌸";
+            // Menangkap pesan error spesifik dari Biteship
+            let errorMsg = result.message || "Gagal mengambil data ongkir.";
+            
+            // Jika 404 atau Unauthenticated
+            if (response.status === 404) {
+                errorMsg = "Endpoint tidak ditemukan atau API Key tidak valid untuk area ini.";
+            } else if (response.status === 401) {
+                errorMsg = "API Key ditolak. Cek dashboard Biteship Anda.";
+            }
+
             throw new Error(errorMsg);
         }
 
     } catch (e) {
         console.error("Detail Error:", e);
-        alert("Ops! " + e.message);
+        // Pesan edukatif untuk user/developer
+        alert("Info Biteship: " + e.message + "\n\nCatatan: Jika menggunakan API LIVE, pastikan KTP sudah diverifikasi & saldo terisi di dashboard Biteship.");
     } finally {
         btn.innerText = "Cek Ongkos Kirim 🚚";
         btn.disabled = false;
