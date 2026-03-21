@@ -291,7 +291,7 @@ async function printNota(id) {
     try {
         console.log("Memulai proses print untuk ID:", id);
 
-        // 1. Ambil Header (Termasuk kolom DISKON yang ada di sini)
+        // 1. Ambil Header (Ambil kolom diskon dari sini)
         const { data: header, error: errHeader } = await db.from('transaksi_online')
             .select('*')
             .eq('id', id)
@@ -302,20 +302,21 @@ async function printNota(id) {
             return alert("Header transaksi tidak ditemukan!");
         }
 
-        // 2. Ambil Detail (nama_barang, qty, harga_satuan)
-        // Pastikan kolom penghubungnya adalah 'transaksi_id'
+        // 2. Ambil Detail (Pastikan kolom-kolom ini ada di tabel transaksi_online_detail)
+        // Kita HANYA ambil nama_barang, qty, dan harga_satuan agar tidak error 400 lagi
         const { data: items, error: errItems } = await db.from('transaksi_online_detail')
             .select('nama_barang, qty, harga_satuan')
             .eq('transaksi_id', id);
         
         if (errItems) {
             console.error("Database Error Detail:", errItems.message);
-            return alert("Error Database: " + errItems.message);
+            return alert("Gagal mengambil detail barang: " + errItems.message);
         }
 
         if (!items || items.length === 0) {
-            console.error("Data detail kosong di database untuk transaksi_id:", id);
-            return alert("Detail barang tidak ditemukan di tabel transaksi_online_detail!");
+            console.warn("Detail kosong. Mencoba mencocokkan tipe data ID...");
+            // Jika kosong, ada kemungkinan masalah tipe data UUID vs String di Supabase
+            return alert("Data barang tidak ditemukan di tabel detail. Periksa apakah ID transaksi sudah sesuai.");
         }
 
         // 3. Kalkulasi
@@ -323,10 +324,11 @@ async function printNota(id) {
         const nominalDiskon = parseFloat(header.diskon || 0);
         const nominalAsuransi = header.catatan && header.catatan.includes("AKTIF") ? 35000 : 0;
         const grandTotal = parseFloat(header.grand_total || 0);
-        const statusNota = header.status_order ? header.status_order.toUpperCase() : "PENDING";
 
-        // 4. Proses Cetak Nota
+        // 4. Proses Render Nota
         const printWindow = window.open('', '_blank');
+        
+        // Loop Nama Barang
         let itm = items.map(i => `
             <tr>
                 <td style="padding: 2px 0;">
@@ -344,12 +346,15 @@ async function printNota(id) {
             <head>
                 <style>
                     @page { margin: 0; }
-                    body { font-family: 'Courier New', monospace; width: 58mm; padding: 4px; font-size: 10px; line-height: 1.1; color: #000; }
-                    center { margin-bottom: 4px; }
-                    table { width: 100%; border-collapse: collapse; margin: 4px 0; }
-                    .line { border-top: 1px dashed #000; margin: 4px 0; }
+                    body { 
+                        font-family: 'Courier New', monospace; 
+                        width: 58mm; padding: 5px; font-size: 10px; 
+                        line-height: 1.2; color: #000;
+                    }
+                    center { margin-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin: 5px 0; }
+                    .line { border-top: 1px dashed #000; margin: 5px 0; }
                     .total-row { font-weight: bold; font-size: 11px; }
-                    .status-box { text-align: center; font-size: 12px; margin: 4px 0; font-weight: bold; border: 1px solid #000; padding: 2px; }
                 </style>
             </head>
             <body>
@@ -358,24 +363,49 @@ async function printNota(id) {
                     <span style="font-size: 8px;">Finex POS System</span><br>
                     --------------------------
                 </center>
-                <div class="status-box">${statusNota}</div>
+
                 ID    : ${header.no_invoice}<br>
                 Tgl   : ${new Date(header.created_at).toLocaleDateString('id-ID')}<br>
                 Plg   : ${header.nama_penerima.substring(0, 15)}<br>
-                Bayar : ${(header.metode_bayar || 'MANUAL').toUpperCase()}<br>
+                Status: ${header.status_order.toUpperCase()}<br>
+                
                 <div class="line"></div>
                 <table>${itm}</table>
                 <div class="line"></div>
+                
                 <table style="font-size: 9px;">
                     <tr><td>SUBTOTAL</td><td style="text-align:right">${subtotalKotor.toLocaleString()}</td></tr>
                     <tr><td>ASURANSI</td><td style="text-align:right">${nominalAsuransi.toLocaleString()}</td></tr>
-                    ${nominalDiskon > 0 ? `<tr><td>REWARD/DISKON</td><td style="text-align:right">-${nominalDiskon.toLocaleString()}</td></tr>` : ''}
-                    <tr class="total-row"><td>TOTAL AKHIR</td><td style="text-align:right">Rp ${grandTotal.toLocaleString()}</td></tr>
+                    
+                    ${nominalDiskon > 0 ? `
+                    <tr>
+                        <td>DISKON</td>
+                        <td style="text-align:right">-${nominalDiskon.toLocaleString()}</td>
+                    </tr>` : ''}
+                    
+                    <tr class="total-row">
+                        <td>TOTAL AKHIR</td>
+                        <td style="text-align:right">Rp ${grandTotal.toLocaleString()}</td>
+                    </tr>
                 </table>
+
                 <div class="line"></div>
-                <div style="font-size: 8px;"><strong>ALAMAT:</strong> ${header.alamat_kirim}<br><strong>WA:</strong> ${header.wa_penerima}</div>
-                <div style="text-align:center; font-size: 8px; margin-top: 10px;">WAJIB VIDEO UNBOXING<br>--- TERIMA KASIH ---</div>
-                <script>window.onload = () => { window.print(); setTimeout(() => { window.close(); }, 500); }<\/script>
+                <div style="font-size: 8px;">
+                    <strong>ALAMAT:</strong> ${header.alamat_kirim}<br>
+                    <strong>WA:</strong> ${header.wa_penerima}
+                </div>
+                
+                <div style="text-align:center; font-size: 8px; margin-top: 10px;">
+                    WAJIB VIDEO UNBOXING<br>
+                    --- TERIMA KASIH ---
+                </div>
+
+                <script>
+                    window.onload = () => {
+                        window.print();
+                        setTimeout(() => { window.close(); }, 500);
+                    }
+                <\/script>
             </body>
             </html>
         `);
@@ -383,7 +413,7 @@ async function printNota(id) {
 
     } catch (e) {
         console.error("System Error:", e);
-        alert("Gagal print nota!");
+        alert("Gagal memproses nota.");
     }
 }
     function sendWA(phone, name, inv, status) {
