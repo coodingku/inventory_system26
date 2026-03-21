@@ -295,12 +295,9 @@ async function printNota(id) {
         if (!header || !items) return alert("Data tidak ditemukan!");
 
         // Deteksi Asuransi & Status
-        const isAsuransi = header.catatan && header.catatan.includes("AKTIF") ? "Rp 35.000" : "0";
+        const isAsuransi = header.catatan && header.catatan.includes("AKTIF") ? "35.000" : "0";
         const statusNota = header.status_order ? header.status_order.toUpperCase() : "PENDING";
         
-        // Penentuan Warna Status (Opsional untuk tampilan layar, tetap hitam di thermal)
-        const statusStyle = statusNota === 'BATAL' || statusNota === 'DIBATALKAN' ? 'border: 1px solid #000; padding: 2px 5px;' : 'font-weight: bold;';
-
         const printWindow = window.open('', '_blank');
         
         let itm = items.map(i => `
@@ -333,7 +330,14 @@ async function printNota(id) {
                     .line { border-top: 1px dashed #000; margin: 5px 0; }
                     .total-row { font-weight: bold; font-size: 12px; }
                     .footer { font-size: 9px; margin-top: 10px; text-align: center; }
-                    .status-box { text-align: center; font-size: 14px; margin: 5px 0; font-weight: black; }
+                    .status-box { 
+                        text-align: center; 
+                        font-size: 14px; 
+                        margin: 5px 0; 
+                        font-weight: bold; 
+                        border: 1px solid #000;
+                        padding: 3px;
+                    }
                 </style>
             </head>
             <body>
@@ -344,13 +348,13 @@ async function printNota(id) {
                 </center>
 
                 <div class="status-box">
-                    *** ${statusNota} ***
+                    ${statusNota}
                 </div>
                 
-                ID  : ${header.no_invoice}<br>
-                Tgl : ${new Date(header.created_at).toLocaleDateString('id-ID')}<br>
-                Plg : ${header.nama_penerima.substring(0, 15)}<br>
-                Bayar: ${(header.metode_pembayaran || 'TRANSFER MANUAL').toUpperCase()}<br>
+                ID    : ${header.no_invoice}<br>
+                Tgl   : ${new Date(header.created_at).toLocaleDateString('id-ID')}<br>
+                Plg   : ${header.nama_penerima.substring(0, 15)}<br>
+                Bayar : ${(header.metode_bayar || 'MANUAL').toUpperCase()}<br>
                 
                 <div class="line"></div>
                 <table>${itm}</table>
@@ -359,6 +363,7 @@ async function printNota(id) {
                 <table style="font-size: 10px;">
                     <tr><td>ONGKIR (FREE)</td><td style="text-align:right">0</td></tr>
                     <tr><td>ASURANSI</td><td style="text-align:right">${isAsuransi}</td></tr>
+                    ${header.diskon > 0 ? `<tr><td>REWARD</td><td style="text-align:right">-${header.diskon.toLocaleString()}</td></tr>` : ''}
                     <tr class="total-row">
                         <td>TOTAL</td>
                         <td style="text-align:right">Rp ${parseFloat(header.grand_total).toLocaleString()}</td>
@@ -373,7 +378,7 @@ async function printNota(id) {
                 </div>
                 
                 <div class="footer">
-                    * Simpan nota ini sebagai bukti *<br>
+                    * Simpan nota sebagai bukti *<br>
                     WAJIB VIDEO UNBOXING UNTUK KLAIM<br>
                     --- Terima Kasih ---
                 </div>
