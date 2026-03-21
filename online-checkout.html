@@ -350,14 +350,26 @@
                 await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: totalBayar, status: 'PEMBAYARAN' }]);
             }
 
-            const asuransiText = insuranceCost > 0 ? "AKTIF (Rp 35.000)" : "Tidak";
+           // Temukan bagian ini di dalam fungsi processOrder()
+const asuransiText = insuranceCost > 0 ? "AKTIF (Rp 35.000)" : "Tidak Aktif";
 
-            const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
-                no_invoice: inv, customer_id: userData.id, nama_penerima: name, wa_penerima: phone,
-                alamat_kirim: address, kurir: "Manual (Free Ongkir)", ongkos_kirim: 0,
-                grand_total: totalBayar, status_order: statusOrder,
-                catatan: `Asuransi: ${asuransiText}. Syarat Unboxing Wajib.`
-            }]).select().single();
+const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
+    no_invoice: inv, 
+    customer_id: userData.id, 
+    nama_penerima: name, 
+    wa_penerima: phone,
+    alamat_kirim: address, 
+    kurir: "Manual (Free Ongkir)", 
+    ongkos_kirim: 0,
+    
+    // PENYESUAIAN NAMA KOLOM:
+    metode_bayar: method.toUpperCase(), // Mengisi kolom metode_bayar (SALDO/VA/MANUAL)
+    diskon: diskonLoyalty,              // Mengisi kolom diskon dari Loyalty Reward
+    status_order: statusOrder,          // Mengisi kolom status_order
+    
+    grand_total: totalBayar, 
+    catatan: `Asuransi: ${asuransiText}. Wajib Video Unboxing.`
+}]).select().single();
 
             if (errTrx) throw errTrx;
 
