@@ -47,30 +47,28 @@
         </div>
     </header>
 
-    <div id="promoModal" class="fixed inset-0 z-[2000] flex items-center justify-center hidden bg-black/40 backdrop-blur-sm transition-opacity duration-300 px-6">
-    <div class="relative w-full max-w-sm p-8 bg-white rounded-[40px] shadow-2xl transform transition-all scale-90 opacity-0 border-4 border-pink-50" id="promoContent">
+<div id="promoModal" class="fixed inset-0 z-[2000] flex items-center justify-center hidden bg-black/60 backdrop-blur-sm px-6">
+    <div class="relative w-full max-w-sm p-8 bg-white rounded-[40px] shadow-2xl transform transition-all scale-90 opacity-0 border-4 border-pink-100" id="promoContent">
         
-        <button onclick="closePromo()" class="absolute top-5 right-5 w-8 h-8 bg-pink-50 text-pink-400 rounded-full flex items-center justify-center hover:bg-pink-100 transition-colors">
+        <button onclick="closePromo()" class="absolute top-5 right-5 w-8 h-8 bg-pink-50 text-pink-400 rounded-full flex items-center justify-center">
             <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <div class="flex justify-center mb-6">
-            <div class="w-20 h-20 bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-full flex items-center justify-center text-white text-3xl shadow-lg shadow-pink-200 animate-bounce">
-                <i class="fa-solid fa-gift"></i>
-            </div>
-        </div>
-
         <div class="text-center">
-            <p class="text-[10px] font-extrabold text-pink-400 uppercase tracking-[0.2em] mb-2 italic">Special Offer For You ✨</p>
-            <h3 class="text-2xl font-black text-slate-800 leading-tight mb-4">ADA PROMO MENARIK & DISKON UNTUK KAMU! 🌸</h3>
-            <p class="text-slate-500 text-sm leading-relaxed mb-8 px-2 font-medium">
-                Ayo buruan belanja di <span class="text-[#f72585] font-extrabold">Beauty Bloom</span> sekarang juga sebelum promo berakhir!
-            </p>
+            <div class="w-20 h-20 bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-full flex items-center justify-center text-white text-3xl mx-auto mb-6 shadow-lg animate-bounce">
+                <i class="fa-solid fa-sparkles"></i>
+            </div>
+
+            <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-2 italic">Beauty Bloom Promotion 🌸</p>
+            <h3 class="text-2xl font-black text-slate-800 leading-tight mb-4">ADA PROMO MENARIK & DISKON UNTUK KAMU!</h3>
             
-            <button onclick="closePromo()" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white font-black rounded-[22px] shadow-xl shadow-pink-200 active:scale-95 transition-all uppercase text-[11px] tracking-widest">
-                AMBIL PROMO SEKARANG ✨
+            <div class="bg-pink-50 py-3 rounded-2xl mb-6">
+                <p class="text-slate-600 text-sm font-bold">Ayo buruan belanja di <span class="text-pink-500">BeautyBloom</span> ✨</p>
+            </div>
+
+            <button onclick="closePromo()" class="w-full py-5 bg-slate-900 text-white font-black rounded-[22px] shadow-xl active:scale-95 transition-all uppercase text-[11px] tracking-widest">
+                Mulai Belanja Sekarang 🛍️
             </button>
-            <p class="mt-4 text-[9px] text-slate-300 font-bold uppercase tracking-widest italic text-center">*Syarat & Ketentuan Berlaku</p>
         </div>
     </div>
 </div>
@@ -246,41 +244,32 @@
         }
     }
 
-    // --- LOGIKA POPUP PROMO ---
+// --- LOGIKA POPUP PROMO (SETIAP LOGIN) ---
 function showPromoPopup() {
     const modal = document.getElementById('promoModal');
     const content = document.getElementById('promoContent');
 
-    // Cek apakah sudah tampil hari ini (agar tidak mengganggu user setiap refresh)
-    const hasSeen = localStorage.getItem('promo_beautybloom_2026');
-    const today = new Date().toLocaleDateString();
-
-    if (hasSeen !== today) {
-        modal.classList.remove('hidden');
-        
-        // Animasi Masuk Smooth
-        setTimeout(() => {
-            content.classList.remove('scale-90', 'opacity-0');
-            content.classList.add('scale-100', 'opacity-100');
-        }, 300);
-    }
+    // Langsung tampilkan tanpa cek localStorage
+    modal.classList.remove('hidden');
+    
+    // Animasi Masuk Smooth
+    setTimeout(() => {
+        content.classList.remove('scale-90', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 300);
 }
 
 function closePromo() {
     const modal = document.getElementById('promoModal');
     const content = document.getElementById('promoContent');
 
-    // Animasi Keluar
     content.classList.remove('scale-100', 'opacity-100');
     content.classList.add('scale-90', 'opacity-0');
 
     setTimeout(() => {
         modal.classList.add('hidden');
-        // Simpan status agar tidak muncul lagi di hari yang sama
-        localStorage.setItem('promo_beautybloom_2026', new Date().toLocaleDateString());
     }, 300);
 }
-
 // Panggil fungsi ini di dalam window.onload yang sudah ada
 const originalOnload = window.onload;
 window.onload = async () => {
