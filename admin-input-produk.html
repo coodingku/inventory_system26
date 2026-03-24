@@ -222,6 +222,40 @@
         reader.readAsDataURL(event.target.files[0]);
     }
 
+    // Fungsi pembantu untuk upload file ke Supabase Storage
+async function uploadFile(fileInputId, oldUrlId) {
+    const fileInput = document.getElementById(fileInputId);
+    const oldUrl = document.getElementById(oldUrlId).value;
+
+    // Jika user memilih file baru
+    if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+        const filePath = `produk/${fileName}`; // Folder di dalam bucket
+
+        // Proses Upload (Ganti 'produk-images' dengan nama BUCKET Anda di Supabase)
+        const { data, error } = await supabase.storage
+            .from('produk-images') 
+            .upload(filePath, file);
+
+        if (error) {
+            console.error("Gagal upload:", error.message);
+            return oldUrl; // Jika gagal, balikkan ke URL lama agar tidak kosong
+        }
+
+        // Ambil URL Publik hasil upload
+        const { data: publicUrl } = supabase.storage
+            .from('produk-images')
+            .getPublicUrl(filePath);
+
+        return publicUrl.publicUrl;
+    }
+
+    // Jika tidak ada file baru, gunakan URL yang sudah ada (saat edit)
+    return oldUrl;
+}
+
     function editProduk(id) {
         const p = masterData.find(x => x.id === id);
         if (!p) return;
@@ -265,21 +299,23 @@
         document.getElementById('productModal').style.display = 'flex';
     }
 
-    document.getElementById('productForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btnSimpan');
-        btn.disabled = true;
+   document.getElementById('productForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSimpan');
+    const originalText = btn.innerText;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
 
-        const id = document.getElementById('prod-id').value;
+    const id = document.getElementById('prod-id').value;
 
-        // Logika Ambil URL (Bisa dikembangkan ke Upload Storage jika perlu)
-        // Untuk sekarang, kita asumsikan jika tidak ganti file, pakai URL lama.
-        const getUrl = (fileId, oldUrlId) => {
-            const file = document.getElementById(fileId).files[0];
-            // Jika Anda punya fungsi upload storage, panggil di sini.
-            // Jika tidak, kita pakai URL lama yang tersimpan.
-            return document.getElementById(oldUrlId).value;
-        };
+    try {
+        // PROSES UPLOAD 3 GAMBAR SEKALIGUS
+        const [url1, url2, url3] = await Promise.all([
+            uploadFile('prod-foto', 'prod-url-lama'),
+            uploadFile('prod-foto-2', 'prod-url-lama-2'),
+            uploadFile('prod-foto-3', 'prod-url-lama-3')
+        ]);
 
         const payload = {
             nama_barang: document.getElementById('prod-nama').value,
@@ -292,15 +328,29 @@
             diskon_akhir: document.getElementById('prod-diskon-akhir').value || null,
             stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0,
             kategori_id: document.getElementById('prod-kategori').value,
-            image_url: getUrl('prod-foto', 'prod-url-lama'),
-            image_url_2: getUrl('prod-foto-2', 'prod-url-lama-2'),
-            image_url_3: getUrl('prod-foto-3', 'prod-url-lama-3')
+            // Simpan URL hasil upload ke kolom database
+            image_url: url1,
+            image_url_2: url2,
+            image_url_3: url3
         };
 
-        const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
-        if (!res.error) { closeModal(); fetchProduk(); }
+        const res = id 
+            ? await db.from('produk').update(payload).eq('id', id) 
+            : await db.from('produk').insert([payload]);
+
+        if (res.error) throw res.error;
+
+        alert("Berhasil disimpan! ✨");
+        closeModal();
+        fetchProduk();
+    } catch (err) {
+        console.error(err);
+        alert("Gagal menyimpan: " + err.message);
+    } finally {
         btn.disabled = false;
-    };
+        btn.innerText = originalText;
+    }
+};
 
     function openModal() {
         document.getElementById('modalTitle').innerText = "Produk Baru ✨";
