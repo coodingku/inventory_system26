@@ -225,27 +225,24 @@ async function uploadFile(fileInputId, oldUrlId) {
     const fileInput = document.getElementById(fileInputId);
     const oldUrl = document.getElementById(oldUrlId).value;
 
-    // Jika user memilih file baru
     if (fileInput.files && fileInput.files[0]) {
         const file = fileInput.files[0];
         const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `produk/${fileName}`;
 
-        // MENGGUNAKAN 'db' (bukan supabase)
-        // Pastikan nama bucket 'produk-images' sudah Anda buat di Supabase Storage
-        const { data, error } = await db.storage
-            .from('produk-images') 
+        // PERBAIKAN: Nama bucket disesuaikan jadi 'produk_images'
+        const { data: uploadData, error: uploadError } = await db.storage
+            .from('produk_images') 
             .upload(filePath, file);
 
-        if (error) {
-            console.error("Gagal upload:", error.message);
+        if (uploadError) {
+            console.error("Gagal Upload Storage:", uploadError.message);
             return oldUrl; 
         }
 
-        // Ambil URL Publik
         const { data: publicUrlData } = db.storage
-            .from('produk-images')
+            .from('produk_images')
             .getPublicUrl(filePath);
 
         return publicUrlData.publicUrl;
@@ -253,7 +250,6 @@ async function uploadFile(fileInputId, oldUrlId) {
 
     return oldUrl;
 }
-
     function editProduk(id) {
         const p = masterData.find(x => x.id === id);
         if (!p) return;
