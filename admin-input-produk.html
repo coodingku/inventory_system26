@@ -260,55 +260,108 @@
     document.getElementById('productModal').style.display = 'flex';
 }
 
-   document.getElementById('productForm').onsubmit = async (e) => {
+  document.getElementById('productForm').onsubmit = async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSimpan');
+    const loadingHtml = '<i class="fas fa-spinner fa-spin"></i> Menyimpa...';
+    const originalHtml = 'Simpan';
+    
     btn.disabled = true;
-    
+    btn.innerHTML = loadingHtml;
+
     const id = document.getElementById('prod-id').value;
-    
-    // Logika mendapatkan URL gambar (baik upload baru atau pakai yang lama)
-    // Di sini saya asumsikan Anda mengupload file ke Supabase Storage
+
+    // Helper Fungsi untuk Upload (Contoh Logika Upload Storage)
     async function getImageUrl(fileInputId, oldUrlId) {
-        const file = document.getElementById(fileInputId).files[0];
-        if (file) {
-            const fileName = `${Date.now()}_${file.name}`;
-            const { data } = await db.storage.from('produk-images').upload(fileName, file);
-            if (data) {
-                const { data: urlData } = db.storage.from('produk-images').getPublicUrl(data.path);
-                return urlData.publicUrl;
+        const fileInput = document.getElementById(fileInputId);
+        const oldUrl = document.getElementById(oldUrlId).value;
+
+        // Jika ada file baru diunggah
+        if (fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `produk-images/${fileName}`;
+
+            // Ganti 'produk-bucket' dengan nama bucket Supabase Storage Anda
+            const { data, error } = await db.storage.from('produk-bucket').upload(filePath, file);
+
+            if (error) {
+                console.error("Gagal Upload:", error);
+                return oldUrl; // Kembalikan URL lama jika gagal
             }
+
+            // Ambil URL Publik
+            const { data: publicUrlData } = db.storage.from('produk-bucket').getPublicUrl(filePath);
+            return publicUrlData.publicUrl;
         }
-        return document.getElementById(oldUrlId).value;
+
+        // JIKA TIDAK ADA UNGGAHAN BARU, TETAP GUNAKAN URL LAMA
+        return oldUrl;
     }
 
-    const url1 = await getImageUrl('prod-foto', 'prod-url-lama');
-    const url2 = await getImageUrl('prod-foto-2', 'prod-url-lama-2');
-    const url3 = await getImageUrl('prod-foto-3', 'prod-url-lama-3');
+    try {
+        // Proses 3 Gambar secara Paralel agar cepat
+        const [url1, url2, url3] = await Promise.all([
+            getImageUrl('prod-foto', 'prod-url-lama'),
+            getImageUrl('prod-foto-2', 'prod-url-lama-2'),
+            getImageUrl('prod-foto-3', 'prod-url-lama-3')
+        ]);
 
-    const payload = {
-        nama_barang: document.getElementById('prod-nama').value,
-        image_url: url1,
-        image_url_2: url2,
-        image_url_3: url3,
-        // ... (payload lainnya tetap sama)
-    };
+        const payload = {
+            nama_barang: document.getElementById('prod-nama').value,
+            keterangan: document.getElementById('prod-keterangan').value,
+            image_url: url1, // Tetap gunakan URL Lama jika input kosong
+            image_url_2: url2, // Tetap gunakan URL Lama jika input kosong
+            image_url_3: url3, // Tetap gunakan URL Lama jika input kosong
+            harga_jual: parseFloat(document.getElementById('prod-harga').value) || 0,
+            harga_online: parseFloat(document.getElementById('prod-harga-online').value) || 0,
+            is_diskon: document.getElementById('prod-is-diskon').checked,
+            nominal_diskon: parseFloat(document.getElementById('prod-nominal-diskon').value) || 0,
+            diskon_mulai: document.getElementById('prod-diskon-mulai').value || null,
+            diskon_akhir: document.getElementById('prod-diskon-akhir').value || null,
+            stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0,
+            kategori_id: document.getElementById('prod-kategori').value
+        };
 
-    const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
-    
-    if (!res.error) { 
-        closeModal(); 
-        fetchProduk(); 
+        const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
+        
+        if (!res.error) { 
+            closeModal(); 
+            fetchProduk(); 
+            alert("Produk Berhasil Disimpan! ✨");
+        } else {
+            throw res.error;
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Gagal menyimpan produk: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
     }
-    btn.disabled = false;
 };
     function openModal() {
-        document.getElementById('productForm').reset();
-        document.getElementById('prod-id').value = '';
-        document.getElementById('img-preview').classList.add('hidden');
-        document.getElementById('img-icon').classList.remove('hidden');
-        document.getElementById('productModal').style.display = 'flex';
-    }
+    document.getElementById('productForm').reset();
+    document.getElementById('prod-id').value = '';
+    
+    // Reset Hidden URL Lama
+    document.getElementById('prod-url-lama').value = '';
+    document.getElementById('prod-url-lama-2').value = '';
+    document.getElementById('prod-url-lama-3').value = '';
+
+    // Reset Preview Gambar (Sembunyikan img, tampilkan icon)
+    const resetPreview = (suffix, iconSuffix) => {
+        document.getElementById(`img-preview${suffix}`).classList.add('hidden');
+        document.getElementById(`img-icon${iconSuffix}`).classList.remove('hidden');
+    };
+
+    resetPreview('', '');
+    resetPreview('-2', '-2');
+    resetPreview('-3', '-3');
+
+    document.getElementById('productModal').style.display = 'flex';
+}
     function closeModal() { document.getElementById('productModal').style.display = 'none'; }
     function previewImage(event) {
         const reader = new FileReader();
