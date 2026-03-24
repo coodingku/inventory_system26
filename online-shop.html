@@ -197,52 +197,66 @@
         setTimeout(showPromoPopup, 800);
     };
 
-   async function loadCustomerData(userId) {
-        const { data } = await db.from('customers').select('*').eq('id', userId).single();
-        if (data) {
-            userData = data;
-            document.getElementById('welcome-msg').innerText = `Halo, ${data.full_name.split(' ')[0]}! ✨`;
-            document.getElementById('w-saldo').innerText = "Rp " + (data.saldo || 0).toLocaleString();
-            
-            // Jalankan fungsi tampilkan reward
-            renderRewardStatus(data);
-            loadWalletHistory(userId);
-        }
-    }
+  async function loadCustomerData(userId) {
+    // 1. Ambil data customer
+    const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
+    
+    // 2. Ambil pengaturan target belanja dari Admin (app_settings)
+    const { data: settings } = await db.from('app_settings')
+        .select('*')
+        .eq('key_name', 'loyalty_target_count')
+        .single();
 
-    function renderRewardStatus(profile) {
-        const container = document.getElementById('reward-section');
-        const count = profile.total_order_count || 0;
-        const claimed = profile.is_reward_claimed;
+    // Default ke 5 jika data di database tidak ditemukan
+    const targetCount = settings ? settings.value_int : 5;
 
-        if (count >= 5 && !claimed) {
-            container.innerHTML = `
-                <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-4 rounded-3xl text-white shadow-md">
-                    <p class="text-[9px] font-black uppercase tracking-tighter mb-1">Reward Member 🎁</p>
-                    <h4 class="text-xs font-bold mb-3">Syarat 5x belanja terpenuhi!</h4>
-                    <button onclick="claimRewardMember()" class="w-full py-2 bg-white text-pink-500 rounded-xl font-black text-[10px] uppercase">Klaim Diskon Sekarang</button>
-                </div>`;
-        } else if (claimed) {
-            container.innerHTML = `
-                <div class="bg-green-50 p-4 rounded-3xl border border-green-100 text-center">
-                    <p class="text-[10px] font-black text-green-600 uppercase">Diskon Member Aktif ✨</p>
-                    <p class="text-[8px] text-green-400 font-bold mt-1">Cek diskonmu otomatis di Checkout!</p>
-                </div>`;
-        } else {
-            let sisa = 5 - count;
-            container.innerHTML = `
-                <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
-                        <span class="text-[10px] font-bold text-pink-500">${count}/5</span>
-                    </div>
-                    <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                        <div class="bg-pink-400 h-full" style="width: ${(count/5)*100}%"></div>
-                    </div>
-                    <p class="text-[8px] text-slate-400 mt-2 font-bold italic">Belanja ${sisa}x lagi untuk dapat diskon khusus.</p>
-                </div>`;
-        }
+    if (customer) {
+        userData = customer;
+        document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
+        document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
+        
+        // Kirim targetCount ke fungsi render
+        renderRewardStatus(customer, targetCount);
+        loadWalletHistory(userId);
     }
+}
+
+   function renderRewardStatus(profile, target) {
+    const container = document.getElementById('reward-section');
+    const count = profile.total_order_count || 0;
+    const claimed = profile.is_reward_claimed;
+
+    if (count >= target && !claimed) {
+        container.innerHTML = `
+            <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-4 rounded-3xl text-white shadow-md">
+                <p class="text-[9px] font-black uppercase tracking-tighter mb-1">Reward Member 🎁</p>
+                <h4 class="text-xs font-bold mb-3">Syarat ${target}x belanja terpenuhi!</h4>
+                <button onclick="claimRewardMember()" class="w-full py-2 bg-white text-pink-500 rounded-xl font-black text-[10px] uppercase shadow-sm">Klaim Diskon Sekarang</button>
+            </div>`;
+    } else if (claimed) {
+        container.innerHTML = `
+            <div class="bg-green-50 p-4 rounded-3xl border border-green-100 text-center">
+                <p class="text-[10px] font-black text-green-600 uppercase">Diskon Member Aktif ✨</p>
+                <p class="text-[8px] text-green-400 font-bold mt-1">Cek diskonmu otomatis di Checkout!</p>
+            </div>`;
+    } else {
+        let sisa = target - count;
+        // Hitung persentase progres secara dinamis
+        let progress = (count / target) * 100;
+        
+        container.innerHTML = `
+            <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
+                    <span class="text-[10px] font-bold text-pink-500">${count}/${target}</span>
+                </div>
+                <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-pink-400 h-full transition-all duration-500" style="width: ${progress}%"></div>
+                </div>
+                <p class="text-[8px] text-slate-400 mt-2 font-bold italic">Belanja ${sisa}x lagi untuk dapat diskon khusus.</p>
+            </div>`;
+    }
+}
 
 // --- LOGIKA POPUP PROMO (SETIAP LOGIN) ---
 function showPromoPopup() {
