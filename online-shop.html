@@ -115,6 +115,10 @@
     <div id="reward-section" class="mb-8">
         </div>
 
+       <button onclick="openHistory()" class="w-full py-4 mb-3 bg-white border border-pink-100 text-pink-500 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-sm">
+    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Pesanan
+</button>
+
     <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase">Keluar Akun</button>
 </div>
 
@@ -134,6 +138,16 @@
         <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mutasi Saldo</h4>
         <div id="walletHistory" class="space-y-3 overflow-y-auto max-h-[40vh] no-scrollbar"></div>
     </div>
+
+    <div id="historyModal" class="activity-modal">
+    <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
+    <div class="px-6 pb-10">
+        <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Riwayat Belanja ✨</h2>
+        <p class="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest mb-6">Arsip pesanan cantikmu</p>
+        <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
+        <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-pink-50 text-pink-400 font-bold rounded-2xl">Kembali</button>
+    </div>
+</div>
 
     <div id="activityModal" class="activity-modal">
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
@@ -517,32 +531,100 @@ window.onload = async () => {
         } else container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Kosong 🌸</p>`;
     }
 
-    // LOGIKA PESANAN (ACTIVITY)
-    async function openActivity() {
-        const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
-        const container = document.getElementById('activityList');
-        if (data && data.length > 0) {
-            container.innerHTML = data.map(trx => {
-                const s = (trx.status_order || 'pending').toLowerCase();
-                const str = JSON.stringify(trx).replace(/'/g, "&apos;");
-                const btnB = s === 'pending' ? `<button onclick="cancelOrder('${trx.id}', '${trx.no_invoice}')" class="text-[9px] font-bold text-red-400 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : '';
-                return `
-                <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm mb-4 text-xs">
-                    <div class="flex justify-between items-start mb-2">
-                        <div><p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p><p class="text-slate-400 text-[10px]">${new Date(trx.created_at).toLocaleDateString()}</p></div>
-                        <span class="status-badge status-${s}">${trx.status_order}</span>
-                    </div>
-                    <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3">
-                        <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                        <div class="flex gap-2">${btnB}<button onclick='viewDetailTrx(${str})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-widest">Detail</button></div>
-                    </div>
-                </div>`;
-            }).join('');
-        } else container.innerHTML = `<p class="text-center py-10 italic">Belum ada pesanan 🌸</p>`;
-        document.getElementById('activityModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
+  // 1. Fungsi untuk Pesanan yang MASIH PROSES (Tombol Navigasi Bawah)
+async function openActivity() {
+    const { data } = await db.from('transaksi_online')
+        .select('*')
+        .eq('customer_id', userData.id)
+        .order('created_at', { ascending: false });
+
+    const container = document.getElementById('activityList');
+    
+    // Filter hanya status yang BELUM selesai/batal
+    const activeOrders = data ? data.filter(trx => !['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
+
+    if (activeOrders.length > 0) {
+        container.innerHTML = renderOrderCards(activeOrders);
+    } else {
+        container.innerHTML = `
+            <div class="text-center py-10">
+                <div class="text-4xl mb-4">✨</div>
+                <p class="italic text-slate-400 text-xs font-bold">Semua pesanan sudah selesai.<br>Ayo belanja lagi!</p>
+            </div>`;
+    }
+    
+    document.getElementById('activityModal').classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+// 2. Fungsi untuk RIWAYAT (Selesai & Batal)
+async function openHistory() {
+    const { data } = await db.from('transaksi_online')
+        .select('*')
+        .eq('customer_id', userData.id)
+        .order('created_at', { ascending: false });
+
+    const container = document.getElementById('historyList');
+    
+    // Filter hanya status Selesai atau Dibatalkan
+    const historyOrders = data ? data.filter(trx => ['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
+
+    if (historyOrders.length > 0) {
+        container.innerHTML = renderOrderCards(historyOrders);
+    } else {
+        container.innerHTML = `<p class="text-center py-10 italic text-slate-400 text-xs">Belum ada riwayat pesanan 🌸</p>`;
     }
 
+    closeAllModals(); // Tutup profil modal dulu
+    setTimeout(() => {
+        document.getElementById('historyModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }, 100);
+}
+
+// 3. Helper Fungsi untuk Render Kartu (Agar kode tidak duplikat)
+function renderOrderCards(orders) {
+    return orders.map(trx => {
+        const s = (trx.status_order || 'pending');
+        const sLower = s.toLowerCase();
+        const str = JSON.stringify(trx).replace(/'/g, "&apos;");
+        const btnB = sLower === 'pending' ? `<button onclick="cancelOrder('${trx.id}', '${trx.no_invoice}')" class="text-[9px] font-bold text-red-400 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : '';
+        
+        return `
+        <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm mb-4 text-xs">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p>
+                    <p class="text-slate-400 text-[10px] font-bold">${new Date(trx.created_at).toLocaleDateString()}</p>
+                </div>
+                <span class="status-badge status-${sLower}">${s}</span>
+            </div>
+            <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3">
+                <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
+                <div class="flex gap-2">
+                    ${btnB}
+                    <button onclick='viewDetailTrx(${str})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-widest">Detail</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Tambahkan CSS status khusus untuk "Selesai" di dalam <style> jika belum ada
+// .status-selesai { background: #dcfce7; color: #16a34a; }
+
+function closeAllModals() {
+    const modals = [
+        'cartModal', 'profileModal', 'walletModal', 
+        'activityModal', 'trxDetailModal', 'productDetailModal', 
+        'modalOverlay', 'historyModal' // Tambahkan historyModal di sini
+    ];
+    modals.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+}
+    
 async function viewDetailTrx(trx) {
     activeTrx = trx;
     
