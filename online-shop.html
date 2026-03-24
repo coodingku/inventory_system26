@@ -390,20 +390,31 @@ function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
     const slider = document.getElementById('image-slider');
     const dots = document.getElementById('slider-dots');
     
-    // Kumpulkan gambar yang tidak kosong saja
-    const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '');
+    // Filter gambar yang valid saja
+    const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '' && url !== 'undefined');
 
-    // Render Gambar ke Slider dengan efek Snap (Geser)
+    // Render Gambar ke Slider
+    // Penting: Memastikan snap-center dan min-w-full agar gambar terkunci di tengah saat digeser
     slider.innerHTML = images.map(url => `
-        <div class="min-w-full h-full snap-center flex-shrink-0">
+        <div class="min-w-full h-full snap-center flex-shrink-0 flex items-center justify-center">
             <img src="${url}" class="w-full h-full object-cover">
         </div>
     `).join('');
 
     // Render Indikator Titik
-    dots.innerHTML = images.length > 1 ? images.map((_, i) => `
-        <div class="w-2 h-2 rounded-full ${i === 0 ? 'bg-pink-500' : 'bg-pink-200'}"></div>
-    `).join('') : '';
+    const updateDots = (activeIndex) => {
+        dots.innerHTML = images.length > 1 ? images.map((_, i) => `
+            <div class="w-2 h-2 rounded-full transition-all duration-300 ${i === activeIndex ? 'bg-pink-500 w-4' : 'bg-pink-200'}"></div>
+        `).join('') : '';
+    };
+
+    updateDots(0);
+
+    // Tambahkan Event Listener untuk mendeteksi geser (Scroll)
+    slider.onscroll = () => {
+        const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+        updateDots(index);
+    };
 
     // Isi Data Teks
     document.getElementById('detail-name').innerText = nama;
@@ -415,10 +426,11 @@ function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
         closeAllModals(); 
     };
 
+    // Tampilkan Modal
     document.getElementById('productDetailModal').classList.add('active');
     document.getElementById('modalOverlay').classList.add('active');
 
-    // Reset scroll slider ke awal setiap kali dibuka
+    // Reset posisi scroll ke paling kiri setiap kali modal dibuka
     slider.scrollLeft = 0;
 }
     function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
