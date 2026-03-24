@@ -232,44 +232,55 @@ async function updateStatus(id, statusBaru) {
 
         const statusLama = trx.status_order;
 
-        // 2. LOGIKA REFUND OTOMATIS SAAT PEMBATALAN
+        // --- LOGIKA REFUND OTOMATIS SAAT PEMBATALAN ---
         if (statusBaru === 'Dibatalkan') {
-            
-            // SYARAT REFUND: Status lama BUKAN 'Pending' (Berarti sudah lunas/dikemas/dikirim)
             if (statusLama !== 'Pending' && statusLama !== 'Dibatalkan') {
-                
-                console.log("Memulai refund otomatis karena status awal adalah:", statusLama);
-                
-                // Ambil saldo terbaru customer
                 const { data: profile } = await db.from('customers').select('saldo').eq('id', trx.customer_id).single();
-                
                 if (profile) {
                     const nominalRefund = Number(trx.grand_total);
                     const saldoBaru = Number(profile.saldo || 0) + nominalRefund;
-
-                    // Update Saldo Customer (Refund ke Akun)
-                    const { error: errRefund } = await db.from('customers').update({ 
-                        saldo: saldoBaru 
-                    }).eq('id', trx.customer_id);
-
-                    if (errRefund) throw new Error("Gagal refund saldo. Cek RLS!");
-
-                    // Masukkan ke riwayat mutasi sebagai REFUND
+                    await db.from('customers').update({ saldo: saldoBaru }).eq('id', trx.customer_id);
                     await db.from('topup_history').insert([{ 
                         no_invoice: 'REFUND-' + trx.no_invoice, 
                         customer_id: trx.customer_id, 
                         nominal: nominalRefund, 
                         status: 'SUCCESS' 
                     }]);
-                    
-                    alert(`Pesanan (${statusLama}) berhasil dibatalkan. Dana Rp ${nominalRefund.toLocaleString()} telah dikembalikan ke Saldo Akun customer. 🌸`);
+                    alert(`Dana Rp ${nominalRefund.toLocaleString()} telah dikembalikan ke Saldo Customer.`);
                 }
-            } else {
-                console.log("Batal tanpa refund karena status masih Pending.");
             }
         }
 
-        // 3. Update Status di Database
+        // --- LOGIKA BARU: TAMBAH JUMLAH BELANJA SAAT 'SELESAI' ---
+        if (statusBaru === 'Selesai' && statusLama !== 'Selesai') {
+            // A. Ambil pengaturan minimal nominal dari admin
+            const { data: setMin } = await db.from('app_settings')
+                .select('value_int')
+                .eq('key_name', 'loyalty_min_nominal')
+                .single();
+            
+            const minNominal = setMin ? setMin.value_int : 0;
+
+            // B. Cek apakah total belanja memenuhi syarat nominal
+            if (Number(trx.grand_total) >= minNominal) {
+                // Ambil data count saat ini
+                const { data: cust } = await db.from('customers')
+                    .select('total_order_count')
+                    .eq('id', trx.customer_id)
+                    .single();
+
+                const newCount = (cust.total_order_count || 0) + 1;
+
+                // Update total belanja di tabel customers
+                await db.from('customers')
+                    .update({ total_order_count: newCount })
+                    .eq('id', trx.customer_id);
+                
+                console.log(`Berhasil menambah progres belanja. Total sekarang: ${newCount}`);
+            }
+        }
+
+        // 3. Update Status Utama di Database
         const { error: errUpdate } = await db.from('transaksi_online').update({ status_order: statusBaru }).eq('id', id);
         if (errUpdate) throw errUpdate;
 
@@ -277,7 +288,7 @@ async function updateStatus(id, statusBaru) {
         await db.from('transaksi_online_log').insert([{ 
             transaksi_id: id, 
             status: statusBaru, 
-            keterangan: `Update dari ${statusLama} ke ${statusBaru} (Refund Checked)` 
+            keterangan: `Update dari ${statusLama} ke ${statusBaru}` 
         }]);
 
         alert("Status Berhasil Diperbarui! ✨");
