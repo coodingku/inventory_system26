@@ -221,8 +221,6 @@
         }
         reader.readAsDataURL(event.target.files[0]);
     }
-
-    // Fungsi pembantu untuk upload file ke Supabase Storage
 async function uploadFile(fileInputId, oldUrlId) {
     const fileInput = document.getElementById(fileInputId);
     const oldUrl = document.getElementById(oldUrlId).value;
@@ -232,27 +230,27 @@ async function uploadFile(fileInputId, oldUrlId) {
         const file = fileInput.files[0];
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-        const filePath = `produk/${fileName}`; // Folder di dalam bucket
+        const filePath = `produk/${fileName}`;
 
-        // Proses Upload (Ganti 'produk-images' dengan nama BUCKET Anda di Supabase)
-        const { data, error } = await supabase.storage
+        // MENGGUNAKAN 'db' (bukan supabase)
+        // Pastikan nama bucket 'produk-images' sudah Anda buat di Supabase Storage
+        const { data, error } = await db.storage
             .from('produk-images') 
             .upload(filePath, file);
 
         if (error) {
             console.error("Gagal upload:", error.message);
-            return oldUrl; // Jika gagal, balikkan ke URL lama agar tidak kosong
+            return oldUrl; 
         }
 
-        // Ambil URL Publik hasil upload
-        const { data: publicUrl } = supabase.storage
+        // Ambil URL Publik
+        const { data: publicUrlData } = db.storage
             .from('produk-images')
             .getPublicUrl(filePath);
 
-        return publicUrl.publicUrl;
+        return publicUrlData.publicUrl;
     }
 
-    // Jika tidak ada file baru, gunakan URL yang sudah ada (saat edit)
     return oldUrl;
 }
 
@@ -299,10 +297,10 @@ async function uploadFile(fileInputId, oldUrlId) {
         document.getElementById('productModal').style.display = 'flex';
     }
 
-   document.getElementById('productForm').onsubmit = async (e) => {
+  document.getElementById('productForm').onsubmit = async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSimpan');
-    const originalText = btn.innerText;
+    const originalText = "Simpan";
     
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
@@ -310,7 +308,7 @@ async function uploadFile(fileInputId, oldUrlId) {
     const id = document.getElementById('prod-id').value;
 
     try {
-        // PROSES UPLOAD 3 GAMBAR SEKALIGUS
+        // Panggil fungsi uploadFile dengan variabel db yang sudah benar
         const [url1, url2, url3] = await Promise.all([
             uploadFile('prod-foto', 'prod-url-lama'),
             uploadFile('prod-foto-2', 'prod-url-lama-2'),
@@ -328,30 +326,29 @@ async function uploadFile(fileInputId, oldUrlId) {
             diskon_akhir: document.getElementById('prod-diskon-akhir').value || null,
             stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0,
             kategori_id: document.getElementById('prod-kategori').value,
-            // Simpan URL hasil upload ke kolom database
             image_url: url1,
             image_url_2: url2,
-            image_url_3: url3
+            image_url_3: url3,
+            tampil_online: true // Tambahkan ini jika produk baru ingin langsung muncul
         };
 
-        const res = id 
+        const { data, error } = id 
             ? await db.from('produk').update(payload).eq('id', id) 
             : await db.from('produk').insert([payload]);
 
-        if (res.error) throw res.error;
+        if (error) throw error;
 
         alert("Berhasil disimpan! ✨");
         closeModal();
-        fetchProduk();
+        await fetchProduk(); // Refresh tabel
     } catch (err) {
-        console.error(err);
-        alert("Gagal menyimpan: " + err.message);
+        console.error("Error Detail:", err);
+        alert("Gagal menyimpan: " + (err.message || "Terjadi kesalahan pada database"));
     } finally {
         btn.disabled = false;
         btn.innerText = originalText;
     }
 };
-
     function openModal() {
         document.getElementById('modalTitle').innerText = "Produk Baru ✨";
         document.getElementById('productForm').reset();
