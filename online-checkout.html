@@ -170,48 +170,55 @@
         }
     }
 
-    async function checkLoyaltyAutomatically(userId) {
-        try {
-            const { data: settings } = await db.from('app_settings').select('*');
-            if (!settings) return;
-            const rules = {};
-            settings.forEach(s => { rules[s.key_name] = s.value_int; });
+   async function checkLoyaltyAutomatically(userId) {
+    try {
+        const { data: settings } = await db.from('app_settings').select('*');
+        if (!settings) return;
+        
+        const rules = {};
+        settings.forEach(s => { rules[s.key_name] = s.value_int; });
 
-            const targetCount = rules.loyalty_target_count;
-            const minNominal = rules.loyalty_min_nominal;
-            const discountAmount = rules.loyalty_discount_amount;
+        const targetCount = rules.loyalty_target_count || 3;
+        const minNominal = rules.loyalty_min_nominal || 0;
+        const discountAmount = rules.loyalty_discount_amount || 0;
 
-            const { data: allHistory } = await db.from('transaksi_online')
-                .select('grand_total, status_order')
-                .eq('customer_id', userId)
-                .neq('status_order', 'Dibatalkan');
+        // Ambil data customer untuk melihat total_order_count yang sudah kita update di admin
+        const { data: profile } = await db.from('customers')
+            .select('total_order_count')
+            .eq('id', userId)
+            .single();
 
-            const lunasOrders = allHistory.filter(trx => 
-                trx.status_order === 'Selesai' && parseFloat(trx.grand_total) >= minNominal
-            );
-            const totalLunas = lunasOrders.length;
+        const totalLunas = profile ? (profile.total_order_count || 0) : 0;
 
-            const ongoingOrders = allHistory.filter(trx => 
-                ['Pending', 'PROSES', 'Dikemas', 'Dikirim'].includes(trx.status_order)
-            );
-            const hasOngoing = ongoingOrders.length > 0;
+        // Cek apakah ada pesanan yang masih berjalan (agar diskon tidak dipakai berkali-kali)
+        const { data: ongoingOrders } = await db.from('transaksi_online')
+            .select('id')
+            .eq('customer_id', userId)
+            .in('status_order', ['Pending', 'PROSES', 'Dikemas', 'Dikirim']);
 
-            let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
-            const isSiklusMatch = (totalLunas > 0 && totalLunas % targetCount === 0);
+        const hasOngoing = ongoingOrders && ongoingOrders.length > 0;
+        
+        let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
 
-            // PERBAIKAN: Set diskonLoyalty di sini
-            if (isSiklusMatch && !hasOngoing && currentSubtotal >= minNominal) {
-                diskonLoyalty = Number(discountAmount); 
-                document.getElementById('row-diskon-khusus').classList.remove('hidden');
-                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
-            } else {
-                diskonLoyalty = 0;
-                document.getElementById('row-diskon-khusus').classList.add('hidden');
-            }
-            updateTotalDisplay();
-        } catch (err) { console.error("Loyalty Error:", err); }
+        // LOGIKA BARU: 
+        // Jika total belanja sudah mencapai atau kelipatan target, 
+        // dan tidak ada pesanan lain yang sedang diproses
+        const isEligible = (totalLunas > 0 && totalLunas % targetCount === 0);
+
+        if (isEligible && !hasOngoing && currentSubtotal >= minNominal) {
+            diskonLoyalty = Number(discountAmount); 
+            document.getElementById('row-diskon-khusus').classList.remove('hidden');
+            document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
+        } else {
+            diskonLoyalty = 0;
+            document.getElementById('row-diskon-khusus').classList.add('hidden');
+        }
+        
+        updateTotalDisplay();
+    } catch (err) { 
+        console.error("Loyalty Error:", err); 
     }
-
+}
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
