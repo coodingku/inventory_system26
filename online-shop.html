@@ -195,12 +195,21 @@
         </div>
     </div>
 
-  <div id="productDetailModal" class="detail-modal">
+<div id="productDetailModal" class="detail-modal">
     <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
     <div class="px-6 pb-10 text-center">
-        <div class="relative mb-6">
-            <div id="image-slider" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-[30px] border-4 border-white shadow-lg bg-pink-50 h-72">
+        <div class="relative group mb-6">
+            <button onclick="scrollSlider(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full shadow-md text-pink-500 flex items-center justify-center active:scale-90 transition-all opacity-0 group-hover:opacity-100">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+
+            <div id="image-slider" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-[30px] border-4 border-white shadow-lg bg-pink-50 h-72 scroll-smooth">
                 </div>
+
+            <button onclick="scrollSlider(1)" class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full shadow-md text-pink-500 flex items-center justify-center active:scale-90 transition-all opacity-0 group-hover:opacity-100">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+
             <div id="slider-dots" class="flex justify-center gap-2 mt-3"></div>
         </div>
 
@@ -208,7 +217,7 @@
         <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
         <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
         
-        <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg active:scale-95 transition-all uppercase tracking-widest text-[11px]">
+        <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg uppercase tracking-widest text-[11px]">
             TAMBAH KE BAG ✨
         </button>
     </div>
@@ -385,38 +394,48 @@ async function loadOnlineMenu() {
     }).join('');
 }
 
-// 2. Update openDetail untuk merender Slider
+// Fungsi untuk tombol panah
+function scrollSlider(direction) {
+    const slider = document.getElementById('image-slider');
+    const scrollAmount = slider.clientWidth; // Geser sejauh lebar slider
+    slider.scrollBy({
+        left: direction * scrollAmount,
+        behavior: 'smooth'
+    });
+}
+
 function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
     const slider = document.getElementById('image-slider');
     const dots = document.getElementById('slider-dots');
     
-    // Filter gambar yang valid saja
+    // Filter gambar (hanya yang berisi URL)
     const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '' && url !== 'undefined');
 
-    // Render Gambar ke Slider
-    // Penting: Memastikan snap-center dan min-w-full agar gambar terkunci di tengah saat digeser
+    // Render Gambar
     slider.innerHTML = images.map(url => `
-        <div class="min-w-full h-full snap-center flex-shrink-0 flex items-center justify-center">
+        <div class="min-w-full h-full snap-center flex-shrink-0">
             <img src="${url}" class="w-full h-full object-cover">
         </div>
     `).join('');
 
-    // Render Indikator Titik
-    const updateDots = (activeIndex) => {
+    // Fungsi update dots
+    const updateDots = (index) => {
         dots.innerHTML = images.length > 1 ? images.map((_, i) => `
-            <div class="w-2 h-2 rounded-full transition-all duration-300 ${i === activeIndex ? 'bg-pink-500 w-4' : 'bg-pink-200'}"></div>
+            <div class="w-2 h-2 rounded-full transition-all duration-300 ${i === index ? 'bg-pink-500 w-4' : 'bg-pink-200'}"></div>
         `).join('') : '';
     };
 
+    // Inisialisasi awal
     updateDots(0);
+    slider.scrollLeft = 0;
 
-    // Tambahkan Event Listener untuk mendeteksi geser (Scroll)
+    // Deteksi scroll manual (swipe) untuk update dots
     slider.onscroll = () => {
-        const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+        const index = Math.round(slider.scrollLeft / slider.clientWidth);
         updateDots(index);
     };
 
-    // Isi Data Teks
+    // Set Data Teks
     document.getElementById('detail-name').innerText = nama;
     document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
     document.getElementById('detail-desc').innerText = desc || 'Rahasia cantikmu.';
@@ -426,12 +445,8 @@ function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
         closeAllModals(); 
     };
 
-    // Tampilkan Modal
     document.getElementById('productDetailModal').classList.add('active');
     document.getElementById('modalOverlay').classList.add('active');
-
-    // Reset posisi scroll ke paling kiri setiap kali modal dibuka
-    slider.scrollLeft = 0;
 }
     function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
         const idx = shopCart.findIndex(c => c.id === id);
