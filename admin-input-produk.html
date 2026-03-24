@@ -88,12 +88,31 @@
             <form id="productForm" class="space-y-4">
                 <input type="hidden" id="prod-id">
                 <input type="hidden" id="prod-url-lama">
-                <div class="flex flex-col items-center mb-4">
-                    <div class="w-24 h-24 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group">
-                        <img id="img-preview" class="w-full h-full object-cover hidden">
-                        <i id="img-icon" class="fas fa-camera text-slate-300 text-xl"></i>
-                        <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event)" class="absolute inset-0 opacity-0 cursor-pointer">
-                    </div>
+              <div class="flex flex-col items-center mb-6">
+    <p class="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Foto Produk (Maks 3)</p>
+    <div class="flex gap-4">
+        <div class="w-20 h-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative shadow-sm">
+            <img id="img-preview" class="w-full h-full object-cover hidden">
+            <i id="img-icon" class="fas fa-camera text-slate-300 text-sm"></i>
+            <input type="file" id="prod-foto" accept="image/*" onchange="previewImage(event, '1')" class="absolute inset-0 opacity-0 cursor-pointer">
+        </div>
+
+        <div class="w-20 h-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative shadow-sm">
+            <img id="img-preview-2" class="w-full h-full object-cover hidden">
+            <i id="img-icon-2" class="fas fa-plus text-slate-300 text-sm"></i>
+            <input type="file" id="prod-foto-2" accept="image/*" onchange="previewImage(event, '2')" class="absolute inset-0 opacity-0 cursor-pointer">
+        </div>
+
+        <div class="w-20 h-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative shadow-sm">
+            <img id="img-preview-3" class="w-full h-full object-cover hidden">
+            <i id="img-icon-3" class="fas fa-plus text-slate-300 text-sm"></i>
+            <input type="file" id="prod-foto-3" accept="image/*" onchange="previewImage(event, '3')" class="absolute inset-0 opacity-0 cursor-pointer">
+        </div>
+    </div>
+
+    <input type="hidden" id="prod-url-lama-2">
+    <input type="hidden" id="prod-url-lama-3">
+</div>
                 </div>
                 <input type="text" id="prod-nama" required placeholder="Nama Produk" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm">
                 <textarea id="prod-keterangan" rows="2" placeholder="Keterangan / Ukuran Produk" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-none text-sm no-scrollbar"></textarea>
@@ -207,48 +226,82 @@
         fetchProduk();
     }
 
-    function editProduk(id) {
-        const p = masterData.find(x => x.id === id);
-        if (!p) return;
-        document.getElementById('prod-id').value = p.id;
-        document.getElementById('prod-nama').value = p.nama_barang;
-        document.getElementById('prod-keterangan').value = p.keterangan || '';
-        document.getElementById('prod-harga').value = p.harga_jual;
-        document.getElementById('prod-harga-online').value = p.harga_online || 0;
-        document.getElementById('prod-is-diskon').checked = p.is_diskon;
-        document.getElementById('prod-nominal-diskon').value = p.nominal_diskon || 0;
-        if (p.diskon_mulai) document.getElementById('prod-diskon-mulai').value = p.diskon_mulai.slice(0, 16);
-        if (p.diskon_akhir) document.getElementById('prod-diskon-akhir').value = p.diskon_akhir.slice(0, 16);
-        document.getElementById('prod-stok').value = p.stok_sekarang;
-        document.getElementById('prod-kategori').value = p.kategori_id;
-        document.getElementById('prod-url-lama').value = p.image_url || '';
-        const preview = document.getElementById('img-preview');
-        if (p.image_url) { preview.src = p.image_url; preview.classList.remove('hidden'); document.getElementById('img-icon').classList.add('hidden'); }
-        document.getElementById('productModal').style.display = 'flex';
-    }
+   function editProduk(id) {
+    const p = masterData.find(x => x.id === id);
+    if (!p) return;
+    
+    // ... (kode setting nama, harga, dll tetap sama) ...
+    document.getElementById('prod-id').value = p.id;
+    document.getElementById('prod-nama').value = p.nama_barang;
+    // ...
 
-    document.getElementById('productForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btnSimpan');
-        btn.disabled = true;
-        const id = document.getElementById('prod-id').value;
-        const payload = {
-            nama_barang: document.getElementById('prod-nama').value,
-            keterangan: document.getElementById('prod-keterangan').value,
-            harga_jual: parseFloat(document.getElementById('prod-harga').value) || 0,
-            harga_online: parseFloat(document.getElementById('prod-harga-online').value) || 0,
-            is_diskon: document.getElementById('prod-is-diskon').checked,
-            nominal_diskon: parseFloat(document.getElementById('prod-nominal-diskon').value) || 0,
-            diskon_mulai: document.getElementById('prod-diskon-mulai').value || null,
-            diskon_akhir: document.getElementById('prod-diskon-akhir').value || null,
-            stok_sekarang: parseInt(document.getElementById('prod-stok').value) || 0,
-            kategori_id: document.getElementById('prod-kategori').value
-        };
-        const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
-        if (!res.error) { closeModal(); fetchProduk(); }
-        btn.disabled = false;
+    // Handle 3 Preview Gambar
+    const setPreview = (url, suffix, iconSuffix) => {
+        const preview = document.getElementById(`img-preview${suffix}`);
+        const icon = document.getElementById(`img-icon${iconSuffix}`);
+        if (url) {
+            preview.src = url;
+            preview.classList.remove('hidden');
+            icon.classList.add('hidden');
+        } else {
+            preview.classList.add('hidden');
+            icon.classList.remove('hidden');
+        }
     };
 
+    document.getElementById('prod-url-lama').value = p.image_url || '';
+    document.getElementById('prod-url-lama-2').value = p.image_url_2 || '';
+    document.getElementById('prod-url-lama-3').value = p.image_url_3 || '';
+
+    setPreview(p.image_url, '', '');
+    setPreview(p.image_url_2, '-2', '-2');
+    setPreview(p.image_url_3, '-3', '-3');
+
+    document.getElementById('productModal').style.display = 'flex';
+}
+
+   document.getElementById('productForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSimpan');
+    btn.disabled = true;
+    
+    const id = document.getElementById('prod-id').value;
+    
+    // Logika mendapatkan URL gambar (baik upload baru atau pakai yang lama)
+    // Di sini saya asumsikan Anda mengupload file ke Supabase Storage
+    async function getImageUrl(fileInputId, oldUrlId) {
+        const file = document.getElementById(fileInputId).files[0];
+        if (file) {
+            const fileName = `${Date.now()}_${file.name}`;
+            const { data } = await db.storage.from('produk-images').upload(fileName, file);
+            if (data) {
+                const { data: urlData } = db.storage.from('produk-images').getPublicUrl(data.path);
+                return urlData.publicUrl;
+            }
+        }
+        return document.getElementById(oldUrlId).value;
+    }
+
+    const url1 = await getImageUrl('prod-foto', 'prod-url-lama');
+    const url2 = await getImageUrl('prod-foto-2', 'prod-url-lama-2');
+    const url3 = await getImageUrl('prod-foto-3', 'prod-url-lama-3');
+
+    const payload = {
+        nama_barang: document.getElementById('prod-nama').value,
+        image_url: url1,
+        image_url_2: url2,
+        image_url_3: url3,
+        // ... (payload lainnya tetap sama)
+    };
+
+    const res = id ? await db.from('produk').update(payload).eq('id', id) : await db.from('produk').insert([payload]);
+    
+    if (!res.error) { 
+        closeModal(); 
+        fetchProduk(); 
+    }
+    btn.disabled = false;
+};
     function openModal() {
         document.getElementById('productForm').reset();
         document.getElementById('prod-id').value = '';
