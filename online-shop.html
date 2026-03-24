@@ -177,16 +177,24 @@
         </div>
     </div>
 
-    <div id="productDetailModal" class="detail-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10 text-center">
-            <div class="aspect-square rounded-[30px] mb-6 overflow-hidden bg-pink-50 h-64 mx-auto border-4 border-white shadow-lg"><img id="detail-img" src="" class="w-full h-full object-cover"></div>
-            <h2 id="detail-name" class="text-2xl font-black text-slate-800"></h2>
-            <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
-            <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
-            <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg">TAMBAH KERANJANG ✨</button>
+  <div id="productDetailModal" class="detail-modal">
+    <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
+    <div class="px-6 pb-10 text-center">
+        <div class="relative mb-6">
+            <div id="image-slider" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-[30px] border-4 border-white shadow-lg bg-pink-50 h-72">
+                </div>
+            <div id="slider-dots" class="flex justify-center gap-2 mt-3"></div>
         </div>
+
+        <h2 id="detail-name" class="text-2xl font-black text-slate-800 leading-tight"></h2>
+        <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
+        <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
+        
+        <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg active:scale-95 transition-all uppercase tracking-widest text-[11px]">
+            TAMBAH KE BAG ✨
+        </button>
     </div>
+</div>
 
     <nav class="bottom-nav">
         <a href="online-shop.html" class="flex flex-col items-center text-[#ff85a2]"><i class="fas fa-home text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Beranda</span></a>
@@ -331,42 +339,70 @@ window.onload = async () => {
         return { price: active ? basePrice - (p.nominal_diskon || 0) : basePrice, isDiscount: active, normal: basePrice };
     }
 
-    async function loadOnlineMenu() {
-        const q = document.getElementById('search').value;
-        let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
-        if (q) query = query.ilike('nama_barang', `%${q}%`);
-        const { data } = await query.order('nama_barang');
-        const display = document.getElementById('onlineDisplay');
-        if (!data) return;
-        display.innerHTML = data.map(p => {
-            const pr = getActivePrice(p);
-            return `
-            <div class="product-card" onclick="openDetail('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal}, '${p.image_url}', '${p.keterangan || ''}')">
-                ${pr.isDiscount ? `<div class="badge-diskon">PROMO ✨</div>` : ''}
-                <div class="img-container"><img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300'"></div>
-                <div class="p-4">
-                    <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
-                    <div class="mt-1">
-                        <p class="text-[9px] text-slate-400 ${pr.isDiscount ? 'line-through' : ''}">Rp ${pr.normal.toLocaleString()}</p>
-                        <p class="font-black text-[#ff85a2] text-sm">Rp ${pr.price.toLocaleString()}</p>
-                    </div>
-                    <button onclick="event.stopPropagation(); addToOnlineCart('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal})" class="w-full mt-3 bg-pink-50 text-pink-500 py-2 rounded-xl text-[10px] font-black active:scale-95 transition-all">TAMBAH ✨</button>
+  // 1. Update loadOnlineMenu agar mengirim data image_url_2 dan 3
+async function loadOnlineMenu() {
+    const q = document.getElementById('search').value;
+    let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
+    if (q) query = query.ilike('nama_barang', `%${q}%`);
+    const { data } = await query.order('nama_barang');
+    const display = document.getElementById('onlineDisplay');
+    if (!data) return;
+    
+    display.innerHTML = data.map(p => {
+        const pr = getActivePrice(p);
+        // Perhatikan parameter di openDetail ditambah p.image_url_2 dan p.image_url_3
+        return `
+        <div class="product-card" onclick="openDetail('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal}, '${p.image_url}', '${p.keterangan || ''}', '${p.image_url_2}', '${p.image_url_3}')">
+            ${pr.isDiscount ? `<div class="badge-diskon">PROMO ✨</div>` : ''}
+            <div class="img-container"><img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300'"></div>
+            <div class="p-4">
+                <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
+                <div class="mt-1">
+                    <p class="text-[9px] text-slate-400 ${pr.isDiscount ? 'line-through' : ''}">Rp ${pr.normal.toLocaleString()}</p>
+                    <p class="font-black text-[#ff85a2] text-sm">Rp ${pr.price.toLocaleString()}</p>
                 </div>
-            </div>`;
-        }).join('');
-    }
+                <button onclick="event.stopPropagation(); addToOnlineCart('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal})" class="w-full mt-3 bg-pink-50 text-pink-500 py-2 rounded-xl text-[10px] font-black active:scale-95 transition-all">TAMBAH ✨</button>
+            </div>
+        </div>`;
+    }).join('');
+}
 
-    // LOGIKA KERANJANG (BAG)
-    function openDetail(id, nama, harga, hargaNormal, img, desc) {
-        document.getElementById('detail-name').innerText = nama;
-        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-        document.getElementById('detail-img').src = img || 'https://placehold.co/300';
-        document.getElementById('detail-desc').innerText = desc || 'Rahasia cantikmu.';
-        document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga, hargaNormal); closeAllModals(); };
-        document.getElementById('productDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
+// 2. Update openDetail untuk merender Slider
+function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
+    const slider = document.getElementById('image-slider');
+    const dots = document.getElementById('slider-dots');
+    
+    // Kumpulkan gambar yang tidak kosong saja
+    const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '');
 
+    // Render Gambar ke Slider dengan efek Snap (Geser)
+    slider.innerHTML = images.map(url => `
+        <div class="min-w-full h-full snap-center flex-shrink-0">
+            <img src="${url}" class="w-full h-full object-cover">
+        </div>
+    `).join('');
+
+    // Render Indikator Titik
+    dots.innerHTML = images.length > 1 ? images.map((_, i) => `
+        <div class="w-2 h-2 rounded-full ${i === 0 ? 'bg-pink-500' : 'bg-pink-200'}"></div>
+    `).join('') : '';
+
+    // Isi Data Teks
+    document.getElementById('detail-name').innerText = nama;
+    document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
+    document.getElementById('detail-desc').innerText = desc || 'Rahasia cantikmu.';
+    
+    document.getElementById('btn-add-modal').onclick = () => { 
+        addToOnlineCart(id, nama, harga, hargaNormal); 
+        closeAllModals(); 
+    };
+
+    document.getElementById('productDetailModal').classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+
+    // Reset scroll slider ke awal setiap kali dibuka
+    slider.scrollLeft = 0;
+}
     function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
         const idx = shopCart.findIndex(c => c.id === id);
         if (idx > -1) shopCart[idx].qty++;
