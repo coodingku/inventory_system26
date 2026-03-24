@@ -250,49 +250,54 @@ async function uploadFile(fileInputId, oldUrlId) {
 
     return oldUrl;
 }
-    function editProduk(id) {
-        const p = masterData.find(x => x.id === id);
-        if (!p) return;
+   function editProduk(id) {
+    // 1. Cari data produk berdasarkan ID dari masterData
+    const p = masterData.find(x => x.id === id);
+    if (!p) return;
 
-        document.getElementById('modalTitle').innerText = "Edit Produk ✨";
-        document.getElementById('prod-id').value = p.id;
-        document.getElementById('prod-nama').value = p.nama_barang;
-        document.getElementById('prod-keterangan').value = p.keterangan || '';
-        document.getElementById('prod-harga').value = p.harga_jual;
-        document.getElementById('prod-harga-online').value = p.harga_online || 0;
-        document.getElementById('prod-is-diskon').checked = p.is_diskon;
-        document.getElementById('prod-nominal-diskon').value = p.nominal_diskon || 0;
-        if (p.diskon_mulai) document.getElementById('prod-diskon-mulai').value = p.diskon_mulai.slice(0, 16);
-        if (p.diskon_akhir) document.getElementById('prod-diskon-akhir').value = p.diskon_akhir.slice(0, 16);
-        document.getElementById('prod-stok').value = p.stok_sekarang;
-        document.getElementById('prod-kategori').value = p.kategori_id;
+    // 2. Ubah Judul Modal & Tampilkan Modal
+    document.getElementById('modalTitle').innerText = "Edit Produk ✨";
+    document.getElementById('productModal').style.display = 'flex';
 
-        // Set URL Lama
-        document.getElementById('prod-url-lama').value = p.image_url || '';
-        document.getElementById('prod-url-lama-2').value = p.image_url_2 || '';
-        document.getElementById('prod-url-lama-3').value = p.image_url_3 || '';
+    // 3. Isi Input Teks & Angka
+    document.getElementById('prod-id').value = p.id;
+    document.getElementById('prod-nama').value = p.nama_barang;
+    document.getElementById('prod-keterangan').value = p.keterangan || '';
+    document.getElementById('prod-harga').value = p.harga_jual;
+    document.getElementById('prod-harga-online').value = p.harga_online || 0;
+    document.getElementById('prod-stok').value = p.stok_sekarang;
+    document.getElementById('prod-kategori').value = p.kategori_id;
 
-        // Tampilkan Preview
-        const handlePreview = (url, previewId, iconId) => {
-            const preview = document.getElementById(previewId);
-            const icon = document.getElementById(iconId);
-            if (url) {
-                preview.src = url;
-                preview.classList.remove('hidden');
-                icon.classList.add('hidden');
-            } else {
-                preview.classList.add('hidden');
-                icon.classList.remove('hidden');
-            }
-        };
+    // 4. Isi Data Promo/Diskon
+    document.getElementById('prod-is-diskon').checked = p.is_diskon;
+    document.getElementById('prod-nominal-diskon').value = p.nominal_diskon || 0;
+    if (p.diskon_mulai) document.getElementById('prod-diskon-mulai').value = p.diskon_mulai.slice(0, 16);
+    if (p.diskon_akhir) document.getElementById('prod-diskon-akhir').value = p.diskon_akhir.slice(0, 16);
 
-        handlePreview(p.image_url, 'img-preview', 'img-icon');
-        handlePreview(p.image_url_2, 'img-preview-2', 'img-icon-2');
-        handlePreview(p.image_url_3, 'img-preview-3', 'img-icon-3');
+    // 5. ISI HIDDEN URL (Sangat Penting agar gambar tidak hilang saat simpan)
+    document.getElementById('prod-url-lama').value = p.image_url || '';
+    document.getElementById('prod-url-lama-2').value = p.image_url_2 || '';
+    document.getElementById('prod-url-lama-3').value = p.image_url_3 || '';
 
-        document.getElementById('productModal').style.display = 'flex';
-    }
+    // 6. TAMPILKAN PREVIEW GAMBAR (Slot 1, 2, dan 3)
+    const updatePreview = (url, imgId, iconId) => {
+        const img = document.getElementById(imgId);
+        const icon = document.getElementById(iconId);
+        if (url && url !== '') {
+            img.src = url;
+            img.classList.remove('hidden');
+            icon.classList.add('hidden');
+        } else {
+            img.classList.add('hidden');
+            icon.classList.remove('hidden');
+            img.src = ''; // Bersihkan src jika kosong
+        }
+    };
 
+    updatePreview(p.image_url, 'img-preview', 'img-icon');
+    updatePreview(p.image_url_2, 'img-preview-2', 'img-icon-2');
+    updatePreview(p.image_url_3, 'img-preview-3', 'img-icon-3');
+}
   document.getElementById('productForm').onsubmit = async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSimpan');
