@@ -105,64 +105,48 @@
         }
 
         // 3. LOGIKA LOGIN UTAMA
-       async function handleLogin() {
-    const identifier = document.getElementById('identifier').value.trim();
-    const password = document.getElementById('password').value;
-    const btn = document.getElementById('btnLogin');
+        async function handleLogin() {
+            const identifier = document.getElementById('identifier').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('btnLogin');
 
-    if (!identifier || !password) return alert("Mohon lengkapi data login! 🌸");
+            if (!identifier || !password) return alert("Mohon lengkapi data login! 🌸");
 
-    btn.innerText = "MENGECEK...";
-    btn.disabled = true;
+            btn.innerText = "MENGECEK...";
+            btn.disabled = true;
 
-    try {
-        let emailToLogin = identifier;
+            try {
+                let emailToLogin = identifier;
 
-        // 1. CARI DATA CUSTOMER & CEK STATUS VERIFIKASI
-        const { data: customer, error: findError } = await db
-            .from('customers')
-            .select('email, is_verified')
-            .eq(currentMethod === 'phone' ? 'phone_number' : 'email', identifier)
-            .single();
+                // JIKA LOGIN VIA WHATSAPP, CARI EMAILNYA DI TABEL CUSTOMERS
+                if (currentMethod === 'phone') {
+                    const { data: customer, error: findError } = await db
+                        .from('customers')
+                        .select('email')
+                        .eq('phone_number', identifier)
+                        .single();
 
-        if (findError || !customer) {
-            throw new Error(currentMethod === 'phone' ? "Nomor WhatsApp tidak terdaftar!" : "Email tidak terdaftar!");
-        }
+                    if (findError || !customer) throw new Error("Nomor WhatsApp tidak terdaftar!");
+                    emailToLogin = customer.email;
+                }
 
-        // 2. CEK APAKAH SUDAH VERIFIKASI OTP WHATSAPP
-        if (customer.is_verified === false) {
-            // Jika belum verifikasi, simpan email ke localstorage dan lempar ke halaman OTP
-            localStorage.setItem('temp_email', customer.email);
-            alert("Akun kamu belum diverifikasi via WhatsApp. Yuk, verifikasi dulu! 😊");
-            window.location.href = 'verify-otp.html';
-            return;
-        }
+                const { data, error } = await db.auth.signInWithPassword({
+                    email: emailToLogin,
+                    password: password
+                });
 
-        emailToLogin = customer.email;
+                if (error) throw error;
 
-        // 3. PROSES LOGIN KE SUPABASE AUTH
-        const { data, error: authError } = await db.auth.signInWithPassword({
-            email: emailToLogin,
-            password: password
-        });
+                window.location.href = 'online-shop.html';
 
-        if (authError) {
-            // Jika error karena 'Email not confirmed' (Fitur bawaan Supabase)
-            if (authError.message.includes("Email not confirmed")) {
-                throw new Error("Silakan aktivasi akun melalui link di Email kamu, atau gunakan login WhatsApp jika sudah verifikasi OTP. 🌸");
+            } catch (error) {
+                alert("Login Gagal: " + error.message);
+                btn.innerText = "MASUK SEKARANG ✨";
+                btn.disabled = false;
             }
-            throw authError;
         }
 
-        // BERHASIL!
-        window.location.href = 'online-shop.html';
-
-    } catch (error) {
-        alert("Login Gagal: " + error.message);
-        btn.innerText = "MASUK SEKARANG ✨";
-        btn.disabled = false;
-    }
-}
+        // 4. LOGIN GOOGLE
       // 4. LOGIN GOOGLE (Pesan Coming Soon yang Manis)
 function loginGoogle() {
     // Kita gunakan SweetAlert2 jika Anda ingin tampilan lebih cantik, 
