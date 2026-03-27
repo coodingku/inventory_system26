@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifikasi OTP | Beauty Bloom 🌸</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="supabase-online.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { background: #fff0f3; font-family: 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .otp-card { background: white; border-radius: 35px; padding: 40px 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.05); }
+        .btn-disabled { background: #fecdd3 !important; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="otp-card">
+        <h2 class="text-2xl font-black text-slate-800 mb-2">Verifikasi Akun 🌸</h2>
+        <p class="text-sm text-slate-400 mb-6">Masukkan 6 digit kode OTP yang dikirim ke WhatsApp kamu.</p>
+        
+        <input type="number" id="otp-input" placeholder="000000" class="w-full p-4 bg-slate-50 rounded-2xl border-2 border-pink-100 outline-none focus:border-pink-500 text-center text-3xl font-black tracking-[10px] mb-6">
+        
+        <button onclick="checkOTP()" id="btnVerify" class="w-full bg-[#f72585] text-white py-4 rounded-2xl font-black tracking-widest shadow-lg active:scale-95 transition-all mb-4">
+            VERIFIKASI SEKARANG ✨
+        </button>
+
+        <div id="resend-container" class="text-xs font-bold text-slate-400">
+            Belum terima kode? 
+            <button id="btnResend" onclick="resendOTP()" class="text-pink-500 hover:underline ml-1 disabled:opacity-50">Kirim Ulang</button>
+            <span id="timer" class="hidden">(60s)</span>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 60;
+        let timerInterval;
+
+        // 1. FUNGSI CEK OTP
+        async function checkOTP() {
+            const userOtp = document.getElementById('otp-input').value;
+            const email = localStorage.getItem('temp_email');
+            const btn = document.getElementById('btnVerify');
+
+            if(!userOtp) return alert("Masukkan kode dulu ya! 🌸");
+
+            btn.innerText = "MENGECEK...";
+            btn.disabled = true;
+
+            try {
+                const { data, error } = await db.from('customers')
+                    .select('otp_code, full_name')
+                    .eq('email', email)
+                    .single();
+
+                if (data && data.otp_code == userOtp) {
+                    await db.from('customers').update({ is_verified: true }).eq('email', email);
+                    alert("Akun Berhasil Aktif! Selamat datang di Beauty Bloom. 🌸");
+                    window.location.href = 'login-customer.html';
+                } else {
+                    throw new Error("Kode OTP salah! Cek kembali WhatsApp kamu. ❌");
+                }
+            } catch (err) {
+                alert(err.message);
+                btn.innerText = "VERIFIKASI SEKARANG ✨";
+                btn.disabled = false;
+            }
+        }
+
+        // 2. FUNGSI KIRIM ULANG OTP
+        async function resendOTP() {
+            const email = localStorage.getItem('temp_email');
+            const btnResend = document.getElementById('btnResend');
+            const timerEl = document.getElementById('timer');
+
+            try {
+                // Generate OTP baru
+                const newOtp = Math.floor(100000 + Math.random() * 900000);
+                
+                // Ambil data user untuk mendapatkan No. WA
+                const { data: user, error } = await db.from('customers')
+                    .select('phone_number, full_name')
+                    .eq('email', email)
+                    .single();
+
+                if (error) throw error;
+
+                // Update OTP baru di database
+                await db.from('customers').update({ otp_code: newOtp }).eq('email', email);
+
+                // Kirim ulang via WA Link
+                const pesanWA = `Halo ${user.full_name}! 🌸\n\nIni adalah Kode Verifikasi (OTP) baru kamu: *${newOtp}*`;
+                const waUrl = `https://wa.me/${user.phone_number}?text=${encodeURIComponent(pesanWA)}`;
+                
+                window.open(waUrl, '_blank');
+                startTimer(); // Mulai hitung mundur
+
+            } catch (err) {
+                alert("Gagal kirim ulang: " + err.message);
+            }
+        }
+
+        // 3. FUNGSI TIMER HITUNG MUNDUR
+        function startTimer() {
+            const btnResend = document.getElementById('btnResend');
+            const timerEl = document.getElementById('timer');
+            
+            btnResend.disabled = true;
+            timerEl.classList.remove('hidden');
+            countdown = 60;
+
+            timerInterval = setInterval(() => {
+                countdown--;
+                timerEl.innerText = `(${countdown}s)`;
+                
+                if (countdown <= 0) {
+                    clearInterval(timerInterval);
+                    btnResend.disabled = false;
+                    timerEl.classList.add('hidden');
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
