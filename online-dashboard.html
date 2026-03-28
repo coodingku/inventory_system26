@@ -9,121 +9,119 @@
     <script src="supabase-online.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
-   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
-    
-    /* Sidebar Styling */
-    aside {
-        width: 260px;
-        background: white;
-        height: 100vh;
-        position: sticky;
-        top: 0;
-        border-right: 1px solid #f1f5f9;
-        display: flex;
-        flex-direction: column;
-        padding: 24px 12px;
-    }
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
+        
+        /* Sidebar Styling */
+        aside {
+            width: 260px;
+            background: white;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            border-right: 1px solid #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 12px;
+            z-index: 50;
+        }
 
-    /* Menu Item Base */
-    .menu-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 16px;
-        color: #64748b; /* Warna abu-abu teks standar */
-        font-weight: 600;
-        font-size: 14px;
-        border-radius: 12px;
-        transition: all 0.2s ease;
-        margin-bottom: 2px;
-        cursor: pointer;
-        text-decoration: none;
-    }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 14px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            margin-bottom: 2px;
+            cursor: pointer;
+            text-decoration: none;
+        }
 
-    .menu-item:hover {
-        background-color: #f8fafc;
-        color: #f72585;
-    }
+        .menu-item:hover {
+            background-color: #f8fafc;
+            color: #f72585;
+        }
 
-    /* Active State (Pink Muda) */
-    .menu-item.active {
-        background-color: #fff1f2; 
-        color: #f72585;
-        position: relative;
-    }
+        .menu-item.active {
+            background-color: #fff1f2; 
+            color: #f72585;
+            position: relative;
+        }
 
-    /* Indikator Garis Pink di Kiri */
-    .menu-item.active::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 25%;
-        height: 50%;
-        width: 4px;
-        background: #f72585;
-        border-radius: 0 4px 4px 0;
-    }
+        .menu-item.active::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 25%;
+            height: 50%;
+            width: 4px;
+            background: #f72585;
+            border-radius: 0 4px 4px 0;
+        }
 
-    /* Dropdown/Submenu */
-    .submenu {
-        margin-left: 36px;
-        border-left: 1px solid #f1f5f9;
-        overflow: hidden;
-        max-height: 0;
-        transition: max-height 0.3s ease-out;
-    }
+        .submenu {
+            margin-left: 36px;
+            border-left: 1px solid #f1f5f9;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out;
+        }
 
-    .submenu.show {
-        max-height: 300px; /* Sesuaikan dengan jumlah isi */
-        margin-bottom: 10px;
-    }
+        .submenu.show {
+            max-height: 300px;
+            margin-bottom: 10px;
+        }
 
-    .submenu-item {
-        display: block;
-        padding: 8px 16px;
-        font-size: 13px;
-        color: #64748b;
-        font-weight: 600;
-        text-decoration: none;
-        border-radius: 8px;
-        margin-top: 2px;
-    }
+        .submenu-item {
+            display: block;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-top: 2px;
+        }
 
-    .submenu-item:hover {
-        color: #f72585;
-        background: #fff1f2;
-    }
+        .submenu-item:hover {
+            color: #f72585;
+            background: #fff1f2;
+        }
 
-    /* Badge NEW */
-    .badge-new {
-        background: #06b6d4; /* Cyan */
-        color: white;
-        font-size: 9px;
-        font-weight: 800;
-        padding: 1px 6px;
-        border-radius: 6px;
-        margin-left: 8px;
-        text-transform: uppercase;
-    }
+        .badge-new {
+            background: #06b6d4;
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 6px;
+            margin-left: 8px;
+            text-transform: uppercase;
+        }
 
-    .menu-icon {
-        width: 22px;
-        font-size: 16px;
-        margin-right: 12px;
-        text-align: center;
-    }
+        .menu-icon { width: 22px; font-size: 16px; margin-right: 12px; text-align: center; }
+        .chevron-icon { font-size: 10px; transition: transform 0.3s; color: #cbd5e1; }
+        .rotate { transform: rotate(180deg); }
 
-    .chevron-icon {
-        font-size: 10px;
-        transition: transform 0.3s;
-        color: #cbd5e1;
-    }
-
-    .rotate {
-        transform: rotate(180deg);
-    }
-</style>
+        /* Content Styling */
+        .stat-card { 
+            background: white; 
+            border-radius: 24px; 
+            padding: 24px; 
+            border: 1px solid #f1f5f9; 
+            transition: all 0.3s ease; 
+        }
+        .stat-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05); 
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
 
 <aside class="hidden md:flex">
     <div class="mb-8 px-4">
@@ -176,6 +174,12 @@
             </div>
         </a>
 
+        <a href="#" class="menu-item">
+            <div class="flex items-center">
+                <i class="fas fa-ad menu-icon"></i> Iklan <span class="badge-new">NEW</span>
+            </div>
+        </a>
+
         <div>
             <div class="menu-item" onclick="toggleSubmenu(this, 'sub-points')">
                 <div class="flex items-center">
@@ -199,146 +203,140 @@
     </div>
 </aside>
 
-    <main class="flex-1 p-4 md:p-10 max-w-6xl">
-        <header class="mb-10">
-            <h2 class="text-2xl font-black text-slate-800">Ringkasan Toko 📊</h2>
-            <p class="text-slate-500 text-sm">Pantau perkembangan Beauty Bloom hari ini.</p>
-        </header>
+<main class="flex-1 p-4 md:p-10 max-w-6xl">
+    <header class="mb-10">
+        <h2 class="text-2xl font-black text-slate-800">Ringkasan Toko 📊</h2>
+        <p class="text-slate-500 text-sm">Pantau perkembangan Beauty Bloom hari ini.</p>
+    </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            <div class="stat-card shadow-sm">
-                <div class="w-12 h-12 bg-pink-50 text-pink-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
-                    <i class="fas fa-wallet"></i>
-                </div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendapatan Online</p>
-                <h3 id="total-revenue" class="text-2xl font-black text-slate-800 mt-1">Rp 0</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div class="stat-card shadow-sm">
+            <div class="w-12 h-12 bg-pink-50 text-pink-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
+                <i class="fas fa-wallet"></i>
             </div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendapatan Online</p>
+            <h3 id="total-revenue" class="text-2xl font-black text-slate-800 mt-1">Rp 0</h3>
+        </div>
 
-            <div class="stat-card shadow-sm">
-                <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
-                    <i class="fas fa-shopping-bag"></i>
-                </div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pesanan Masuk</p>
-                <h3 id="total-orders" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+        <div class="stat-card shadow-sm">
+            <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
+                <i class="fas fa-shopping-bag"></i>
             </div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pesanan Masuk</p>
+            <h3 id="total-orders" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+        </div>
 
-            <div class="stat-card shadow-sm">
-                <div class="w-12 h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
-                    <i class="fas fa-user-plus"></i>
-                </div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Baru</p>
-                <h3 id="total-customers" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+        <div class="stat-card shadow-sm">
+            <div class="w-12 h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-4 text-xl">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Baru</p>
+            <h3 id="total-customers" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="bg-white rounded-[32px] p-8 shadow-sm border border-slate-50">
+            <div class="flex justify-between items-center mb-6">
+                <h4 class="font-black text-slate-800">Pesanan Terbaru</h4>
+                <a href="admin-online.html" class="text-xs font-bold text-pink-500">Lihat Semua</a>
+            </div>
+            <div id="recent-orders-list" class="space-y-4">
+                <p class="text-slate-400 text-sm italic">Memuat data...</p>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="bg-white rounded-[40px] p-8 shadow-sm border border-slate-50">
-                <div class="flex justify-between items-center mb-6">
-                    <h4 class="font-black text-slate-800">Pesanan Terbaru</h4>
-                    <a href="admin-online.html" class="text-xs font-bold text-pink-500">Lihat Semua</a>
-                </div>
-                <div id="recent-orders-list" class="space-y-4">
-                    <p class="text-slate-400 text-sm italic">Memuat data...</p>
-                </div>
+        <div class="bg-white rounded-[32px] p-8 shadow-sm border border-slate-50">
+            <div class="flex justify-between items-center mb-6">
+                <h4 class="font-black text-slate-800">Peringatan Stok Low</h4>
+                <i class="fas fa-exclamation-triangle text-amber-400"></i>
             </div>
-
-            <div class="bg-white rounded-[40px] p-8 shadow-sm border border-slate-50">
-                <div class="flex justify-between items-center mb-6">
-                    <h4 class="font-black text-slate-800">Peringatan Stok Low</h4>
-                    <i class="fas fa-exclamation-triangle text-amber-400"></i>
-                </div>
-                <div id="low-stock-list" class="space-y-4">
-                    </div>
-            </div>
+            <div id="low-stock-list" class="space-y-4"></div>
         </div>
-    </main>
+    </div>
+</main>
 
-    <script>
-        window.onload = async () => {
-            await Promise.all([
-                loadStats(),
-                loadRecentOrders(),
-                loadLowStock()
-            ]);
-        };
+<script>
+    window.onload = async () => {
+        await Promise.all([
+            loadStats(),
+            loadRecentOrders(),
+            loadLowStock()
+        ]);
+    };
 
-        async function loadStats() {
-            // 1. Hitung Total Revenue & Orders
-            const { data: orders } = await db.from('transaksi_online').select('grand_total');
-            const totalRevenue = orders.reduce((acc, curr) => acc + (parseFloat(curr.grand_total) || 0), 0);
-            document.getElementById('total-revenue').innerText = "Rp " + totalRevenue.toLocaleString();
-            document.getElementById('total-orders').innerText = orders.length;
-
-            // 2. Hitung Total Customers
-            const { count } = await db.from('customers').select('*', { count: 'exact', head: true });
-            document.getElementById('total-customers').innerText = count || 0;
-        }
-
-        async function loadRecentOrders() {
-            const { data } = await db.from('transaksi_online')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(5);
-
-            const container = document.getElementById('recent-orders-list');
-            if (data && data.length > 0) {
-                container.innerHTML = data.map(o => `
-                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xs shadow-sm text-pink-500">
-                                <i class="fas fa-receipt"></i>
-                            </div>
-                            <div>
-                                <p class="text-xs font-black text-slate-800">${o.nama_penerima}</p>
-                                <p class="text-[9px] text-slate-400">${new Date(o.created_at).toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                        <p class="text-xs font-black text-slate-800">Rp ${parseFloat(o.grand_total).toLocaleString()}</p>
-                    </div>
-                `).join('');
-            } else {
-                container.innerHTML = "<p class='text-slate-400 text-xs'>Belum ada pesanan.</p>";
-            }
-        }
-         function toggleSubmenu(element, id) {
+    function toggleSubmenu(element, id) {
         const submenu = document.getElementById(id);
         const chevron = element.querySelector('.chevron-icon');
-        
-        // Toggle Class Show
         submenu.classList.toggle('show');
-        
-        // Animasi Chevron
-        if (chevron) {
-            chevron.classList.toggle('rotate');
+        if (chevron) chevron.classList.toggle('rotate');
+    }
+
+    async function loadStats() {
+        try {
+            const { data: orders } = await db.from('transaksi_online').select('grand_total');
+            const totalRevenue = (orders || []).reduce((acc, curr) => acc + (parseFloat(curr.grand_total) || 0), 0);
+            document.getElementById('total-revenue').innerText = "Rp " + totalRevenue.toLocaleString();
+            document.getElementById('total-orders').innerText = (orders || []).length;
+
+            const { count } = await db.from('customers').select('*', { count: 'exact', head: true });
+            document.getElementById('total-customers').innerText = count || 0;
+        } catch (e) { console.error(e); }
+    }
+
+    async function loadRecentOrders() {
+        const { data } = await db.from('transaksi_online')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        const container = document.getElementById('recent-orders-list');
+        if (data && data.length > 0) {
+            container.innerHTML = data.map(o => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xs shadow-sm text-pink-500">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-black text-slate-800">${o.nama_penerima}</p>
+                            <p class="text-[9px] text-slate-400">${new Date(o.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    <p class="text-xs font-black text-slate-800">Rp ${parseFloat(o.grand_total).toLocaleString()}</p>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = "<p class='text-slate-400 text-xs text-center py-4'>Belum ada pesanan.</p>";
         }
     }
 
-        async function loadLowStock() {
-            const { data } = await db.from('produk')
-                .select('nama_barang, stok_sekarang, image_url')
-                .lt('stok_sekarang', 10)
-                .limit(5);
+    async function loadLowStock() {
+        const { data } = await db.from('produk')
+            .select('nama_barang, stok_sekarang, image_url')
+            .lt('stok_sekarang', 10)
+            .limit(5);
 
-            const container = document.getElementById('low-stock-list');
-            if (data && data.length > 0) {
-                container.innerHTML = data.map(p => `
-                    <div class="flex items-center justify-between p-3 border-b border-slate-50">
-                        <div class="flex items-center gap-3">
-                            <img src="${p.image_url || 'https://via.placeholder.com/50'}" class="w-10 h-10 rounded-xl object-cover">
-                            <p class="text-xs font-bold text-slate-700">${p.nama_barang}</p>
-                        </div>
-                        <span class="text-[10px] font-black text-red-500 bg-red-50 px-2 py-1 rounded-lg">${p.stok_sekarang} Sisa</span>
+        const container = document.getElementById('low-stock-list');
+        if (data && data.length > 0) {
+            container.innerHTML = data.map(p => `
+                <div class="flex items-center justify-between p-3 border-b border-slate-50">
+                    <div class="flex items-center gap-3">
+                        <img src="${p.image_url || 'https://via.placeholder.com/50'}" class="w-10 h-10 rounded-xl object-cover">
+                        <p class="text-xs font-bold text-slate-700">${p.nama_barang}</p>
                     </div>
-                `).join('');
-            } else {
-                container.innerHTML = "<p class='text-slate-400 text-xs text-center py-4'>✅ Stok semua produk aman!</p>";
-            }
+                    <span class="text-[10px] font-black text-red-500 bg-red-50 px-2 py-1 rounded-lg">${p.stok_sekarang} Sisa</span>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = "<p class='text-slate-400 text-xs text-center py-4'>✅ Stok semua produk aman!</p>";
         }
+    }
 
-        function logout() {
-            sessionStorage.clear();
-            window.location.replace('login.html');
-        }
-    </script>
+    function logout() {
+        sessionStorage.clear();
+        window.location.replace('login.html');
+    }
+</script>
 </body>
 </html>
