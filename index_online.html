@@ -3,231 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Beauty Bloom | Dashboard 🌸</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Finex Beauty Bloom | Online Shop 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
+    <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="SB-Mid-client-XXXXX"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; overflow-x: hidden; padding-bottom: 40px; }
+        :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; --accent-peach: #ffb3c1; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; overflow-x: hidden; }
+        .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.1); }
         .gradient-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); }
-        .menu-card { background: white; border-radius: 20px; transition: all 0.2s; border: 1px solid #ff85a210; }
         
+        /* Modal Styles */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
-        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s ease; padding: 30px; border-radius: 40px 0 0 40px; }
+        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 30px; border-radius: 40px 0 0 40px; }
         .side-modal.active { right: 0; }
-        .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s; padding-bottom: 40px; }
+        .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s ease; }
         .activity-modal.active { bottom: 0; }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; }
 
-        .slider-wrapper { position: relative; width: 100vw; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; }
-        .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; }
-        .slide-item.active { opacity: 1; z-index: 10; }
-        .slide-item img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .dots-container { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: center; gap: 5px; z-index: 20; }
-        .dot-ad { width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,0.1); transition: all 0.3s; }
-        .dot-ad.active { background: #f72585; width: 15px; border-radius: 10px; }
+        .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s; border: 1px solid rgba(255, 133, 162, 0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body>
+<body class="pb-28 no-scrollbar">
 
-    <header class="p-6 pb-4">
-        <div class="flex justify-between items-center mb-4 px-2">
-            <div>
-                <p class="text-[9px] font-black text-pink-500 uppercase tracking-widest italic">Beauty Bloom Member ✨</p>
-                <h1 id="user-name" class="text-lg font-extrabold text-slate-800 italic uppercase leading-none">Memuat...</h1>
-            </div>
-            <button onclick="openProfile()" class="w-10 h-10 bg-white rounded-xl border-2 border-pink-100 flex items-center justify-center text-pink-400 shadow-sm">
-                <i class="fa-solid fa-user-sparkles text-lg"></i>
-            </button>
+    <header class="glass-header sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div>
+            <p id="welcome-msg" class="text-[10px] font-bold text-[#ff4d6d] uppercase tracking-widest italic leading-none mb-1">Halo, Cantik! ✨</p>
+            <h1 class="text-xl font-extrabold text-slate-800 italic">Beauty Bloom 🌸</h1>
         </div>
-
-        <div class="gradient-pink p-5 rounded-[24px] text-white shadow-lg shadow-pink-200 relative overflow-hidden mx-auto w-[88%]">
-            <div class="relative z-10">
-                <p class="text-[8px] font-bold uppercase tracking-widest opacity-80 mb-0.5">Saldo Dompet Cantik</p>
-                <h2 id="display-saldo" class="text-xl font-black italic">Rp 0</h2>
-                <div class="flex gap-2 mt-3">
-                    <button onclick="openWallet()" class="bg-white text-pink-500 px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm">TOP UP ✨</button>
-                    <button onclick="openWallet()" class="bg-white/20 px-4 py-1.5 rounded-lg text-[8px] font-black backdrop-blur-md uppercase tracking-widest border border-white/10">RIWAYAT</button>
+        <button onclick="openProfile()" class="group relative">
+            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-pink-100 to-pink-200 p-0.5 shadow-sm active:scale-90 transition-all overflow-hidden">
+                <div class="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-pink-400">
+                    <i class="fa-solid fa-user-sparkles text-lg"></i>
                 </div>
             </div>
-            <div class="absolute -right-6 -bottom-6 w-20 h-20 bg-white/10 rounded-full"></div>
-        </div>
+            <span class="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
+        </button>
     </header>
 
-    <section class="relative w-full overflow-hidden bg-white">
-        <div id="promo-slider" class="slider-wrapper">
-            <div class="slide-item active flex items-center justify-center bg-pink-50 text-pink-200">
-                <i class="fa-solid fa-wand-magic-sparkles text-4xl animate-pulse"></i>
+    <main class="px-6 mt-6">
+        <div onclick="toggleWallet()" class="gradient-pink w-full p-6 rounded-[32px] text-white shadow-xl shadow-pink-200 relative overflow-hidden mb-8 active:scale-[0.98] transition-all">
+            <div class="relative z-10 flex justify-between items-end">
+                <div>
+                    <p class="text-[9px] font-bold uppercase tracking-widest opacity-80 mb-1">Saldo Dompet Cantik ✨</p>
+                    <h2 id="w-saldo" class="text-2xl font-black italic tracking-tight">Rp 0</h2>
+                </div>
+                <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md border border-white/20">
+                    <i class="fa-solid fa-wallet text-xl"></i>
+                </div>
             </div>
+            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full"></div>
+            <div class="absolute right-12 -top-10 w-20 h-20 bg-pink-300/20 rounded-full"></div>
         </div>
-        <div id="promo-dots" class="dots-container"></div>
-    </section>
 
-    <section class="px-6 py-6 grid grid-cols-4 gap-4 relative z-30">
-        <button onclick="window.location.href='online-shop.html'" class="flex flex-col items-center">
-            <div class="menu-card w-14 h-14 flex items-center justify-center text-pink-500 shadow-xl mb-2"><i class="fa-solid fa-bag-shopping text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tight">Belanja</span>
-        </button>
-        <button onclick="openHistory()" class="flex flex-col items-center">
-            <div class="menu-card w-14 h-14 flex items-center justify-center text-blue-400 shadow-xl mb-2"><i class="fa-solid fa-receipt text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tight">Pesanan</span>
-        </button>
-        <button onclick="openWallet()" class="flex flex-col items-center">
-            <div class="menu-card w-14 h-14 flex items-center justify-center text-purple-400 shadow-xl mb-2"><i class="fa-solid fa-history text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tight">Mutasi</span>
-        </button>
-        <button onclick="window.open('https://wa.me/6281239739396')" class="flex flex-col items-center">
-            <div class="menu-card w-14 h-14 flex items-center justify-center text-green-400 shadow-xl mb-2"><i class="fa-brands fa-whatsapp text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tight">Admin</span>
-        </button>
-    </section>
+        <div class="relative mb-8">
+            <i class="fas fa-search absolute left-5 top-4 text-pink-300"></i>
+            <input type="text" id="search" onkeyup="loadOnlineMenu()" class="w-full pl-12 pr-4 py-4 bg-white rounded-3xl border-none shadow-sm outline-none focus:ring-2 focus:ring-pink-300 italic text-sm" placeholder="Cari perawatan cantikmu...">
+        </div>
 
-    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
+        <div id="onlineDisplay" class="grid grid-cols-2 gap-5"></div>
+    </main>
 
     <div id="profileModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
             <h2 class="text-xl font-black text-slate-800 italic">Profil Member ✨</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400"></i></button>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
         </div>
         
-        <div class="text-center mb-6">
-            <div class="w-16 h-16 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center text-pink-400 text-xl border-4 border-white shadow-sm">
-                <i class="fa-solid fa-user"></i>
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-pink-100 rounded-3xl mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-md text-pink-400">
+                <i class="fa-solid fa-user-tie text-3xl"></i>
             </div>
-            <h3 id="p-name" class="font-black text-slate-800 italic uppercase leading-none">User</h3>
-            <p id="p-email" class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">email@user.com</p>
+            <h3 id="p-name" class="font-black text-slate-800 italic uppercase">Nama Pengguna</h3>
+            <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@bloom.com</p>
         </div>
 
-        <div id="reward-section" class="mb-8">
-            <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[9px] font-black text-slate-500 uppercase italic">Level Progress</span>
-                    <span id="display-xp" class="text-[9px] font-black text-pink-500 uppercase">0 XP</span>
-                </div>
-                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                    <div id="xp-bar" class="bg-pink-500 h-full transition-all duration-1000" style="width: 0%"></div>
-                </div>
-                <p class="text-[8px] text-slate-400 mt-2 font-bold italic text-center">Tingkatkan belanja untuk reward eksklusif!</p>
-            </div>
+        <div id="reward-section" class="mb-6"></div>
+
+        <div class="space-y-3 mb-10">
+            <button onclick="openHistory()" class="w-full py-4 bg-white border-2 border-slate-50 text-slate-700 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-between px-6 shadow-sm active:bg-slate-50">
+                <span class="flex items-center gap-3"><i class="fa-solid fa-bag-shopping text-pink-400"></i> Pesanan Saya</span>
+                <i class="fa-solid fa-chevron-right text-[8px]"></i>
+            </button>
+            <button onclick="toggleWallet()" class="w-full py-4 bg-white border-2 border-slate-50 text-slate-700 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-between px-6 shadow-sm active:bg-slate-50">
+                <span class="flex items-center gap-3"><i class="fa-solid fa-money-bill-transfer text-blue-400"></i> Mutasi Saldo</span>
+                <i class="fa-solid fa-chevron-right text-[8px]"></i>
+            </button>
         </div>
 
-        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-3">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar Akun
+        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2">
+            <i class="fa-solid fa-power-off text-xs"></i> Keluar Akun
         </button>
     </div>
 
+    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
+    
     <div id="walletModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800 italic">Dompet ✨</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400"></i></button>
+            <h2 class="text-xl font-black text-slate-800 italic text-pink-500">Dompet ✨</h2>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
         </div>
         <div class="grid grid-cols-2 gap-4 mb-8">
-            <button onclick="requestTopUp()" class="p-5 bg-pink-50 rounded-3xl border border-pink-100 text-pink-500 text-[10px] font-black uppercase"><i class="fa-solid fa-plus-circle block text-xl mb-2"></i>Top Up</button>
-            <button onclick="requestWithdraw()" class="p-5 bg-slate-50 rounded-3xl border border-slate-100 text-slate-400 text-[10px] font-black uppercase"><i class="fa-solid fa-money-bill-transfer block text-xl mb-2"></i>WD</button>
+            <button onclick="requestTopUp()" class="p-5 bg-pink-50 rounded-3xl border border-pink-100 text-pink-500 text-[10px] font-black uppercase"><i class="fa-solid fa-circle-plus block text-2xl mb-2"></i>Top Up</button>
+            <button onclick="requestWithdraw()" class="p-5 bg-slate-50 rounded-3xl border border-slate-100 text-slate-400 text-[10px] font-black uppercase"><i class="fa-solid fa-money-bill-transfer block text-2xl mb-2"></i>WD</button>
         </div>
-        <div id="walletHistory" class="space-y-2 pb-10"></div>
+        <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic">Catatan Keuangan 📑</h4>
+        <div id="walletHistory" class="space-y-3"></div>
     </div>
 
-    <div id="historyModal" class="activity-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6">
-            <h2 class="text-xl font-black text-slate-800 mb-6 text-center italic uppercase">Riwayat Belanja 🛍️</h2>
-            <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-pink-50 text-pink-500 font-bold rounded-2xl text-[10px] uppercase tracking-widest">Tutup</button>
-        </div>
+    <div id="historyModal" class="activity-modal px-6 pb-10">
+        <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto my-5"></div>
+        <h2 class="text-xl font-black text-slate-800 mb-6 text-center italic uppercase">Riwayat Belanja ✨</h2>
+        <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar"></div>
+        <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-pink-50 text-pink-500 font-bold rounded-2xl text-[10px] uppercase tracking-widest">Tutup</button>
     </div>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg flex justify-around padding-safe-bottom py-4 border-t border-pink-50 rounded-t-[35px] z-[100] shadow-2xl">
+        <a href="#" class="flex flex-col items-center text-pink-500"><i class="fas fa-house text-xl"></i><span class="text-[8px] font-black mt-1 uppercase italic">Home</span></a>
+        <button onclick="openHistory()" class="flex flex-col items-center text-slate-300"><i class="fas fa-receipt text-xl"></i><span class="text-[8px] font-black mt-1 uppercase italic">Order</span></button>
+        <button onclick="toggleWallet()" class="flex flex-col items-center text-slate-300"><i class="fas fa-wallet text-xl"></i><span class="text-[8px] font-black mt-1 uppercase italic">Saldo</span></button>
+        <button onclick="goToCheckout()" class="flex flex-col items-center text-slate-300 relative">
+            <i class="fas fa-shopping-bag text-xl"></i>
+            <span id="cart-count" class="absolute -top-2 -right-2 bg-pink-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">0</span>
+            <span class="text-[8px] font-black mt-1 uppercase italic">Bag</span>
+        </button>
+    </nav>
 
     <script>
-        let userData = null;
-        let currentSlide = 0;
-
-        window.onload = async () => {
-            const { data: { session } } = await db.auth.getSession();
-            if (!session) return window.location.replace('login-customer.html');
-            await loadCustomerData(session.user.id);
-            await loadDynamicAds();
-        };
-
+        // Gunakan script yang sama dengan penyesuaian ID UI
+        // Pastikan loadCustomerData memanggil renderRewardStatus
         async function loadCustomerData(userId) {
             const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
+            const { data: settings } = await db.from('app_settings').select('*').eq('key_name', 'loyalty_target_count').single();
+            const targetCount = settings ? settings.value_int : 5;
+
             if (customer) {
                 userData = customer;
-                document.getElementById('user-name').innerText = customer.full_name;
+                document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
+                document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
                 document.getElementById('p-name').innerText = customer.full_name;
                 document.getElementById('p-email').innerText = customer.email;
-                document.getElementById('display-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
-                
-                // Load Progress XP
-                const xp = customer.total_belanja || 0;
-                document.getElementById('display-xp').innerText = xp.toLocaleString() + " XP";
-                const progress = Math.min((xp / 1000000) * 100, 100); // Contoh max XP 1jt
-                setTimeout(() => { document.getElementById('xp-bar').style.width = progress + "%"; }, 500);
-                
-                loadWalletMutations(userId);
+                renderRewardStatus(customer, targetCount);
+                loadWalletHistory(userId);
             }
         }
 
-        async function loadWalletMutations(userId) {
-            const list = document.getElementById('walletHistory');
-            const { data: topups } = await db.from('topup_history').select('*').eq('customer_id', userId);
-            const { data: orders } = await db.from('orders').select('*').eq('customer_id', userId);
-            let mutasi = [];
-            if(topups) topups.forEach(t => mutasi.push({...t, type: 'TOP UP', color: 'text-green-500', icon: 'fa-plus'}));
-            if(orders) orders.forEach(o => mutasi.push({ created_at: o.created_at, nominal: o.total_bayar, type: 'BELANJA', color: 'text-pink-500', icon: 'fa-bag-shopping' }));
-            mutasi.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-            list.innerHTML = mutasi.map(m => `
-                <div class="bg-white p-3 rounded-2xl border border-slate-50 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-[10px] ${m.color}"><i class="fa-solid ${m.icon}"></i></div>
-                        <div><p class="text-[9px] font-black text-slate-800 uppercase">${m.type}</p><p class="text-[8px] text-slate-300 font-bold">${new Date(m.created_at).toLocaleDateString()}</p></div>
-                    </div>
-                    <p class="text-[10px] font-black ${m.color}">Rp ${m.nominal.toLocaleString()}</p>
-                </div>`).join('');
-        }
-
-        async function openHistory() {
+        function openHistory() {
+            closeAllModals();
             document.getElementById('historyModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
-            const { data: orders } = await db.from('orders').select('*').eq('customer_id', userData.id).order('created_at', {ascending: false});
-            const list = document.getElementById('historyList');
-            if(!orders || orders.length === 0) { list.innerHTML = `<p class="text-center py-10 text-slate-300 text-xs font-bold uppercase italic">Belum ada pesanan</p>`; return; }
-            list.innerHTML = orders.map(o => `
-                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
-                    <div class="flex justify-between mb-2"><span class="text-[10px] font-black text-pink-500 italic uppercase">${o.no_invoice}</span><span class="text-[8px] px-2 py-1 bg-slate-50 rounded-lg font-black text-slate-400 border uppercase">${o.status}</span></div>
-                    <p class="text-xs font-black text-slate-700 italic">Total: Rp ${o.total_bayar.toLocaleString()}</p>
-                </div>`).join('');
+            // Tambahkan logika load orders di sini
         }
 
-        async function loadDynamicAds() {
-            const slider = document.getElementById('promo-slider');
-            const dotsContainer = document.getElementById('promo-dots');
-            const { data: setting } = await db.from('app_settings').select('value_text, is_active').eq('key_name', 'dashboard_banners').single();
-            if (!setting || !setting.is_active || !setting.value_text) return;
-            try {
-                const adImages = JSON.parse(setting.value_text);
-                slider.innerHTML = adImages.map((imgUrl, i) => `
-                    <div class="slide-item ${i === 0 ? 'active' : ''}"><img src="${imgUrl}" class="w-full h-full object-cover"></div>`).join('');
-                dotsContainer.innerHTML = adImages.map((_, i) => `<div class="dot-ad ${i === 0 ? 'active' : ''}"></div>`).join('');
-                if (adImages.length > 1) setInterval(() => {
-                    const s = document.querySelectorAll('.slide-item'), d = document.querySelectorAll('.dot-ad');
-                    if(!s[currentSlide]) return;
-                    s[currentSlide].classList.remove('active'); d[currentSlide].classList.remove('active');
-                    currentSlide = (currentSlide + 1) % adImages.length;
-                    s[currentSlide].classList.add('active'); d[currentSlide].classList.add('active');
-                }, 5000);
-            } catch (e) { console.error(e); }
+        function closeAllModals() {
+            document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active'));
+            document.getElementById('modalOverlay').classList.remove('active');
         }
 
-        function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); document.getElementById('modalOverlay').classList.remove('active'); }
-        function openWallet() { document.getElementById('walletModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
-        function openProfile() { document.getElementById('profileModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
-        async function logoutCustomer() { if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); } }
+        // ... Sisanya masukkan logika database dan keranjang dari kode lama Anda ...
     </script>
 </body>
 </html>
