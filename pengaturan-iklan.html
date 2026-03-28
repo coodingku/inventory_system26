@@ -3,212 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengaturan Iklan | Finex Admin 🌸</title>
+    <title>Manajemen Banner | Finex Admin 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
-        aside { width: 260px; background: white; height: 100vh; position: sticky; top: 0; border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; padding: 24px 12px; z-index: 50; }
-        .menu-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; color: #64748b; font-weight: 600; font-size: 14px; border-radius: 12px; transition: all 0.2s ease; margin-bottom: 2px; cursor: pointer; text-decoration: none; }
-        .menu-item:hover { background-color: #f8fafc; color: #f72585; }
-        .menu-item.active { background-color: #fff1f2; color: #f72585; position: relative; }
-        .menu-item.active::before { content: ""; position: absolute; left: 0; top: 25%; height: 50%; width: 4px; background: #f72585; border-radius: 0 4px 4px 0; }
-        .submenu { margin-left: 36px; border-left: 1px solid #f1f5f9; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out; }
-        .submenu.show { max-height: 300px; margin-bottom: 10px; }
-        .submenu-item { display: block; padding: 8px 16px; font-size: 13px; color: #64748b; font-weight: 600; text-decoration: none; border-radius: 8px; margin-top: 2px; }
-        .submenu-item:hover { color: #f72585; background: #fff1f2; }
-        .menu-icon { width: 22px; font-size: 16px; margin-right: 12px; text-align: center; }
-        .chevron-icon { font-size: 10px; transition: transform 0.3s; color: #cbd5e1; }
-        .rotate { transform: rotate(180deg); }
-        
-        .config-card { background: white; border-radius: 35px; border: 1px solid #f1f5f9; }
-        .img-preview { width: 100%; aspect-ratio: 21/9; object-fit: cover; border-radius: 20px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; }
+        .config-card { background: white; border-radius: 30px; border: 1px solid #f1f5f9; }
+        .img-preview { width: 100%; aspect-ratio: 21/9; object-fit: cover; border-radius: 20px; background: #f1f5f9; }
+        /* Style Sidebar Minimalis */
+        aside { width: 260px; background: white; height: 100vh; position: sticky; top: 0; border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; padding: 24px 12px; }
+        .menu-item { display: flex; align-items: center; padding: 12px 16px; color: #64748b; font-weight: 600; font-size: 14px; border-radius: 12px; transition: 0.2s; margin-bottom: 2px; cursor: pointer; text-decoration: none; }
+        .menu-item.active { background-color: #fff1f2; color: #f72585; }
+        .menu-icon { width: 22px; margin-right: 12px; text-align: center; }
     </style>
 </head>
 <body class="flex">
 
 <aside class="hidden md:flex">
     <div class="mb-8 px-4">
-        <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
+        <h1 class="text-xl font-black text-slate-800">Finex Admin 🌸</h1>
         <p class="text-[10px] font-bold text-pink-500 uppercase tracking-widest">Beauty Bloom POS</p>
     </div>
-
-    <nav class="flex-1 overflow-y-auto px-2">
-        <a href="online-dashboard.html" class="menu-item">
-            <div class="flex items-center"><i class="fa-solid fa-chart-pie menu-icon"></i> Dasbor</div>
-        </a>
-
-        <div>
-            <div class="menu-item" onclick="toggleSubmenu(this, 'sub-produk')">
-                <div class="flex items-center"><i class="fa-solid fa-box-archive menu-icon"></i> Produk</div>
-                <i class="fas fa-chevron-down chevron-icon"></i>
-            </div>
-            <div id="sub-produk" class="submenu">
-                <a href="admin-input-produk.html" class="submenu-item">Katalog Produk</a>
-            </div>
-        </div>
-
-        <div>
-            <div class="menu-item active" onclick="toggleSubmenu(this, 'sub-promo')">
-                <div class="flex items-center"><i class="fa-solid fa-rectangle-ad menu-icon"></i> Marketing</div>
-                <i class="fas fa-chevron-down chevron-icon rotate"></i>
-            </div>
-            <div id="sub-promo" class="submenu show">
-                <a href="pengaturan-iklan.html" class="submenu-item bg-pink-50 text-pink-500">Slide Show Iklan</a>
-            </div>
-        </div>
-
-        <a href="admin-online.html" class="menu-item">
-            <div class="flex items-center"><i class="fa-solid fa-bag-shopping menu-icon"></i> Pesanan Online</div>
-        </a>
-
-        <a href="customers-list.html" class="menu-item">
-            <div class="flex items-center"><i class="fa-solid fa-users-gear menu-icon"></i> Data Customer</div>
-        </a>
+    <nav class="flex-1 px-2">
+        <a href="online-dashboard.html" class="menu-item"><i class="fa-solid fa-chart-pie menu-icon"></i> Dasbor</a>
+        <a href="admin-input-produk.html" class="menu-item"><i class="fa-solid fa-box menu-icon"></i> Produk</a>
+        <a href="pengaturan-iklan.html" class="menu-item active"><i class="fa-solid fa-rectangle-ad menu-icon"></i> Banner Promo</a>
+        <a href="admin-online.html" class="menu-item"><i class="fa-solid fa-bag-shopping menu-icon"></i> Pesanan</a>
     </nav>
 </aside>
 
 <main class="flex-1 p-6 md:p-12 max-w-5xl">
-    <header class="mb-10 flex justify-between items-center">
+    <header class="mb-10 flex justify-between items-end">
         <div>
-            <h2 class="text-2xl font-black text-slate-800">Manajemen Iklan 🖼️</h2>
-            <p class="text-slate-500 text-sm">Upload dan atur banner yang tampil di dashboard customer.</p>
+            <h2 class="text-2xl font-black text-slate-800 italic">Banner Iklan Dashboard 🖼️</h2>
+            <p class="text-slate-500 text-sm">Upload gambar promo langsung ke sistem.</p>
         </div>
-        <div class="flex items-center gap-3 bg-white p-2 px-4 rounded-2xl border border-slate-100 shadow-sm">
-            <span class="text-[10px] font-black text-slate-400 uppercase">Status Slideshow:</span>
-            <button onclick="toggleAdsMaster()" id="statusBadge" class="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all">Memuat...</button>
-        </div>
+        <div id="statusAds" class="text-[10px] font-black px-4 py-2 rounded-xl bg-green-100 text-green-600">MODUL AKTIF</div>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-1">
-            <div class="config-card p-6 shadow-sm sticky top-12">
-                <h3 class="text-sm font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
-                    <i class="fa-solid fa-plus-circle text-pink-500"></i> Tambah Banner
+            <div class="config-card p-6 shadow-sm sticky top-10 border-2 border-pink-50">
+                <h3 class="text-xs font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-pink-500"></i> Upload Banner Baru
                 </h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase ml-1">URL Gambar Iklan</label>
-                        <input type="text" id="newImgUrl" placeholder="https://..." class="w-full mt-2 p-4 bg-slate-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-pink-300 font-semibold text-sm">
+                
+                <div class="space-y-5">
+                    <div class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:border-pink-300 transition-colors cursor-pointer relative" onclick="document.getElementById('fileInput').click()">
+                        <i class="fa-solid fa-images text-3xl text-slate-300 mb-2"></i>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">Klik untuk Pilih Gambar</p>
+                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewFile()">
                     </div>
-                    <p class="text-[9px] text-slate-400 italic px-1">Gunakan rasio 21:9 agar tampilan tidak terpotong di aplikasi user.</p>
-                    <button onclick="addNewBanner()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-pink-500 transition-all">
-                        Tambah ke Daftar
+
+                    <div id="previewContainer" class="hidden">
+                        <p class="text-[9px] font-black text-slate-400 mb-2 uppercase">Preview:</p>
+                        <img id="imgPreview" class="img-preview shadow-md">
+                    </div>
+
+                    <button onclick="handleUpload()" id="btnUpload" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-pink-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i> Simpan ke Dashboard
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="lg:col-span-2 space-y-4" id="bannerList">
-            <div class="text-center py-20 text-slate-300">
-                <i class="fa-solid fa-circle-notch animate-spin text-3xl"></i>
-            </div>
+            <div class="text-center py-20 text-slate-300"><i class="fa-solid fa-circle-notch animate-spin text-2xl"></i></div>
         </div>
     </div>
 </main>
 
 <script>
     let currentBanners = [];
-    let isAdsActive = true;
 
-    window.onload = () => {
-        loadAdSettings();
-    };
+    window.onload = () => { loadBanners(); };
 
-    async function loadAdSettings() {
-        const { data, error } = await db.from('app_settings')
-            .select('*')
-            .eq('key_name', 'dashboard_banners')
-            .single();
-
+    async function loadBanners() {
+        const { data } = await db.from('app_settings').select('value_text').eq('key_name', 'dashboard_banners').single();
         if (data) {
             currentBanners = JSON.parse(data.value_text || "[]");
-            isAdsActive = data.is_active;
             renderList();
-            updateStatusUI();
         }
     }
 
-    function updateStatusUI() {
-        const badge = document.getElementById('statusBadge');
-        if (isAdsActive) {
-            badge.innerText = "AKTIF";
-            badge.className = "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase bg-green-100 text-green-600";
-        } else {
-            badge.innerText = "NON-AKTIF";
-            badge.className = "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase bg-red-100 text-red-600";
+    function previewFile() {
+        const file = document.getElementById('fileInput').files[0];
+        const preview = document.getElementById('imgPreview');
+        const container = document.getElementById('previewContainer');
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                container.classList.remove('hidden');
+            }
+            reader.readAsDataURL(file);
         }
     }
 
-    async function toggleAdsMaster() {
-        isAdsActive = !isAdsActive;
-        const { error } = await db.from('app_settings')
-            .update({ is_active: isAdsActive })
+    async function handleUpload() {
+        const fileInput = document.getElementById('fileInput');
+        const btn = document.getElementById('btnUpload');
+        const file = fileInput.files[0];
+
+        if (!file) return alert("Pilih gambar dulu bos! 😊");
+
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> MENGUPLOAD...`;
+
+        try {
+            // 1. Upload ke Supabase Storage (Bucket: promotions)
+            const fileName = `banner_${Date.now()}.${file.name.split('.').pop()}`;
+            const { data: uploadData, error: uploadError } = await db.storage
+                .from('promotions')
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            // 2. Ambil Public URL
+            const { data: urlData } = db.storage.from('promotions').getPublicUrl(fileName);
+            const publicUrl = urlData.publicUrl;
+
+            // 3. Simpan Link ke Array dan Database
+            currentBanners.push(publicUrl);
+            const { error: dbError } = await db.from('app_settings')
+                .update({ value_text: JSON.stringify(currentBanners) })
+                .eq('key_name', 'dashboard_banners');
+
+            if (dbError) throw dbError;
+
+            alert("Banner berhasil ditambahkan! 🌸");
+            fileInput.value = "";
+            document.getElementById('previewContainer').classList.add('hidden');
+            renderList();
+
+        } catch (err) {
+            console.error(err);
+            alert("Gagal upload: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Simpan ke Dashboard`;
+        }
+    }
+
+    async function removeBanner(index) {
+        if (!confirm("Hapus banner ini?")) return;
+        
+        // Opsional: Kamu bisa menghapus file di Storage juga di sini jika mau
+        currentBanners.splice(index, 1);
+        
+        await db.from('app_settings')
+            .update({ value_text: JSON.stringify(currentBanners) })
             .eq('key_name', 'dashboard_banners');
         
-        if (!error) {
-            updateStatusUI();
-            alert("Status tampilan iklan diperbarui!");
-        }
+        renderList();
     }
 
     function renderList() {
         const container = document.getElementById('bannerList');
         if (currentBanners.length === 0) {
-            container.innerHTML = `<div class="bg-white p-12 rounded-[35px] text-center text-slate-400 border border-dashed border-slate-200 italic text-sm">Belum ada banner iklan.</div>`;
+            container.innerHTML = `<div class="bg-white p-16 rounded-[35px] text-center text-slate-400 border-2 border-dashed italic text-xs uppercase font-black">Belum ada banner aktif</div>`;
             return;
         }
 
         container.innerHTML = currentBanners.map((url, index) => `
-            <div class="config-card p-4 shadow-sm flex flex-col gap-4">
-                <img src="${url}" class="img-preview" onerror="this.src='https://placehold.co/600x260?text=URL+Gambar+Salah'">
-                <div class="flex justify-between items-center px-2">
-                    <code class="text-[10px] text-slate-400 truncate max-w-[70%]">${url}</code>
-                    <button onclick="removeBanner(${index})" class="text-red-400 hover:text-red-600 p-2">
+            <div class="config-card p-4 shadow-sm group">
+                <div class="relative overflow-hidden rounded-2xl">
+                    <img src="${url}" class="img-preview">
+                    <button onclick="removeBanner(${index})" class="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur text-red-500 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
             </div>
         `).join('');
-    }
-
-    async function addNewBanner() {
-        const input = document.getElementById('newImgUrl');
-        const url = input.value.trim();
-
-        if (!url) return alert("Masukkan URL Gambar!");
-        
-        currentBanners.push(url);
-        await saveToDatabase();
-        input.value = "";
-    }
-
-    async function removeBanner(index) {
-        if (!confirm("Hapus banner ini dari tampilan user?")) return;
-        currentBanners.splice(index, 1);
-        await saveToDatabase();
-    }
-
-    async function saveToDatabase() {
-        const { error } = await db.from('app_settings')
-            .update({ value_text: JSON.stringify(currentBanners) })
-            .eq('key_name', 'dashboard_banners');
-
-        if (!error) {
-            renderList();
-        } else {
-            alert("Gagal menyimpan ke database.");
-        }
-    }
-
-    function toggleSubmenu(element, id) {
-        const submenu = document.getElementById(id);
-        const chevron = element.querySelector('.chevron-icon');
-        submenu.classList.toggle('show');
-        if (chevron) chevron.classList.toggle('rotate');
     }
 </script>
 </body>
