@@ -53,17 +53,6 @@
             MASUK SEKARANG ✨
         </button>
 
-        <div class="flex items-center gap-4 my-6 text-slate-300">
-            <div class="h-[1px] bg-slate-100 flex-1"></div>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Atau</span>
-            <div class="h-[1px] bg-slate-100 flex-1"></div>
-        </div>
-
-        <button onclick="loginGoogle()" class="w-full bg-white border border-slate-100 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-sm hover:bg-slate-50 transition-all text-slate-600 text-sm">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> 
-            Google Login
-        </button>
-
         <p class="mt-8 text-xs text-slate-400 font-semibold">
             Baru di Bloom? 
             <a href="register-customer.html" class="text-pink-500 font-bold hover:underline">Daftar Akun</a>
@@ -73,13 +62,11 @@
     <script>
         let currentMethod = 'email';
 
-        // 1. CEK SESI SAAT HALAMAN DIBUKA
         window.onload = async () => {
             const { data: { session } } = await db.auth.getSession();
             if (session) window.location.href = 'online-shop.html';
         };
 
-        // 2. SWITCH EMAIL / WHATSAPP
         function switchMethod(method) {
             currentMethod = method;
             const label = document.getElementById('label-identifier');
@@ -104,7 +91,6 @@
             }
         }
 
-        // 3. LOGIKA LOGIN UTAMA
         async function handleLogin() {
             const identifier = document.getElementById('identifier').value.trim();
             const password = document.getElementById('password').value;
@@ -118,7 +104,6 @@
             try {
                 let emailToLogin = identifier;
 
-                // JIKA LOGIN VIA WHATSAPP, CARI EMAILNYA DI TABEL CUSTOMERS
                 if (currentMethod === 'phone') {
                     const { data: customer, error: findError } = await db
                         .from('customers')
@@ -136,7 +121,6 @@
                 });
 
                 if (error) throw error;
-
                 window.location.href = 'online-shop.html';
 
             } catch (error) {
@@ -146,20 +130,6 @@
             }
         }
 
-        // 4. LOGIN GOOGLE
-      // 4. LOGIN GOOGLE (Pesan Coming Soon yang Manis)
-function loginGoogle() {
-    // Kita gunakan SweetAlert2 jika Anda ingin tampilan lebih cantik, 
-    // tapi jika ingin simpel pakai alert bawaan saja:
-    
-    alert(
-        "✨ Segera Hadir! ✨\n\n" +
-        "Kami sedang menyiapkan integrasi Google Login untuk pengalaman belanja yang lebih praktis. " +
-        "Untuk saat ini, silakan masuk menggunakan Email atau WhatsApp ya, Beauty! 🌸"
-    );
-}
-
-        // 5. FITUR LUPA PASSWORD
         async function forgotPassword() {
             const idInput = prompt("Masukkan Email atau No. WhatsApp kamu untuk reset password:");
             if (!idInput) return;
@@ -167,7 +137,6 @@ function loginGoogle() {
             let emailToReset = idInput;
 
             try {
-                // Cari email jika yang diinput adalah No. HP
                 if (!idInput.includes('@')) {
                     const { data, error } = await db
                         .from('customers')
