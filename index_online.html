@@ -3,347 +3,282 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finex Beauty Bloom | Online Shop 🌸</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Beauty Bloom | Dashboard 🌸</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-online.js"></script>
-    <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="SB-Mid-client-XXXXX"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; --accent-peach: #ffb3c1; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; overflow-x: hidden; }
-        .glass-header { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.2); }
-        .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); box-shadow: 0 4px 15px rgba(255, 133, 162, 0.05); cursor: pointer; position: relative; }
-        .product-card:active { transform: scale(0.96); }
-        .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #fffafa; }
-        .img-container img { width: 100%; height: 100%; object-fit: cover; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; overflow-x: hidden; padding-bottom: 40px; }
+        .gradient-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); }
+        .menu-card { background: white; border-radius: 20px; transition: all 0.2s; border: 1px solid #ff85a210; }
+        
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
-        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 30px; border-radius: 40px 0 0 40px; box-shadow: -10px 0 30px rgba(0,0,0,0.1); }
+        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s ease; padding: 30px; border-radius: 40px 0 0 40px; }
         .side-modal.active { right: 0; }
-        .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -15px 35px rgba(0,0,0,0.1); }
-        .detail-modal.active, .activity-modal.active { bottom: 0; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
+        .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s; padding-bottom: 40px; }
+        .activity-modal.active { bottom: 0; }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; scroll-behavior: smooth; }
-        .badge-diskon { position: absolute; top: 12px; left: 12px; background: var(--deep-pink); color: white; padding: 4px 10px; border-radius: 10px; font-size: 9px; font-weight: 900; z-index: 10; }
-        #image-slider { display: flex; overflow-x: auto; snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+
+        .slider-wrapper { position: relative; width: 100vw; aspect-ratio: 16 / 9; overflow: hidden; background: #fff; }
+        .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; }
+        .slide-item.active { opacity: 1; z-index: 10; }
+        .slide-item img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .dots-container { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: center; gap: 5px; z-index: 20; }
+        .dot-ad { width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,0.1); transition: all 0.3s; }
+        .dot-ad.active { background: #f72585; width: 15px; border-radius: 10px; }
     </style>
 </head>
-<body class="pb-28 no-scrollbar">
+<body>
 
-    <header class="glass-header sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div>
-            <p id="welcome-msg" class="text-[10px] font-bold text-[#ff4d6d] uppercase tracking-widest italic">Halo, Cantik! ✨</p>
-            <h1 class="text-xl font-extrabold text-slate-800">Beauty Bloom 🌸</h1>
+    <header class="p-6 pb-4">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <p class="text-[9px] font-black text-pink-500 uppercase tracking-widest italic">Beauty Bloom Member ✨</p>
+                <h1 id="user-name" class="text-xl font-extrabold text-slate-800 italic uppercase leading-none">Memuat...</h1>
+            </div>
+            <button onclick="openProfile()" class="w-12 h-12 bg-white rounded-2xl border-2 border-pink-100 flex items-center justify-center text-pink-400 shadow-sm active:scale-90 transition-all">
+                <i class="fa-solid fa-user-sparkles text-xl"></i>
+            </button>
         </div>
-        <div class="flex gap-2">
-            <button onclick="toggleWallet()" class="w-10 h-10 bg-white rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm"><i class="fa-solid fa-wallet"></i></button>
-            <button onclick="openProfile()" class="w-10 h-10 bg-pink-50 rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm"><i class="fa-solid fa-user text-sm"></i></button>
+
+        <div onclick="openWallet()" class="gradient-pink w-full p-6 rounded-[30px] text-white shadow-xl shadow-pink-200 relative overflow-hidden active:scale-[0.98] transition-all">
+            <div class="relative z-10">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Saldo Dompet Cantik ✨</p>
+                        <h2 id="display-saldo" class="text-3xl font-black italic tracking-tight">Rp 0</h2>
+                    </div>
+                    <i class="fa-solid fa-wallet text-2xl opacity-40"></i>
+                </div>
+                <div class="flex gap-2 mt-5">
+                    <button onclick="event.stopPropagation(); openWallet()" class="bg-white text-pink-500 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md">ISI SALDO</button>
+                    <button onclick="event.stopPropagation(); openHistory()" class="bg-white/20 px-5 py-2 rounded-xl text-[9px] font-black backdrop-blur-md uppercase tracking-widest border border-white/20">PESANAN</button>
+                </div>
+            </div>
+            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full"></div>
+            <div class="absolute right-10 -top-10 w-20 h-20 bg-pink-300/20 rounded-full"></div>
         </div>
     </header>
 
-    <div id="promoModal" class="fixed inset-0 z-[2000] flex items-center justify-center hidden bg-black/60 backdrop-blur-sm px-6">
-        <div class="relative w-full max-w-sm p-8 bg-white rounded-[40px] shadow-2xl transform transition-all scale-90 opacity-0 border-4 border-pink-100" id="promoContent">
-            <button onclick="closePromo()" class="absolute top-5 right-5 w-8 h-8 bg-pink-50 text-pink-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
-            <div class="text-center">
-                <div class="w-20 h-20 bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-full flex items-center justify-center text-white text-3xl mx-auto mb-6 shadow-lg animate-bounce"><i class="fa-solid fa-sparkles"></i></div>
-                <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-2 italic">Beauty Bloom Promotion 🌸</p>
-                <h3 class="text-2xl font-black text-slate-800 leading-tight mb-4">ADA PROMO MENARIK & DISKON UNTUK KAMU!</h3>
-                <div class="bg-pink-50 py-3 rounded-2xl mb-6"><p class="text-slate-600 text-sm font-bold">Ayo buruan belanja di <span class="text-pink-500">BeautyBloom</span> ✨</p></div>
-                <button onclick="closePromo()" class="w-full py-5 bg-slate-900 text-white font-black rounded-[22px] shadow-xl active:scale-95 transition-all uppercase text-[11px] tracking-widest">Mulai Belanja Sekarang 🛍️</button>
+    <section class="relative w-full overflow-hidden bg-white mb-4">
+        <div id="promo-slider" class="slider-wrapper">
+            <div class="slide-item active flex items-center justify-center bg-pink-50 text-pink-200">
+                <i class="fa-solid fa-wand-magic-sparkles text-4xl animate-pulse"></i>
             </div>
         </div>
-    </div>
+        <div id="promo-dots" class="dots-container"></div>
+    </section>
 
-    <main class="px-6 mt-8">
-        <div class="relative mb-6">
-            <i class="fas fa-search absolute left-5 top-4 text-pink-300"></i>
-            <input type="text" id="search" onkeyup="loadOnlineMenu()" class="w-full pl-12 pr-4 py-4 bg-white rounded-3xl border-none shadow-sm outline-none focus:ring-2 focus:ring-pink-300" placeholder="Cari perawatan cantikmu...">
-        </div>
-        <div id="onlineDisplay" class="grid grid-cols-2 gap-5"></div>
-    </main>
+    <section class="px-6 py-4 grid grid-cols-4 gap-4">
+        <button onclick="window.location.href='online-shop.html'" class="flex flex-col items-center">
+            <div class="menu-card w-14 h-14 flex items-center justify-center text-pink-500 shadow-lg mb-2"><i class="fa-solid fa-bag-shopping text-xl"></i></div>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Belanja</span>
+        </button>
+        <button onclick="openHistory()" class="flex flex-col items-center">
+            <div class="menu-card w-14 h-14 flex items-center justify-center text-blue-400 shadow-lg mb-2"><i class="fa-solid fa-receipt text-xl"></i></div>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Pesanan</span>
+        </button>
+        <button onclick="openWallet()" class="flex flex-col items-center">
+            <div class="menu-card w-14 h-14 flex items-center justify-center text-purple-400 shadow-lg mb-2"><i class="fa-solid fa-history text-xl"></i></div>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Mutasi</span>
+        </button>
+        <button onclick="window.open('https://wa.me/6281239739396')" class="flex flex-col items-center">
+            <div class="menu-card w-14 h-14 flex items-center justify-center text-green-400 shadow-lg mb-2"><i class="fa-brands fa-whatsapp text-xl"></i></div>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Admin</span>
+        </button>
+    </section>
 
     <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
 
-    <div id="cartModal" class="side-modal">
+    <div id="profileModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800">Bag Belanja 🛍️</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
-        </div>
-        <div id="cartList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pr-2"></div>
-        <div class="mt-8 pt-6 border-t border-dashed border-pink-100">
-            <div class="flex justify-between mb-6">
-                <span class="font-bold text-slate-400">Total:</span>
-                <span id="cart-total-modal" class="font-black text-pink-500 text-xl">Rp 0</span>
-            </div>
-            <button onclick="goToCheckout('PROSES')" class="w-full py-5 bg-slate-900 text-white rounded-[22px] font-black shadow-lg uppercase text-[10px] tracking-widest">Lanjut Checkout 🌸</button>
-        </div>
-    </div>
-
-    <div id="profileModal" class="side-modal">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800">Profil Saya ✨</h2>
+            <h2 class="text-xl font-black text-slate-800 italic">Profil Member ✨</h2>
             <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
         </div>
         <div class="text-center mb-6">
-            <div class="w-20 h-20 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-sm"><i class="fa-solid fa-user text-2xl text-pink-400"></i></div>
-            <h3 id="p-name" class="font-black text-slate-800 italic uppercase">Nama Pengguna</h3>
-            <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@bloom.com</p>
+            <div class="w-20 h-20 bg-pink-100 rounded-3xl mx-auto mb-4 flex items-center justify-center text-pink-400 text-2xl border-4 border-white shadow-md">
+                <i class="fa-solid fa-user-sparkles"></i>
+            </div>
+            <h3 id="p-name" class="font-black text-slate-800 italic uppercase">User</h3>
+            <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@user.com</p>
         </div>
         <div id="reward-section" class="mb-8"></div>
-        <button onclick="openHistory()" class="w-full py-4 mb-3 bg-white border border-pink-100 text-pink-500 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-sm"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Pesanan</button>
-        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase">Keluar Akun</button>
+        <div class="space-y-3 mb-10">
+            <button onclick="openHistory()" class="w-full py-4 px-6 bg-slate-50 text-slate-700 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-between shadow-sm">
+                <span><i class="fa-solid fa-clock-rotate-left mr-2 text-pink-400"></i> Riwayat Transaksi</span>
+                <i class="fa-solid fa-chevron-right text-[8px]"></i>
+            </button>
+            <button onclick="openWallet()" class="w-full py-4 px-6 bg-slate-50 text-slate-700 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-between shadow-sm">
+                <span><i class="fa-solid fa-wallet mr-2 text-blue-400"></i> Detail Dompet</span>
+                <i class="fa-solid fa-chevron-right text-[8px]"></i>
+            </button>
+        </div>
+        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-3">
+            <i class="fa-solid fa-power-off"></i> Keluar Akun
+        </button>
     </div>
 
-    <div id="walletModal" class="side-modal">
+    <div id="walletModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800">Dompet Cantik ✨</h2>
+            <h2 class="text-xl font-black text-slate-800 italic">Mutasi Saldo 💎</h2>
             <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
         </div>
-        <div class="bg-gradient-to-br from-[#ff85a2] to-[#f72585] p-8 rounded-[35px] text-white shadow-xl mb-8">
-            <p class="text-xs font-bold opacity-80 uppercase tracking-widest">Saldo Kamu</p>
-            <h3 id="w-saldo" class="text-3xl font-black mt-2">Rp 0</h3>
-        </div>
-        <div class="grid grid-cols-2 gap-4 mb-10">
-            <button onclick="requestTopUp()" class="flex flex-col items-center justify-center p-5 bg-pink-50 rounded-3xl border border-pink-100"><i class="fa-solid fa-arrow-up text-pink-500 mb-2"></i><span class="text-[10px] font-black uppercase">Isi Saldo</span></button>
-            <button onclick="requestWithdraw()" class="flex flex-col items-center justify-center p-5 bg-slate-50 rounded-3xl border border-slate-100"><i class="fa-solid fa-money-bill-transfer text-slate-400 mb-2"></i><span class="text-[10px] font-black uppercase">Tarik Dana</span></button>
-        </div>
-        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mutasi Saldo</h4>
-        <div id="walletHistory" class="space-y-3 overflow-y-auto max-h-[40vh] no-scrollbar"></div>
-    </div>
-
-    <div id="historyModal" class="activity-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10">
-            <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Riwayat Belanja ✨</h2>
-            <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-pink-50 text-pink-400 font-bold rounded-2xl">Kembali</button>
+        <div id="walletHistory" class="space-y-3">
+            <p class="text-center text-[10px] text-slate-400 font-bold uppercase py-10">Memuat mutasi...</p>
         </div>
     </div>
 
-    <div id="productDetailModal" class="detail-modal">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10 text-center">
-            <div class="relative group mb-6">
-                <div id="image-slider" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-[30px] border-4 border-white shadow-lg bg-pink-50 h-72 scroll-smooth"></div>
-                <div id="slider-dots" class="flex justify-center gap-2 mt-3"></div>
-            </div>
-            <h2 id="detail-name" class="text-2xl font-black text-slate-800 leading-tight"></h2>
-            <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
-            <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
-            <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg uppercase tracking-widest text-[11px]">TAMBAH KE BAG ✨</button>
+    <div id="historyModal" class="activity-modal px-6">
+        <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto my-5"></div>
+        <h2 class="text-lg font-black text-slate-800 mb-6 text-center italic uppercase">Pesanan Saya 🛍️</h2>
+        <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-2">
+            <p class="text-center text-[10px] text-slate-400 font-bold uppercase py-10">Memuat pesanan...</p>
         </div>
+        <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-pink-50 text-pink-400 font-bold rounded-2xl text-[10px] uppercase">Tutup</button>
     </div>
 
-    <nav class="bottom-nav">
-        <a href="online-shop.html" class="flex flex-col items-center text-[#ff85a2]"><i class="fas fa-home text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Beranda</span></a>
-        <button onclick="openHistory()" class="flex flex-col items-center text-slate-300"><i class="fas fa-receipt text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Pesanan</span></button>
-        <button onclick="toggleWallet()" class="flex flex-col items-center text-slate-300"><i class="fas fa-wallet text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Saldo</span></button>
-        <button onclick="goToCheckout()" class="flex flex-col items-center text-slate-300 relative"><i class="fas fa-shopping-bag text-2xl"></i><span id="cart-count" class="absolute -top-2 -right-3 bg-[#f72585] text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white shadow-sm">0</span><span class="text-[9px] font-black mt-1 uppercase">Bag</span></button>
-    </nav>
+    <script>
+        let userData = null;
+        let currentSlide = 0;
 
-<script>
-    let shopCart = JSON.parse(localStorage.getItem('finexcart')) || [];
-    let userData = null;
-
-    // FUNGSI GLOBAL UNTUK MODAL
-    function closeAllModals() {
-        document.querySelectorAll('.side-modal, .detail-modal, .activity-modal').forEach(m => m.classList.remove('active'));
-        document.getElementById('modalOverlay').classList.remove('active');
-    }
-
-    function openProfile() {
-        if (!userData) return;
-        document.getElementById('p-name').innerText = userData.full_name;
-        document.getElementById('p-email').innerText = userData.email;
-        closeAllModals();
-        document.getElementById('profileModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-
-    function toggleWallet() { 
-        closeAllModals();
-        document.getElementById('walletModal').classList.toggle('active'); 
-        document.getElementById('modalOverlay').classList.toggle('active'); 
-    }
-
-    // ONLOAD HANDLER
-    window.onload = async () => {
-        const { data: { session } } = await db.auth.getSession();
-        if (!session) return window.location.replace('login-customer.html');
-        
-        await loadCustomerData(session.user.id);
-        await loadOnlineMenu();
-        updateCartDisplay();
-        
-        setTimeout(showPromoPopup, 1200);
-    };
-
-    async function loadCustomerData(userId) {
-        const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
-        const { data: settings } = await db.from('app_settings').select('*').eq('key_name', 'loyalty_target_count').single();
-        const targetCount = settings ? settings.value_int : 5;
-
-        if (customer) {
-            userData = customer;
-            document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
-            document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
-            renderRewardStatus(customer, targetCount);
-            loadWalletHistory(userId);
-        }
-    }
-
-    function renderRewardStatus(profile, target) {
-        const container = document.getElementById('reward-section');
-        const count = profile.total_order_count || 0;
-        const progress = (count / target) * 100;
-        
-        container.innerHTML = `
-            <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
-                    <span class="text-[10px] font-bold text-pink-500">${count}/${target}</span>
-                </div>
-                <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                    <div class="bg-pink-400 h-full transition-all duration-500" style="width: ${progress}%"></div>
-                </div>
-            </div>`;
-    }
-
-    async function loadOnlineMenu() {
-        const q = document.getElementById('search').value;
-        let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
-        if (q) query = query.ilike('nama_barang', `%${q}%`);
-        
-        const { data } = await query.order('nama_barang');
-        const display = document.getElementById('onlineDisplay');
-        if (!data) return;
-        
-        display.innerHTML = data.map(p => {
-            const pr = getActivePrice(p);
-            return `
-            <div class="product-card" onclick="openDetail('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal}, '${p.image_url}', '${p.keterangan || ''}', '${p.image_url_2}', '${p.image_url_3}')">
-                ${pr.isDiscount ? `<div class="badge-diskon">PROMO ✨</div>` : ''}
-                <div class="img-container"><img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300'"></div>
-                <div class="p-4">
-                    <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
-                    <div class="mt-1">
-                        <p class="text-[9px] text-slate-400 ${pr.isDiscount ? 'line-through' : ''}">Rp ${pr.normal.toLocaleString()}</p>
-                        <p class="font-black text-[#ff85a2] text-sm">Rp ${pr.price.toLocaleString()}</p>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    function getActivePrice(p) {
-        let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
-        let active = p.is_diskon;
-        return { price: active ? basePrice - (p.nominal_diskon || 0) : basePrice, isDiscount: active, normal: basePrice };
-    }
-
-    function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
-        const slider = document.getElementById('image-slider');
-        const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '' && url !== 'undefined');
-
-        slider.innerHTML = images.map(url => `
-            <div class="min-w-full h-full snap-center flex-shrink-0">
-                <img src="${url}" class="w-full h-full object-cover">
-            </div>
-        `).join('');
-
-        document.getElementById('detail-name').innerText = nama;
-        document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-        document.getElementById('detail-desc').innerText = desc || 'Rahasia cantikmu.';
-        
-        document.getElementById('btn-add-modal').onclick = () => { 
-            addToOnlineCart(id, nama, harga, hargaNormal); 
-            closeAllModals(); 
+        window.onload = async () => {
+            const { data: { session } } = await db.auth.getSession();
+            if (!session) return window.location.replace('login-customer.html');
+            await loadCustomerData(session.user.id);
+            await loadDynamicAds();
         };
 
-        document.getElementById('productDetailModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
+        async function loadCustomerData(userId) {
+            const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
+            const { data: settings } = await db.from('app_settings').select('*').eq('key_name', 'loyalty_target_count').single();
+            const targetCount = settings ? settings.value_int : 5;
 
-    function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
-        const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) shopCart[idx].qty++;
-        else shopCart.push({ id, nama, harga: hargaFinal, harga_normal: hargaNormal, qty: 1 });
-        updateCartDisplay();
-    }
+            if (customer) {
+                userData = customer;
+                document.getElementById('user-name').innerText = customer.full_name;
+                document.getElementById('p-name').innerText = customer.full_name;
+                document.getElementById('p-email').innerText = customer.email;
+                document.getElementById('display-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
+                renderRewardStatus(customer, targetCount);
+            }
+        }
 
-    function updateCartDisplay() {
-        const count = shopCart.reduce((total, item) => total + item.qty, 0);
-        document.getElementById('cart-count').innerText = count;
-        localStorage.setItem('finexcart', JSON.stringify(shopCart));
-    }
+        // LOGIKA PINDAHAN DARI ONLINE SHOP: RIWAYAT DOMPET
+        async function openWallet() {
+            closeAllModals();
+            document.getElementById('walletModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+            
+            const list = document.getElementById('walletHistory');
+            const { data, error } = await db.from('wallet_mutations')
+                .select('*')
+                .eq('customer_id', userData.id)
+                .order('created_at', { ascending: false });
 
-    async function loadWalletHistory(userId) {
-        const { data: t } = await db.from('topup_history').select('*').eq('customer_id', userId).order('created_at', {ascending: false});
-        const { data: w } = await db.from('withdraw_requests').select('*').eq('customer_id', userId).order('created_at', {ascending: false});
-        
-        let html = '';
-        if (t) t.forEach(i => {
-            html += `<div class="bg-white p-3 rounded-2xl border flex justify-between items-center">
-                <div><p class="text-[10px] font-black uppercase">TOP UP</p><p class="text-[8px] text-slate-400">${i.status}</p></div>
-                <p class="text-[10px] font-black text-green-500">+Rp ${i.nominal.toLocaleString()}</p>
-            </div>`;
-        });
-        document.getElementById('walletHistory').innerHTML = html || '<p class="text-center text-[10px] py-4">Belum ada transaksi</p>';
-    }
+            if (error || !data || data.length === 0) {
+                list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada mutasi saldo</p>`;
+                return;
+            }
 
-    function showPromoPopup() {
-        const modal = document.getElementById('promoModal');
-        const content = document.getElementById('promoContent');
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            content.classList.remove('scale-90', 'opacity-0');
-            content.classList.add('scale-100', 'opacity-100');
-        }, 100);
-    }
-
-    function closePromo() {
-        document.getElementById('promoModal').classList.add('hidden');
-    }
-
-    async function openHistory() {
-        closeAllModals();
-        document.getElementById('historyModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-        const list = document.getElementById('historyList');
-        
-        const { data, error } = await db.from('orders').select('*').eq('customer_id', userData.id).order('created_at', {ascending: false});
-        if (data) {
-            list.innerHTML = data.map(o => `
-                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p class="text-[10px] font-black text-slate-800 uppercase">INV: ${o.no_invoice || o.id.slice(0,8)}</p>
-                    <div class="flex justify-between mt-2">
-                        <span class="text-[9px] font-bold text-pink-500">${o.status}</span>
-                        <span class="text-[10px] font-black">Rp ${o.total_harga ? o.total_harga.toLocaleString() : '0'}</span>
+            list.innerHTML = data.map(item => `
+                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-800 uppercase">${item.type === 'topup' ? 'Top Up Saldo' : 'Pembelian'}</p>
+                        <p class="text-[8px] text-slate-400 font-bold">${new Date(item.created_at).toLocaleString('id-ID')}</p>
                     </div>
+                    <p class="text-[11px] font-black ${item.amount > 0 ? 'text-green-500' : 'text-red-500'} italic">
+                        ${item.amount > 0 ? '+' : ''}Rp ${Math.abs(item.amount).toLocaleString()}
+                    </p>
                 </div>
             `).join('');
         }
-    }
 
-    async function logoutCustomer() {
-        if (confirm("Keluar akun?")) {
-            await db.auth.signOut();
-            localStorage.removeItem('finexcart');
-            window.location.replace('login-customer.html');
+        // LOGIKA PINDAHAN DARI ONLINE SHOP: RIWAYAT PESANAN
+        async function openHistory() {
+            closeAllModals();
+            document.getElementById('historyModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+
+            const list = document.getElementById('historyList');
+            const { data, error } = await db.from('orders')
+                .select('*')
+                .eq('customer_id', userData.id)
+                .order('created_at', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada riwayat pesanan</p>`;
+                return;
+            }
+
+            list.innerHTML = data.map(order => `
+                <div class="p-4 bg-white rounded-2xl border-2 border-slate-50 shadow-sm">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-[8px] text-slate-400 font-black uppercase tracking-tighter">ID: ${order.id.slice(0,8)}</p>
+                            <p class="text-[11px] font-black text-slate-800 uppercase">${order.status || 'PROSES'}</p>
+                        </div>
+                        <span class="px-3 py-1 bg-pink-50 text-pink-500 text-[8px] font-black rounded-full italic uppercase">
+                            Rp ${order.total_price.toLocaleString()}
+                        </span>
+                    </div>
+                    <p class="text-[9px] text-slate-500 font-medium italic">Pengecekan pesanan otomatis oleh sistem Beauty Bloom.</p>
+                </div>
+            `).join('');
         }
-    }
-    
-    function goToCheckout(mode = 'VIEW') {
-        if (shopCart.length > 0) {
-            window.location.href = "online-checkout.html";
-        } else {
-            alert("Pilih Produk dulu ya Kak! 🌸");
+
+        function renderRewardStatus(profile, target) {
+            const container = document.getElementById('reward-section');
+            const count = profile.total_order_count || 0;
+            const progress = (count / target) * 100;
+            container.innerHTML = `
+                <div class="bg-pink-50/50 p-5 rounded-[24px] border border-pink-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-[10px] font-black text-pink-500 uppercase tracking-widest">Progress Member</span>
+                        <span class="text-[10px] font-bold text-slate-500">${count}/${target} Belanja</span>
+                    </div>
+                    <div class="w-full bg-white h-2 rounded-full overflow-hidden border border-pink-100">
+                        <div class="gradient-pink h-full transition-all duration-1000" style="width: ${progress}%"></div>
+                    </div>
+                </div>`;
         }
-    }
-</script>
+
+        async function loadDynamicAds() {
+            const slider = document.getElementById('promo-slider');
+            const dotsContainer = document.getElementById('promo-dots');
+            const { data: setting } = await db.from('app_settings').select('value_text, is_active').eq('key_name', 'dashboard_banners').single();
+            if (!setting || !setting.is_active || !setting.value_text) return;
+            try {
+                const adImages = JSON.parse(setting.value_text);
+                slider.innerHTML = adImages.map((imgUrl, i) => `
+                    <div class="slide-item ${i === 0 ? 'active' : ''}">
+                        <img src="${imgUrl}" class="w-full h-full object-cover">
+                    </div>`).join('');
+                dotsContainer.innerHTML = adImages.map((_, i) => `<div class="dot-ad ${i === 0 ? 'active' : ''}"></div>`).join('');
+                if (adImages.length > 1) startAutoSlide(adImages.length);
+            } catch (e) { console.error(e); }
+        }
+
+        function startAutoSlide(total) {
+            setInterval(() => {
+                const slides = document.querySelectorAll('.slide-item');
+                const dots = document.querySelectorAll('.dot-ad');
+                if(!slides[currentSlide]) return;
+                slides[currentSlide].classList.remove('active');
+                dots[currentSlide].classList.remove('active');
+                currentSlide = (currentSlide + 1) % total;
+                slides[currentSlide].classList.add('active');
+                dots[currentSlide].classList.add('active');
+            }, 5000);
+        }
+
+        function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); document.getElementById('modalOverlay').classList.remove('active'); }
+        async function logoutCustomer() { if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); } }
+    </script>
 </body>
 </html>
