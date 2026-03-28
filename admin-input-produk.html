@@ -10,70 +10,159 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
-        .sidebar-link { transition: all 0.3s ease; border-radius: 16px; margin-bottom: 4px; color: #64748b; }
-        .sidebar-link:hover { background: #fff1f2; color: #f72585; }
-        .sidebar-link.active { background: #f72585; color: white; box-shadow: 0 10px 15px -3px rgba(247, 37, 133, 0.3); }
-        
-        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #f72585; }
-        input:checked + .slider:before { transform: translateX(18px); }
-        
-        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 32px; width: 95%; max-width: 500px; padding: 32px; max-height: 90vh; overflow-y: auto; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-    </style>
+   <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; margin: 0; }
+    
+    /* --- BAGIAN YANG DIGANTI --- */
+    aside {
+        width: 260px;
+        background: white;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        border-right: 1px solid #f1f5f9;
+        display: flex;
+        flex-direction: column;
+        padding: 24px 12px;
+        z-index: 50;
+    }
+
+    .menu-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        color: #64748b;
+        font-weight: 600;
+        font-size: 14px;
+        border-radius: 12px;
+        transition: all 0.2s ease;
+        margin-bottom: 2px;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .menu-item:hover { background-color: #f8fafc; color: #f72585; }
+
+    .menu-item.active {
+        background-color: #fff1f2; 
+        color: #f72585;
+        position: relative;
+    }
+
+    .menu-item.active::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 25%;
+        height: 50%;
+        width: 4px;
+        background: #f72585;
+        border-radius: 0 4px 4px 0;
+    }
+
+    .submenu {
+        margin-left: 36px;
+        border-left: 1px solid #f1f5f9;
+        overflow: hidden;
+        max-height: 0;
+        transition: max-height 0.3s ease-out;
+    }
+
+    .submenu.show { max-height: 300px; margin-bottom: 10px; }
+
+    .submenu-item {
+        display: block;
+        padding: 8px 16px;
+        font-size: 13px;
+        color: #64748b;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 8px;
+        margin-top: 2px;
+    }
+
+    .submenu-item:hover { color: #f72585; background: #fff1f2; }
+    .menu-icon { width: 22px; font-size: 16px; margin-right: 12px; text-align: center; }
+    .chevron-icon { font-size: 10px; transition: transform 0.3s; color: #cbd5e1; }
+    .rotate { transform: rotate(180deg); }
+    /* --- AKHIR BAGIAN YANG DIGANTI --- */
+
+    /* Style Switch & Modal (TETAP PERTAHANKAN) */
+    .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #f72585; }
+    input:checked + .slider:before { transform: translateX(18px); }
+    
+    .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-content { background: white; border-radius: 32px; width: 95%; max-width: 500px; padding: 32px; max-height: 90vh; overflow-y: auto; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+</style>
 </head>
 <body class="flex min-h-screen">
 
-  <aside class="w-64 bg-white h-screen sticky top-0 border-r border-slate-100 flex flex-col p-6 hidden md:flex">
-        <div class="mb-10 px-2">
-            <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
-            <p class="text-[10px] font-bold text-pink-500 uppercase tracking-widest">Beauty Bloom POS</p>
+  <aside class="hidden md:flex">
+    <div class="mb-8 px-4">
+        <h1 class="text-xl font-black text-slate-800 tracking-tight">Finex Admin 🌸</h1>
+        <p class="text-[10px] font-bold text-pink-500 uppercase tracking-widest">Beauty Bloom POS</p>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-2 no-scrollbar">
+        <a href="online-dashboard.html" class="menu-item">
+            <div class="flex items-center">
+                <i class="fa-solid fa-chart-pie menu-icon"></i> Dasbor
+            </div>
+        </a>
+
+        <div>
+            <div class="menu-item active" onclick="toggleSubmenu(this, 'sub-produk')">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-box-archive menu-icon"></i> Produk
+                </div>
+                <i class="fas fa-chevron-down chevron-icon rotate"></i>
+            </div>
+            <div id="sub-produk" class="submenu show">
+                <a href="admin-input-produk.html" class="submenu-item bg-pink-50 text-pink-500">Katalog Produk</a>
+                <a href="#" class="submenu-item">Stok Opname</a>
+            </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto no-scrollbar">
-            <p class="text-[10px] font-bold text-slate-400 uppercase mb-4 px-2 tracking-widest">Main Menu</p>
-            
-            <a href="online-dashboard.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-chart-simple w-5"></i> Dashboard
-            </a>
+        <a href="admin-online.html" class="menu-item">
+            <div class="flex items-center">
+                <i class="fa-solid fa-bag-shopping menu-icon"></i> Pesanan Online
+            </div>
+        </a>
 
-            <a href="admin-input-produk.html" class="sidebar-link active flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-box-archive w-5"></i> Katalog Produk
-            </a>
-
-            <a href="admin-online.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-bag-shopping w-5"></i> Pesanan Online
-            </a>
-
-            <a href="admin-withdraw.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-wallet w-5"></i> Keuangan Saldo
-            </a>
-
-            <a href="admin-laporan.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-file-lines w-5"></i> Laporan Transaksi
-            </a>
-
-            <a href="customers-list.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-users-gear w-5"></i> Data Customer
-            </a>
-
-            <a href="pengaturan-poin.html" class="sidebar-link flex items-center gap-3 px-4 py-3 font-bold text-sm">
-                <i class="fa-solid fa-star w-5"></i> Pengaturan Poin
-            </a>
-        </nav>
-
-        <div class="mt-auto pt-6 border-t border-slate-50">
-            <button onclick="logout()" class="sidebar-link flex items-center gap-3 px-4 py-3 text-red-400 font-bold text-sm w-full hover:bg-red-50">
-                <i class="fa-solid fa-arrow-right-from-bracket w-5"></i> Keluar
-            </button>
+        <div>
+            <div class="menu-item" onclick="toggleSubmenu(this, 'sub-finance')">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-wallet menu-icon"></i> Keuangan
+                </div>
+                <i class="fas fa-chevron-down chevron-icon"></i>
+            </div>
+            <div id="sub-finance" class="submenu">
+                <a href="admin-withdraw.html" class="submenu-item">Saldo & Withdraw</a>
+                <a href="admin-laporan.html" class="submenu-item">Laporan Transaksi</a>
+            </div>
         </div>
-    </aside>
+
+        <a href="customers-list.html" class="menu-item">
+            <div class="flex items-center">
+                <i class="fa-solid fa-users-gear menu-icon"></i> Data Customer
+            </div>
+        </a>
+    </nav>
+
+    <div class="mt-auto pt-4 border-t border-slate-50">
+        <button onclick="logout()" class="menu-item text-red-400 w-full hover:bg-red-50">
+            <div class="flex items-center">
+                <i class="fa-solid fa-arrow-right-from-bracket menu-icon"></i> Keluar
+            </div>
+        </button>
+    </div>
+</aside>
     <main class="flex-1 p-4 md:p-10 max-w-6xl">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
             <div>
@@ -408,6 +497,13 @@
             XLSX.utils.book_append_sheet(wb, ws, "Produk");
             XLSX.writeFile(wb, "Katalog_Produk.xlsx");
         }
+
+        function toggleSubmenu(element, id) {
+    const submenu = document.getElementById(id);
+    const chevron = element.querySelector('.chevron-icon');
+    submenu.classList.toggle('show');
+    if (chevron) chevron.classList.toggle('rotate');
+}
     </script>
 </body>
 </html>
