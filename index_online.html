@@ -23,6 +23,23 @@
         .activity-modal.active { bottom: 0; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; border-radius: 30px 30px 0 0; box-shadow: 0 -10px 25px rgba(255,133,162,0.1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* SLIDER STYLES */
+        .slider-container {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .slider-container::-webkit-scrollbar { display: none; }
+        .slide-item {
+            min-width: 100%;
+            scroll-snap-align: start;
+            aspect-ratio: 21 / 9;
+        }
+        .dot-ad { transition: all 0.3s ease; }
     </style>
 </head>
 <body>
@@ -33,7 +50,9 @@
                 <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest italic">Beauty Bloom Member ✨</p>
                 <h1 id="user-name" class="text-xl font-extrabold text-slate-800 italic uppercase">Memuat...</h1>
             </div>
-            <button onclick="openProfile()" class="w-12 h-12 bg-white rounded-2xl border-2 border-pink-100 flex items-center justify-center text-pink-400 shadow-sm"><i class="fa-solid fa-user-sparkles text-xl"></i></button>
+            <button onclick="openProfile()" class="w-12 h-12 bg-white rounded-2xl border-2 border-pink-100 flex items-center justify-center text-pink-400 shadow-sm">
+                <i class="fa-solid fa-user-sparkles text-xl"></i>
+            </button>
         </div>
 
         <div class="gradient-pink p-6 rounded-[32px] text-white shadow-xl shadow-pink-200 relative overflow-hidden mb-6">
@@ -46,6 +65,17 @@
                 </div>
             </div>
         </div>
+
+        <section class="mb-6">
+            <div class="relative group">
+                <div id="promo-slider" class="slider-container rounded-[32px] shadow-lg shadow-pink-100 bg-white overflow-hidden">
+                    <div class="slide-item flex items-center justify-center bg-pink-50 text-pink-200">
+                        <i class="fa-solid fa-wand-magic-sparkles text-4xl animate-pulse"></i>
+                    </div>
+                </div>
+                <div id="promo-dots" class="flex justify-center gap-1.5 mt-3"></div>
+            </div>
+        </section>
 
         <div id="reward-section" class="mb-6"></div>
     </header>
@@ -80,9 +110,8 @@
             <button onclick="requestTopUp()" class="p-5 bg-pink-50 rounded-3xl border border-pink-100 text-pink-500 text-[10px] font-black uppercase"><i class="fa-solid fa-plus-circle block text-xl mb-2"></i>Top Up</button>
             <button onclick="requestWithdraw()" class="p-5 bg-slate-50 rounded-3xl border border-slate-100 text-slate-400 text-[10px] font-black uppercase"><i class="fa-solid fa-money-bill-transfer block text-xl mb-2"></i>Withdraw</button>
         </div>
-        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 italic">Riwayat Transaksi Dompet</h3>
-        <div id="walletHistory" class="space-y-3">
-            </div>
+        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 italic">Riwayat Transaksi</h3>
+        <div id="walletHistory" class="space-y-3"></div>
     </div>
 
     <div id="profileModal" class="side-modal">
@@ -119,8 +148,65 @@
         window.onload = async () => {
             const { data: { session } } = await db.auth.getSession();
             if (!session) return window.location.replace('login-customer.html');
-            loadCustomerData(session.user.id);
+            
+            await loadCustomerData(session.user.id);
+            await loadDynamicAds(); // LOAD IKLAN DISINI
         };
+
+        // LOAD IKLAN DARI APP_SETTINGS
+        async function loadDynamicAds() {
+            const slider = document.getElementById('promo-slider');
+            const dotsContainer = document.getElementById('promo-dots');
+
+            const { data: setting, error } = await db.from('app_settings')
+                .select('value_text, is_active')
+                .eq('key_name', 'dashboard_banners')
+                .single();
+
+            if (error || !setting || !setting.is_active || !setting.value_text) {
+                slider.innerHTML = `<div class="slide-item"><img src="https://placehold.co/600x260/ff85a2/ffffff?text=Beauty+Bloom+Promo" class="w-full h-full object-cover"></div>`;
+                return;
+            }
+
+            try {
+                const adImages = JSON.parse(setting.value_text);
+                if (adImages.length === 0) return;
+
+                slider.innerHTML = adImages.map(imgUrl => `
+                    <div class="slide-item">
+                        <img src="${imgUrl}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/600x260/ff85a2/ffffff?text=Image+Error'">
+                    </div>
+                `).join('');
+
+                if (adImages.length > 1) {
+                    dotsContainer.innerHTML = adImages.map((_, i) => `
+                        <div class="dot-ad w-1.5 h-1.5 rounded-full bg-pink-200" data-index="${i}"></div>
+                    `).join('');
+
+                    const updateDots = (index) => {
+                        document.querySelectorAll('.dot-ad').forEach((dot, i) => {
+                            dot.classList.toggle('bg-pink-500', i === index);
+                            dot.classList.toggle('w-4', i === index);
+                            dot.classList.toggle('bg-pink-200', i !== index);
+                        });
+                    };
+
+                    updateDots(0);
+
+                    let currentSlide = 0;
+                    setInterval(() => {
+                        currentSlide = (currentSlide + 1) % adImages.length;
+                        slider.scrollTo({ left: slider.clientWidth * currentSlide, behavior: 'smooth' });
+                    }, 5000);
+
+                    slider.addEventListener('scroll', () => {
+                        const index = Math.round(slider.scrollLeft / slider.clientWidth);
+                        updateDots(index);
+                        currentSlide = index;
+                    });
+                }
+            } catch (e) { console.error("Format JSON Salah", e); }
+        }
 
         async function loadCustomerData(userId) {
             const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
@@ -138,7 +224,6 @@
             }
         }
 
-        // FUNGSI PROGRES MEMBER (LOYALTY)
         function renderRewardStatus(profile, target) {
             const container = document.getElementById('reward-section');
             const count = profile.total_order_count || 0;
@@ -153,11 +238,8 @@
             }
         }
 
-        // FUNGSI LOAD SEMUA MUTASI (TOPUP, WD, BELANJA, REFUND)
         async function loadWalletMutations(userId) {
             const list = document.getElementById('walletHistory');
-            
-            // Ambil data Topup & WD
             const { data: topups } = await db.from('topup_history').select('*').eq('customer_id', userId);
             const { data: wds } = await db.from('withdraw_requests').select('*').eq('customer_id', userId);
             const { data: orders } = await db.from('orders').select('*').eq('customer_id', userId);
@@ -171,7 +253,6 @@
             });
 
             allMutations.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-
             list.innerHTML = allMutations.map(m => `
                 <div class="bg-white p-3 rounded-2xl border border-slate-50 shadow-sm flex items-center justify-between">
                     <div class="flex items-center gap-3">
@@ -179,8 +260,7 @@
                         <div><p class="text-[9px] font-black text-slate-800 uppercase">${m.type}</p><p class="text-[8px] text-slate-400 font-bold">${m.no_invoice}</p></div>
                     </div>
                     <div class="text-right"><p class="text-[10px] font-black ${m.color}">Rp ${m.nominal.toLocaleString()}</p><p class="text-[8px] text-slate-300 uppercase">${m.status}</p></div>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
         async function openHistory() {
@@ -192,8 +272,7 @@
                 <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                     <div class="flex justify-between mb-2"><span class="text-[10px] font-black text-pink-500 italic uppercase">${o.no_invoice}</span><span class="text-[8px] px-2 py-1 bg-white rounded-lg font-bold text-slate-400 border uppercase">${o.status}</span></div>
                     <p class="text-xs font-black text-slate-700 italic">Total: Rp ${o.total_bayar.toLocaleString()}</p>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
         function openWallet() { document.getElementById('walletModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
