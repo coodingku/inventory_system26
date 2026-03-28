@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-online.js"></script>
+    <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="SB-Mid-client-YOUR_KEY"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
@@ -14,21 +15,17 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; overflow-x: hidden; padding-bottom: 40px; }
         .gradient-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); }
         .menu-card { background: white; border-radius: 20px; transition: all 0.2s; border: 1px solid #ff85a210; }
-        
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
         .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s ease; padding: 30px; border-radius: 40px 0 0 40px; }
         .side-modal.active { right: 0; }
         .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s; padding-bottom: 40px; }
         .activity-modal.active { bottom: 0; }
-        
         .no-scrollbar::-webkit-scrollbar { display: none; }
-
         .slider-wrapper { position: relative; width: 100vw; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; }
         .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; }
         .slide-item.active { opacity: 1; z-index: 10; }
         .slide-item img { width: 100%; height: 100%; object-fit: cover; }
-        
         .dots-container { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: center; gap: 5px; z-index: 20; }
         .dot-ad { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: all 0.3s; }
         .dot-ad.active { background: #f72585; width: 15px; border-radius: 10px; }
@@ -56,13 +53,12 @@
                     </div>
                     <i class="fa-solid fa-wallet text-2xl opacity-40"></i>
                 </div>
-                
                 <div class="flex gap-2 mt-5">
-                    <button onclick="openWallet()" class="flex-1 bg-white text-pink-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <button onclick="requestTopUp()" class="flex-1 bg-white text-pink-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all flex items-center justify-center gap-2">
                         <i class="fa-solid fa-circle-plus"></i> TOP UP
                     </button>
-                    <button onclick="window.location.href='online-shop.html'" class="flex-1 bg-black/20 text-white py-3 rounded-xl text-[10px] font-black backdrop-blur-md uppercase tracking-widest border border-white/20 active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-cart-shopping"></i> BELANJA
+                    <button onclick="requestWithdraw()" class="flex-1 bg-black/20 text-white py-3 rounded-xl text-[10px] font-black backdrop-blur-md uppercase tracking-widest border border-white/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-money-bill-transfer"></i> TARIK
                     </button>
                 </div>
             </div>
@@ -88,7 +84,7 @@
             <div class="menu-card w-14 h-14 flex items-center justify-center text-blue-400 shadow-lg mb-2"><i class="fa-solid fa-receipt text-xl"></i></div>
             <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tighter">Pesanan</span>
         </button>
-        <button onclick="openWallet()" class="flex flex-col items-center active:scale-95 transition-transform">
+        <button onclick="toggleWallet()" class="flex flex-col items-center active:scale-95 transition-transform">
             <div class="menu-card w-14 h-14 flex items-center justify-center text-purple-400 shadow-lg mb-2"><i class="fa-solid fa-history text-xl"></i></div>
             <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tighter">Mutasi</span>
         </button>
@@ -152,7 +148,6 @@
             await loadCustomerData(session.user.id);
             await loadDynamicAds();
             await loadWalletHistory(session.user.id);
-            // Logika popup promo sudah dihapus dari sini
         };
 
         async function loadCustomerData(userId) {
@@ -160,11 +155,71 @@
             if (customer) {
                 userData = customer;
                 document.getElementById('user-name').innerText = customer.full_name;
-                document.getElementById('p-name').innerText = customer.full_name;
-                document.getElementById('p-email').innerText = customer.email;
                 document.getElementById('display-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
                 renderRewardStatus(customer, 5);
             }
+        }
+
+        // --- LOGIKA PROFIL ---
+        function openProfile() {
+            if (!userData) return;
+            document.getElementById('p-name').innerText = userData.full_name;
+            document.getElementById('p-email').innerText = userData.email;
+            document.getElementById('profileModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        async function logoutCustomer() {
+            if (confirm("Keluar akun?")) {
+                await db.auth.signOut();
+                localStorage.removeItem('finexcart');
+                window.location.replace('login-customer.html');
+            }
+        }
+
+        // --- LOGIKA SALDO & WALLET ---
+        function toggleWallet() { 
+            closeAllModals();
+            document.getElementById('walletModal').classList.add('active'); 
+            document.getElementById('modalOverlay').classList.add('active'); 
+        }
+        
+        async function requestTopUp() {
+            const nom = prompt("Nominal Top Up (Min Rp 10.000):", "50000");
+            if (!nom || nom < 10000) return alert("Min Rp 10.000");
+            const inv = "TOPUP-" + Date.now();
+            await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: parseInt(nom), status: 'PENDING' }]);
+            try {
+                const res = await fetch("https://uojhjskgugghwxtdsfvm.supabase.co/functions/v1/smart-endpoint", {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: inv, amount: parseInt(nom), customer_name: userData.full_name, customer_email: userData.email })
+                });
+                const d = await res.json();
+                if (d.token) window.snap.pay(d.token, { onSuccess: () => location.reload() });
+            } catch (e) { alert("Sistem sibuk."); }
+        }
+
+        async function requestWithdraw() {
+            if (userData.saldo < 10000) return alert("Saldo minimal untuk penarikan adalah Rp 10.000 🌸");
+            const amount = prompt(`Berapa saldo yang ingin ditarik?\n(Maksimal: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
+            if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) return alert("Nominal tidak valid.");
+            
+            const bank = prompt("Nama Bank (Contoh: BCA / Dana / Mandiri):"); if (!bank) return;
+            const noRek = prompt("Nomor Rekening / Nomor HP:"); if (!noRek) return;
+            const an = prompt("Nama Pemilik Rekening (Atas Nama):"); if (!an) return;
+
+            const inv = "WD-" + Date.now();
+            const { error } = await db.from('withdraw_requests').insert([{
+                no_invoice: inv, customer_id: userData.id, nominal: parseInt(amount),
+                bank_name: bank, account_number: noRek, account_name: an, status: 'PENDING'
+            }]);
+
+            if (!error) {
+                const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon segera diproses ya, terima kasih! ✨`;
+                window.open(`https://wa.me/6281239739396?text=${pesan}`, '_blank');
+                alert("Permintaan penarikan berhasil dikirim! 🌸");
+                location.reload(); 
+            } else alert("Gagal mengirim permintaan.");
         }
 
         async function loadWalletHistory(userId) {
@@ -178,24 +233,22 @@
             if (combined.length > 0) {
                 container.innerHTML = combined.slice(0, 10).map(h => {
                     let color = h.status === 'SUCCESS' ? 'text-green-500' : (h.status === 'PENDING' ? 'text-orange-400' : 'text-red-500');
-                    return `
-                    <div class="bg-white border border-slate-50 p-4 rounded-2xl text-[10px] mb-2 shadow-sm flex justify-between italic">
-                        <div><p class="font-black text-slate-800 uppercase">${h.jenis}</p><p class="text-slate-400 font-bold">${new Date(h.created_at).toLocaleDateString()}</p></div>
-                        <div class="text-right"><p class="font-black italic">Rp ${h.nominal.toLocaleString()}</p><p class="font-bold uppercase ${color}" style="font-size: 8px;">${h.status}</p></div>
-                    </div>`;
+                    let simbol = h.jenis === 'ISI SALDO' ? '+' : '-';
+                    return `<div class="bg-white border border-slate-50 p-4 rounded-2xl text-[10px] mb-2"><div class="flex justify-between items-start"><div><p class="font-black text-slate-800 uppercase italic">${h.no_invoice}</p><p class="text-slate-400 font-bold">${new Date(h.created_at).toLocaleDateString()} • ${h.jenis}</p></div><div class="text-right"><p class="font-black italic">${simbol} Rp ${h.nominal.toLocaleString()}</p><p class="font-bold uppercase ${color}" style="font-size: 8px;">${h.status}</p></div></div></div>`;
                 }).join('');
-            } else container.innerHTML = `<p class="text-center text-slate-300 py-10 italic text-[10px]">Belum ada transaksi 🌸</p>`;
+            } else container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Kosong 🌸</p>`;
         }
 
+        // --- LOGIKA PESANAN ---
         function renderOrderCards(orders) {
             return orders.map(order => `
                 <div class="p-4 bg-white rounded-3xl border-2 border-slate-50 shadow-sm">
                     <div class="flex justify-between items-start">
                         <div>
-                            <p class="text-[8px] text-slate-400 font-black uppercase tracking-tighter">INV: ${order.no_invoice || order.id.slice(0,8)}</p>
+                            <p class="text-[8px] text-slate-400 font-black uppercase italic">INV: ${order.no_invoice || order.id.slice(0,8)}</p>
                             <p class="text-[11px] font-black text-slate-800 uppercase italic">${order.status_order || 'PROSES'}</p>
                         </div>
-                        <span class="px-3 py-1 bg-pink-50 text-pink-500 text-[9px] font-black rounded-full italic uppercase tracking-tighter">Rp ${(order.total_harga || 0).toLocaleString()}</span>
+                        <span class="px-3 py-1 bg-pink-50 text-pink-500 text-[9px] font-black rounded-full italic uppercase">Rp ${(order.total_harga || 0).toLocaleString()}</span>
                     </div>
                 </div>`).join('');
         }
@@ -204,7 +257,7 @@
             const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
             const container = document.getElementById('activityList');
             const activeOrders = data ? data.filter(trx => !['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
-            container.innerHTML = activeOrders.length > 0 ? renderOrderCards(activeOrders) : `<div class="text-center py-10 italic text-slate-400 text-[10px] font-bold uppercase tracking-widest">Semua pesanan selesai ✨</div>`;
+            container.innerHTML = activeOrders.length > 0 ? renderOrderCards(activeOrders) : `<div class="text-center py-10"><p class="italic text-slate-400 text-xs font-bold uppercase tracking-widest">Semua pesanan selesai ✨</p></div>`;
             closeAllModals();
             document.getElementById('activityModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
@@ -214,14 +267,14 @@
             const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
             const container = document.getElementById('historyList');
             const historyOrders = data ? data.filter(trx => ['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
-            container.innerHTML = historyOrders.length > 0 ? renderOrderCards(historyOrders) : `<div class="text-center py-10 italic text-slate-400 text-[10px] font-bold uppercase tracking-widest">Belum ada riwayat 🌸</div>`;
+            container.innerHTML = historyOrders.length > 0 ? renderOrderCards(historyOrders) : `<p class="text-center py-10 italic text-slate-400 text-xs font-bold uppercase">Belum ada riwayat 🌸</p>`;
             closeAllModals();
-            document.getElementById('historyModal').classList.add('active');
-            document.getElementById('modalOverlay').classList.add('active');
+            setTimeout(() => {
+                document.getElementById('historyModal').classList.add('active');
+                document.getElementById('modalOverlay').classList.add('active');
+            }, 100);
         }
 
-        function openProfile() { closeAllModals(); document.getElementById('profileModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
-        function openWallet() { closeAllModals(); document.getElementById('walletModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
         function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); document.getElementById('modalOverlay').classList.remove('active'); }
         
         async function loadDynamicAds() {
@@ -254,8 +307,6 @@
             const progress = (count / target) * 100;
             container.innerHTML = `<div class="bg-pink-50/50 p-5 rounded-[24px] border border-pink-100"><div class="flex justify-between items-center mb-3"><span class="text-[10px] font-black text-pink-500 uppercase tracking-widest italic">Progress Member</span><span class="text-[10px] font-bold text-slate-500 italic uppercase">${count}/${target} Belanja</span></div><div class="w-full bg-white h-2 rounded-full overflow-hidden border border-pink-100"><div class="gradient-pink h-full transition-all duration-1000" style="width: ${progress}%"></div></div></div>`;
         }
-
-        async function logoutCustomer() { if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); } }
     </script>
 </body>
 </html>
