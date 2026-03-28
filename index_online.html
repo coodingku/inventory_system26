@@ -57,7 +57,7 @@
                     <i class="fa-solid fa-wallet text-2xl opacity-40"></i>
                 </div>
                 <div class="flex gap-2 mt-5">
-                    <button onclick="event.stopPropagation(); openWallet()" class="bg-white text-pink-500 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md">ISI SALDO</button>
+                    <button onclick="event.stopPropagation(); openWallet()" class="bg-white text-pink-500 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md">MUTASI</button>
                     <button onclick="event.stopPropagation(); openHistory()" class="bg-white/20 px-5 py-2 rounded-xl text-[9px] font-black backdrop-blur-md uppercase tracking-widest border border-white/20">PESANAN</button>
                 </div>
             </div>
@@ -147,6 +147,25 @@
         let userData = null;
         let currentSlide = 0;
 
+        // FUNGSI GLOBAL (Agar bisa dipanggil onclick)
+        function openProfile() {
+            closeAllModals();
+            document.getElementById('profileModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeAllModals() { 
+            document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); 
+            document.getElementById('modalOverlay').classList.remove('active'); 
+        }
+
+        async function logoutCustomer() { 
+            if(confirm("Keluar dari akun?")) { 
+                await db.auth.signOut(); 
+                window.location.replace('login-customer.html'); 
+            } 
+        }
+
         window.onload = async () => {
             const { data: { session } } = await db.auth.getSession();
             if (!session) return window.location.replace('login-customer.html');
@@ -169,50 +188,58 @@
             }
         }
 
-        // LOGIKA PINDAHAN DARI ONLINE SHOP: RIWAYAT DOMPET
         async function openWallet() {
             closeAllModals();
             document.getElementById('walletModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
             
             const list = document.getElementById('walletHistory');
-            const { data, error } = await db.from('wallet_mutations')
-                .select('*')
-                .eq('customer_id', userData.id)
-                .order('created_at', { ascending: false });
+            list.innerHTML = `<p class="text-center text-[10px] text-slate-400 py-10">MENGAMBIL DATA...</p>`;
 
-            if (error || !data || data.length === 0) {
-                list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada mutasi saldo</p>`;
+            // Mengambil dari tabel yang benar-benar ada di database Anda
+            const { data: topups } = await db.from('topup_history').select('*').eq('customer_id', userData.id);
+            const { data: withdraws } = await db.from('withdraw_requests').select('*').eq('customer_id', userData.id);
+            
+            let combined = [];
+            if (topups) combined.push(...topups.map(i => ({ ...i, tipe: 'TOPUP', warna: 'text-green-500', simbol: '+' })));
+            if (withdraws) combined.push(...withdraws.map(i => ({ ...i, tipe: 'TARIK', warna: 'text-red-500', simbol: '-' })));
+
+            combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (combined.length === 0) {
+                list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada mutasi</p>`;
                 return;
             }
 
-            list.innerHTML = data.map(item => `
+            list.innerHTML = combined.map(item => `
                 <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
                     <div>
-                        <p class="text-[10px] font-black text-slate-800 uppercase">${item.type === 'topup' ? 'Top Up Saldo' : 'Pembelian'}</p>
+                        <p class="text-[10px] font-black text-slate-800 uppercase">${item.tipe} - ${item.status || 'BERHASIL'}</p>
                         <p class="text-[8px] text-slate-400 font-bold">${new Date(item.created_at).toLocaleString('id-ID')}</p>
                     </div>
-                    <p class="text-[11px] font-black ${item.amount > 0 ? 'text-green-500' : 'text-red-500'} italic">
-                        ${item.amount > 0 ? '+' : ''}Rp ${Math.abs(item.amount).toLocaleString()}
+                    <p class="text-[11px] font-black ${item.warna} italic">
+                        ${item.simbol}Rp ${(item.nominal || 0).toLocaleString()}
                     </p>
                 </div>
             `).join('');
         }
 
-        // LOGIKA PINDAHAN DARI ONLINE SHOP: RIWAYAT PESANAN
         async function openHistory() {
             closeAllModals();
             document.getElementById('historyModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
 
             const list = document.getElementById('historyList');
-            const { data, error } = await db.from('orders')
+            list.innerHTML = `<p class="text-center text-[10px] text-slate-400 py-10 uppercase">MEMUAT...</p>`;
+
+            // Menggunakan tabel 'pesanan' sesuai struktur database Anda
+            const { data, error } = await db.from('pesanan')
                 .select('*')
                 .eq('customer_id', userData.id)
                 .order('created_at', { ascending: false });
 
             if (error || !data || data.length === 0) {
-                list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada riwayat pesanan</p>`;
+                list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada pesanan</p>`;
                 return;
             }
 
@@ -220,11 +247,11 @@
                 <div class="p-4 bg-white rounded-2xl border-2 border-slate-50 shadow-sm">
                     <div class="flex justify-between items-start mb-2">
                         <div>
-                            <p class="text-[8px] text-slate-400 font-black uppercase tracking-tighter">ID: ${order.id.slice(0,8)}</p>
+                            <p class="text-[8px] text-slate-400 font-black uppercase tracking-tighter">INV: ${order.no_pesanan || order.id.slice(0,8)}</p>
                             <p class="text-[11px] font-black text-slate-800 uppercase">${order.status || 'PROSES'}</p>
                         </div>
                         <span class="px-3 py-1 bg-pink-50 text-pink-500 text-[8px] font-black rounded-full italic uppercase">
-                            Rp ${order.total_price.toLocaleString()}
+                            Rp ${(order.total_harga || 0).toLocaleString()}
                         </span>
                     </div>
                     <p class="text-[9px] text-slate-500 font-medium italic">Pengecekan pesanan otomatis oleh sistem Beauty Bloom.</p>
@@ -276,9 +303,6 @@
                 dots[currentSlide].classList.add('active');
             }, 5000);
         }
-
-        function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); document.getElementById('modalOverlay').classList.remove('active'); }
-        async function logoutCustomer() { if(confirm("Keluar dari akun?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); } }
     </script>
 </body>
 </html>
