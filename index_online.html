@@ -24,13 +24,14 @@
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
 
-        .slider-wrapper { position: relative; width: 100vw; aspect-ratio: 16 / 9; overflow: hidden; background: #fff; }
+        /* PERBAIKAN: Slider dibuat 1:1 agar gambar iklan lebih besar & penuh */
+        .slider-wrapper { position: relative; width: 100vw; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; }
         .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; }
         .slide-item.active { opacity: 1; z-index: 10; }
         .slide-item img { width: 100%; height: 100%; object-fit: cover; }
         
         .dots-container { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: center; gap: 5px; z-index: 20; }
-        .dot-ad { width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,0.1); transition: all 0.3s; }
+        .dot-ad { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: all 0.3s; }
         .dot-ad.active { background: #f72585; width: 15px; border-radius: 10px; }
     </style>
 </head>
@@ -66,7 +67,7 @@
         </div>
     </header>
 
-    <section class="relative w-full overflow-hidden bg-white mb-4">
+    <section class="relative w-full overflow-hidden bg-white">
         <div id="promo-slider" class="slider-wrapper">
             <div class="slide-item active flex items-center justify-center bg-pink-50 text-pink-200">
                 <i class="fa-solid fa-wand-magic-sparkles text-4xl animate-pulse"></i>
@@ -75,22 +76,22 @@
         <div id="promo-dots" class="dots-container"></div>
     </section>
 
-    <section class="px-6 py-4 grid grid-cols-4 gap-4">
-        <button onclick="window.location.href='online-shop.html'" class="flex flex-col items-center">
+    <section class="px-6 mt-10 mb-8 grid grid-cols-4 gap-4">
+        <button onclick="window.location.href='online-shop.html'" class="flex flex-col items-center active:scale-95 transition-transform">
             <div class="menu-card w-14 h-14 flex items-center justify-center text-pink-500 shadow-lg mb-2"><i class="fa-solid fa-bag-shopping text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Belanja</span>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tighter">Belanja</span>
         </button>
-        <button onclick="openHistory()" class="flex flex-col items-center">
+        <button onclick="openHistory()" class="flex flex-col items-center active:scale-95 transition-transform">
             <div class="menu-card w-14 h-14 flex items-center justify-center text-blue-400 shadow-lg mb-2"><i class="fa-solid fa-receipt text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Pesanan</span>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tighter">Pesanan</span>
         </button>
-        <button onclick="openWallet()" class="flex flex-col items-center">
+        <button onclick="openWallet()" class="flex flex-col items-center active:scale-95 transition-transform">
             <div class="menu-card w-14 h-14 flex items-center justify-center text-purple-400 shadow-lg mb-2"><i class="fa-solid fa-history text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Mutasi</span>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tighter">Mutasi</span>
         </button>
-        <button onclick="window.open('https://wa.me/6281239739396')" class="flex flex-col items-center">
+        <button onclick="window.open('https://wa.me/6281239739396')" class="flex flex-col items-center active:scale-95 transition-transform">
             <div class="menu-card w-14 h-14 flex items-center justify-center text-green-400 shadow-lg mb-2"><i class="fa-brands fa-whatsapp text-xl"></i></div>
-            <span class="text-[9px] font-extrabold text-slate-700 uppercase">Admin</span>
+            <span class="text-[9px] font-extrabold text-slate-700 uppercase tracking-tighter">Admin</span>
         </button>
     </section>
 
@@ -147,7 +148,6 @@
         let userData = null;
         let currentSlide = 0;
 
-        // FUNGSI GLOBAL (Agar bisa dipanggil onclick)
         function openProfile() {
             closeAllModals();
             document.getElementById('profileModal').classList.add('active');
@@ -192,11 +192,9 @@
             closeAllModals();
             document.getElementById('walletModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
-            
             const list = document.getElementById('walletHistory');
-            list.innerHTML = `<p class="text-center text-[10px] text-slate-400 py-10">MENGAMBIL DATA...</p>`;
+            list.innerHTML = `<p class="text-center text-[10px] text-slate-400 py-10 uppercase">MEMUAT...</p>`;
 
-            // Mengambil dari tabel yang benar-benar ada di database Anda
             const { data: topups } = await db.from('topup_history').select('*').eq('customer_id', userData.id);
             const { data: withdraws } = await db.from('withdraw_requests').select('*').eq('customer_id', userData.id);
             
@@ -212,7 +210,7 @@
             }
 
             list.innerHTML = combined.map(item => `
-                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
+                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 shadow-sm">
                     <div>
                         <p class="text-[10px] font-black text-slate-800 uppercase">${item.tipe} - ${item.status || 'BERHASIL'}</p>
                         <p class="text-[8px] text-slate-400 font-bold">${new Date(item.created_at).toLocaleString('id-ID')}</p>
@@ -228,15 +226,10 @@
             closeAllModals();
             document.getElementById('historyModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
-
             const list = document.getElementById('historyList');
             list.innerHTML = `<p class="text-center text-[10px] text-slate-400 py-10 uppercase">MEMUAT...</p>`;
 
-            // Menggunakan tabel 'pesanan' sesuai struktur database Anda
-            const { data, error } = await db.from('pesanan')
-                .select('*')
-                .eq('customer_id', userData.id)
-                .order('created_at', { ascending: false });
+            const { data, error } = await db.from('pesanan').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
 
             if (error || !data || data.length === 0) {
                 list.innerHTML = `<p class="text-center text-[10px] text-slate-400 font-bold py-10 uppercase">Belum ada pesanan</p>`;
@@ -254,7 +247,6 @@
                             Rp ${(order.total_harga || 0).toLocaleString()}
                         </span>
                     </div>
-                    <p class="text-[9px] text-slate-500 font-medium italic">Pengecekan pesanan otomatis oleh sistem Beauty Bloom.</p>
                 </div>
             `).join('');
         }
