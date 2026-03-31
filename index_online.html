@@ -37,7 +37,7 @@
         <div class="flex justify-between items-center mb-6">
             <div>
                 <p class="text-[9px] font-black text-pink-500 uppercase tracking-widest italic">Beauty Bloom Member ✨</p>
-                <h1 id="user-name" class="text-xl font-extrabold text-slate-800 italic uppercase leading-none">Memuat...</h1>
+                <h1 id="welcome-msg" class="text-xl font-extrabold text-slate-800 italic uppercase leading-none">Memuat...</h1>
             </div>
             <button onclick="openProfile()" class="w-12 h-12 bg-white rounded-2xl border-2 border-pink-100 flex items-center justify-center text-pink-400 shadow-sm active:scale-90 transition-all">
                 <i class="fa-solid fa-user-sparkles text-xl"></i>
@@ -49,7 +49,7 @@
                 <div class="flex justify-between items-start">
                     <div>
                         <p class="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Saldo Dompet Cantik ✨</p>
-                        <h2 id="display-saldo" class="text-3xl font-black italic tracking-tight">Rp 0</h2>
+                        <h2 id="w-saldo" class="text-3xl font-black italic tracking-tight">Rp 0</h2>
                     </div>
                     <i class="fa-solid fa-wallet text-2xl opacity-40"></i>
                 </div>
@@ -94,6 +94,10 @@
         </button>
     </section>
 
+    <div class="px-6 mb-8">
+        <div id="reward-section"></div>
+    </div>
+
     <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
 
     <div id="profileModal" class="side-modal no-scrollbar overflow-y-auto">
@@ -106,10 +110,9 @@
             <h3 id="p-name" class="font-black text-slate-800 italic uppercase">User</h3>
             <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@user.com</p>
         </div>
-        <div id="reward-section" class="mb-8"></div>
         <div class="space-y-3 mb-10">
             <button onclick="openHistory()" class="w-full py-4 px-6 bg-slate-50 text-slate-700 rounded-2xl font-black text-[10px] uppercase flex justify-between items-center shadow-sm">
-                <span><i class="fa-solid fa-clock-rotate-left mr-2 text-pink-400"></i> Riwayat Pesanan</span>
+                <span><i class="fa-solid fa-clock-rotate-left mr-2 text-pink-400"></i> Riwayat Selesai</span>
                 <i class="fa-solid fa-chevron-right text-[8px]"></i>
             </button>
         </div>
@@ -142,39 +145,85 @@
         let userData = null;
         let currentSlide = 0;
 
-        window.onload = async () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await db.auth.getSession();
             if (!session) return window.location.replace('login-customer.html');
+            
             await loadCustomerData(session.user.id);
             await loadDynamicAds();
-            await loadWalletHistory(session.user.id);
-        };
+        });
 
-       async function loadCustomerData(userId) {
-    // 1. Ambil data customer
-    const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
-    
-    // 2. Ambil pengaturan target belanja dari Admin (app_settings)
-    const { data: settings } = await db.from('app_settings')
-        .select('*')
-        .eq('key_name', 'loyalty_target_count')
-        .single();
+        async function loadCustomerData(userId) {
+            const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
+            const { data: settings } = await db.from('app_settings').select('value_int').eq('key_name', 'loyalty_target_count').single();
+            const targetCount = settings ? settings.value_int : 5;
 
-    // Default ke 5 jika data di database tidak ditemukan
-    const targetCount = settings ? settings.value_int : 5;
+            if (customer) {
+                userData = customer;
+                
+                // Sinkronisasi ID untuk mencegah Error Null
+                const elMsg = document.getElementById('welcome-msg');
+                if (elMsg) elMsg.innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
+                
+                const elSaldo = document.getElementById('w-saldo');
+                if (elSaldo) elSaldo.innerText = "Rp " + (customer.saldo || 0).toLocaleString();
 
-    if (customer) {
-        userData = customer;
-        document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
-        document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
-        
-        // Kirim targetCount ke fungsi render
-        renderRewardStatus(customer, targetCount);
-        loadWalletHistory(userId);
-    }
-}
+                renderRewardStatus(customer, targetCount);
+                loadWalletHistory(userId);
+            }
+        }
 
-        // --- LOGIKA PROFIL ---
+        function renderRewardStatus(profile, target) {
+            const container = document.getElementById('reward-section');
+            if (!container) return;
+
+            const count = profile.total_order_count || 0;
+            const claimed = profile.is_reward_claimed;
+
+            let currentProgress = count % target;
+            let isGoalReached = (count > 0 && currentProgress === 0 && !claimed);
+
+            if (isGoalReached) {
+                container.innerHTML = `
+                    <div class="gradient-pink p-5 rounded-[28px] text-white shadow-lg relative overflow-hidden">
+                        <div class="relative z-10">
+                            <p class="text-[9px] font-black uppercase tracking-widest mb-1 opacity-80">Reward Member 🎁</p>
+                            <h4 class="text-sm font-black mb-3 italic">TARGET ${target}x BELANJA TERCAPAI!</h4>
+                            <button onclick="claimRewardMember()" class="w-full py-3 bg-white text-pink-500 rounded-2xl font-black text-[10px] uppercase shadow-sm">Klaim Diskon Sekarang</button>
+                        </div>
+                        <i class="fa-solid fa-crown absolute -right-2 -bottom-2 text-white/20 text-5xl rotate-12"></i>
+                    </div>`;
+            } else if (claimed) {
+                container.innerHTML = `
+                    <div class="bg-white p-4 rounded-[28px] border-2 border-green-100 text-center shadow-sm">
+                        <p class="text-[10px] font-black text-green-600 uppercase tracking-widest">Diskon Member Aktif ✨</p>
+                        <p class="text-[8px] text-slate-400 font-bold mt-1 italic uppercase italic leading-none">Cek otomatis di halaman checkout!</p>
+                    </div>`;
+            } else {
+                let progress = (currentProgress / target) * 100;
+                container.innerHTML = `
+                    <div class="bg-white p-5 rounded-[28px] border-2 border-pink-50 shadow-sm">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progres Member</span>
+                            <span class="text-[11px] font-black text-pink-500 italic">${currentProgress}/${target}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-50">
+                            <div class="gradient-pink h-full transition-all duration-1000" style="width: ${progress}%"></div>
+                        </div>
+                        <p class="text-[8px] text-slate-400 mt-3 font-bold italic uppercase tracking-tighter">Belanja <span class="text-pink-400">${target - currentProgress}x</span> lagi untuk dapat reward khusus.</p>
+                    </div>`;
+            }
+        }
+
+        async function claimRewardMember() {
+            if (!userData) return;
+            const { error } = await db.from('customers').update({ is_reward_claimed: true }).eq('id', userData.id);
+            if (!error) {
+                alert("Selamat! Reward kamu aktif. ✨");
+                location.reload();
+            }
+        }
+
         function openProfile() {
             if (!userData) return;
             document.getElementById('p-name').innerText = userData.full_name;
@@ -183,21 +232,12 @@
             document.getElementById('modalOverlay').classList.add('active');
         }
 
-        async function logoutCustomer() {
-            if (confirm("Keluar akun?")) {
-                await db.auth.signOut();
-                localStorage.removeItem('finexcart');
-                window.location.replace('login-customer.html');
-            }
+        function toggleWallet() {
+            closeAllModals();
+            document.getElementById('walletModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
         }
 
-        // --- LOGIKA SALDO & WALLET ---
-        function toggleWallet() { 
-            closeAllModals();
-            document.getElementById('walletModal').classList.add('active'); 
-            document.getElementById('modalOverlay').classList.add('active'); 
-        }
-        
         async function requestTopUp() {
             const nom = prompt("Nominal Top Up (Min Rp 10.000):", "50000");
             if (!nom || nom < 10000) return alert("Min Rp 10.000");
@@ -214,13 +254,13 @@
         }
 
         async function requestWithdraw() {
-            if (userData.saldo < 10000) return alert("Saldo minimal untuk penarikan adalah Rp 10.000 🌸");
-            const amount = prompt(`Berapa saldo yang ingin ditarik?\n(Maksimal: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
-            if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) return alert("Nominal tidak valid.");
+            if (userData.saldo < 10000) return alert("Saldo minimal Rp 10.000 🌸");
+            const amount = prompt(`Berapa yang ditarik? (Maks: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
+            if (!amount || amount < 10000 || amount > userData.saldo) return alert("Nominal tidak valid.");
             
-            const bank = prompt("Nama Bank (Contoh: BCA / Dana / Mandiri):"); if (!bank) return;
-            const noRek = prompt("Nomor Rekening / Nomor HP:"); if (!noRek) return;
-            const an = prompt("Nama Pemilik Rekening (Atas Nama):"); if (!an) return;
+            const bank = prompt("Nama Bank / E-Wallet:"); if (!bank) return;
+            const noRek = prompt("Nomor Rekening / HP:"); if (!noRek) return;
+            const an = prompt("Atas Nama Pemilik:"); if (!an) return;
 
             const inv = "WD-" + Date.now();
             const { error } = await db.from('withdraw_requests').insert([{
@@ -229,11 +269,11 @@
             }]);
 
             if (!error) {
-                const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon segera diproses ya, terima kasih! ✨`;
+                const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon diproses, terima kasih! ✨`;
                 window.open(`https://wa.me/6281239739396?text=${pesan}`, '_blank');
-                alert("Permintaan penarikan berhasil dikirim! 🌸");
-                location.reload(); 
-            } else alert("Gagal mengirim permintaan.");
+                alert("Permintaan terkirim!");
+                location.reload();
+            }
         }
 
         async function loadWalletHistory(userId) {
@@ -251,20 +291,6 @@
                     return `<div class="bg-white border border-slate-50 p-4 rounded-2xl text-[10px] mb-2"><div class="flex justify-between items-start"><div><p class="font-black text-slate-800 uppercase italic">${h.no_invoice}</p><p class="text-slate-400 font-bold">${new Date(h.created_at).toLocaleDateString()} • ${h.jenis}</p></div><div class="text-right"><p class="font-black italic">${simbol} Rp ${h.nominal.toLocaleString()}</p><p class="font-bold uppercase ${color}" style="font-size: 8px;">${h.status}</p></div></div></div>`;
                 }).join('');
             } else container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Kosong 🌸</p>`;
-        }
-
-        // --- LOGIKA PESANAN ---
-        function renderOrderCards(orders) {
-            return orders.map(order => `
-                <div class="p-4 bg-white rounded-3xl border-2 border-slate-50 shadow-sm">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-[8px] text-slate-400 font-black uppercase italic">INV: ${order.no_invoice || order.id.slice(0,8)}</p>
-                            <p class="text-[11px] font-black text-slate-800 uppercase italic">${order.status_order || 'PROSES'}</p>
-                        </div>
-                        <span class="px-3 py-1 bg-pink-50 text-pink-500 text-[9px] font-black rounded-full italic uppercase">Rp ${(order.total_harga || 0).toLocaleString()}</span>
-                    </div>
-                </div>`).join('');
         }
 
         async function openActivity() {
@@ -289,8 +315,20 @@
             }, 100);
         }
 
+        function renderOrderCards(orders) {
+            return orders.map(order => `<div class="p-4 bg-white rounded-3xl border-2 border-slate-50 shadow-sm"><div class="flex justify-between items-start"><div><p class="text-[8px] text-slate-400 font-black uppercase italic">INV: ${order.no_invoice || order.id.slice(0,8)}</p><p class="text-[11px] font-black text-slate-800 uppercase italic">${order.status_order || 'PROSES'}</p></div><span class="px-3 py-1 bg-pink-50 text-pink-500 text-[9px] font-black rounded-full italic uppercase">Rp ${(order.total_harga || 0).toLocaleString()}</span></div></div>`).join('');
+        }
+
         function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); document.getElementById('modalOverlay').classList.remove('active'); }
-        
+
+        async function logoutCustomer() {
+            if (confirm("Keluar akun?")) {
+                await db.auth.signOut();
+                localStorage.removeItem('finexcart');
+                window.location.replace('login-customer.html');
+            }
+        }
+
         async function loadDynamicAds() {
             const slider = document.getElementById('promo-slider');
             const dotsContainer = document.getElementById('promo-dots');
@@ -314,44 +352,6 @@
                 slides[currentSlide].classList.add('active'); dots[currentSlide].classList.add('active');
             }, 5000);
         }
-
-      function renderRewardStatus(profile, target) {
-    const container = document.getElementById('reward-section');
-    const count = profile.total_order_count || 0;
-    const claimed = profile.is_reward_claimed;
-
-    if (count >= target && !claimed) {
-        container.innerHTML = `
-            <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-4 rounded-3xl text-white shadow-md">
-                <p class="text-[9px] font-black uppercase tracking-tighter mb-1">Reward Member 🎁</p>
-                <h4 class="text-xs font-bold mb-3">Syarat ${target}x belanja terpenuhi!</h4>
-                <button onclick="claimRewardMember()" class="w-full py-2 bg-white text-pink-500 rounded-xl font-black text-[10px] uppercase shadow-sm">Klaim Diskon Sekarang</button>
-            </div>`;
-    } else if (claimed) {
-        container.innerHTML = `
-            <div class="bg-green-50 p-4 rounded-3xl border border-green-100 text-center">
-                <p class="text-[10px] font-black text-green-600 uppercase">Diskon Member Aktif ✨</p>
-                <p class="text-[8px] text-green-400 font-bold mt-1">Cek diskonmu otomatis di Checkout!</p>
-            </div>`;
-    } else {
-        let sisa = target - count;
-        // Hitung persentase progres secara dinamis
-        let progress = (count / target) * 100;
-        
-        container.innerHTML = `
-            <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
-                    <span class="text-[10px] font-bold text-pink-500">${count}/${target}</span>
-                </div>
-                <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                    <div class="bg-pink-400 h-full transition-all duration-500" style="width: ${progress}%"></div>
-                </div>
-                <p class="text-[8px] text-slate-400 mt-2 font-bold italic">Belanja ${sisa}x lagi untuk dapat diskon khusus.</p>
-            </div>`;
-    }
-}
-
     </script>
 </body>
 </html>
