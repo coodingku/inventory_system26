@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finex Beauty Bloom | Online Shop 🌸</title>
+    <title>Beauty Bloom | Online Shop 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="supabase-online.js"></script>
@@ -14,823 +14,219 @@
     <style>
         :root { --primary-pink: #ff85a2; --soft-pink: #fff0f3; --deep-pink: #f72585; --accent-peach: #ffb3c1; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--soft-pink); margin: 0; overflow-x: hidden; }
-        .glass-header { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.2); }
-        .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); box-shadow: 0 4px 15px rgba(255, 133, 162, 0.05); cursor: pointer; position: relative; }
+        .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255, 133, 162, 0.1); }
+        .product-card { background: white; border-radius: 28px; overflow: hidden; transition: all 0.3s ease; border: 1px solid rgba(255, 133, 162, 0.1); box-shadow: 0 4px 15px rgba(0,0,0,0.02); position: relative; }
         .product-card:active { transform: scale(0.96); }
         .img-container { aspect-ratio: 1 / 1; overflow: hidden; background: #fffafa; }
         .img-container img { width: 100%; height: 100%; object-fit: cover; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
-        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 30px; border-radius: 40px 0 0 40px; box-shadow: -10px 0 30px rgba(0,0,0,0.1); }
+        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 30px; border-radius: 40px 0 0 40px; }
         .side-modal.active { right: 0; }
-        .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -15px 35px rgba(0,0,0,0.1); }
+        .detail-modal, .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .detail-modal.active, .activity-modal.active { bottom: 0; }
-        .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-        .status-pending { background: #fee2e2; color: #ef4444; }
-        .status-Dikemas { background: #dcfce7; color: #16a34a; }
-        .status-dibatalkan { background: #f1f5f9; color: #64748b; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px 0; box-shadow: 0 -10px 25px rgba(255, 133, 162, 0.1); border-radius: 30px 30px 0 0; z-index: 100; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 15px 0 30px 0; box-shadow: 0 -10px 30px rgba(255, 133, 162, 0.15); border-radius: 35px 35px 0 0; z-index: 100; border-top: 1px solid #ff85a210; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; transition: all 0.2s; color: #cbd5e1; }
+        .nav-item.active { color: var(--deep-pink); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .badge-diskon { position: absolute; top: 12px; left: 12px; background: var(--deep-pink); color: white; padding: 4px 10px; border-radius: 10px; font-size: 9px; font-weight: 900; z-index: 10; }
-        /* Hilangkan scrollbar tapi tetap bisa di-scroll */
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-.no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-    scroll-behavior: smooth; /* Agar pergerakan gambar halus */
-}
-
-/* Pastikan slider bisa menerima input sentuhan */
-#image-slider {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-}
-    
+        #image-slider { display: flex; overflow-x: auto; snap-snap-type: x mandatory; scroll-behavior: smooth; }
     </style>
 </head>
-<body class="pb-28 no-scrollbar">
+<body class="pb-32 no-scrollbar">
 
-    <header class="glass-header sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div>
-            <p id="welcome-msg" class="text-[10px] font-bold text-[#ff4d6d] uppercase tracking-widest italic">Halo, Cantik! ✨</p>
-            <h1 class="text-xl font-extrabold text-slate-800">Beauty Bloom 🌸</h1>
-        </div>
-        <div class="flex gap-2">
-            <button onclick="toggleWallet()" class="w-10 h-10 bg-white rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm"><i class="fa-solid fa-wallet"></i></button>
-            <button onclick="openProfile()" class="w-10 h-10 bg-pink-50 rounded-full border border-pink-100 text-pink-500 flex items-center justify-center shadow-sm"><i class="fa-solid fa-user text-sm"></i></button>
-        </div>
+    <header class="glass-header sticky top-0 z-50 px-6 py-5 text-center">
+        <p id="welcome-msg" class="text-[9px] font-black text-[#ff4d6d] uppercase tracking-[0.2em] italic mb-1">Halo, Cantik! ✨</p>
+        <h1 class="text-xl font-black text-slate-800 tracking-tight">Beauty Bloom Shop 🌸</h1>
     </header>
 
-<div id="promoModal" class="fixed inset-0 z-[2000] flex items-center justify-center hidden bg-black/60 backdrop-blur-sm px-6">
-    <div class="relative w-full max-w-sm p-8 bg-white rounded-[40px] shadow-2xl transform transition-all scale-90 opacity-0 border-4 border-pink-100" id="promoContent">
-        
-        <button onclick="closePromo()" class="absolute top-5 right-5 w-8 h-8 bg-pink-50 text-pink-400 rounded-full flex items-center justify-center">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
-
-        <div class="text-center">
-            <div class="w-20 h-20 bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-full flex items-center justify-center text-white text-3xl mx-auto mb-6 shadow-lg animate-bounce">
-                <i class="fa-solid fa-sparkles"></i>
-            </div>
-
-            <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-2 italic">Beauty Bloom Promotion 🌸</p>
-            <h3 class="text-2xl font-black text-slate-800 leading-tight mb-4">ADA PROMO MENARIK & DISKON UNTUK KAMU!</h3>
-            
-            <div class="bg-pink-50 py-3 rounded-2xl mb-6">
-                <p class="text-slate-600 text-sm font-bold">Ayo buruan belanja di <span class="text-pink-500">BeautyBloom</span> ✨</p>
-            </div>
-
-            <button onclick="closePromo()" class="w-full py-5 bg-slate-900 text-white font-black rounded-[22px] shadow-xl active:scale-95 transition-all uppercase text-[11px] tracking-widest">
-                Mulai Belanja Sekarang 🛍️
-            </button>
-        </div>
-    </div>
-</div>
-
     <main class="px-6 mt-8">
-        <div class="relative mb-6">
-            <i class="fas fa-search absolute left-5 top-4 text-pink-300"></i>
-            <input type="text" id="search" onkeyup="loadOnlineMenu()" class="w-full pl-12 pr-4 py-4 bg-white rounded-3xl border-none shadow-sm outline-none focus:ring-2 focus:ring-pink-300" placeholder="Cari perawatan cantikmu...">
+        <div class="relative mb-8">
+            <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-pink-300"></i>
+            <input type="text" id="search" onkeyup="loadOnlineMenu()" class="w-full pl-12 pr-6 py-4 bg-white rounded-[22px] border-none shadow-sm outline-none focus:ring-2 focus:ring-pink-200 transition-all" placeholder="Cari skin care favoritmu...">
         </div>
-        <div id="onlineDisplay" class="grid grid-cols-2 gap-5"></div>
+        <div id="onlineDisplay" class="grid grid-cols-2 gap-4"></div>
     </main>
 
     <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
 
-    <div id="cartModal" class="side-modal">
+    <div id="cartModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
             <h2 class="text-xl font-black text-slate-800">Bag Belanja 🛍️</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400"></i></button>
         </div>
-        <div id="cartList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pr-2"></div>
-        <div class="mt-8 pt-6 border-t border-dashed border-pink-100">
+        <div id="cartList" class="space-y-4 mb-8"></div>
+        <div class="pt-6 border-t border-dashed border-pink-100">
             <div class="flex justify-between mb-6">
-                <span class="font-bold text-slate-400">Total:</span>
+                <span class="font-bold text-slate-400">Total Pembayaran:</span>
                 <span id="cart-total-modal" class="font-black text-pink-500 text-xl">Rp 0</span>
             </div>
-            <button onclick="goToCheckout('PROSES')" class="w-full py-5 bg-slate-900 text-white rounded-[22px] font-black shadow-lg uppercase text-[10px] tracking-widest">Lanjut Checkout 🌸</button>
+            <button onclick="goToCheckout('PROSES')" class="w-full py-5 bg-slate-900 text-white rounded-[22px] font-black shadow-lg uppercase text-[10px] tracking-widest active:scale-95 transition-all">Lanjut Checkout 🌸</button>
         </div>
     </div>
-
-   <div id="profileModal" class="side-modal">
-    <div class="flex justify-between items-center mb-8">
-        <h2 class="text-xl font-black text-slate-800">Profil Saya ✨</h2>
-        <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
-    </div>
-    
-    <div class="text-center mb-6">
-        <div class="w-20 h-20 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-sm">
-            <i class="fa-solid fa-user text-2xl text-pink-400"></i>
-        </div>
-        <h3 id="p-name" class="font-black text-slate-800 italic uppercase">Nama Pengguna</h3>
-        <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">email@bloom.com</p>
-    </div>
-
-    <div id="reward-section" class="mb-8">
-        </div>
-
-       <button onclick="openHistory()" class="w-full py-4 mb-3 bg-white border border-pink-100 text-pink-500 rounded-2xl font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 shadow-sm">
-    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Pesanan
-</button>
-
-    <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] tracking-widest uppercase">Keluar Akun</button>
-</div>
-
-    <div id="walletModal" class="side-modal">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800">Dompet Cantik ✨</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
-        </div>
-        <div class="bg-gradient-to-br from-[#ff85a2] to-[#f72585] p-8 rounded-[35px] text-white shadow-xl mb-8">
-            <p class="text-xs font-bold opacity-80 uppercase tracking-widest">Saldo Kamu</p>
-            <h3 id="w-saldo" class="text-3xl font-black mt-2">Rp 0</h3>
-        </div>
-        <div class="grid grid-cols-2 gap-4 mb-10">
-            <button onclick="requestTopUp()" class="flex flex-col items-center justify-center p-5 bg-pink-50 rounded-3xl border border-pink-100"><i class="fa-solid fa-arrow-up text-pink-500 mb-2"></i><span class="text-[10px] font-black uppercase">Isi Saldo</span></button>
-            <button onclick="requestWithdraw()" class="flex flex-col items-center justify-center p-5 bg-slate-50 rounded-3xl border border-slate-100"><i class="fa-solid fa-money-bill-transfer text-slate-400 mb-2"></i><span class="text-[10px] font-black uppercase">Tarik Dana</span></button>
-        </div>
-        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mutasi Saldo</h4>
-        <div id="walletHistory" class="space-y-3 overflow-y-auto max-h-[40vh] no-scrollbar"></div>
-    </div>
-
-    <div id="historyModal" class="activity-modal">
-    <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-    <div class="px-6 pb-10">
-        <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Riwayat Belanja ✨</h2>
-        <p class="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest mb-6">Arsip pesanan cantikmu</p>
-        <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-        <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-pink-50 text-pink-400 font-bold rounded-2xl">Kembali</button>
-    </div>
-</div>
 
     <div id="activityModal" class="activity-modal">
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
         <div class="px-6 pb-10">
-            <h2 class="text-xl font-black text-slate-800 mb-2 text-center">Lacak Pesanan 🚚</h2>
-            <div id="activityList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">Tutup</button>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-slate-800">Lacak Pesanan 🚚</h2>
+                <button onclick="openProfile()" class="text-[10px] font-black text-pink-500 uppercase underline">Profil Saya</button>
+            </div>
+            <div id="activityList" class="space-y-4 max-h-[50vh] overflow-y-auto no-scrollbar pt-2"></div>
+            <button onclick="openHistory()" class="w-full mt-4 py-4 bg-pink-50 text-pink-500 font-black rounded-2xl text-[10px] uppercase tracking-widest">Lihat Riwayat Selesai</button>
         </div>
     </div>
 
-    <div id="trxDetailModal" class="detail-modal">
+    <div id="productDetailModal" class="detail-modal">
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-        <div class="px-6 pb-10">
-            <div class="text-center mb-6">
-                <h3 class="text-lg font-black text-slate-800">Rincian Belanja 🛍️</h3>
-                <p id="v-invoice" class="text-[10px] font-bold text-pink-400 uppercase tracking-widest"></p>
-            </div>
-            <div id="v-items" class="space-y-3 mb-6 max-h-60 overflow-y-auto no-scrollbar pr-2"></div>
-            <div class="bg-pink-50 rounded-2xl p-4 mb-6 text-sm">
-                <div class="flex justify-between mb-1 text-xs"><span class="text-slate-400">Status:</span><span id="v-status" class="font-bold text-pink-500 italic uppercase"></span></div>
-                <div class="flex justify-between pt-2 border-t border-pink-100"><span class="font-bold text-slate-700">Total:</span><span id="v-total" class="font-black text-pink-500"></span></div>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="confirmToAdmin()" class="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2"><i class="fab fa-whatsapp"></i> KONFIRMASI WA</button>
-                <button onclick="closeAllModals()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-xs">TUTUP</button>
-            </div>
+        <div class="px-6 pb-12 text-center">
+            <div id="image-slider" class="snap-x snap-mandatory no-scrollbar rounded-[35px] border-4 border-white shadow-xl bg-pink-50 h-72 mb-6"></div>
+            <h2 id="detail-name" class="text-2xl font-black text-slate-800"></h2>
+            <p id="detail-price" class="text-xl font-black text-[#f72585] mt-1"></p>
+            <p id="detail-desc" class="text-slate-400 text-xs my-6 px-4 py-3 bg-slate-50 rounded-2xl italic"></p>
+            <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg uppercase tracking-widest text-[11px]">TAMBAH KE BAG ✨</button>
         </div>
     </div>
-
-<div id="productDetailModal" class="detail-modal">
-    <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
-    <div class="px-6 pb-10 text-center">
-        <div class="relative group mb-6">
-            <button onclick="scrollSlider(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full shadow-md text-pink-500 flex items-center justify-center active:scale-90 transition-all opacity-0 group-hover:opacity-100">
-                <i class="fa-solid fa-chevron-left"></i>
-            </button>
-
-            <div id="image-slider" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-[30px] border-4 border-white shadow-lg bg-pink-50 h-72 scroll-smooth">
-                </div>
-
-            <button onclick="scrollSlider(1)" class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full shadow-md text-pink-500 flex items-center justify-center active:scale-90 transition-all opacity-0 group-hover:opacity-100">
-                <i class="fa-solid fa-chevron-right"></i>
-            </button>
-
-            <div id="slider-dots" class="flex justify-center gap-2 mt-3"></div>
-        </div>
-
-        <h2 id="detail-name" class="text-2xl font-black text-slate-800 leading-tight"></h2>
-        <p id="detail-price" class="text-xl font-black text-[#f72585] mt-2"></p>
-        <p id="detail-desc" class="text-slate-400 text-sm my-6 px-4 bg-pink-50/50 py-3 rounded-2xl italic"></p>
-        
-        <button id="btn-add-modal" class="w-full py-5 bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white rounded-[22px] font-black shadow-lg uppercase tracking-widest text-[11px]">
-            TAMBAH KE BAG ✨
-        </button>
-    </div>
-</div>
 
     <nav class="bottom-nav">
-        <a href="online-shop.html" class="flex flex-col items-center text-[#ff85a2]"><i class="fas fa-home text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Beranda</span></a>
-        <button onclick="openActivity()" class="flex flex-col items-center text-slate-300"><i class="fas fa-receipt text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Pesanan</span></button>
-        <button onclick="toggleWallet()" class="flex flex-col items-center text-slate-300"><i class="fas fa-wallet text-2xl"></i><span class="text-[9px] font-black mt-1 uppercase">Saldo</span></button>
-        <button onclick="goToCheckout()" class="flex flex-col items-center text-slate-300 relative"><i class="fas fa-shopping-bag text-2xl"></i><span id="cart-count" class="absolute -top-2 -right-3 bg-[#f72585] text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white shadow-sm">0</span><span class="text-[9px] font-black mt-1 uppercase">Bag</span></button>
+        <a href="index_online.html" class="nav-item">
+            <i class="fas fa-house-chimney text-xl"></i>
+            <span class="text-[8px] font-black mt-1 uppercase">Beranda</span>
+        </a>
+        <button onclick="openActivity()" class="nav-item">
+            <i class="fas fa-receipt text-xl"></i>
+            <span class="text-[8px] font-black mt-1 uppercase">Pesanan</span>
+        </button>
+        <button onclick="goToCheckout('VIEW')" class="nav-item relative">
+            <i class="fas fa-shopping-bag text-xl"></i>
+            <span id="cart-count" class="absolute -top-1 -right-2 bg-[#f72585] text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">0</span>
+            <span class="text-[8px] font-black mt-1 uppercase">Bag</span>
+        </button>
+        <button onclick="window.location.href='online-checkout.html'" class="nav-item">
+            <i class="fas fa-credit-card text-xl"></i>
+            <span class="text-[8px] font-black mt-1 uppercase">Checkout</span>
+        </button>
     </nav>
 
-<script>
-    let shopCart = JSON.parse(localStorage.getItem('finexcart')) || [];
-    let userData = null;
-    let activeTrx = null;
+    <script>
+        let shopCart = JSON.parse(localStorage.getItem('finexcart')) || [];
+        let userData = null;
 
+        window.onload = async () => {
+            const { data: { session } } = await db.auth.getSession();
+            if (!session) return window.location.replace('login-customer.html');
+            loadCustomerData(session.user.id);
+            loadOnlineMenu();
+            updateCartDisplay();
+        };
 
-    window.onload = async () => {
-        const { data: { session } } = await db.auth.getSession();
-        if (!session) return window.location.replace('login-customer.html');
-        loadCustomerData(session.user.id);
-        loadOnlineMenu();
-        updateCartDisplay();
-        // TAMPILKAN IKLAN SETIAP KALI LOGIN/REFRESH HALAMAN UTAMA
-        setTimeout(showPromoPopup, 800);
-    };
-
-  async function loadCustomerData(userId) {
-    // 1. Ambil data customer
-    const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
-    
-    // 2. Ambil pengaturan target belanja dari Admin (app_settings)
-    const { data: settings } = await db.from('app_settings')
-        .select('*')
-        .eq('key_name', 'loyalty_target_count')
-        .single();
-
-    // Default ke 5 jika data di database tidak ditemukan
-    const targetCount = settings ? settings.value_int : 5;
-
-    if (customer) {
-        userData = customer;
-        document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
-        document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
-        
-        // Kirim targetCount ke fungsi render
-        renderRewardStatus(customer, targetCount);
-        loadWalletHistory(userId);
-    }
-}
-
-   function renderRewardStatus(profile, target) {
-    const container = document.getElementById('reward-section');
-    const count = profile.total_order_count || 0;
-    const claimed = profile.is_reward_claimed;
-
-    if (count >= target && !claimed) {
-        container.innerHTML = `
-            <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-4 rounded-3xl text-white shadow-md">
-                <p class="text-[9px] font-black uppercase tracking-tighter mb-1">Reward Member 🎁</p>
-                <h4 class="text-xs font-bold mb-3">Syarat ${target}x belanja terpenuhi!</h4>
-                <button onclick="claimRewardMember()" class="w-full py-2 bg-white text-pink-500 rounded-xl font-black text-[10px] uppercase shadow-sm">Klaim Diskon Sekarang</button>
-            </div>`;
-    } else if (claimed) {
-        container.innerHTML = `
-            <div class="bg-green-50 p-4 rounded-3xl border border-green-100 text-center">
-                <p class="text-[10px] font-black text-green-600 uppercase">Diskon Member Aktif ✨</p>
-                <p class="text-[8px] text-green-400 font-bold mt-1">Cek diskonmu otomatis di Checkout!</p>
-            </div>`;
-    } else {
-        let sisa = target - count;
-        // Hitung persentase progres secara dinamis
-        let progress = (count / target) * 100;
-        
-        container.innerHTML = `
-            <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
-                    <span class="text-[10px] font-bold text-pink-500">${count}/${target}</span>
-                </div>
-                <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                    <div class="bg-pink-400 h-full transition-all duration-500" style="width: ${progress}%"></div>
-                </div>
-                <p class="text-[8px] text-slate-400 mt-2 font-bold italic">Belanja ${sisa}x lagi untuk dapat diskon khusus.</p>
-            </div>`;
-    }
-}
-
-// --- LOGIKA POPUP PROMO (SETIAP LOGIN) ---
-function showPromoPopup() {
-    const modal = document.getElementById('promoModal');
-    const content = document.getElementById('promoContent');
-
-    // Langsung tampilkan tanpa cek localStorage
-    modal.classList.remove('hidden');
-    
-    // Animasi Masuk Smooth
-    setTimeout(() => {
-        content.classList.remove('scale-90', 'opacity-0');
-        content.classList.add('scale-100', 'opacity-100');
-    }, 300);
-}
-
-function closePromo() {
-    const modal = document.getElementById('promoModal');
-    const content = document.getElementById('promoContent');
-
-    content.classList.remove('scale-100', 'opacity-100');
-    content.classList.add('scale-90', 'opacity-0');
-
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 300);
-}
-// Panggil fungsi ini di dalam window.onload yang sudah ada
-const originalOnload = window.onload;
-window.onload = async () => {
-    if (originalOnload) await originalOnload();
-    
-    // Tampilkan popup setelah delay 1.5 detik agar user tidak kaget
-    setTimeout(showPromoPopup, 1500);
-};
-    
-
-    async function claimRewardMember() {
-        if (!userData) return;
-        const { error } = await db.from('customers')
-            .update({ is_reward_claimed: true })
-            .eq('id', userData.id);
-
-        if (!error) {
-            alert("Reward diklaim! Diskon otomatis akan muncul saat kamu checkout minimal 200rb. 🌸");
-            location.reload();
+        async function loadCustomerData(userId) {
+            const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
+            if (customer) {
+                userData = customer;
+                document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
+            }
         }
-    }
 
-    // LOGIKA PRODUK & HARGA
-    function getActivePrice(p) {
-        let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
-        if (!p.is_diskon) return { price: basePrice, isDiscount: false, normal: basePrice };
-        const skrg = new Date().getTime();
-        const tglM = p.diskon_mulai ? new Date(p.diskon_mulai).getTime() : null;
-        const tglA = p.diskon_akhir ? new Date(p.diskon_akhir).getTime() : null;
-        const active = p.is_diskon && (!tglM || skrg >= tglM) && (!tglA || skrg <= tglA);
-        return { price: active ? basePrice - (p.nominal_diskon || 0) : basePrice, isDiscount: active, normal: basePrice };
-    }
-
-  // 1. Update loadOnlineMenu agar mengirim data image_url_2 dan 3
-async function loadOnlineMenu() {
-    const q = document.getElementById('search').value;
-    let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
-    if (q) query = query.ilike('nama_barang', `%${q}%`);
-    const { data } = await query.order('nama_barang');
-    const display = document.getElementById('onlineDisplay');
-    if (!data) return;
-    
-    display.innerHTML = data.map(p => {
-        const pr = getActivePrice(p);
-        // Perhatikan parameter di openDetail ditambah p.image_url_2 dan p.image_url_3
-        return `
-        <div class="product-card" onclick="openDetail('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal}, '${p.image_url}', '${p.keterangan || ''}', '${p.image_url_2}', '${p.image_url_3}')">
-            ${pr.isDiscount ? `<div class="badge-diskon">PROMO ✨</div>` : ''}
-            <div class="img-container"><img src="${p.image_url || 'https://placehold.co/300'}" onerror="this.src='https://placehold.co/300'"></div>
-            <div class="p-4">
-                <h4 class="font-bold text-slate-700 text-[11px] truncate uppercase">${p.nama_barang}</h4>
-                <div class="mt-1">
-                    <p class="text-[9px] text-slate-400 ${pr.isDiscount ? 'line-through' : ''}">Rp ${pr.normal.toLocaleString()}</p>
-                    <p class="font-black text-[#ff85a2] text-sm">Rp ${pr.price.toLocaleString()}</p>
-                </div>
-                <button onclick="event.stopPropagation(); addToOnlineCart('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal})" class="w-full mt-3 bg-pink-50 text-pink-500 py-2 rounded-xl text-[10px] font-black active:scale-95 transition-all">TAMBAH ✨</button>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-// Fungsi untuk tombol panah
-function scrollSlider(direction) {
-    const slider = document.getElementById('image-slider');
-    const scrollAmount = slider.clientWidth; // Geser sejauh lebar slider
-    slider.scrollBy({
-        left: direction * scrollAmount,
-        behavior: 'smooth'
-    });
-}
-
-function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
-    const slider = document.getElementById('image-slider');
-    const dots = document.getElementById('slider-dots');
-    
-    // Filter gambar (hanya yang berisi URL)
-    const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '' && url !== 'undefined');
-
-    // Render Gambar
-    slider.innerHTML = images.map(url => `
-        <div class="min-w-full h-full snap-center flex-shrink-0">
-            <img src="${url}" class="w-full h-full object-cover">
-        </div>
-    `).join('');
-
-    // Fungsi update dots
-    const updateDots = (index) => {
-        dots.innerHTML = images.length > 1 ? images.map((_, i) => `
-            <div class="w-2 h-2 rounded-full transition-all duration-300 ${i === index ? 'bg-pink-500 w-4' : 'bg-pink-200'}"></div>
-        `).join('') : '';
-    };
-
-    // Inisialisasi awal
-    updateDots(0);
-    slider.scrollLeft = 0;
-
-    // Deteksi scroll manual (swipe) untuk update dots
-    slider.onscroll = () => {
-        const index = Math.round(slider.scrollLeft / slider.clientWidth);
-        updateDots(index);
-    };
-
-    // Set Data Teks
-    document.getElementById('detail-name').innerText = nama;
-    document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
-    document.getElementById('detail-desc').innerText = desc || 'Rahasia cantikmu.';
-    
-    document.getElementById('btn-add-modal').onclick = () => { 
-        addToOnlineCart(id, nama, harga, hargaNormal); 
-        closeAllModals(); 
-    };
-
-    document.getElementById('productDetailModal').classList.add('active');
-    document.getElementById('modalOverlay').classList.add('active');
-}
-    function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
-        const idx = shopCart.findIndex(c => c.id === id);
-        if (idx > -1) shopCart[idx].qty++;
-        else shopCart.push({ id, nama, harga: hargaFinal, harga_normal: hargaNormal, qty: 1 });
-        updateCartDisplay();
-    }
-
-    function updateCartDisplay() {
-        const count = shopCart.reduce((total, item) => total + item.qty, 0);
-        document.getElementById('cart-count').innerText = count;
-        localStorage.setItem('finexcart', JSON.stringify(shopCart));
-    }
-
-    function renderCart() {
-        const container = document.getElementById('cartList');
-        let total = 0;
-        if (shopCart.length === 0) {
-            container.innerHTML = `<p class="text-center text-slate-300 py-10 italic">Bag kamu kosong 🌸</p>`;
-            document.getElementById('cart-total-modal').innerText = "Rp 0";
-            return;
+        async function loadOnlineMenu() {
+            const q = document.getElementById('search').value;
+            let query = db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true);
+            if (q) query = query.ilike('nama_barang', `%${q}%`);
+            const { data } = await query.order('nama_barang');
+            const display = document.getElementById('onlineDisplay');
+            if (!data) return;
+            
+            display.innerHTML = data.map(p => {
+                const pr = getActivePrice(p);
+                return `
+                <div class="product-card" onclick="openDetail('${p.id}', '${p.nama_barang}', ${pr.price}, ${pr.normal}, '${p.image_url}', '${p.keterangan || ''}', '${p.image_url_2}', '${p.image_url_3}')">
+                    ${pr.isDiscount ? `<div class="badge-diskon">PROMO ✨</div>` : ''}
+                    <div class="img-container"><img src="${p.image_url || 'https://placehold.co/300'}"></div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-slate-700 text-[10px] truncate uppercase">${p.nama_barang}</h4>
+                        <p class="font-black text-[#ff85a2] text-xs mt-1">Rp ${pr.price.toLocaleString()}</p>
+                    </div>
+                </div>`;
+            }).join('');
         }
-        container.innerHTML = shopCart.map((item, index) => {
-            total += (item.harga * item.qty);
-            return `
-            <div class="flex items-center gap-4 bg-pink-50/30 p-3 rounded-2xl border border-pink-50">
-                <div class="flex-1"><h4 class="font-bold text-slate-800 text-[11px] truncate uppercase">${item.nama}</h4><p class="text-pink-500 font-black text-[10px]">Rp ${item.harga.toLocaleString()}</p></div>
-                <div class="flex items-center gap-3 bg-white px-3 py-1 rounded-xl shadow-sm">
-                    <button onclick="updateQty(${index}, -1)" class="text-pink-400 font-bold">-</button>
-                    <span class="text-xs font-black text-slate-700">${item.qty}</span>
-                    <button onclick="updateQty(${index}, 1)" class="text-pink-400 font-bold">+</button>
-                </div>
-            </div>`;
-        }).join('');
-        document.getElementById('cart-total-modal').innerText = "Rp " + total.toLocaleString();
-    }
 
-    function updateQty(index, change) {
-        shopCart[index].qty += change;
-        if (shopCart[index].qty <= 0) shopCart.splice(index, 1);
-        updateCartDisplay();
-        renderCart();
-    }
+        function getActivePrice(p) {
+            let basePrice = (p.harga_online > 0) ? p.harga_online : p.harga_jual;
+            const skrg = new Date().getTime();
+            const active = p.is_diskon && (!p.diskon_akhir || skrg <= new Date(p.diskon_akhir).getTime());
+            return { price: active ? basePrice - (p.nominal_diskon || 0) : basePrice, isDiscount: active, normal: basePrice };
+        }
 
-   function goToCheckout(mode = 'VIEW') {
-    if (shopCart.length > 0) {
-        if (mode === 'PROSES') {
-            // Jika mode PROSES, langsung pindah halaman
-            window.location.href = "online-checkout.html";
-        } else {
-            // Jika mode VIEW (default), tampilkan modal keranjang
+        function openDetail(id, nama, harga, hargaNormal, img, desc, img2, img3) {
+            const slider = document.getElementById('image-slider');
+            const images = [img, img2, img3].filter(url => url && url !== 'null' && url !== '');
+            slider.innerHTML = images.map(url => `<div class="min-w-full h-full snap-center flex-shrink-0"><img src="${url}" class="w-full h-full object-cover"></div>`).join('');
+            
+            document.getElementById('detail-name').innerText = nama;
+            document.getElementById('detail-price').innerText = "Rp " + harga.toLocaleString();
+            document.getElementById('detail-desc').innerText = desc || 'Produk kecantikan terbaik untukmu.';
+            document.getElementById('btn-add-modal').onclick = () => { addToOnlineCart(id, nama, harga, hargaNormal); closeAllModals(); };
+            
+            document.getElementById('productDetailModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function addToOnlineCart(id, nama, hargaFinal, hargaNormal) {
+            const idx = shopCart.findIndex(c => c.id === id);
+            if (idx > -1) shopCart[idx].qty++;
+            else shopCart.push({ id, nama, harga: hargaFinal, harga_normal: hargaNormal, qty: 1 });
+            updateCartDisplay();
+        }
+
+        function updateCartDisplay() {
+            const count = shopCart.reduce((total, item) => total + item.qty, 0);
+            document.getElementById('cart-count').innerText = count;
+            localStorage.setItem('finexcart', JSON.stringify(shopCart));
+        }
+
+        function goToCheckout(mode = 'VIEW') {
+            if (shopCart.length === 0 && mode === 'PROSES') return alert("Pilih produk dulu! 🌸");
+            if (mode === 'PROSES') return window.location.href = "online-checkout.html";
+            
             renderCart();
             document.getElementById('cartModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
         }
-    } else {
-        alert("Pilih Produk dulu ya Kak! 🌸");
-    }
-}
 
-    // LOGIKA PROFIL
-    function openProfile() {
-        if (!userData) return;
-        document.getElementById('p-name').innerText = userData.full_name;
-        document.getElementById('p-email').innerText = userData.email;
-        document.getElementById('profileModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-
-    async function logoutCustomer() {
-        if (confirm("Keluar akun?")) {
-            await db.auth.signOut();
-            localStorage.removeItem('finexcart');
-            window.location.replace('login-customer.html');
-        }
-    }
-
-    // LOGIKA SALDO & WALLET
-    function toggleWallet() { document.getElementById('walletModal').classList.toggle('active'); document.getElementById('modalOverlay').classList.toggle('active'); }
-    
-    async function requestTopUp() {
-        const nom = prompt("Nominal Top Up (Min Rp 10.000):", "50000");
-        if (!nom || nom < 10000) return alert("Min Rp 10.000");
-        const inv = "TOPUP-" + Date.now();
-        await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: parseInt(nom), status: 'PENDING' }]);
-        try {
-            const res = await fetch("https://uojhjskgugghwxtdsfvm.supabase.co/functions/v1/smart-endpoint", {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: inv, amount: parseInt(nom), customer_name: userData.full_name, customer_email: userData.email })
-            });
-            const d = await res.json();
-            if (d.token) window.snap.pay(d.token, { onSuccess: () => location.reload() });
-        } catch (e) { alert("Sibuk."); }
-    }
-
-   async function requestWithdraw() {
-    // 1. Cek saldo minimal
-    if (userData.saldo < 10000) {
-        return alert("Saldo minimal untuk penarikan adalah Rp 10.000 🌸");
-    }
-
-    // 2. Input Data Nominal
-    const amount = prompt(`Berapa saldo yang ingin ditarik?\n(Maksimal: Rp ${userData.saldo.toLocaleString()})`, userData.saldo);
-    if (!amount || isNaN(amount) || amount > userData.saldo || amount < 10000) {
-        return alert("Nominal tidak valid atau saldo tidak cukup.");
-    }
-
-    // 3. Input Data Rekening
-    const bank = prompt("Nama Bank (Contoh: BCA / Dana / Mandiri):");
-    if (!bank) return;
-    const noRek = prompt("Nomor Rekening / Nomor HP:");
-    if (!noRek) return;
-    const an = prompt("Nama Pemilik Rekening (Atas Nama):");
-    if (!an) return;
-
-    const inv = "WD-" + Date.now();
-
-    // 4. Simpan ke Database
-    const { error } = await db.from('withdraw_requests').insert([{
-        no_invoice: inv,
-        customer_id: userData.id,
-        nominal: parseInt(amount),
-        bank_name: bank,
-        account_number: noRek,
-        account_name: an,
-        status: 'PENDING'
-    }]);
-
-    if (!error) {
-        // 5. FORMAT PESAN WA SESUAI PERMINTAAN KAMU
-        const pesan = `Halo Admin Beauty Bloom! 🌸%0A%0ASaya ingin *TARIK SALDO*%0ANo Ref: ${inv}%0ANama: ${userData.full_name}%0ANominal: *Rp ${parseInt(amount).toLocaleString()}*%0A%0A*Tujuan Transfer:*%0ABank: ${bank}%0ANo Rek: ${noRek}%0AA/n: ${an}%0A%0AMohon segera diproses ya, terima kasih! ✨`;
-        
-        // Membuka WhatsApp
-        window.open(`https://wa.me/6281239739396?text=${pesan}`, '_blank');
-        
-        alert("Permintaan penarikan berhasil dikirim! 🌸");
-        location.reload(); 
-    } else {
-        alert("Gagal mengirim permintaan ke sistem.");
-        console.error(error);
-    }
-}
-    async function loadWalletHistory(userId) {
-        const { data: t } = await db.from('topup_history').select('*').eq('customer_id', userId);
-        const { data: w } = await db.from('withdraw_requests').select('*').eq('customer_id', userId);
-        let combined = [];
-        if (t) combined.push(...t.map(i => ({ ...i, jenis: 'ISI SALDO' })));
-        if (w) combined.push(...w.map(i => ({ ...i, jenis: 'PENARIKAN' })));
-        combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        const container = document.getElementById('walletHistory');
-        if (combined.length > 0) {
-            container.innerHTML = combined.slice(0, 10).map(h => {
-                let color = h.status === 'SUCCESS' ? 'text-green-500' : (h.status === 'PENDING' ? 'text-orange-400' : 'text-red-500');
-                let simbol = h.jenis === 'ISI SALDO' ? '+' : '-';
-                return `
-                <div class="bg-white border border-slate-50 p-4 rounded-2xl text-[10px] mb-2">
-                    <div class="flex justify-between items-start">
-                        <div><p class="font-black text-slate-800 uppercase">${h.no_invoice}</p><p class="text-slate-400">${new Date(h.created_at).toLocaleDateString()} • ${h.jenis}</p></div>
-                        <div class="text-right"><p class="font-black">${simbol} Rp ${h.nominal.toLocaleString()}</p><p class="font-bold uppercase ${color}" style="font-size: 8px;">${h.status}</p></div>
+        function renderCart() {
+            const container = document.getElementById('cartList');
+            let total = 0;
+            container.innerHTML = shopCart.map((item, index) => {
+                total += (item.harga * item.qty);
+                return `<div class="flex items-center gap-4 bg-slate-50 p-4 rounded-[22px]">
+                    <div class="flex-1"><h4 class="font-bold text-slate-800 text-[10px] uppercase">${item.nama}</h4><p class="text-pink-500 font-black text-xs">Rp ${item.harga.toLocaleString()}</p></div>
+                    <div class="flex items-center gap-3 bg-white px-3 py-1 rounded-xl shadow-sm">
+                        <button onclick="updateQty(${index}, -1)" class="text-pink-400 font-bold">-</button>
+                        <span class="text-xs font-black">${item.qty}</span>
+                        <button onclick="updateQty(${index}, 1)" class="text-pink-400 font-bold">+</button>
                     </div>
                 </div>`;
-            }).join('');
-        } else container.innerHTML = `<p class="text-center text-slate-300 py-5 italic text-[10px]">Kosong 🌸</p>`;
-    }
-
-  // 1. Fungsi untuk Pesanan yang MASIH PROSES (Tombol Navigasi Bawah)
-async function openActivity() {
-    const { data } = await db.from('transaksi_online')
-        .select('*')
-        .eq('customer_id', userData.id)
-        .order('created_at', { ascending: false });
-
-    const container = document.getElementById('activityList');
-    
-    // Filter hanya status yang BELUM selesai/batal
-    const activeOrders = data ? data.filter(trx => !['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
-
-    if (activeOrders.length > 0) {
-        container.innerHTML = renderOrderCards(activeOrders);
-    } else {
-        container.innerHTML = `
-            <div class="text-center py-10">
-                <div class="text-4xl mb-4">✨</div>
-                <p class="italic text-slate-400 text-xs font-bold">Semua pesanan sudah selesai.<br>Ayo belanja lagi!</p>
-            </div>`;
-    }
-    
-    document.getElementById('activityModal').classList.add('active');
-    document.getElementById('modalOverlay').classList.add('active');
-}
-
-// 2. Fungsi untuk RIWAYAT (Selesai & Batal)
-async function openHistory() {
-    const { data } = await db.from('transaksi_online')
-        .select('*')
-        .eq('customer_id', userData.id)
-        .order('created_at', { ascending: false });
-
-    const container = document.getElementById('historyList');
-    
-    // Filter hanya status Selesai atau Dibatalkan
-    const historyOrders = data ? data.filter(trx => ['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
-
-    if (historyOrders.length > 0) {
-        container.innerHTML = renderOrderCards(historyOrders);
-    } else {
-        container.innerHTML = `<p class="text-center py-10 italic text-slate-400 text-xs">Belum ada riwayat pesanan 🌸</p>`;
-    }
-
-    closeAllModals(); // Tutup profil modal dulu
-    setTimeout(() => {
-        document.getElementById('historyModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }, 100);
-}
-
-// 3. Helper Fungsi untuk Render Kartu (Agar kode tidak duplikat)
-function renderOrderCards(orders) {
-    return orders.map(trx => {
-        const s = (trx.status_order || 'pending');
-        const sLower = s.toLowerCase();
-        const str = JSON.stringify(trx).replace(/'/g, "&apos;");
-        const btnB = sLower === 'pending' ? `<button onclick="cancelOrder('${trx.id}', '${trx.no_invoice}')" class="text-[9px] font-bold text-red-400 border border-red-100 px-3 py-2 rounded-xl">Batal</button>` : '';
-        
-        return `
-        <div class="bg-white border border-pink-50 p-5 rounded-[25px] shadow-sm mb-4 text-xs">
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <p class="font-black text-pink-300 uppercase">${trx.no_invoice}</p>
-                    <p class="text-slate-400 text-[10px] font-bold">${new Date(trx.created_at).toLocaleDateString()}</p>
-                </div>
-                <span class="status-badge status-${sLower}">${s}</span>
-            </div>
-            <div class="flex justify-between items-end border-t border-dashed border-pink-100 pt-3">
-                <p class="font-black text-slate-800">Rp ${parseFloat(trx.grand_total).toLocaleString()}</p>
-                <div class="flex gap-2">
-                    ${btnB}
-                    <button onclick='viewDetailTrx(${str})' class="bg-slate-900 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-widest">Detail</button>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-// Tambahkan CSS status khusus untuk "Selesai" di dalam <style> jika belum ada
-// .status-selesai { background: #dcfce7; color: #16a34a; }
-
-function closeAllModals() {
-    const modals = [
-        'cartModal', 'profileModal', 'walletModal', 
-        'activityModal', 'trxDetailModal', 'productDetailModal', 
-        'modalOverlay', 'historyModal' // Tambahkan historyModal di sini
-    ];
-    modals.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('active');
-    });
-}
-    
-async function viewDetailTrx(trx) {
-    activeTrx = trx;
-    
-    // 1. Tampilkan status pengecekan live
-    document.getElementById('v-status').innerText = "MENGECEK PEMBAYARAN... ✨";
-    document.getElementById('v-invoice').innerText = trx.no_invoice;
-    document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total || 0).toLocaleString();
-
-    // 2. LOGIKA CEK STATUS LIVE KE SMART-ENDPOINT
-    if (trx.status_order.toUpperCase() === 'PENDING') {
-        try {
-            const { data: sync, error } = await db.functions.invoke('smart-endpoint', {
-                body: { 
-                    action: 'check_status', 
-                    order_id: trx.no_invoice 
-                }
-            });
-
-            // FIX: Cek status 'settlement' atau 'capture' (Ini standar dari Midtrans)
-            if (sync && (sync.status === 'settlement' || sync.status === 'capture')) {
-                
-                // --- KUNCI: UPDATE DATABASE JADI 'Dikemas' ---
-                const { error: dbError } = await db.from('transaksi_online')
-                    .update({ status_order: 'Dikemas' })
-                    .eq('no_invoice', trx.no_invoice);
-
-                if (!dbError) {
-                    trx.status_order = 'Dikemas'; // Ubah tampilan lokal agar customer senang
-                    console.log("Database updated: Dikemas");
-                }
-            } 
-            // JIKA EXPIRED
-            else if (sync && sync.status === 'expire') {
-                await db.from('transaksi_online')
-                    .update({ status_order: 'Dibatalkan' })
-                    .eq('no_invoice', trx.no_invoice);
-                trx.status_order = 'Dibatalkan';
-            }
-        } catch (e) {
-            console.log("Belum ada dana masuk di Midtrans.");
+            }).join('') || '<p class="text-center text-slate-300 py-10 italic text-xs uppercase font-bold">Bag Kosong 🌸</p>';
+            document.getElementById('cart-total-modal').innerText = "Rp " + total.toLocaleString();
         }
-    }
 
-    // 3. Render Status Akhir ke Layar (Gunakan huruf kapital agar rapi)
-    document.getElementById('v-status').innerText = trx.status_order.toUpperCase();
-    
-    // 4. Render Item Produk
-    const container = document.getElementById('v-items');
-    let items = [];
-    try {
-        items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
-    } catch (e) { console.error("Data produk tidak terbaca"); }
-
-    if (items && Array.isArray(items)) {
-        container.innerHTML = items.map(it => `
-            <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2 text-[11px]">
-                <div class="flex-1 font-bold text-slate-700">${it.nama || it.nama_barang || it.name} (${it.qty}x)</div>
-                <p class="font-bold text-slate-800">Rp ${(it.qty * (it.harga || 0)).toLocaleString()}</p>
-            </div>`).join('');
-    } else {
-        container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
-    }
-
-    // 5. LOGIKA TOMBOL WA
-    const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
-    btnWA.style.display = "flex"; 
-
-    const statusSekarang = trx.status_order; // Tidak perlu UpperCase di sini untuk perbandingan string tepat
-    if (statusSekarang === 'Dikemas' || statusSekarang === 'SUDAH BAYAR') {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
-        btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else if (statusSekarang === 'Dibatalkan' || statusSekarang === 'DIBATALKAN') {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
-        btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    } else {
-        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI BAYAR';
-        btnWA.className = "flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
-    }
-
-    document.getElementById('trxDetailModal').classList.add('active');
-    document.getElementById('modalOverlay').classList.add('active');
-}
-// 2. FUNGSI BATAL PESANAN DENGAN ALASAN & WA
-async function cancelOrder(id, inv) {
-    const alasan = prompt("Mohon maaf admin pesanan saya sudah saya batalkan dengan alasan:");
-    
-    if (alasan !== null && alasan !== "") {
-        const { error } = await db.from('transaksi_online')
-            .update({ status_order: 'Dibatalkan' })
-            .eq('id', id);
-
-        if (!error) {
-            const pesanBatal = `Halo Admin Beauty Bloom! 🌸%0A%0AMohon maaf admin, pesanan saya dengan nomor *${inv}* sudah saya *BATALKAN*.%0A%0A*Alasan:* ${alasan}%0A%0AMohon maaf atas ketidaknyamanannya, terima kasih. 🙏`;
-            window.open(`https://wa.me/6281239739396?text=${pesanBatal}`, '_blank');
-            
-            alert("Pesanan berhasil dibatalkan 🌸");
-            openActivity(); 
-        } else {
-            alert("Gagal membatalkan pesanan di database.");
+        function updateQty(index, change) {
+            shopCart[index].qty += change;
+            if (shopCart[index].qty <= 0) shopCart.splice(index, 1);
+            updateCartDisplay();
+            renderCart();
         }
-    } else if (alasan === "") {
-        alert("Alasan harus diisi ya cantik! 😊");
-    }
-}
 
-function confirmToAdmin() {
-    if (!activeTrx) return;
-    
-    let pesanWA = "";
-    const noInv = activeTrx.no_invoice;
-    const total = parseFloat(activeTrx.grand_total || 0).toLocaleString();
+        function openActivity() {
+            document.getElementById('activityModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+            // Logika load data pesanan aktif bisa ditaruh di sini
+        }
 
-    if (activeTrx.status_order === 'Dikemas' || activeTrx.status_order === 'Sudah Bayar') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya sudah membayar pesanan *${noInv}*%0AMohon segera diproses  ya kak! ✨`;
-    } else if (activeTrx.status_order === 'Dibatalkan') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin bertanya mengenai pesanan *${noInv}* yang berstatus *DIBATALKAN*. Mohon informasinya ya kak. 🙏`;
-    } else if (activeTrx.status_order === 'Selesai') {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0APesanan *${noInv}* sudah saya terima. Terima kasih ya kak! ✨`;
-    } else {
-        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin konfirmasi pesanan *${noInv}* (Rp ${total}). Mohon instruksi pembayarannya kak. ✨`;
-    }
-
-    window.open(`https://wa.me/6281239739396?text=${pesanWA}`, '_blank');
-}
-    function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
-</script>
+        function closeAllModals() {
+            document.querySelectorAll('.side-modal, .activity-modal, .detail-modal').forEach(m => m.classList.remove('active'));
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+    </script>
 </body>
 </html>
