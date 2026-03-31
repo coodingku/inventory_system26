@@ -16,6 +16,8 @@
         .gradient-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); }
         .menu-card { background: white; border-radius: 20px; transition: all 0.2s; border: 1px solid #ff85a210; }
         .sticky-menu-container { position: sticky; top: 0; z-index: 100; background-color: #fff0f3; padding: 15px 0; border-bottom: 1px solid #ff85a220; }
+        
+        /* MODAL ANIMATION */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
         .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s ease; padding: 30px; border-radius: 40px 0 0 40px; }
@@ -24,8 +26,8 @@
         .activity-modal.active { bottom: 0; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* SLIDER STYLE FIXED */
-        .slider-wrapper { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; border-radius: 20px; }
+        /* SLIDER STYLE */
+        .slider-wrapper { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; border-radius: 25px; }
         .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; display: none; }
         .slide-item.active { opacity: 1; z-index: 10; display: block; }
         .slide-item img { width: 100%; height: 100%; object-fit: cover; }
@@ -105,16 +107,44 @@
         <div id="reward-section"></div>
     </div>
 
+    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
+
     <div id="activityModal" class="activity-modal">
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
         <div class="px-6 pb-10">
-            <h2 class="text-xl font-black text-slate-800 mb-2 text-center italic uppercase">Pesanan Aktif 🚚</h2>
+            <h2 class="text-xl font-black text-slate-800 mb-2 text-center italic uppercase tracking-tighter">Lacak Pesanan 🚚</h2>
             <div id="activityList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-4"></div>
-            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-[10px] uppercase font-black">Tutup</button>
+            <button onclick="closeAllModals()" class="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-black rounded-2xl text-[10px] uppercase italic">Tutup</button>
         </div>
     </div>
 
-    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
+    <div id="trxDetailModal" class="activity-modal">
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4"></div>
+        <div class="px-6 pb-10">
+            <div class="text-center mb-6">
+                <h3 class="text-lg font-black text-slate-800 italic uppercase">Rincian Belanja 🛍️</h3>
+                <p id="v-invoice" class="text-[10px] font-bold text-pink-500 uppercase tracking-widest"></p>
+            </div>
+            <div id="v-items" class="space-y-3 mb-6 max-h-60 overflow-y-auto no-scrollbar pr-2"></div>
+            <div class="bg-pink-50 rounded-3xl p-5 mb-6 text-sm border border-pink-100">
+                <div class="flex justify-between mb-2 text-xs">
+                    <span class="text-slate-400 font-bold uppercase">Status:</span>
+                    <span id="v-status" class="font-black text-pink-600 italic uppercase tracking-tighter"></span>
+                </div>
+                <div class="flex justify-between pt-3 border-t border-pink-200">
+                    <span class="font-bold text-slate-700 uppercase text-[10px]">Total Bayar:</span>
+                    <span id="v-total" class="font-black text-pink-600 text-lg"></span>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="confirmToAdmin()" class="flex-[2] py-4 bg-[#25D366] text-white rounded-2xl font-black text-[10px] shadow-lg flex items-center justify-center gap-2">
+                    <i class="fab fa-whatsapp text-lg"></i> KONFIRMASI WA
+                </button>
+                <button onclick="closeDetailModal()" class="flex-1 py-4 bg-slate-100 text-slate-400 font-black rounded-2xl text-[10px]">KEMBALI</button>
+            </div>
+        </div>
+    </div>
+
     <div id="profileModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
             <h2 class="text-xl font-black text-slate-800 italic">Profil Member ✨</h2>
@@ -129,18 +159,23 @@
             <span><i class="fa-solid fa-clock-rotate-left mr-2 text-pink-400"></i> Riwayat Selesai</span>
             <i class="fa-solid fa-chevron-right text-[8px]"></i>
         </button>
-        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase flex justify-center items-center gap-3"><i class="fa-solid fa-power-off"></i> Keluar Akun</button>
+        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase flex justify-center items-center gap-3">
+            <i class="fa-solid fa-power-off"></i> Keluar Akun
+        </button>
     </div>
 
-    <div id="historyModal" class="activity-modal px-6">
-        <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto my-5"></div>
-        <h2 class="text-lg font-black text-slate-800 mb-6 text-center italic uppercase">Riwayat Selesai 🌸</h2>
-        <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-2"></div>
+    <div id="walletModal" class="side-modal no-scrollbar overflow-y-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-black text-slate-800 italic">Mutasi Saldo 💎</h2>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
+        </div>
+        <div id="walletHistory" class="space-y-3"></div>
     </div>
 
     <script>
         let userData = null;
         let currentSlide = 0;
+        let currentSelectedTrx = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await db.auth.getSession();
@@ -149,36 +184,47 @@
             await loadDynamicAds();
         });
 
-        // --- FUNGSI LOAD DATA ---
+        // --- LOAD DATA & REWARD ---
         async function loadCustomerData(userId) {
             const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
             if (customer) {
                 userData = customer;
                 document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
                 document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
+                renderRewardProgress(customer);
                 loadWalletHistory(userId);
             }
         }
 
-        // --- FUNGSI IKLAN (FIXED) ---
+        function renderRewardProgress(profile) {
+            const container = document.getElementById('reward-section');
+            const target = 5; 
+            const count = profile.total_order_count || 0;
+            const progress = ((count % target) / target) * 100;
+            container.innerHTML = `
+                <div class="bg-white p-5 rounded-[28px] border-2 border-pink-50 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] font-black text-slate-400 uppercase">Progres Member ✨</span>
+                        <span class="text-[10px] font-black text-pink-500">${count % target}/${target}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div class="gradient-pink h-full transition-all duration-1000" style="width: ${progress}%"></div>
+                    </div>
+                </div>`;
+        }
+
+        // --- IKLAN SLIDER ---
         async function loadDynamicAds() {
             const slider = document.getElementById('promo-slider');
             const dots = document.getElementById('promo-dots');
             const { data: setting } = await db.from('app_settings').select('value_text, is_active').eq('key_name', 'dashboard_banners').single();
-            
             if (!setting || !setting.is_active || !setting.value_text) return;
-
             try {
                 const images = JSON.parse(setting.value_text);
-                slider.innerHTML = images.map((url, i) => `
-                    <div class="slide-item ${i === 0 ? 'active' : ''}">
-                        <img src="${url}" class="w-full h-full object-cover">
-                    </div>`).join('');
-                
+                slider.innerHTML = images.map((url, i) => `<div class="slide-item ${i === 0 ? 'active' : ''}"><img src="${url}"></div>`).join('');
                 dots.innerHTML = images.map((_, i) => `<div class="dot-ad ${i === 0 ? 'active' : ''}"></div>`).join('');
-
                 if (images.length > 1) startAutoSlide(images.length);
-            } catch (e) { console.error("Banner Error:", e); }
+            } catch (e) { console.error("Banner Error", e); }
         }
 
         function startAutoSlide(total) {
@@ -194,80 +240,88 @@
             }, 5000);
         }
 
-        // --- FUNGSI LACAK PESANAN & PEMBATALAN ---
+        // --- LACAK & DETAIL ---
         async function openActivity() {
-            const { data } = await db.from('transaksi_online').select('*')
-                .eq('customer_id', userData.id)
-                .not('status_order', 'in', '("Selesai","Dibatalkan")')
-                .order('created_at', { ascending: false });
-
+            const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id)
+                .not('status_order', 'in', '("Selesai","Dibatalkan")').order('created_at', { ascending: false });
             const container = document.getElementById('activityList');
-            container.innerHTML = (data && data.length > 0) ? renderOrderCards(data) : `<p class="text-center py-10 italic text-slate-400 text-[10px] font-black uppercase">Belum ada pesanan aktif 🌸</p>`;
-            
+            container.innerHTML = (data && data.length > 0) ? data.map(t => {
+                const canCancel = t.status_order === 'Pending' || t.status_order === 'Menunggu Pembayaran';
+                return `
+                    <div class="p-5 bg-white rounded-[28px] border border-slate-100 shadow-sm mb-4">
+                        <div class="flex justify-between mb-3 text-xs">
+                            <span class="font-black text-pink-500 bg-pink-50 px-2 py-1 rounded-lg uppercase">${t.no_invoice}</span>
+                            <span class="font-black italic text-slate-800">Rp ${t.grand_total.toLocaleString()}</span>
+                        </div>
+                        <h4 class="font-black text-slate-800 uppercase italic text-[11px] mb-4 tracking-tighter">${t.status_order}</h4>
+                        <div class="flex gap-2">
+                            <button onclick='viewDetailTrx(${JSON.stringify(t)})' class="flex-[2] py-3.5 bg-slate-800 text-white text-[9px] font-black uppercase rounded-2xl active:scale-95">Lihat Rincian</button>
+                            ${canCancel ? `<button onclick="cancelOrder('${t.id}', '${t.no_invoice}', ${t.grand_total}, '${t.metode_pembayaran}')" class="flex-1 py-3.5 bg-red-50 text-red-500 text-[9px] font-black uppercase rounded-2xl">Batal</button>` : ''}
+                        </div>
+                    </div>`;
+            }).join('') : `<p class="text-center py-10 italic text-slate-400 text-[10px] font-black uppercase">Belum ada pesanan aktif 🌸</p>`;
             document.getElementById('activityModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
         }
 
-        function renderOrderCards(data) {
-            return data.map(t => {
-                const canCancel = t.status_order === 'Pending' || t.status_order === 'Menunggu Pembayaran';
-                return `
-                    <div class="p-5 bg-white rounded-[25px] border border-slate-100 shadow-sm mb-2">
-                        <div class="flex justify-between mb-4">
-                            <div>
-                                <p class="text-[8px] font-black text-pink-400 bg-pink-50 px-2 py-1 rounded-full uppercase italic leading-none">${t.no_invoice}</p>
-                                <h4 class="font-black text-slate-800 italic uppercase text-[11px] mt-2">${t.status_order}</h4>
-                            </div>
-                            <div class="text-right font-black italic text-slate-800 text-[11px]">Rp ${t.grand_total.toLocaleString()}</div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick='viewDetailTrx(${JSON.stringify(t)})' class="flex-[2] py-3.5 bg-slate-800 text-white text-[9px] font-black uppercase rounded-2xl active:scale-95 transition-all">Detail</button>
-                            ${canCancel ? `<button onclick="cancelOrder('${t.id}', '${t.no_invoice}', ${t.grand_total}, '${t.metode_pembayaran}')" class="flex-1 py-3.5 bg-red-50 text-red-500 text-[9px] font-black uppercase rounded-2xl border border-red-100">Batal</button>` : ''}
-                        </div>
-                    </div>`;
-            }).join('');
+        function viewDetailTrx(t) {
+            currentSelectedTrx = t;
+            document.getElementById('v-invoice').innerText = t.no_invoice;
+            document.getElementById('v-status').innerText = t.status_order;
+            document.getElementById('v-total').innerText = "Rp " + t.grand_total.toLocaleString();
+            const items = JSON.parse(t.items_json || '[]');
+            document.getElementById('v-items').innerHTML = items.map(item => `
+                <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-800 uppercase italic">${item.nama_produk}</p>
+                        <p class="text-[9px] text-slate-400 font-bold">${item.qty} x Rp ${item.harga.toLocaleString()}</p>
+                    </div>
+                    <p class="text-[10px] font-black text-slate-800 italic">Rp ${(item.qty * item.harga).toLocaleString()}</p>
+                </div>`).join('');
+            document.getElementById('trxDetailModal').classList.add('active');
         }
 
-        async function cancelOrder(orderId, noInvoice, amount, method) {
-            if (!confirm(`Batalkan pesanan ${noInvoice}?`)) return;
-
+        async function cancelOrder(id, invoice, amount, method) {
+            if (!confirm(`Batalkan ${invoice}?`)) return;
             try {
-                // 1. Update Status
-                const { error } = await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', orderId);
-                if (error) throw error;
-
-                // 2. Refund Otomatis jika pakai Saldo
+                await db.from('transaksi_online').update({ status_order: 'Dibatalkan' }).eq('id', id);
                 if (method.includes('Saldo') || method.includes('Wallet')) {
                     const newSaldo = (userData.saldo || 0) + amount;
                     await db.from('customers').update({ saldo: newSaldo }).eq('id', userData.id);
-                    // Catat mutasi refund
-                    await db.from('topup_history').insert([{
-                        customer_id: userData.id,
-                        nominal: amount,
-                        no_invoice: 'REFUND-' + noInvoice,
-                        metode: 'SISTEM'
-                    }]);
+                    await db.from('topup_history').insert([{ customer_id: userData.id, nominal: amount, no_invoice: 'REFUND-'+invoice, metode: 'SISTEM' }]);
                 }
-
-                alert(`Pesanan ${noInvoice} berhasil dibatalkan.`);
+                alert("Berhasil dibatalkan!");
                 await loadCustomerData(userData.id);
                 openActivity();
-            } catch (err) { alert("Gagal memproses pembatalan."); }
+            } catch (e) { alert("Gagal!"); }
         }
 
-        // --- FUNGSI PENDUKUNG LAINNYA ---
-        function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
-        
-        async function openHistory() {
-            const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).in('status_order', ['Selesai', 'Dibatalkan']).order('created_at', { ascending: false });
-            document.getElementById('historyList').innerHTML = (data && data.length > 0) ? renderOrderCards(data) : `<p class="text-center py-10 italic text-slate-400 text-[10px] font-black uppercase">Riwayat Kosong 🌸</p>`;
-            closeAllModals();
-            setTimeout(() => { document.getElementById('historyModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }, 200);
+        // --- KONFIRMASI WA ---
+        function confirmToAdmin() {
+            if(!currentSelectedTrx) return;
+            const msg = `Halo Admin Beauty Bloom, konfirmasi pesanan:\nInvoice: *${currentSelectedTrx.no_invoice}*\nStatus: *${currentSelectedTrx.status_order}*\nTotal: *Rp ${currentSelectedTrx.grand_total.toLocaleString()}*`;
+            window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(msg)}`);
         }
 
-        function viewDetailTrx(t) { alert(`Invoice: ${t.no_invoice}\nStatus: ${t.status_order}\nTotal: Rp ${t.grand_total.toLocaleString()}`); }
+        // --- MODAL & LOGOUT ---
+        function closeAllModals() { document.querySelectorAll('.activity-modal, .side-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
+        function closeDetailModal() { document.getElementById('trxDetailModal').classList.remove('active'); }
+        function toggleWallet() { closeAllModals(); document.getElementById('walletModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
+        function openProfile() { document.getElementById('p-name').innerText = userData.full_name; document.getElementById('p-email').innerText = userData.email; document.getElementById('profileModal').classList.add('active'); document.getElementById('modalOverlay').classList.add('active'); }
         
-        // Tambahkan fungsi logout & wallet history sesuai kode asli Anda...
+        async function loadWalletHistory(userId) {
+            const { data: t } = await db.from('topup_history').select('*').eq('customer_id', userId);
+            const { data: w } = await db.from('withdraw_requests').select('*').eq('customer_id', userId);
+            let combined = [...(t || []).map(i => ({...i, jenis: 'MASUK'})), ...(w || []).map(i => ({...i, jenis: 'KELUAR'}))];
+            combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            document.getElementById('walletHistory').innerHTML = combined.map(h => `
+                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center mb-2">
+                    <div><p class="font-black text-slate-800 text-[10px] italic">${h.no_invoice}</p><p class="text-[8px] text-slate-400 font-bold uppercase">${h.jenis}</p></div>
+                    <p class="font-black italic text-[11px] ${h.jenis === 'MASUK' ? 'text-green-500' : 'text-red-500'}">Rp ${h.nominal.toLocaleString()}</p>
+                </div>`).join('');
+        }
+
+        async function logoutCustomer() { if (confirm("Keluar?")) { await db.auth.signOut(); window.location.replace('login-customer.html'); } }
     </script>
 </body>
 </html>
