@@ -12,29 +12,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; overflow-x: hidden; padding-bottom: 40px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; overflow-x: hidden; padding-bottom: 20px; }
         .gradient-pink { background: linear-gradient(135deg, #ff85a2 0%, #f72585 100%); }
-        .menu-action-card { background: white; border-radius: 24px; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px solid #ff85a215; transition: all 0.2s; box-shadow: 0 4px 15px rgba(247, 37, 133, 0.05); }
+        
+        /* Menu Card Style */
+        .menu-action-card { background: white; border-radius: 24px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px solid #ff85a215; transition: all 0.2s; box-shadow: 0 4px 12px rgba(247, 37, 133, 0.04); }
         .menu-action-card:active { scale: 0.95; background: #fff9fa; }
         
-        /* MODAL SYSTEM */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; z-index: 999; }
+        /* Modal System */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: none; z-index: 999; }
         .modal-overlay.active { display: block; }
-        .side-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: white; z-index: 1000; transition: 0.4s ease; padding: 30px; border-radius: 40px 0 0 40px; }
+        .side-modal { position: fixed; top: 0; right: -100%; width: 85%; max-width: 350px; height: 100%; background: white; z-index: 1000; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 30px; border-radius: 40px 0 0 40px; }
         .side-modal.active { right: 0; }
-        .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s; padding-bottom: 40px; }
+        .activity-modal { position: fixed; bottom: -100%; left: 0; right: 0; background: white; z-index: 1000; border-radius: 35px 35px 0 0; transition: bottom 0.4s ease; padding-bottom: 30px; max-height: 85vh; display: flex; flex-direction: column; }
         .activity-modal.active { bottom: 0; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* SLIDER */
-        .slider-wrapper { position: relative; width: 100vw; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; border-radius: 40px 40px 0 0; margin-top: 20px; }
-        .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; display: none; }
+        /* Slider Full Width */
+        .slider-wrapper { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: #fff; border-radius: 40px; margin-top: 10px; }
+        .slide-item { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s ease; display: none; }
         .slide-item.active { opacity: 1; z-index: 10; display: block; }
         .slide-item img { width: 100%; height: 100%; object-fit: cover; }
-        .dots-container { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 6px; z-index: 20; }
-        .dot-ad { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: all 0.3s; }
-        .dot-ad.active { background: #f72585; width: 18px; border-radius: 10px; }
+        .dots-container { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: center; gap: 6px; z-index: 20; }
+        .dot-ad { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); transition: all 0.3s; }
+        .dot-ad.active { background: white; width: 20px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -42,10 +44,10 @@
     <header class="p-6 pb-2">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <p class="text-[9px] font-black text-pink-500 uppercase tracking-widest italic">Member Area ✨</p>
+                <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest italic">Halo Cantik ✨</p>
                 <h1 id="user-name" class="text-xl font-extrabold text-slate-800 italic uppercase leading-none">Memuat...</h1>
             </div>
-            <button onclick="openProfile()" class="w-12 h-12 bg-white rounded-2xl border-2 border-pink-100 flex items-center justify-center text-pink-500 shadow-sm active:scale-90 transition-all">
+            <button onclick="openProfile()" class="w-12 h-12 bg-white rounded-2xl border-2 border-pink-50 flex items-center justify-center text-pink-500 shadow-sm active:scale-90 transition-all">
                 <i class="fa-solid fa-circle-user text-2xl"></i>
             </button>
         </div>
@@ -53,7 +55,7 @@
         <div class="gradient-pink w-full p-7 rounded-[35px] text-white shadow-xl shadow-pink-200 relative overflow-hidden mb-6">
             <div class="relative z-10 flex justify-between items-center">
                 <div>
-                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Saldo Dompet ✨</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Saldo Anda</p>
                     <h2 id="display-saldo" class="text-3xl font-black italic tracking-tight">Rp 0</h2>
                 </div>
                 <button onclick="requestTopUp()" class="w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 rounded-xl flex items-center justify-center text-white text-xl active:scale-90 transition-all">
@@ -65,34 +67,30 @@
 
         <div class="grid grid-cols-3 gap-3 mb-4">
             <button onclick="window.location.href='online-shop.html'" class="menu-action-card">
-                <div class="w-10 h-10 bg-pink-50 rounded-2xl flex items-center justify-center text-pink-500">
-                    <i class="fa-solid fa-basket-shopping text-lg"></i>
+                <div class="w-11 h-11 bg-pink-50 rounded-2xl flex items-center justify-center text-pink-500">
+                    <i class="fa-solid fa-basket-shopping text-xl"></i>
                 </div>
-                <span class="text-[9px] font-black text-slate-700 uppercase italic">Belanja</span>
+                <span class="text-[10px] font-black text-slate-700 uppercase italic">Belanja</span>
             </button>
             <button onclick="openHistory()" class="menu-action-card">
-                <div class="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
-                    <i class="fa-solid fa-receipt text-lg"></i>
+                <div class="w-11 h-11 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
+                    <i class="fa-solid fa-receipt text-xl"></i>
                 </div>
-                <span class="text-[9px] font-black text-slate-700 uppercase italic">Transaksi</span>
+                <span class="text-[10px] font-black text-slate-700 uppercase italic">Transaksi</span>
             </button>
             <button onclick="toggleWallet()" class="menu-action-card">
-                <div class="w-10 h-10 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500">
-                    <i class="fa-solid fa-wallet text-lg"></i>
+                <div class="w-11 h-11 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500">
+                    <i class="fa-solid fa-wallet text-xl"></i>
                 </div>
-                <span class="text-[9px] font-black text-slate-700 uppercase italic">Saldo</span>
+                <span class="text-[10px] font-black text-slate-700 uppercase italic">Saldo</span>
             </button>
         </div>
     </header>
 
-    <section class="px-6 mb-6">
-        <div id="reward-section"></div>
-    </section>
-
-    <section class="relative w-full overflow-hidden">
-        <div id="promo-slider" class="slider-wrapper shadow-inner">
+    <section class="px-6">
+        <div id="promo-slider" class="slider-wrapper shadow-lg">
             <div class="slide-item active flex items-center justify-center bg-pink-50 text-pink-200">
-                <i class="fa-solid fa-wand-magic-sparkles text-4xl animate-pulse"></i>
+                <i class="fa-solid fa-images text-4xl animate-pulse"></i>
             </div>
         </div>
         <div id="promo-dots" class="dots-container"></div>
@@ -102,35 +100,34 @@
 
     <div id="profileModal" class="side-modal no-scrollbar overflow-y-auto">
         <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800 italic">Profil Saya ✨</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
+            <h2 class="text-xl font-black text-slate-800 italic">Akun Saya</h2>
+            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-300 text-2xl"></i></button>
         </div>
         <div class="text-center mb-8">
-            <div class="w-20 h-20 bg-pink-50 rounded-full mx-auto mb-4 flex items-center justify-center text-pink-500 text-3xl border-4 border-white shadow-md"><i class="fa-solid fa-user-astronaut"></i></div>
-            <h3 id="p-name" class="font-black text-slate-800 italic uppercase text-sm leading-none mb-1">User</h3>
+            <div class="w-20 h-20 bg-pink-50 rounded-3xl mx-auto mb-4 flex items-center justify-center text-pink-500 text-4xl border-4 border-white shadow-md"><i class="fa-solid fa-user-ninja"></i></div>
+            <h3 id="p-name" class="font-black text-slate-800 italic uppercase text-base">User</h3>
             <p id="p-email" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">email@user.com</p>
         </div>
-        <div class="space-y-3 mb-10">
-            <button onclick="window.open('https://wa.me/6281239739396')" class="w-full py-4 px-6 bg-slate-50 text-slate-700 rounded-2xl font-black text-[10px] uppercase flex justify-between items-center">
-                <span><i class="fa-brands fa-whatsapp mr-2 text-green-500 text-sm"></i> Chat Admin</span>
-                <i class="fa-solid fa-chevron-right text-[8px]"></i>
-            </button>
-        </div>
-        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase flex justify-center items-center gap-3"><i class="fa-solid fa-power-off"></i> Logout</button>
+        <button onclick="window.open('https://wa.me/6281239739396')" class="w-full py-4 px-6 bg-slate-50 text-slate-700 rounded-2xl font-black text-[10px] uppercase flex justify-between items-center mb-4">
+            <span><i class="fa-brands fa-whatsapp mr-2 text-green-500"></i> Bantuan</span>
+            <i class="fa-solid fa-chevron-right text-[8px]"></i>
+        </button>
+        <button onclick="logoutCustomer()" class="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase flex justify-center items-center gap-3 mt-10"><i class="fa-solid fa-power-off"></i> Keluar</button>
     </div>
 
-    <div id="walletModal" class="side-modal no-scrollbar overflow-y-auto">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xl font-black text-slate-800 italic">Mutasi Saldo 💎</h2>
-            <button onclick="closeAllModals()"><i class="fa-solid fa-xmark text-slate-400 text-xl"></i></button>
+    <div id="walletModal" class="activity-modal px-6">
+        <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto my-5"></div>
+        <h2 class="text-lg font-black text-slate-800 mb-6 text-center italic uppercase">Riwayat Saldo 💎</h2>
+        <div id="walletHistory" class="space-y-3 flex-1 overflow-y-auto no-scrollbar pb-6">
+            <p class="text-center text-slate-300 py-10 italic">Memuat riwayat...</p>
         </div>
-        <div id="walletHistory" class="space-y-3"></div>
+        <button onclick="closeAllModals()" class="w-full py-4 bg-slate-100 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Tutup</button>
     </div>
 
     <div id="historyModal" class="activity-modal px-6">
         <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto my-5"></div>
-        <h2 class="text-lg font-black text-slate-800 mb-6 text-center italic uppercase tracking-tighter">Riwayat Transaksi 🛍️</h2>
-        <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pt-2 pb-6"></div>
+        <h2 class="text-lg font-black text-slate-800 mb-6 text-center italic uppercase">Riwayat Belanja 🛍️</h2>
+        <div id="historyList" class="space-y-4 flex-1 overflow-y-auto no-scrollbar pb-6"></div>
         <button onclick="closeAllModals()" class="w-full py-4 bg-slate-100 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Tutup</button>
     </div>
 
@@ -143,7 +140,6 @@
             if (!session) return window.location.replace('login-customer.html');
             await loadCustomerData(session.user.id);
             await loadDynamicAds();
-            await loadWalletHistory(session.user.id);
         };
 
         async function loadCustomerData(userId) {
@@ -152,93 +148,92 @@
                 userData = customer;
                 document.getElementById('user-name').innerText = customer.full_name;
                 document.getElementById('display-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
-                
-                // Ambil target progress dari settings atau default 5
-                const { data: set } = await db.from('app_settings').select('value_text').eq('key_name', 'member_order_target').single();
-                const target = set ? parseInt(set.value_text) : 5;
-                renderRewardStatus(customer, target);
             }
         }
 
-        // --- PROGRESS MEMBER (DIPERBAIKI) ---
-        function renderRewardStatus(profile, target) {
-            const container = document.getElementById('reward-section');
-            const count = profile.total_order_count || 0;
-            const progress = Math.min((count / target) * 100, 100);
-            
-            container.innerHTML = `
-                <div class="bg-white p-5 rounded-[28px] border border-pink-100 shadow-sm relative overflow-hidden">
-                    <div class="flex justify-between items-center mb-3 relative z-10">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 bg-amber-100 text-amber-500 rounded-lg flex items-center justify-center text-xs">
-                                <i class="fa-solid fa-crown"></i>
-                            </div>
-                            <span class="text-[10px] font-black text-slate-800 uppercase italic">Progress Belanja</span>
-                        </div>
-                        <span class="text-[10px] font-bold text-pink-500 italic uppercase">${count}/${target} Transaksi</span>
-                    </div>
-                    <div class="w-full bg-slate-50 h-2.5 rounded-full overflow-hidden relative z-10">
-                        <div class="gradient-pink h-full transition-all duration-1000 shadow-lg" style="width: ${progress}%"></div>
-                    </div>
-                    <div class="absolute -right-4 -bottom-4 opacity-5 text-4xl text-pink-500">
-                        <i class="fa-solid fa-award"></i>
-                    </div>
-                </div>`;
-        }
-
-        // --- RIWAYAT SALDO (MUTASI) ---
-        async function loadWalletHistory(userId) {
-            const { data: t } = await db.from('topup_history').select('*').eq('customer_id', userId);
-            const { data: w } = await db.from('withdraw_requests').select('*').eq('customer_id', userId);
-            let combined = [...(t || []).map(i => ({...i, jenis: 'MASUK'}))];
-            if (w) combined.push(...w.map(i => ({...i, jenis: 'KELUAR'})));
-            combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // --- FIX RIWAYAT SALDO ---
+        async function toggleWallet() {
+            closeAllModals();
+            document.getElementById('walletModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
             
             const container = document.getElementById('walletHistory');
-            container.innerHTML = combined.length > 0 ? combined.map(h => {
-                const isPlus = h.jenis === 'MASUK';
-                return `
-                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 ${isPlus ? 'bg-green-100 text-green-500' : 'bg-red-100 text-red-500'} rounded-lg flex items-center justify-center text-xs">
-                            <i class="fa-solid ${isPlus ? 'fa-arrow-down-long' : 'fa-arrow-up-long'}"></i>
+            container.innerHTML = `<p class="text-center py-10 italic text-[10px] uppercase text-slate-400">Mencari data...</p>`;
+
+            try {
+                // Ambil data Topup dan Withdraw secara bersamaan
+                const [topupRes, withdrawRes] = await Promise.all([
+                    db.from('topup_history').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false }),
+                    db.from('withdraw_requests').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false })
+                ]);
+
+                let combined = [];
+                if (topupRes.data) combined.push(...topupRes.data.map(i => ({...i, tipe: 'MASUK'})));
+                if (withdrawRes.data) combined.push(...withdrawRes.data.map(i => ({...i, tipe: 'KELUAR'})));
+
+                // Urutkan berdasarkan tanggal terbaru
+                combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                if (combined.length === 0) {
+                    container.innerHTML = `<p class="text-center py-10 italic text-[10px] uppercase text-slate-300 tracking-widest">Belum ada mutasi saldo 🌸</p>`;
+                    return;
+                }
+
+                container.innerHTML = combined.map(h => {
+                    const isMasuk = h.tipe === 'MASUK';
+                    const color = h.status === 'SUCCESS' ? (isMasuk ? 'text-green-500' : 'text-red-500') : 'text-slate-400';
+                    return `
+                    <div class="bg-white p-4 rounded-2xl border border-slate-50 flex justify-between items-center shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 ${isMasuk ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'} rounded-xl flex items-center justify-center">
+                                <i class="fa-solid ${isMasuk ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'}"></i>
+                            </div>
+                            <div>
+                                <p class="font-black text-slate-800 text-[10px] uppercase leading-none mb-1">${h.no_invoice || 'TRX'}</p>
+                                <p class="text-[8px] text-slate-400 font-bold uppercase">${h.status}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="font-black text-slate-800 text-[10px] uppercase leading-none mb-1">${h.no_invoice}</p>
-                            <p class="text-[8px] text-slate-400 font-bold uppercase">${h.status}</p>
-                        </div>
-                    </div>
-                    <p class="font-black italic text-[11px] ${isPlus ? 'text-green-500' : 'text-red-500'}">
-                        ${isPlus ? '+' : '-'} Rp ${h.nominal.toLocaleString()}
-                    </p>
-                </div>`;
-            }).join('') : `<p class="text-center text-slate-300 py-10 italic text-[10px]">Belum ada mutasi 🌸</p>`;
+                        <p class="font-black italic text-[12px] ${color}">
+                            ${isMasuk ? '+' : '-'} Rp ${h.nominal.toLocaleString()}
+                        </p>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = `<p class="text-center py-10 text-red-400 text-[10px]">Gagal memuat data.</p>`;
+            }
         }
 
         // --- RIWAYAT TRANSAKSI ---
         async function openHistory() {
-            const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
-            const container = document.getElementById('historyList');
-            const filtered = data ? data.filter(trx => ['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
-            
-            container.innerHTML = filtered.length > 0 ? filtered.map(t => `
-                <div class="p-5 bg-white rounded-[28px] border border-slate-100 shadow-sm ${t.status_order === 'Dibatalkan' ? 'opacity-60 grayscale' : ''}">
-                    <div class="flex justify-between mb-3">
-                        <span class="text-[9px] font-black text-slate-400 uppercase italic">INV: ${t.no_invoice}</span>
-                        <span class="text-[9px] font-black ${t.status_order === 'Dibatalkan' ? 'text-red-400' : 'text-green-500'} uppercase italic">${t.status_order}</span>
-                    </div>
-                    <div class="flex justify-between items-end">
-                        <p class="text-[8px] text-slate-400 font-bold uppercase tracking-widest">${new Date(t.created_at).toLocaleDateString()}</p>
-                        <p class="font-black text-slate-800 text-sm italic tracking-tight">Rp ${t.grand_total.toLocaleString()}</p>
-                    </div>
-                </div>`).join('') : `<p class="text-center py-10 italic text-slate-400 text-[10px] font-black uppercase">Belum ada riwayat 🛍️</p>`;
-            
             closeAllModals();
             document.getElementById('historyModal').classList.add('active');
             document.getElementById('modalOverlay').classList.add('active');
+            
+            const container = document.getElementById('historyList');
+            container.innerHTML = `<p class="text-center py-10 text-slate-400 text-[10px] italic">Memuat...</p>`;
+
+            const { data } = await db.from('transaksi_online').select('*').eq('customer_id', userData.id).order('created_at', { ascending: false });
+            const filtered = data ? data.filter(trx => ['Selesai', 'Dibatalkan'].includes(trx.status_order)) : [];
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-center py-10 italic text-slate-400 text-[10px] font-black uppercase tracking-widest">Belum ada riwayat belanja 🛍️</p>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(t => `
+                <div class="p-5 bg-white rounded-[28px] border border-slate-100 shadow-sm ${t.status_order === 'Dibatalkan' ? 'opacity-60 grayscale' : ''}">
+                    <div class="flex justify-between mb-3">
+                        <span class="text-[9px] font-black text-slate-400 uppercase italic">#${t.no_invoice}</span>
+                        <span class="text-[9px] font-black ${t.status_order === 'Dibatalkan' ? 'text-red-400' : 'text-green-500'} uppercase italic tracking-tighter">${t.status_order}</span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <p class="text-[8px] text-slate-400 font-bold uppercase tracking-widest">${new Date(t.created_at).toLocaleDateString('id-ID')}</p>
+                        <p class="font-black text-slate-800 text-sm italic tracking-tight">Rp ${t.grand_total.toLocaleString()}</p>
+                    </div>
+                </div>`).join('');
         }
 
-        // --- SLIDER & UTILS ---
+        // --- SLIDER LOGIC ---
         async function loadDynamicAds() {
             const slider = document.getElementById('promo-slider');
             const dotsContainer = document.getElementById('promo-dots');
@@ -265,21 +260,7 @@
             }, 5000);
         }
 
-        async function requestTopUp() {
-            const nom = prompt("Nominal Top Up (Min Rp 10.000):", "50000");
-            if (!nom || nom < 10000) return alert("Min Rp 10.000");
-            const inv = "TOPUP-" + Date.now();
-            await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: parseInt(nom), status: 'PENDING' }]);
-            try {
-                const res = await fetch("https://uojhjskgugghwxtdsfvm.supabase.co/functions/v1/smart-endpoint", {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_id: inv, amount: parseInt(nom), customer_name: userData.full_name, customer_email: userData.email })
-                });
-                const d = await res.json();
-                if (d.token) window.snap.pay(d.token, { onSuccess: () => location.reload() });
-            } catch (e) { alert("Sistem sibuk."); }
-        }
-
+        // --- UI UTILS ---
         function openProfile() {
             document.getElementById('p-name').innerText = userData.full_name;
             document.getElementById('p-email').innerText = userData.email;
@@ -292,8 +273,23 @@
             document.getElementById('modalOverlay').classList.remove('active');
         }
 
+        async function requestTopUp() {
+            const nom = prompt("Nominal Top Up:", "50000");
+            if (!nom || nom < 10000) return alert("Minimal Rp 10.000");
+            const inv = "TOPUP-" + Date.now();
+            await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: parseInt(nom), status: 'PENDING' }]);
+            try {
+                const res = await fetch("https://uojhjskgugghwxtdsfvm.supabase.co/functions/v1/smart-endpoint", {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: inv, amount: parseInt(nom), customer_name: userData.full_name, customer_email: userData.email })
+                });
+                const d = await res.json();
+                if (d.token) window.snap.pay(d.token, { onSuccess: () => location.reload() });
+            } catch (e) { alert("Server sedang sibuk."); }
+        }
+
         async function logoutCustomer() {
-            if (confirm("Keluar dari Beauty Bloom?")) {
+            if (confirm("Yakin ingin keluar?")) {
                 await db.auth.signOut();
                 window.location.replace('login-customer.html');
             }
