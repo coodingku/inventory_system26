@@ -315,56 +315,43 @@
             }, 5000);
         }
 
-       function renderRewardStatus(profile, target) {
+      function renderRewardStatus(profile, target) {
     const container = document.getElementById('reward-section');
-    const totalOrder = profile.total_order_count || 0;
-    const isClaimed = profile.is_reward_claimed; // Jika kamu pakai sistem klaim manual
+    const count = profile.total_order_count || 0;
+    const claimed = profile.is_reward_claimed;
 
-    // HITUNG PROGRESS BERDASARKAN KELIPATAN
-    // Misal: Belanja 6x, Target 5x -> Progress adalah 1/5
-    let currentProgress = totalOrder % target;
-    
-    // Jika currentProgress adalah 0 DAN totalOrder > 0, artinya target pas tercapai (5, 10, 15, dst)
-    let isGoalReached = (totalOrder > 0 && currentProgress === 0);
-    
-    // Hitung Persentase Bar
-    let barWidth = isGoalReached ? 100 : (currentProgress / target) * 100;
-    
-    // Teks Status
-    let statusText = isGoalReached 
-        ? `<span class="text-green-500 animate-pulse">REWARD SIAP! 🎁</span>` 
-        : `<span class="text-pink-500">${currentProgress}/${target} Belanja</span>`;
-
-    let subText = isGoalReached
-        ? "Selamat! Kamu berhak mendapatkan reward khusus dari Beauty Bloom. ✨"
-        : `Belanja ${target - currentProgress}x lagi untuk dapat diskon khusus.`;
-
-    container.innerHTML = `
-        <div class="bg-white p-5 rounded-[28px] border-2 border-pink-50 shadow-sm relative overflow-hidden">
-            <div class="flex justify-between items-center mb-3 relative z-10">
-                <div>
-                    <p class="text-[10px] font-black text-slate-800 uppercase italic tracking-widest">Progress Reward</p>
-                    <p class="text-[8px] text-slate-400 font-bold uppercase italic">Status: ${isGoalReached ? 'Tercapai' : 'Bronze Member'}</p>
+    if (count >= target && !claimed) {
+        container.innerHTML = `
+            <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-4 rounded-3xl text-white shadow-md">
+                <p class="text-[9px] font-black uppercase tracking-tighter mb-1">Reward Member 🎁</p>
+                <h4 class="text-xs font-bold mb-3">Syarat ${target}x belanja terpenuhi!</h4>
+                <button onclick="claimRewardMember()" class="w-full py-2 bg-white text-pink-500 rounded-xl font-black text-[10px] uppercase shadow-sm">Klaim Diskon Sekarang</button>
+            </div>`;
+    } else if (claimed) {
+        container.innerHTML = `
+            <div class="bg-green-50 p-4 rounded-3xl border border-green-100 text-center">
+                <p class="text-[10px] font-black text-green-600 uppercase">Diskon Member Aktif ✨</p>
+                <p class="text-[8px] text-green-400 font-bold mt-1">Cek diskonmu otomatis di Checkout!</p>
+            </div>`;
+    } else {
+        let sisa = target - count;
+        // Hitung persentase progres secara dinamis
+        let progress = (count / target) * 100;
+        
+        container.innerHTML = `
+            <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black text-slate-500 uppercase">Progres Member</span>
+                    <span class="text-[10px] font-bold text-pink-500">${count}/${target}</span>
                 </div>
-                <div class="text-right">
-                    <p class="text-[11px] font-black italic uppercase">${statusText}</p>
+                <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-pink-400 h-full transition-all duration-500" style="width: ${progress}%"></div>
                 </div>
-            </div>
-
-            <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden mb-3 border border-pink-50 p-0.5">
-                <div class="gradient-pink h-full rounded-full transition-all duration-1000 ease-out shadow-inner" 
-                     style="width: ${barWidth}%">
-                </div>
-            </div>
-
-            <p class="text-[8px] text-slate-500 font-bold italic leading-tight italic">
-                ${subText}
-            </p>
-            
-            <i class="fa-solid fa-gift absolute -right-2 -bottom-2 text-pink-100 text-4xl rotate-12"></i>
-        </div>
-    `;
+                <p class="text-[8px] text-slate-400 mt-2 font-bold italic">Belanja ${sisa}x lagi untuk dapat diskon khusus.</p>
+            </div>`;
+    }
 }
+
     </script>
 </body>
 </html>
