@@ -14,8 +14,6 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff0f3; }
         .input-field { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; transition: 0.3s; background: white; font-size: 14px; }
         .input-field:focus { border-color: #ff85a2; box-shadow: 0 0 0 2px #ffe5ec; }
-        .courier-box { transition: all 0.2s ease; border: 2px solid #f1f5f9; cursor: pointer; }
-        .courier-box.active { border-color: #f72585; background: #fff0f3; }
         .payment-box { transition: all 0.2s ease; border: 2px solid #f8fafc; cursor: pointer; }
         .payment-box.active { border-color: #f72585; background: #fff0f3; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -51,9 +49,14 @@
                     <span id="txt-asuransi" class="text-blue-600 font-bold">+ Rp 35.000</span>
                 </div>
 
-                <div id="row-diskon-khusus" class="flex justify-between items-center mb-3 hidden text-sm">
-                    <span class="text-pink-600 font-black italic">Discount Member</span>
+                <div id="row-diskon-khusus" class="flex justify-between items-center mb-1 hidden text-sm">
+                    <span class="text-pink-600 font-black italic">Reward Member</span>
                     <span id="txt-diskon-member" class="text-pink-600 font-black">- Rp 0</span>
+                </div>
+
+                <div id="row-diskon-saldo" class="flex justify-between items-center mb-3 hidden text-sm">
+                    <span class="text-green-600 font-black italic">Promo Bayar Saldo</span>
+                    <span id="txt-diskon-saldo" class="text-green-600 font-black">- Rp 0</span>
                 </div>
 
                 <div class="flex justify-between items-end border-t border-slate-50 pt-3">
@@ -80,20 +83,18 @@
                 <textarea id="cust-address" rows="3" class="input-field" placeholder="Alamat Lengkap"></textarea>
 
                 <button type="button" onclick="applyFreeShipping()" id="btn-cek-ongkir" class="w-full py-4 bg-pink-500 text-white rounded-2xl text-xs font-bold uppercase tracking-widest active:scale-95 transition-all shadow-md">
-                    Konfirmasi Pesanan 🎁
+                    Konfirmasi Lokasi 🎁
                 </button>
 
-                <div id="asuransi-container" class="hidden animate-pulse">
-                    <div class="p-4 rounded-2xl border-2 border-blue-100 bg-blue-50/50">
+                <div id="asuransi-container" class="hidden">
+                    <div class="p-4 rounded-2xl border-2 border-blue-100 bg-blue-50/50 mt-4">
                         <div class="flex items-center justify-between mb-2">
                             <label class="font-bold text-slate-700 text-sm flex items-center gap-2">
-                                <i class="fas fa-shield-halved text-blue-500"></i> Proteksi Kerusakan Barang
+                                <i class="fas fa-shield-halved text-blue-500"></i> Proteksi Kerusakan
                             </label>
                             <input type="checkbox" id="check-asuransi" onchange="toggleAsuransi(this.checked)" class="w-5 h-5 accent-blue-600">
                         </div>
-                        <p class="text-[10px] text-slate-500 leading-relaxed">
-                            Aktifkan perlindungan senilai **Rp 35.000**. Klaim ganti rugi 100% jika barang rusak/pecah dengan syarat melampirkan **Video Unboxing** dari awal paket dibuka.
-                        </p>
+                        <p class="text-[10px] text-slate-500 leading-relaxed">Aktifkan perlindungan senilai <b>Rp 35.000</b>. Wajib Video Unboxing.</p>
                     </div>
                 </div>
             </div>
@@ -133,7 +134,7 @@
 
         <input type="hidden" id="selected-method" value="">
 
-        <button onclick="processOrder()" id="btn-order" class="w-full bg-slate-400 text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4">
+        <button onclick="processOrder()" id="btn-order" class="w-full bg-slate-400 text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4 uppercase">
             PILIH METODE BAYAR ✨
         </button>
     </main>
@@ -146,6 +147,8 @@
     let shippingCost = 0; 
     let insuranceCost = 0; 
     let diskonLoyalty = 0;
+    let diskonSaldoPersen = 0; // Tambahkan ini
+    let diskonSaldoNominal = 0; // Tambahkan ini
     let userData = null;
 
     window.onload = async () => { 
@@ -164,61 +167,54 @@
                 document.getElementById('cust-address').value = profile.address_shipping || "";
                 document.getElementById('txt-saldo-display').innerText = "Rp " + (profile.saldo || 0).toLocaleString();
                 
-                // Pastikan fungsi ini dipanggil untuk menghitung diskon
-                await checkLoyaltyAutomatically(user.id);
+                // Ambil setting diskon dan loyalty
+                await checkLoyaltyAndPromo(user.id);
             }
         }
     }
 
-   async function checkLoyaltyAutomatically(userId) {
-    try {
-        const { data: settings } = await db.from('app_settings').select('*');
-        if (!settings) return;
-        
-        const rules = {};
-        settings.forEach(s => { rules[s.key_name] = s.value_int; });
+    async function checkLoyaltyAndPromo(userId) {
+        try {
+            const { data: settings } = await db.from('app_settings').select('*');
+            if (!settings) return;
+            
+            const rules = {};
+            settings.forEach(s => { 
+                if(s.value_int) rules[s.key_name] = s.value_int;
+                // Ambil persen diskon saldo dari value_text
+                if(s.key_name === 'discount_wallet_percent') {
+                    diskonSaldoPersen = parseFloat(s.value_text || 0);
+                }
+            });
 
-        const targetCount = rules.loyalty_target_count || 3;
-        const minNominal = rules.loyalty_min_nominal || 0;
-        const discountAmount = rules.loyalty_discount_amount || 0;
+            const targetCount = rules.loyalty_target_count || 3;
+            const minNominal = rules.loyalty_min_nominal || 0;
+            const discountAmount = rules.loyalty_discount_amount || 0;
 
-        // Ambil data customer untuk melihat total_order_count yang sudah kita update di admin
-        const { data: profile } = await db.from('customers')
-            .select('total_order_count')
-            .eq('id', userId)
-            .single();
+            const { data: profile } = await db.from('customers').select('total_order_count').eq('id', userId).single();
+            const totalLunas = profile ? (profile.total_order_count || 0) : 0;
 
-        const totalLunas = profile ? (profile.total_order_count || 0) : 0;
+            const { data: ongoingOrders } = await db.from('transaksi_online')
+                .select('id').eq('customer_id', userId)
+                .in('status_order', ['Pending', 'PROSES', 'Dikemas', 'Dikirim']);
 
-        // Cek apakah ada pesanan yang masih berjalan (agar diskon tidak dipakai berkali-kali)
-        const { data: ongoingOrders } = await db.from('transaksi_online')
-            .select('id')
-            .eq('customer_id', userId)
-            .in('status_order', ['Pending', 'PROSES', 'Dikemas', 'Dikirim']);
+            const hasOngoing = ongoingOrders && ongoingOrders.length > 0;
+            let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
 
-        const hasOngoing = ongoingOrders && ongoingOrders.length > 0;
-        
-        let currentSubtotal = cartData.reduce((sum, i) => sum + (i.qty * i.harga), 0);
-
-        // LOGIKA BARU: 
-        // Jika total belanja sudah mencapai atau kelipatan target, 
-        // dan tidak ada pesanan lain yang sedang diproses
-        const isEligible = (totalLunas > 0 && totalLunas % targetCount === 0);
-
-        if (isEligible && !hasOngoing && currentSubtotal >= minNominal) {
-            diskonLoyalty = Number(discountAmount); 
-            document.getElementById('row-diskon-khusus').classList.remove('hidden');
-            document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
-        } else {
-            diskonLoyalty = 0;
-            document.getElementById('row-diskon-khusus').classList.add('hidden');
-        }
-        
-        updateTotalDisplay();
-    } catch (err) { 
-        console.error("Loyalty Error:", err); 
+            // LOGIKA LOYALTY
+            if (totalLunas > 0 && totalLunas % targetCount === 0 && !hasOngoing && currentSubtotal >= minNominal) {
+                diskonLoyalty = Number(discountAmount); 
+                document.getElementById('row-diskon-khusus').classList.remove('hidden');
+                document.getElementById('txt-diskon-member').innerText = "- Rp " + diskonLoyalty.toLocaleString();
+            } else {
+                diskonLoyalty = 0;
+                document.getElementById('row-diskon-khusus').classList.add('hidden');
+            }
+            
+            updateTotalDisplay();
+        } catch (err) { console.error("Setting Error:", err); }
     }
-}
+
     function renderCheckout() {
         if (cartData.length === 0) return window.location.href = "online-shop.html";
         const container = document.getElementById('checkout-list');
@@ -232,14 +228,27 @@
     }
 
     function selectPayment(method) {
-        const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
-        if (method === 'saldo' && userData.saldo < total) return alert("Saldo tidak cukup!");
+        // Reset diskon saldo nominal setiap kali ganti metode
+        diskonSaldoNominal = 0;
+        document.getElementById('row-diskon-saldo').classList.add('hidden');
+
+        // Hitung total sementara tanpa diskon saldo
+        let tempTotal = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
+
+        if (method === 'saldo') {
+            if (userData.saldo < tempTotal) return alert("Saldo tidak cukup cantik! 🌸 Silahkan top-up dulu.");
+            
+            // Hitung diskon saldo jika ada
+            if (diskonSaldoPersen > 0) {
+                diskonSaldoNominal = Math.floor(subtotalFinal * (diskonSaldoPersen / 100));
+                document.getElementById('row-diskon-saldo').classList.remove('hidden');
+                document.getElementById('txt-diskon-saldo').innerText = "- Rp " + diskonSaldoNominal.toLocaleString();
+            }
+        }
         
-        // PENTING: Isi value ke hidden input
         document.getElementById('selected-method').value = method;
-        
-        document.querySelectorAll('.payment-box').forEach(el => el.classList.remove('border-[#f72585]', 'bg-[#fff0f3]'));
-        document.getElementById('pay-' + method).classList.add('border-[#f72585]', 'bg-[#fff0f3]');
+        document.querySelectorAll('.payment-box').forEach(el => el.classList.remove('active', 'border-[#f72585]'));
+        document.getElementById('pay-' + method).classList.add('active', 'border-[#f72585]');
         
         const btn = document.getElementById('btn-order');
         btn.className = "w-full bg-gradient-to-r from-[#ff85a2] to-[#f72585] text-white py-5 rounded-[22px] font-black text-lg shadow-lg active:scale-95 transition-all mb-4";
@@ -247,36 +256,38 @@
         if(method === 'saldo') btn.innerText = "BAYAR PAKAI SALDO ✨";
         else if(method === 'va') btn.innerText = "BAYAR VIRTUAL ACCOUNT ⚡";
         else btn.innerText = "PESAN & KONFIRMASI WA 📱";
+
+        updateTotalDisplay();
     }
 
     async function processOrder() {
-        // AMBIL METHOD DARI INPUT HIDDEN
         const method = document.getElementById('selected-method').value;
-        if (!method) return alert("Pilih metode pembayaran dulu cantik! 🌸");
+        if (!method) return alert("Pilih metode pembayaran dulu ya! 🌸");
         
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
         const address = document.getElementById('cust-address').value;
-        const totalBayar = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
+        const totalBayar = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty - diskonSaldoNominal;
 
         if (!name || !address || !document.getElementById('destination-id').value) return alert("Lengkapi data pengiriman!");
 
         const btn = document.getElementById('btn-order');
-        btn.innerText = "Processing..."; btn.disabled = true;
+        btn.innerText = "Memproses..."; btn.disabled = true;
 
         try {
             const inv = `BLM-${Date.now().toString().slice(-6)}`;
             let statusOrder = (method === 'saldo' ? 'Dikemas' : 'Pending');
 
+            // POTONG SALDO JIKA METODE SALDO
             if (method === 'saldo') {
                 const { error: errUpdateSaldo } = await db.from('customers').update({ saldo: userData.saldo - totalBayar }).eq('id', userData.id);
-                if (errUpdateSaldo) throw new Error("Gagal potong saldo.");
+                if (errUpdateSaldo) throw new Error("Gagal memproses saldo.");
                 await db.from('topup_history').insert([{ no_invoice: inv, customer_id: userData.id, nominal: totalBayar, status: 'PEMBAYARAN' }]);
             }
 
             const asuransiText = insuranceCost > 0 ? "AKTIF (Rp 35.000)" : "Tidak Aktif";
 
-            // PROSES INSERT KE TABEL UTAMA
+            // SIMPAN TRANSAKSI
             const { data: trx, error: errTrx } = await db.from('transaksi_online').insert([{
                 no_invoice: inv, 
                 customer_id: userData.id, 
@@ -284,12 +295,11 @@
                 wa_penerima: phone,
                 alamat_kirim: address, 
                 kurir: "Manual (Free Ongkir)", 
-                ongkos_kirim: 0,
-                metode_bayar: method.toUpperCase(), // SEKARANG PASTI TERISI
-                diskon: diskonLoyalty, 
+                metode_bayar: method.toUpperCase(),
+                diskon: (diskonLoyalty + diskonSaldoNominal), 
                 status_order: statusOrder,
                 grand_total: totalBayar, 
-                catatan: `Asuransi: ${asuransiText}. Wajib Video Unboxing.`
+                catatan: `Asuransi: ${asuransiText}. Promo: Saldo ${diskonSaldoPersen}%`
             }]).select().single();
 
             if (errTrx) throw errTrx;
@@ -303,7 +313,7 @@
             localStorage.removeItem('finexcart');
             
             if (method === 'saldo') {
-                alert("Berhasil! Pesanan diproses. 🌸");
+                alert("Pembayaran Berhasil! Pesananmu sedang kami siapkan. 🌸");
                 window.location.href = "online-shop.html";
             } else if (method === 'va') {
                 const { data: midtrans } = await db.functions.invoke('smart-endpoint', { 
@@ -311,23 +321,22 @@
                 });
                 window.snap.pay(midtrans.token, { onSuccess: () => { window.location.href = "online-shop.html"; } });
             } else {
-                const waMsg = `Halo Admin! Saya sudah pesan *${inv}* (Bayar: MANUAL). Total: Rp ${totalBayar.toLocaleString()}. Mohon info rek transfer 🌸`;
+                const waMsg = `Halo Admin! Saya memesan *${inv}* (Manual). Total: Rp ${totalBayar.toLocaleString()}. Mohon info rekening transfernya ya 🌸`;
                 window.open(`https://wa.me/6281239739396?text=${encodeURIComponent(waMsg)}`, '_blank');
                 window.location.href = "online-shop.html";
             }
         } catch (e) { 
-            alert("Gagal: " + e.message); 
+            alert("Terjadi Kendala: " + e.message); 
             btn.disabled = false; btn.innerText = "COBA LAGI ✨";
         }
     }
 
     function updateTotalDisplay() {
-        const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty;
+        const total = subtotalFinal + shippingCost + insuranceCost - diskonLoyalty - diskonSaldoNominal;
         document.getElementById('txt-subtotal').innerText = "Rp " + subtotalFinal.toLocaleString();
         document.getElementById('txt-total').innerText = "Rp " + (total < 0 ? 0 : total).toLocaleString();
     }
 
-    // Fungsi pembantu lainnya tetap sama (searchArea, selectArea, dll)
     async function searchArea(query) {
         const box = document.getElementById('area-results');
         if (query.length < 3) return box.classList.add('hidden');
@@ -345,22 +354,25 @@
                 `).join('');
                 box.classList.remove('hidden');
             }
-        } catch (e) { console.error("Gagal cari area:", e); }
+        } catch (e) { console.error("Search error:", e); }
     }
+
     function selectArea(id, name) {
         document.getElementById('destination-id').value = id; 
         document.getElementById('destination-search').value = name;
         document.getElementById('area-results').classList.add('hidden');
     }
+
     function applyFreeShipping() {
         const destId = document.getElementById('destination-id').value;
-        if (!destId) return alert("Pilih kecamatan dulu cantik! 🌸");
+        if (!destId) return alert("Pilih kecamatan tujuan dulu ya! 🌸");
         shippingCost = 0;
         document.getElementById('asuransi-container').classList.remove('hidden');
-        document.getElementById('btn-cek-ongkir').innerHTML = '<i class="fas fa-check-circle"></i> Lokasi Terkonfirmasi & Free Ongkir';
+        document.getElementById('btn-cek-ongkir').innerHTML = '<i class="fas fa-check-circle"></i> Lokasi Terpilih & Free Ongkir';
         document.getElementById('btn-cek-ongkir').classList.replace('bg-pink-500', 'bg-green-500');
         updateTotalDisplay();
     }
+
     function toggleAsuransi(isActive) {
         insuranceCost = isActive ? 35000 : 0;
         const rowAsuransi = document.getElementById('row-asuransi');
