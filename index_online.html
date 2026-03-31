@@ -330,12 +330,131 @@
             }, 100);
         }
 
-        function renderOrderCards(orders) {
-            return orders.map(order => `<div class="p-4 bg-white rounded-3xl border-2 border-slate-50 shadow-sm"><div class="flex justify-between items-start"><div><p class="text-[8px] text-slate-400 font-black uppercase italic">INV: ${order.no_invoice || order.id.slice(0,8)}</p><p class="text-[11px] font-black text-slate-800 uppercase italic">${order.status_order || 'PROSES'}</p></div><span class="px-3 py-1 bg-pink-50 text-pink-500 text-[9px] font-black rounded-full italic uppercase">Rp ${(order.total_harga || 0).toLocaleString()}</span></div></div>`).join('');
+       async function viewDetailTrx(trx) {
+    activeTrx = trx;
+    
+    // 1. Tampilkan status pengecekan live
+    document.getElementById('v-status').innerText = "MENGECEK PEMBAYARAN... ✨";
+    document.getElementById('v-invoice').innerText = trx.no_invoice;
+    document.getElementById('v-total').innerText = "Rp " + parseFloat(trx.grand_total || 0).toLocaleString();
+
+    // 2. LOGIKA CEK STATUS LIVE KE SMART-ENDPOINT
+    if (trx.status_order.toUpperCase() === 'PENDING') {
+        try {
+            const { data: sync, error } = await db.functions.invoke('smart-endpoint', {
+                body: { 
+                    action: 'check_status', 
+                    order_id: trx.no_invoice 
+                }
+            });
+
+            // FIX: Cek status 'settlement' atau 'capture' (Ini standar dari Midtrans)
+            if (sync && (sync.status === 'settlement' || sync.status === 'capture')) {
+                
+                // --- KUNCI: UPDATE DATABASE JADI 'Dikemas' ---
+                const { error: dbError } = await db.from('transaksi_online')
+                    .update({ status_order: 'Dikemas' })
+                    .eq('no_invoice', trx.no_invoice);
+
+                if (!dbError) {
+                    trx.status_order = 'Dikemas'; // Ubah tampilan lokal agar customer senang
+                    console.log("Database updated: Dikemas");
+                }
+            } 
+            // JIKA EXPIRED
+            else if (sync && sync.status === 'expire') {
+                await db.from('transaksi_online')
+                    .update({ status_order: 'Dibatalkan' })
+                    .eq('no_invoice', trx.no_invoice);
+                trx.status_order = 'Dibatalkan';
+            }
+        } catch (e) {
+            console.log("Belum ada dana masuk di Midtrans.");
         }
+    }
 
-        function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal').forEach(m => m.classList.remove('active')); document.getElementById('modalOverlay').classList.remove('active'); }
+    // 3. Render Status Akhir ke Layar (Gunakan huruf kapital agar rapi)
+    document.getElementById('v-status').innerText = trx.status_order.toUpperCase();
+    
+    // 4. Render Item Produk
+    const container = document.getElementById('v-items');
+    let items = [];
+    try {
+        items = typeof trx.items === 'string' ? JSON.parse(trx.items) : trx.items;
+    } catch (e) { console.error("Data produk tidak terbaca"); }
 
+    if (items && Array.isArray(items)) {
+        container.innerHTML = items.map(it => `
+            <div class="flex justify-between bg-slate-50 p-3 rounded-xl mb-2 text-[11px]">
+                <div class="flex-1 font-bold text-slate-700">${it.nama || it.nama_barang || it.name} (${it.qty}x)</div>
+                <p class="font-bold text-slate-800">Rp ${(it.qty * (it.harga || 0)).toLocaleString()}</p>
+            </div>`).join('');
+    } else {
+        container.innerHTML = `<p class="text-center text-slate-400 py-4 text-[10px]">Rincian produk tidak tersedia.</p>`;
+    }
+
+    // 5. LOGIKA TOMBOL WA
+    const btnWA = document.querySelector('[onclick="confirmToAdmin()"]');
+    btnWA.style.display = "flex"; 
+
+    const statusSekarang = trx.status_order; // Tidak perlu UpperCase di sini untuk perbandingan string tepat
+    if (statusSekarang === 'Dikemas' || statusSekarang === 'SUDAH BAYAR') {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI KEMAS';
+        btnWA.className = "flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
+    } else if (statusSekarang === 'Dibatalkan' || statusSekarang === 'DIBATALKAN') {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> TANYA ADMIN (BATAL)';
+        btnWA.className = "flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
+    } else {
+        btnWA.innerHTML = '<i class="fab fa-whatsapp"></i> KONFIRMASI BAYAR';
+        btnWA.className = "flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-xs shadow-lg flex items-center justify-center gap-2";
+    }
+
+    document.getElementById('trxDetailModal').classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+}
+// 2. FUNGSI BATAL PESANAN DENGAN ALASAN & WA
+async function cancelOrder(id, inv) {
+    const alasan = prompt("Mohon maaf admin pesanan saya sudah saya batalkan dengan alasan:");
+    
+    if (alasan !== null && alasan !== "") {
+        const { error } = await db.from('transaksi_online')
+            .update({ status_order: 'Dibatalkan' })
+            .eq('id', id);
+
+        if (!error) {
+            const pesanBatal = `Halo Admin Beauty Bloom! 🌸%0A%0AMohon maaf admin, pesanan saya dengan nomor *${inv}* sudah saya *BATALKAN*.%0A%0A*Alasan:* ${alasan}%0A%0AMohon maaf atas ketidaknyamanannya, terima kasih. 🙏`;
+            window.open(`https://wa.me/6281239739396?text=${pesanBatal}`, '_blank');
+            
+            alert("Pesanan berhasil dibatalkan 🌸");
+            openActivity(); 
+        } else {
+            alert("Gagal membatalkan pesanan di database.");
+        }
+    } else if (alasan === "") {
+        alert("Alasan harus diisi ya cantik! 😊");
+    }
+}
+
+function confirmToAdmin() {
+    if (!activeTrx) return;
+    
+    let pesanWA = "";
+    const noInv = activeTrx.no_invoice;
+    const total = parseFloat(activeTrx.grand_total || 0).toLocaleString();
+
+    if (activeTrx.status_order === 'Dikemas' || activeTrx.status_order === 'Sudah Bayar') {
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya sudah membayar pesanan *${noInv}*%0AMohon segera diproses  ya kak! ✨`;
+    } else if (activeTrx.status_order === 'Dibatalkan') {
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin bertanya mengenai pesanan *${noInv}* yang berstatus *DIBATALKAN*. Mohon informasinya ya kak. 🙏`;
+    } else if (activeTrx.status_order === 'Selesai') {
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0APesanan *${noInv}* sudah saya terima. Terima kasih ya kak! ✨`;
+    } else {
+        pesanWA = `Halo Admin Beauty Bloom! 🌸%0ASaya ingin konfirmasi pesanan *${noInv}* (Rp ${total}). Mohon instruksi pembayarannya kak. ✨`;
+    }
+
+    window.open(`https://wa.me/6281239739396?text=${pesanWA}`, '_blank');
+}
+    function closeAllModals() { document.querySelectorAll('.side-modal, .activity-modal, .detail-modal, .modal-overlay').forEach(el => el.classList.remove('active')); }
         async function logoutCustomer() {
             if (confirm("Keluar akun?")) {
                 await db.auth.signOut();
