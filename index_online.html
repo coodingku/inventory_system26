@@ -152,11 +152,20 @@
 
         async function loadCustomerData(userId) {
             const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
+            
+            // AMBIL ATURAN ADMIN UNTUK TARGET REWARD
+            const { data: setting } = await db.from('app_settings')
+                .select('value_text')
+                .eq('key_name', 'target_reward_order')
+                .single();
+            
+            const targetOrder = setting ? parseInt(setting.value_text) : 5; // Default 5 jika admin belum set
+
             if (customer) {
                 userData = customer;
                 document.getElementById('user-name').innerText = customer.full_name;
                 document.getElementById('display-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
-                renderRewardStatus(customer, 5);
+                renderRewardStatus(customer, targetOrder);
             }
         }
 
@@ -303,9 +312,27 @@
 
         function renderRewardStatus(profile, target) {
             const container = document.getElementById('reward-section');
-            const count = profile.total_order_count || 0;
-            const progress = (count / target) * 100;
-            container.innerHTML = `<div class="bg-pink-50/50 p-5 rounded-[24px] border border-pink-100"><div class="flex justify-between items-center mb-3"><span class="text-[10px] font-black text-pink-500 uppercase tracking-widest italic">Progress Member</span><span class="text-[10px] font-bold text-slate-500 italic uppercase">${count}/${target} Belanja</span></div><div class="w-full bg-white h-2 rounded-full overflow-hidden border border-pink-100"><div class="gradient-pink h-full transition-all duration-1000" style="width: ${progress}%"></div></div></div>`;
+            const totalCount = profile.total_order_count || 0;
+            
+            // Logika kelipatan: ambil sisa bagi (modulo) untuk progres bar
+            const currentProgress = totalCount % target;
+            const progress = (currentProgress / target) * 100;
+
+            // Jika pas di kelipatan (misal target 5, total belanja 5, 10, 15 dst)
+            const isTargetReached = totalCount > 0 && currentProgress === 0;
+            const displayText = isTargetReached ? `Reward Siap Klaim! ✨` : `${currentProgress}/${target} Belanja`;
+
+            container.innerHTML = `
+                <div class="bg-pink-50/50 p-5 rounded-[24px] border border-pink-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-[10px] font-black text-pink-500 uppercase tracking-widest italic">Member Progress</span>
+                        <span class="text-[10px] font-bold text-slate-500 italic uppercase">${displayText}</span>
+                    </div>
+                    <div class="w-full bg-white h-2 rounded-full overflow-hidden border border-pink-100">
+                        <div class="gradient-pink h-full transition-all duration-1000" style="width: ${isTargetReached ? 100 : progress}%"></div>
+                    </div>
+                    <p class="text-[7px] text-slate-400 mt-2 font-bold italic uppercase tracking-tighter">*Hanya belanja dengan status 'Selesai' yang dihitung admin.</p>
+                </div>`;
         }
     </script>
 </body>
