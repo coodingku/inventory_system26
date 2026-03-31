@@ -146,7 +146,12 @@
             await loadCustomerData(session.user.id);
             await loadDynamicAds();
             await loadNotifications(); // Panggil notif saat start
-        };
+            
+          // TAMBAHKAN INI: Daftar Push Notif ke HP
+        if (typeof registerPushNotification === 'function') {
+        registerPushNotification(session.user.id);
+    }
+};
 
         async function loadCustomerData(userId) {
             const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
