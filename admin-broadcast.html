@@ -3,113 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Broadcast Promo - Beauty Bloom ✨</title>
+    <title>Kirim Promo - Beauty Bloom ✨</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-    <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div class="bg-pink-500 p-6 text-white text-center">
-            <h1 class="text-2xl font-bold"><i class="fas fa-bullhorn mr-2"></i> Broadcast Promo</h1>
-            <p class="text-pink-100 text-sm">Kirim notifikasi langsung ke handphone semua customer</p>
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-pink-500 to-rose-400 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold">Update Promo Web 📣</h1>
+            <p class="text-pink-100 text-sm">Muncul di lonceng notifikasi customer</p>
         </div>
 
-        <div class="p-6 space-y-6">
+        <div class="p-6 space-y-4">
             <div>
-                <label class="block text-gray-700 font-semibold mb-2">Judul Notifikasi</label>
-                <input type="text" id="push-title" placeholder="Contoh: Promo Tanggal Kembar! 🌸" 
-                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none">
+                <label class="block text-gray-600 text-sm font-semibold mb-1">Pesan Promo</label>
+                <textarea id="promoPesan" rows="4" 
+                    class="w-full p-4 border-2 border-gray-100 rounded-2xl focus:border-pink-300 outline-none transition-all resize-none"
+                    placeholder="Contoh: Diskon 20% untuk semua produk hari ini saja! 🌸"></textarea>
             </div>
 
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Pesan Notifikasi</label>
-                <textarea id="push-body" rows="4" placeholder="Tulis detail promonya di sini..." 
-                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"></textarea>
-            </div>
-
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">Link Tujuan (Opsional)</label>
-                <input type="text" id="push-url" placeholder="https://beautybloom.com/promo" 
-                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none">
-                <p class="text-xs text-gray-400 mt-1">*Halaman yang akan dibuka saat customer klik notifikasi</p>
-            </div>
-
-            <hr>
-
-            <button id="btnKirim" onclick="kirimNotifikasi()" 
-                class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex justify-center items-center">
-                <span id="btnText"><i class="fas fa-paper-plane mr-2"></i> Kirim Ke Semua Customer</span>
+            <button onclick="updatePromo()" id="btnKirim"
+                class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 rounded-2xl transition-all transform active:scale-95 shadow-lg shadow-pink-200">
+                <i class="fas fa-paper-plane mr-2"></i> Update Promo Sekarang
             </button>
             
-            <div id="statusInfo" class="hidden text-center text-sm font-medium text-green-600 animate-pulse">
-                Sedang mengirim, jangan tutup halaman...
-            </div>
-        </div>
-
-        <div class="bg-gray-100 p-4 text-center text-xs text-gray-500">
-            Pastikan Anda sudah men-deploy Edge Function di Supabase sebelum mengirim.
+            <p class="text-center text-xs text-gray-400">Pesan ini akan otomatis menggantikan promo sebelumnya.</p>
         </div>
     </div>
 
     <script>
-        // --- CONFIG SUPABASE ---
+        // --- KONFIGURASI SUPABASE ---
         const SUPABASE_URL = "https://uojhjskgugghwxtdsfvm.supabase.co";
-        const SUPABASE_ANON_KEY = "MASUKKAN_ANON_KEY_ANDA"; // Gunakan Anon Key Anda
-        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const SUPABASE_KEY = "MASUKKAN_ANON_KEY_ANDA"; 
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function kirimNotifikasi() {
-            const title = document.getElementById('push-title').value;
-            const body = document.getElementById('push-body').value;
-            const url = document.getElementById('push-url').value;
+        async function updatePromo() {
+            const pesan = document.getElementById('promoPesan').value;
             const btn = document.getElementById('btnKirim');
-            const statusInfo = document.getElementById('statusInfo');
 
-            if (!title || !body) {
-                return alert("Judul dan Pesan tidak boleh kosong! 🌸");
-            }
+            if (!pesan) return alert("Isi pesan promonya dulu ya! 🌸");
 
-            if (!confirm("Kirim pengumuman ini ke seluruh customer?")) return;
-
-            // Loading state
             btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-            statusInfo.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
 
             try {
-                // Panggil Edge Function yang sudah kita buat sebelumnya
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ 
-                        title: title, 
-                        body: body, 
-                        url: url || "/index.html" 
+                const { error } = await db
+                    .from('app_settings')
+                    .update({ 
+                        value_text: pesan,
+                        updated_at: new Date() // Trigger agar deteksi notifikasi di customer jalan
                     })
-                });
+                    .eq('key_name', 'promo_announcement');
 
-                const result = await response.json();
+                if (error) throw error;
 
-                if (response.ok) {
-                    alert("Berhasil! ✨ " + (result.message || "Notifikasi telah dikirim."));
-                    // Reset Form
-                    document.getElementById('push-title').value = "";
-                    document.getElementById('push-body').value = "";
-                } else {
-                    throw new Error(result.error || "Gagal mengirim.");
-                }
-
+                alert("Promo berhasil diupdate! ✨ Semua customer akan melihat titik merah di lonceng.");
+                document.getElementById('promoPesan').value = "";
             } catch (err) {
-                console.error(err);
-                alert("Terjadi kesalahan: " + err.message);
+                alert("Gagal: " + err.message);
             } finally {
                 btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                statusInfo.classList.add('hidden');
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Update Promo Sekarang';
             }
         }
     </script>
