@@ -154,21 +154,23 @@
     // 1. Ambil data customer
     const { data: customer } = await db.from('customers').select('*').eq('id', userId).single();
     
-    // 2. Ambil target dari admin (misal targetnya 5 atau 10)
-    const { data: setting } = await db.from('app_settings')
-        .select('value_int') // Pastikan kolomnya sesuai di DB kamu (value_int atau value_text)
-        .eq('key_name', 'target_reward_order')
+    // 2. Ambil pengaturan target belanja dari Admin (app_settings)
+    const { data: settings } = await db.from('app_settings')
+        .select('*')
+        .eq('key_name', 'loyalty_target_count')
         .single();
-    
-    const targetOrder = setting ? setting.value_int : 5; // Fallback ke 5
+
+    // Default ke 5 jika data di database tidak ditemukan
+    const targetCount = settings ? settings.value_int : 5;
 
     if (customer) {
         userData = customer;
-        document.getElementById('user-name').innerText = customer.full_name;
-        document.getElementById('display-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
+        document.getElementById('welcome-msg').innerText = `Halo, ${customer.full_name.split(' ')[0]}! ✨`;
+        document.getElementById('w-saldo').innerText = "Rp " + (customer.saldo || 0).toLocaleString();
         
-        // Panggil render dengan data terbaru
-        renderRewardStatus(customer, targetOrder);
+        // Kirim targetCount ke fungsi render
+        renderRewardStatus(customer, targetCount);
+        loadWalletHistory(userId);
     }
 }
 
