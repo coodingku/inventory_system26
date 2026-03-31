@@ -12,10 +12,10 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
 
-    <div class="max-w-md w-full bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-white">
+    <div class="max-w-md w-full bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-white transition-all hover:shadow-pink-100">
         <div class="bg-gradient-to-br from-pink-500 to-rose-400 p-8 text-white text-center">
-            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <i class="fas fa-bullhorn text-2xl"></i>
+            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+                <i class="fas fa-bullhorn text-2xl animate-bounce"></i>
             </div>
             <h1 class="text-2xl font-bold">Broadcast Promo</h1>
             <p class="text-pink-100 text-sm">Update pengumuman di lonceng customer</p>
@@ -23,63 +23,71 @@
 
         <div class="p-8 space-y-6">
             <div>
-                <label class="block text-gray-500 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Pesan Pengumuman</label>
+                <label class="block text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ml-1">Pesan Pengumuman</label>
                 <textarea id="promoPesan" rows="5" 
-                    class="w-full p-4 bg-gray-50 border-2 border-gray-50 rounded-2xl focus:border-pink-300 focus:bg-white outline-none transition-all resize-none text-gray-700 shadow-inner"
+                    class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-pink-300 focus:bg-white outline-none transition-all resize-none text-gray-700 shadow-inner"
                     placeholder="Contoh: Promo Beauty Bloom! Diskon member 20% untuk semua treatment hari ini! 🌸"></textarea>
             </div>
 
             <button onclick="updatePromo()" id="btnKirim"
-                class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 rounded-2xl transition-all transform active:scale-95 shadow-lg shadow-pink-200 flex justify-center items-center gap-2">
-                <i class="fas fa-paper-plane"></i> 
-                <span>Update Promo Sekarang</span>
+                class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 rounded-2xl transition-all transform active:scale-95 shadow-lg shadow-pink-200 flex justify-center items-center gap-3">
+                <i class="fas fa-paper-plane" id="iconKirim"></i> 
+                <span id="textKirim">Update Promo Sekarang</span>
             </button>
             
-            <p class="text-center text-[10px] text-gray-400 leading-relaxed px-4">
-                Pesan ini akan langsung muncul sebagai titik merah pada ikon lonceng di sisi Customer (Index).
-            </p>
+            <div class="bg-blue-50 p-4 rounded-xl flex gap-3 items-start">
+                <i class="fas fa-info-circle text-blue-400 mt-1"></i>
+                <p class="text-[10px] text-blue-600 leading-relaxed">
+                    Pesan ini akan otomatis menyalakan <b>titik merah</b> pada ikon lonceng di sisi Customer secara real-time tanpa mereka perlu refresh halaman.
+                </p>
+            </div>
         </div>
     </div>
 
     <script>
-        // Kita tidak perlu inisialisasi db lagi karena sudah ada di supabase-online.js
-        // Pastikan variabel di supabase-online.js bernama 'db' atau 'supabaseClient'
-
+        // Memastikan variabel 'db' dari supabase-online.js sudah terbaca
         async function updatePromo() {
             const pesan = document.getElementById('promoPesan').value;
             const btn = document.getElementById('btnKirim');
+            const textBtn = document.getElementById('textKirim');
+            const iconBtn = document.getElementById('iconKirim');
 
             if (!pesan.trim()) {
                 return alert("Tuliskan pesan promonya dulu ya, Admin! 🌸");
             }
 
-            // Animasi Loading
+            // State Loading
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sedang Memproses...';
+            btn.classList.add('opacity-70');
+            iconBtn.className = 'fas fa-spinner fa-spin';
+            textBtn.innerText = 'Memproses Database...';
 
             try {
-                // Mengupdate tabel app_settings pada row promo_announcement
+                // Update ke tabel app_settings
                 const { error } = await db
                     .from('app_settings')
                     .update({ 
-                        value_text: pesan,
+                        value_text: pesan.trim(),
                         is_active: true,
-                        // Menambahkan timestamp agar sisi customer mendeteksi adanya perubahan data baru
                         updated_at: new Date().toISOString() 
                     })
                     .eq('key_name', 'promo_announcement');
 
                 if (error) throw error;
 
-                alert("Berhasil! ✨ Promo telah diperbarui dan notifikasi customer aktif.");
+                // Berhasil
+                alert("Berhasil! ✨ Promo telah diperbarui.");
                 document.getElementById('promoPesan').value = "";
                 
             } catch (err) {
-                console.error(err);
-                alert("Gagal mengupdate promo: " + err.message);
+                console.error("Detail Error:", err);
+                alert("Gagal: " + (err.message || "Pastikan SQL sudah dijalankan di Supabase."));
             } finally {
+                // Reset State
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Update Promo Sekarang';
+                btn.classList.remove('opacity-70');
+                iconBtn.className = 'fas fa-paper-plane';
+                textBtn.innerText = 'Update Promo Sekarang';
             }
         }
     </script>
