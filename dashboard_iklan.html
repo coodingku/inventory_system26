@@ -14,6 +14,7 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .glass-nav { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(247, 37, 133, 0.1); }
         
+        /* Slider Styles */
         .slider-container { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 35px; }
         .slide-item { position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease-in-out; display: none; }
         .slide-item.active { opacity: 1; display: block; }
@@ -24,9 +25,11 @@
 
         .product-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .product-card:hover { transform: translateY(-5px); }
+        
+        footer { background: #fff; border-top-left-radius: 40px; border-top-right-radius: 40px; }
     </style>
 </head>
-<body class="pb-10">
+<body>
 
     <nav class="glass-nav sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -73,12 +76,60 @@
             </div>
         </div>
 
-        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-20">
             <div class="col-span-full text-center py-20 text-slate-400 text-[10px] font-black animate-pulse uppercase tracking-widest">
                 Sedang Menyiapkan Katalog... ✨
             </div>
         </div>
     </section>
+
+    <footer class="p-8 pt-12 shadow-[0_-10px_40px_rgba(247,37,133,0.05)] text-slate-600">
+        <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+            <div>
+                <h2 class="text-2xl font-black text-[#f72585] mb-4">BeautyBloom</h2>
+                <p class="text-xs leading-relaxed font-medium opacity-80 mb-6">Destinasi fashion dan skincare terpercaya untuk membantu Anda tampil lebih percaya diri. Koleksi pilihan dengan kualitas terbaik khusus untuk Anda.</p>
+                <div class="flex gap-4">
+                    <a href="#" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-pink-500 hover:bg-pink-500 hover:text-white transition-all"><i class="fab fa-instagram"></i></a>
+                    <a href="#" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-pink-500 hover:bg-pink-500 hover:text-white transition-all"><i class="fab fa-tiktok"></i></a>
+                    <a href="#" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-pink-500 hover:bg-pink-500 hover:text-white transition-all"><i class="fab fa-facebook"></i></a>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="font-black text-slate-800 text-sm uppercase tracking-widest mb-6 border-b-2 border-pink-100 pb-2 w-fit">Butuh Bantuan?</h3>
+                <ul class="space-y-4">
+                    <li class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center text-sm"><i class="fab fa-whatsapp"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">WhatsApp CS</p>
+                            <a href="https://wa.me/628123456789" class="text-sm font-black text-slate-700 hover:text-pink-500">0812-3456-789</a>
+                        </div>
+                    </li>
+                    <li class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-pink-100 text-[#f72585] rounded-lg flex items-center justify-center text-sm"><i class="fas fa-envelope"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Email Support</p>
+                            <a href="mailto:hello@beautybloom.com" class="text-sm font-black text-slate-700 hover:text-pink-500">hello@beautybloom.com</a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-[25px] border border-slate-100">
+                <h3 class="font-black text-slate-800 text-xs uppercase tracking-widest mb-4">Informasi Sistem</h3>
+                <div class="flex items-start gap-4">
+                    <div class="p-3 bg-white rounded-xl shadow-sm"><i class="fas fa-code text-[#f72585]"></i></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Developed By</p>
+                        <p class="text-xs font-black text-slate-800">Finex POS System</p>
+                        <p class="text-[9px] mt-2 leading-relaxed opacity-70">Sistem manajemen retail dan e-commerce terintegrasi untuk pertumbuhan bisnis Anda.</p>
+                    </div>
+                </div>
+                <p class="text-[9px] font-bold text-slate-400 mt-6 uppercase tracking-tighter">© 2026 BeautyBloom. All Rights Reserved.</p>
+            </div>
+        </div>
+        <div class="h-10"></div>
+    </footer>
 
 <script>
     let currentSlide = 0;
@@ -88,7 +139,6 @@
         loadDynamicAds();
     };
 
-    // --- FUNGSI IKLAN SLIDESHOW ---
     async function loadDynamicAds() {
         const slider = document.getElementById('promo-slider');
         const dotsContainer = document.getElementById('promo-dots');
@@ -119,7 +169,6 @@
         } catch (e) { console.error(e); }
     }
 
-    // --- FUNGSI AMBIL PRODUK ---
     async function fetchProducts() {
         const { data, error } = await db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true).order('created_at', { ascending: false });
         if (!error) renderProducts(data);
@@ -144,16 +193,12 @@
         `).join('');
     }
 
-    // --- LOGIKA KLIK PRODUK ---
     async function handleProductClick() {
         const { data: { session } } = await db.auth.getSession();
-        
         if (!session) {
-            // Jika belum login, tampilkan alert dan arahkan ke login
             alert("Hai cantik! Silahkan Login atau Daftar Akun terlebih dahulu untuk melihat detail produk dan memesan ya.. 🌸");
             window.location.href = "login-customer.html";
         } else {
-            // Jika sudah login, arahkan ke halaman toko/produk detail
             window.location.href = "online-shop.html"; 
         }
     }
