@@ -10,118 +10,179 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; margin: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff0f3; margin: 0; scroll-behavior: smooth; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .glass-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
-        .promo-banner { transition: transform 0.3s ease; }
-        .promo-banner:hover { transform: scale(1.02); }
-        .category-icon { transition: all 0.2s ease; }
+        .glass-nav { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(247, 37, 133, 0.1); }
+        
+        /* Slider Styles */
+        .slider-container { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 35px; }
+        .slide-item { position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease-in-out; display: none; }
+        .slide-item.active { opacity: 1; display: block; }
+        .slide-item img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .dot-ad { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); transition: all 0.3s; }
+        .dot-ad.active { background: white; width: 20px; border-radius: 10px; }
+
+        .category-icon { transition: all 0.2s ease; cursor: pointer; }
         .category-icon:active { transform: scale(0.9); }
+        .product-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .product-card:hover { transform: translateY(-5px); shadow: 0 10px 25px -5px rgba(247, 37, 133, 0.1); }
     </style>
 </head>
-<body class="pb-24">
+<body class="pb-32">
 
-    <nav class="glass-nav sticky top-0 z-50 px-4 py-3 flex items-center justify-between shadow-sm">
+    <nav class="glass-nav sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-4">
             <h1 class="text-xl font-black text-[#f72585] tracking-tighter">BeautyBloom</h1>
         </div>
-        <div class="flex-1 px-4 max-w-md hidden md:block">
-            <div class="relative">
-                <i class="fas fa-search absolute left-4 top-3 text-slate-300"></i>
-                <input type="text" placeholder="Cari fashion atau skincare..." class="w-full bg-slate-100 border-none rounded-full py-2 pl-10 text-xs focus:ring-2 focus:ring-pink-200">
-            </div>
-        </div>
-        <div class="flex items-center gap-4">
-            <button onclick="window.location.href='login-customer.html'" class="text-xs font-black text-slate-600 border border-slate-200 px-4 py-2 rounded-full hover:bg-white transition-all">MASUK</button>
-            <button onclick="window.location.href='login-customer.html'" class="text-xs font-black bg-[#f72585] text-white px-4 py-2 rounded-full shadow-md">DAFTAR</button>
+        <div class="flex items-center gap-3">
+            <button onclick="window.location.href='login-customer.html'" class="text-[10px] font-black text-slate-600 px-4 py-2 rounded-full border border-slate-200">MASUK</button>
+            <button onclick="window.location.href='login-customer.html'" class="text-[10px] font-black bg-[#f72585] text-white px-5 py-2 rounded-full shadow-lg shadow-pink-200">DAFTAR</button>
         </div>
     </nav>
 
     <section class="p-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-        <div class="md:col-span-2 relative h-48 md:h-80 bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-[35px] overflow-hidden shadow-xl promo-banner">
-            <div class="absolute inset-0 flex flex-col justify-center px-10 text-white z-10">
-                <span class="bg-white/20 w-fit text-[10px] font-black px-3 py-1 rounded-full uppercase mb-4">Limited Edition</span>
-                <h2 class="text-3xl md:text-5xl font-black leading-tight">Glow Up <br> & Fashion.</h2>
-                <p class="text-sm opacity-90 mt-4 font-medium italic">Diskon Saldo 5% Khusus Pembelian Hari Ini! ✨</p>
-                <button class="mt-6 bg-white text-[#f72585] w-fit px-8 py-3 rounded-full text-xs font-black shadow-lg">LIHAT PROMO</button>
+        <div class="md:col-span-2 relative h-56 md:h-80 bg-slate-200 rounded-[35px] overflow-hidden shadow-xl shadow-pink-100">
+            <div id="promo-slider" class="slider-container">
+                <div class="slide-item active flex items-center justify-center bg-gradient-to-br from-[#ff85a2] to-[#f72585] text-white">
+                    <div class="text-center">
+                        <i class="fas fa-circle-notch animate-spin text-3xl mb-2"></i>
+                        <p class="text-[10px] font-bold uppercase tracking-widest">Memuat Promo...</p>
+                    </div>
+                </div>
             </div>
-            <i class="fas fa-stars absolute -right-10 -bottom-10 text-[200px] text-white/10 rotate-12"></i>
+            <div id="promo-dots" class="absolute bottom-5 left-10 flex gap-2 z-20"></div>
         </div>
 
         <div class="flex flex-col gap-4">
             <div class="h-1/2 bg-sky-400 rounded-[30px] p-6 text-white relative overflow-hidden shadow-lg">
-                <h3 class="font-black text-lg">Holiday <br> Sale! 🌴</h3>
-                <p class="text-[10px] opacity-80 mt-1">Diskon s/d 60%</p>
-                <img src="https://cdn-icons-png.flaticon.com/512/3063/3063822.png" class="absolute -right-2 bottom-0 w-24 opacity-50">
+                <h3 class="font-black text-lg leading-tight">Holiday <br> Sale! 🌴</h3>
+                <p class="text-[10px] opacity-80 mt-1 uppercase font-bold">Diskon s/d 60%</p>
+                <img src="https://cdn-icons-png.flaticon.com/512/3063/3063822.png" class="absolute -right-2 bottom-0 w-20 opacity-40">
             </div>
             <div class="h-1/2 bg-orange-400 rounded-[30px] p-6 text-white relative overflow-hidden shadow-lg">
-                <h3 class="font-black text-lg">New <br> Arrivals 👗</h3>
-                <p class="text-[10px] opacity-80 mt-1">Koleksi Fashion Terbaru</p>
-                <img src="https://cdn-icons-png.flaticon.com/512/3159/3159614.png" class="absolute -right-2 bottom-0 w-24 opacity-50">
+                <h3 class="font-black text-lg leading-tight">New <br> Arrivals 👗</h3>
+                <p class="text-[10px] opacity-80 mt-1 uppercase font-bold">Koleksi Terbaru</p>
+                <img src="https://cdn-icons-png.flaticon.com/512/3159/3159614.png" class="absolute -right-2 bottom-0 w-20 opacity-40">
             </div>
         </div>
     </section>
 
-    <section class="max-w-6xl mx-auto px-4 mt-8 flex justify-between overflow-x-auto no-scrollbar gap-6 py-2">
+    <section class="max-w-6xl mx-auto px-4 mt-6 flex justify-between overflow-x-auto no-scrollbar gap-6 py-2">
         <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-blue-400 text-xl"><i class="fas fa-tshirt"></i></div>
-            <span class="text-[10px] font-bold text-slate-500 mt-2">Atasan</span>
+            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-blue-400 text-xl border border-blue-50"><i class="fas fa-tshirt"></i></div>
+            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Atasan</span>
         </div>
         <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-pink-400 text-xl"><i class="fas fa-sparkles"></i></div>
-            <span class="text-[10px] font-bold text-slate-500 mt-2">Skincare</span>
+            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-pink-400 text-xl border border-pink-50"><i class="fas fa-sparkles"></i></div>
+            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Skincare</span>
         </div>
         <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-orange-400 text-xl"><i class="fas fa-shopping-bag"></i></div>
-            <span class="text-[10px] font-bold text-slate-500 mt-2">Tas</span>
+            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-orange-400 text-xl border border-orange-50"><i class="fas fa-shopping-bag"></i></div>
+            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Tas</span>
         </div>
         <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-purple-400 text-xl"><i class="fas fa-gem"></i></div>
-            <span class="text-[10px] font-bold text-slate-500 mt-2">Aksesoris</span>
+            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-purple-400 text-xl border border-purple-50"><i class="fas fa-gem"></i></div>
+            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Aksesoris</span>
         </div>
         <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-green-400 text-xl"><i class="fas fa-leaf"></i></div>
-            <span class="text-[10px] font-bold text-slate-500 mt-2">Organic</span>
+            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-green-400 text-xl border border-green-50"><i class="fas fa-leaf"></i></div>
+            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Organic</span>
         </div>
     </section>
 
-    <section class="max-w-6xl mx-auto px-4 mt-12">
+    <section class="max-w-6xl mx-auto px-4 mt-10">
         <div class="flex justify-between items-end mb-6">
             <div>
-                <h3 class="text-xl font-black text-slate-800 tracking-tight italic uppercase">Terbaru Untukmu 🔥</h3>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Katalog Produk Beauty Bloom</p>
+                <h3 class="text-xl font-black text-slate-800 tracking-tight italic uppercase">Koleksi Pilihan 🌸</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produk Fashion & Beauty Terbaru</p>
             </div>
-            <button class="text-xs font-black text-pink-500">LIHAT SEMUA <i class="fas fa-chevron-right ml-1"></i></button>
+            <button onclick="window.location.href='online-shop.html'" class="text-[10px] font-black text-pink-500 border-b-2 border-pink-100 pb-1">LIHAT SEMUA</button>
         </div>
 
-        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            <div class="col-span-full text-center py-20 text-slate-400 text-xs font-black animate-pulse uppercase">Mencari koleksi terbaik... ✨</div>
+        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div class="col-span-full text-center py-20 text-slate-400 text-[10px] font-black animate-pulse uppercase tracking-widest">
+                Sedang Menyiapkan Katalog... ✨
+            </div>
         </div>
     </section>
 
-    <div id="floatingCart" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md hidden z-50">
-        <div class="bg-slate-900/95 backdrop-blur-xl p-4 rounded-[28px] shadow-2xl flex justify-between items-center border border-white/10">
+    <div id="floatingCart" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md hidden z-[100]">
+        <div class="bg-slate-900/95 backdrop-blur-xl p-4 rounded-[30px] shadow-2xl flex justify-between items-center border border-white/10">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-[#f72585] rounded-xl flex items-center justify-center text-white"><i class="fas fa-shopping-basket"></i></div>
+                <div class="w-11 h-11 bg-[#f72585] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-pink-500/20">
+                    <i class="fas fa-shopping-basket text-lg"></i>
+                </div>
                 <div>
-                    <p id="cartCount" class="text-[9px] text-pink-400 font-black uppercase tracking-widest">0 Produk</p>
-                    <p id="cartTotal" class="text-white font-black text-sm">Rp 0</p>
+                    <p id="cartCount" class="text-[9px] text-pink-400 font-black uppercase tracking-widest">0 ITEM</p>
+                    <p id="cartTotal" class="text-white font-black text-sm uppercase">Rp 0</p>
                 </div>
             </div>
-            <button onclick="checkLoginBeforeCheckout()" class="bg-[#f72585] text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg">Checkout ✨</button>
+            <button onclick="checkLoginBeforeCheckout()" class="bg-[#f72585] text-white px-7 py-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all tracking-wider">
+                Checkout 🌸
+            </button>
         </div>
     </div>
 
 <script>
     let cart = JSON.parse(localStorage.getItem('finexcart')) || [];
+    let currentSlide = 0;
 
     window.onload = () => {
         fetchProducts();
-        updateCartBar();
+        loadDynamicAds();
+        updateCartBar(); // Jalankan langsung saat refresh
     };
 
+    // --- FUNGSI IKLAN SLIDESHOW ---
+    async function loadDynamicAds() {
+        const slider = document.getElementById('promo-slider');
+        const dotsContainer = document.getElementById('promo-dots');
+        
+        // Mengambil banner dari app_settings (Sesuaikan key_name Anda)
+        const { data: setting } = await db.from('app_settings')
+            .select('value_text, is_active')
+            .eq('key_name', 'dashboard_banners')
+            .single();
+
+        if (!setting || !setting.is_active || !setting.value_text) {
+            // Fallback jika data tidak ada
+            slider.innerHTML = `<div class="slide-item active"><img src="https://via.placeholder.com/800x400?text=Beauty+Bloom+Promo"></div>`;
+            return;
+        }
+
+        try {
+            const adImages = JSON.parse(setting.value_text);
+            slider.innerHTML = adImages.map((imgUrl, i) => `
+                <div class="slide-item ${i === 0 ? 'active' : ''}">
+                    <img src="${imgUrl}" alt="Promo ${i}">
+                </div>
+            `).join('');
+
+            dotsContainer.innerHTML = adImages.map((_, i) => `
+                <div class="dot-ad ${i === 0 ? 'active' : ''}"></div>
+            `).join('');
+
+            if (adImages.length > 1) {
+                setInterval(() => {
+                    const slides = document.querySelectorAll('.slide-item');
+                    const dots = document.querySelectorAll('.dot-ad');
+                    if (slides.length === 0) return;
+
+                    slides[currentSlide].classList.remove('active');
+                    dots[currentSlide].classList.remove('active');
+                    
+                    currentSlide = (currentSlide + 1) % slides.length;
+                    
+                    slides[currentSlide].classList.add('active');
+                    dots[currentSlide].classList.add('active');
+                }, 5000); // Ganti slide setiap 5 detik
+            }
+        } catch (e) { console.error("Gagal memuat banner:", e); }
+    }
+
+    // --- FUNGSI PRODUK ---
     async function fetchProducts() {
-        // Ambil produk yang diizinkan Admin tampil online
         const { data, error } = await db.from('produk')
             .select('*')
             .gt('stok_sekarang', 0)
@@ -134,35 +195,49 @@
 
     function renderProducts(list) {
         const grid = document.getElementById('productGrid');
+        if (list.length === 0) {
+            grid.innerHTML = `<p class="col-span-full text-center py-10 text-slate-400 font-bold uppercase text-[10px]">Produk belum tersedia</p>`;
+            return;
+        }
+
         grid.innerHTML = list.map(p => `
-            <div class="bg-white rounded-[30px] p-3 shadow-sm border border-pink-50 flex flex-col group transition-all hover:shadow-md h-full">
-                <div class="w-full aspect-[4/5] bg-slate-50 rounded-[25px] mb-3 overflow-hidden relative">
-                    <img src="${p.image_url || 'https://via.placeholder.com/300x400'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    ${p.is_diskon ? '<div class="absolute top-3 left-3 bg-[#f72585] text-white text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter shadow-sm">Promo ✨</div>' : ''}
+            <div class="product-card bg-white rounded-[32px] p-3 shadow-sm border border-pink-50 flex flex-col h-full group">
+                <div class="w-full aspect-[4/5] bg-slate-50 rounded-[26px] mb-3 overflow-hidden relative">
+                    <img src="${p.image_url || 'https://via.placeholder.com/300x400'}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    ${p.is_diskon ? '<div class="absolute top-3 left-3 bg-[#f72585] text-white text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-tighter">PROMO</div>' : ''}
                 </div>
                 <div class="flex-grow px-1">
                     <h4 class="font-bold text-slate-700 text-[11px] leading-tight uppercase mb-1 line-clamp-2">${p.nama_barang}</h4>
                     <p class="text-[#f72585] font-black text-sm italic tracking-tighter">Rp ${p.harga_jual.toLocaleString()}</p>
                 </div>
-                <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="mt-4 w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[9px] font-black uppercase transition-colors tracking-widest">
+                <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="mt-4 w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[9px] font-black uppercase transition-all active:scale-95 tracking-widest border border-pink-50">
                     + Keranjang
                 </button>
             </div>
         `).join('');
     }
 
+    // --- FUNGSI KERANJANG (PERSISTEN) ---
     function addToCart(id, nama, harga) {
         const idx = cart.findIndex(i => i.id === id);
-        if (idx > -1) cart[idx].qty++;
-        else cart.push({ id, nama, harga, qty: 1 });
+        if (idx > -1) {
+            cart[idx].qty++;
+        } else {
+            cart.push({ id, nama, harga, qty: 1 });
+        }
         
         localStorage.setItem('finexcart', JSON.stringify(cart));
         updateCartBar();
         
-        // Feedback visual sederhana
-        const btn = event.target;
-        btn.innerText = "BERHASIL! ✨";
-        setTimeout(() => btn.innerText = "+ Keranjang", 800);
+        // Feedback Tombol
+        const btn = event.currentTarget;
+        const originalText = btn.innerText;
+        btn.innerHTML = "DITAMBAHKAN ✨";
+        btn.classList.add('bg-pink-500', 'text-white');
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.classList.remove('bg-pink-500', 'text-white');
+        }, 800);
     }
 
     function updateCartBar() {
@@ -170,11 +245,11 @@
         const countEl = document.getElementById('cartCount');
         const totalEl = document.getElementById('cartTotal');
 
-        if (cart.length > 0) {
+        if (cart && cart.length > 0) {
             bar.classList.remove('hidden');
             const totalQty = cart.reduce((s, i) => s + i.qty, 0);
             const totalPrice = cart.reduce((s, i) => s + (i.qty * i.harga), 0);
-            countEl.innerText = totalQty + " PRODUK BERHASIL";
+            countEl.innerText = totalQty + " ITEM BERHASIL DIPILIH";
             totalEl.innerText = "Rp " + totalPrice.toLocaleString();
         } else {
             bar.classList.add('hidden');
@@ -184,10 +259,11 @@
     async function checkLoginBeforeCheckout() {
         const { data: { session } } = await db.auth.getSession();
         if (!session) {
-            alert("Hai cantik! Silahkan Login atau Daftar Akun untuk melanjutkan pesanan ya.. 🌸");
+            alert("Hai cantik! Silahkan Login atau Daftar Akun dulu ya untuk belanja.. 🌸");
             window.location.href = "login-customer.html";
         } else {
-            window.location.href = "online-shop.html"; // Atau halaman checkout Anda
+            // Arahkan ke halaman keranjang/checkout detail
+            window.location.href = "online-shop.html"; 
         }
     }
 </script>
