@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Beauty Bloom | Temukan Kecantikanmu 🌸</title>
+    <title>Beauty Bloom | Catalog 🌸</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-online.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,118 +11,110 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff0f3; }
-        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .product-card { transition: all 0.3s ease; border: 1px solid #ffe5ec; }
+        .product-card:active { transform: scale(0.95); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .product-card:hover { transform: translateY(-5px); transition: all 0.3s ease; }
-        .badge-promo { animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        /* Animasi muncul pelan */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="pb-24">
+<body class="pb-32">
 
-    <header class="p-4 max-w-2xl mx-auto">
-        <div class="flex justify-between items-center mb-6">
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-pink-100 p-4">
+        <div class="max-w-2xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-black text-[#f72585] tracking-tight">Beauty Bloom 🌸</h1>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aura Cantikmu Dimulai Sini</p>
+                <h1 class="text-xl font-black text-[#f72585]">Beauty Bloom 🌸</h1>
             </div>
-            <button onclick="checkAccount()" class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-pink-500">
-                <i class="fas fa-user-circle text-xl"></i>
-            </button>
-        </div>
-
-        <div class="bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-[30px] p-6 text-white shadow-xl relative overflow-hidden">
-            <div class="relative z-10">
-                <span class="bg-white/20 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Promo Member Baru</span>
-                <h2 class="text-2xl font-black mt-2 leading-tight">Diskon 5% <br> Bayar Pakai Saldo!</h2>
-                <p class="text-xs opacity-90 mt-2 font-medium">Dapatkan reward loyalty setiap 3x order lunas. ✨</p>
-                <button onclick="scrollToProducts()" class="mt-4 bg-white text-[#f72585] px-6 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all">
-                    BELANJA SEKARANG
+            <div class="flex gap-3">
+                <button onclick="window.location.href='login.html'" class="text-slate-400 hover:text-pink-500 transition-colors">
+                    <i class="fas fa-user-circle text-2xl"></i>
                 </button>
             </div>
-            <i class="fas fa-sparkles absolute -right-4 -bottom-4 text-8xl opacity-20 rotate-12"></i>
         </div>
-    </header>
+    </nav>
 
-    <section class="px-4 max-w-2xl mx-auto mt-2">
-        <div class="flex gap-3 overflow-x-auto no-scrollbar py-2">
-            <button onclick="filterCategory('Semua')" class="px-6 py-2 bg-[#f72585] text-white rounded-full text-xs font-bold whitespace-nowrap shadow-md">Semua</button>
-            <button onclick="filterCategory('Skincare')" class="px-6 py-2 bg-white text-slate-500 rounded-full text-xs font-bold whitespace-nowrap shadow-sm border border-pink-100">Skincare</button>
-            <button onclick="filterCategory('Bodycare')" class="px-6 py-2 bg-white text-slate-500 rounded-full text-xs font-bold whitespace-nowrap shadow-sm border border-pink-100">Bodycare</button>
-            <button onclick="filterCategory('Makeup')" class="px-6 py-2 bg-white text-slate-500 rounded-full text-xs font-bold whitespace-nowrap shadow-sm border border-pink-100">Makeup</button>
+    <main class="max-w-2xl mx-auto px-4 mt-4">
+        <div class="bg-gradient-to-br from-[#ff85a2] to-[#f72585] rounded-[28px] p-6 text-white shadow-lg mb-8 relative overflow-hidden">
+            <div class="relative z-10">
+                <span class="bg-white/20 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Special Offer</span>
+                <h2 class="text-2xl font-black mt-2 leading-tight">Makin Cantik <br> Makin Hemat! ✨</h2>
+                <p class="text-[11px] opacity-90 mt-2 font-bold italic">Diskon Saldo 5% & Reward Loyalty menantimu.</p>
+            </div>
+            <i class="fas fa-magic absolute -right-4 -bottom-4 text-8xl opacity-10 rotate-12"></i>
         </div>
-    </section>
 
-    <main id="product-section" class="max-w-2xl mx-auto px-4 mt-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-black text-slate-800 italic">Produk Terlaris 🔥</h3>
-            <span class="text-[10px] font-bold text-pink-500">Lihat Semua</span>
+        <div class="mb-6">
+            <h3 class="font-black text-slate-800 text-lg mb-1">Katalog Produk</h3>
+            <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest mb-4">Pilih produk favoritmu di bawah ini</p>
         </div>
         
         <div id="product-grid" class="grid grid-cols-2 gap-4">
-            <div class="col-span-2 text-center py-10 text-slate-400 text-xs font-bold animate-pulse">
-                Sedang memuat kecantikan... ✨
+            <div class="col-span-2 text-center py-20 text-slate-300">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <p class="text-[10px] font-bold uppercase tracking-tighter">Menyiapkan Produk Cantik...</p>
             </div>
         </div>
     </main>
 
-    <div id="floating-cart" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md hidden z-50">
-        <div class="bg-slate-900/90 backdrop-blur-xl p-4 rounded-[25px] shadow-2xl border border-white/10 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <div class="relative">
-                    <div class="w-12 h-12 bg-pink-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                        <i class="fas fa-shopping-bag"></i>
-                    </div>
-                    <span id="cart-count" class="absolute -top-2 -right-2 bg-white text-[#f72585] text-[10px] font-black w-6 h-6 rounded-full border-2 border-pink-500 flex items-center justify-center shadow-md">0</span>
+    <div id="floating-cart" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md hidden z-50 fade-in">
+        <div class="bg-slate-900/95 backdrop-blur-xl p-4 rounded-[30px] shadow-2xl border border-white/10 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-pink-500 rounded-2xl flex items-center justify-center text-white">
+                    <i class="fas fa-shopping-basket"></i>
                 </div>
                 <div>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Pesanan</p>
-                    <p id="cart-total" class="text-white font-black text-lg">Rp 0</p>
+                    <p id="cart-count" class="text-[10px] text-pink-400 font-black uppercase tracking-widest">0 Item</p>
+                    <p id="cart-total" class="text-white font-black text-base">Rp 0</p>
                 </div>
             </div>
-            <button onclick="goToCheckout()" class="bg-[#f72585] text-white px-6 py-3 rounded-[18px] font-black text-xs shadow-lg active:scale-95 transition-all">
+            <button onclick="handleCheckoutRedirect()" class="bg-[#f72585] hover:bg-pink-400 text-white px-6 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-lg shadow-pink-500/20">
                 CHECKOUT 🌸
             </button>
         </div>
     </div>
 
 <script>
-    let products = [];
     let cart = JSON.parse(localStorage.getItem('finexcart')) || [];
 
     window.onload = async () => {
-        await loadProducts();
-        updateCartUI();
+        await fetchOnlineProducts();
+        updateFloatingCart();
     };
 
-    async function loadProducts() {
-        const { data, error } = await db.from('produk').select('*').order('created_at', { ascending: false });
-        if (error) return console.error(error);
-        products = data;
-        renderProducts(products);
+    async function fetchOnlineProducts() {
+        // Kita ambil produk yang sama persis seperti di kode online shop Anda
+        const { data, error } = await db.from('produk')
+            .select('*')
+            .order('nama_barang', { ascending: true }); // Sesuaikan urutan jika perlu
+
+        if (error) {
+            console.error("Gagal ambil produk:", error);
+            return;
+        }
+
+        renderGrid(data);
     }
 
-    function renderProducts(list) {
+    function renderGrid(products) {
         const grid = document.getElementById('product-grid');
-        grid.innerHTML = list.map(p => `
-            <div class="product-card bg-white rounded-[25px] p-3 shadow-sm border border-pink-50 relative">
-                <div class="w-full aspect-square bg-pink-50 rounded-[20px] mb-3 overflow-hidden">
-                    <img src="${p.foto_url || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover">
+        grid.innerHTML = products.map(p => `
+            <div class="product-card bg-white rounded-[28px] p-3 shadow-sm flex flex-col h-full">
+                <div class="w-full aspect-square bg-pink-50 rounded-[22px] mb-3 overflow-hidden relative">
+                    <img src="${p.foto_url || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
                 </div>
-                <h4 class="font-bold text-slate-700 text-[13px] leading-tight mb-1 truncate">${p.nama_barang}</h4>
-                <p class="text-[#f72585] font-black text-sm mb-3">Rp ${p.harga_jual.toLocaleString()}</p>
-                <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[10px] font-black transition-all">
-                    + KERANJANG
+                <div class="flex-grow">
+                    <h4 class="font-bold text-slate-700 text-[12px] leading-tight mb-1 uppercase">${p.nama_barang}</h4>
+                    <p class="text-[#f72585] font-black text-[13px]">Rp ${p.harga_jual.toLocaleString()}</p>
+                </div>
+                <button onclick="addDirectToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="mt-3 w-full bg-slate-50 hover:bg-pink-50 text-pink-500 py-3 rounded-[18px] text-[10px] font-black transition-all border border-pink-50 uppercase tracking-tighter">
+                    + Keranjang
                 </button>
             </div>
         `).join('');
     }
 
-    function addToCart(id, nama, harga) {
+    function addDirectToCart(id, nama, harga) {
         const existing = cart.find(item => item.id === id);
         if (existing) {
             existing.qty += 1;
@@ -130,55 +122,45 @@
             cart.push({ id, nama, harga, qty: 1 });
         }
         localStorage.setItem('finexcart', JSON.stringify(cart));
-        updateCartUI();
+        updateFloatingCart();
         
-        // Animasi feedback sederhana
+        // Feedback visual sederhana pada tombol
         const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "BERHASIL! ✨";
-        setTimeout(() => btn.innerText = originalText, 1000);
+        btn.innerHTML = '✨ BERHASIL';
+        btn.classList.replace('text-pink-500', 'text-green-500');
+        setTimeout(() => {
+            btn.innerHTML = '+ KERANJANG';
+            btn.classList.replace('text-green-500', 'text-pink-500');
+        }, 800);
     }
 
-    function updateCartUI() {
-        const floating = document.getElementById('floating-cart');
+    function updateFloatingCart() {
+        const bar = document.getElementById('floating-cart');
         const countEl = document.getElementById('cart-count');
         const totalEl = document.getElementById('cart-total');
-        
+
         if (cart.length > 0) {
-            floating.classList.remove('hidden');
-            const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
-            const totalPrice = cart.reduce((sum, item) => sum + (item.qty * item.harga), 0);
+            bar.classList.remove('hidden');
+            const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+            const totalPrice = cart.reduce((s, i) => s + (i.qty * i.harga), 0);
             
-            countEl.innerText = totalQty;
+            countEl.innerText = totalQty + " ITEM BERHASIL";
             totalEl.innerText = "Rp " + totalPrice.toLocaleString();
         } else {
-            floating.classList.add('hidden');
+            bar.classList.add('hidden');
         }
     }
 
-    async function goToCheckout() {
-        // Cek login saat mau checkout
+    async function handleCheckoutRedirect() {
         const { data: { user } } = await db.auth.getUser();
         if (!user) {
-            alert("Silahkan Login/Daftar dulu ya cantik untuk lanjut checkout! 🌸");
-            window.location.href = "login.html"; // Arahkan ke file login Anda
+            // Jika belum login, simpan info kalau dia mau ke checkout
+            localStorage.setItem('target_page', 'checkout.html');
+            alert("Hai cantik! Login/Daftar sebentar ya untuk proses pesananmu 🌸");
+            window.location.href = "login.html";
         } else {
             window.location.href = "checkout.html";
         }
-    }
-
-    function checkAccount() {
-        // Logika ke halaman profil atau login
-        window.location.href = "login.html";
-    }
-
-    function scrollToProducts() {
-        document.getElementById('product-section').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function filterCategory(cat) {
-        // Tambahkan logika filter sesuai tabel produk Anda jika ada kolom kategori
-        alert("Filter " + cat + " akan segera hadir! ✨");
     }
 </script>
 </body>
