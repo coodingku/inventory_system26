@@ -14,7 +14,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .glass-nav { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(247, 37, 133, 0.1); }
         
-        /* Slider Styles */
         .slider-container { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 35px; }
         .slide-item { position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease-in-out; display: none; }
         .slide-item.active { opacity: 1; display: block; }
@@ -23,13 +22,11 @@
         .dot-ad { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); transition: all 0.3s; }
         .dot-ad.active { background: white; width: 20px; border-radius: 10px; }
 
-        .category-icon { transition: all 0.2s ease; cursor: pointer; }
-        .category-icon:active { transform: scale(0.9); }
         .product-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .product-card:hover { transform: translateY(-5px); }
     </style>
 </head>
-<body class="pb-32">
+<body class="pb-10">
 
     <nav class="glass-nav sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -74,7 +71,6 @@
                 <h3 class="text-xl font-black text-slate-800 tracking-tight italic uppercase">Koleksi Pilihan 🌸</h3>
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produk Fashion & Beauty Terbaru</p>
             </div>
-            <button onclick="window.location.href='online-shop.html'" class="text-[10px] font-black text-pink-500 border-b-2 border-pink-100 pb-1">LIHAT SEMUA</button>
         </div>
 
         <div id="productGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -84,57 +80,15 @@
         </div>
     </section>
 
-    <div id="floatingCart" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md hidden z-[100]">
-        <div class="bg-slate-900/95 backdrop-blur-xl p-4 rounded-[30px] shadow-2xl flex justify-between items-center border border-white/10">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-[#f72585] rounded-2xl flex items-center justify-center text-white">
-                    <i class="fas fa-shopping-basket text-lg"></i>
-                </div>
-                <div>
-                    <p id="cartCount" class="text-[9px] text-pink-400 font-black uppercase tracking-widest">0 ITEM</p>
-                    <p id="cartTotal" class="text-white font-black text-sm uppercase">Rp 0</p>
-                </div>
-            </div>
-            <button onclick="checkLoginBeforeCheckout()" class="bg-[#f72585] text-white px-7 py-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all tracking-wider">
-                Checkout 🌸
-            </button>
-        </div>
-    </div>
-
 <script>
-    // 1. Inisialisasi Data dari Storage
-    let cart = JSON.parse(localStorage.getItem('finexcart')) || [];
     let currentSlide = 0;
-
-    // 2. Fungsi Update Tampilan Cart (Didefinisikan di awal agar bisa dipanggil instan)
-    function updateCartBar() {
-        const bar = document.getElementById('floatingCart');
-        const countEl = document.getElementById('cartCount');
-        const totalEl = document.getElementById('cartTotal');
-
-        if (!bar || !countEl || !totalEl) return;
-
-        if (cart && cart.length > 0) {
-            bar.classList.remove('hidden');
-            const totalQty = cart.reduce((s, i) => s + i.qty, 0);
-            const totalPrice = cart.reduce((s, i) => s + (i.qty * i.harga), 0);
-            countEl.innerText = totalQty + " ITEM BERHASIL DIPILIH";
-            totalEl.innerText = "Rp " + totalPrice.toLocaleString();
-        } else {
-            bar.classList.add('hidden');
-        }
-    }
-
-    // 3. JALANKAN LANGSUNG SAAT SCRIPT DIMUAT (PENTING AGAR TIDAK HILANG SAAT REFRESH)
-    // Gunakan timeout sedikit agar DOM ter-render sempurna
-    setTimeout(updateCartBar, 50);
 
     window.onload = () => {
         fetchProducts();
         loadDynamicAds();
-        updateCartBar(); 
     };
 
+    // --- FUNGSI IKLAN SLIDESHOW ---
     async function loadDynamicAds() {
         const slider = document.getElementById('promo-slider');
         const dotsContainer = document.getElementById('promo-dots');
@@ -165,6 +119,7 @@
         } catch (e) { console.error(e); }
     }
 
+    // --- FUNGSI AMBIL PRODUK ---
     async function fetchProducts() {
         const { data, error } = await db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true).order('created_at', { ascending: false });
         if (!error) renderProducts(data);
@@ -182,32 +137,23 @@
                     <h4 class="font-bold text-slate-700 text-[11px] leading-tight uppercase mb-1 line-clamp-2">${p.nama_barang}</h4>
                     <p class="text-[#f72585] font-black text-sm italic">Rp ${p.harga_jual.toLocaleString()}</p>
                 </div>
-                <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="mt-4 w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[9px] font-black uppercase transition-all tracking-widest border border-pink-50">
-                    + Keranjang
+                <button onclick="handleProductClick()" class="mt-4 w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[9px] font-black uppercase transition-all tracking-widest border border-pink-50">
+                    Beli Sekarang ✨
                 </button>
             </div>
         `).join('');
     }
 
-    function addToCart(id, nama, harga) {
-        const idx = cart.findIndex(i => i.id === id);
-        if (idx > -1) cart[idx].qty++;
-        else cart.push({ id, nama, harga, qty: 1 });
-        
-        localStorage.setItem('finexcart', JSON.stringify(cart));
-        updateCartBar();
-        
-        const btn = event.currentTarget;
-        btn.innerHTML = "BERHASIL ✨";
-        setTimeout(() => btn.innerText = "+ Keranjang", 800);
-    }
-
-    async function checkLoginBeforeCheckout() {
+    // --- LOGIKA KLIK PRODUK ---
+    async function handleProductClick() {
         const { data: { session } } = await db.auth.getSession();
+        
         if (!session) {
-            alert("Hai cantik! Silahkan Login atau Daftar Akun dulu ya.. 🌸");
+            // Jika belum login, tampilkan alert dan arahkan ke login
+            alert("Hai cantik! Silahkan Login atau Daftar Akun terlebih dahulu untuk melihat detail produk dan memesan ya.. 🌸");
             window.location.href = "login-customer.html";
         } else {
+            // Jika sudah login, arahkan ke halaman toko/produk detail
             window.location.href = "online-shop.html"; 
         }
     }
