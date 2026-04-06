@@ -26,7 +26,7 @@
         .category-icon { transition: all 0.2s ease; cursor: pointer; }
         .category-icon:active { transform: scale(0.9); }
         .product-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .product-card:hover { transform: translateY(-5px); shadow: 0 10px 25px -5px rgba(247, 37, 133, 0.1); }
+        .product-card:hover { transform: translateY(-5px); }
     </style>
 </head>
 <body class="pb-32">
@@ -68,29 +68,6 @@
         </div>
     </section>
 
-    <section class="max-w-6xl mx-auto px-4 mt-6 flex justify-between overflow-x-auto no-scrollbar gap-6 py-2">
-        <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-blue-400 text-xl border border-blue-50"><i class="fas fa-tshirt"></i></div>
-            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Atasan</span>
-        </div>
-        <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-pink-400 text-xl border border-pink-50"><i class="fas fa-sparkles"></i></div>
-            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Skincare</span>
-        </div>
-        <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-orange-400 text-xl border border-orange-50"><i class="fas fa-shopping-bag"></i></div>
-            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Tas</span>
-        </div>
-        <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-purple-400 text-xl border border-purple-50"><i class="fas fa-gem"></i></div>
-            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Aksesoris</span>
-        </div>
-        <div class="category-icon flex flex-col items-center min-w-[70px]">
-            <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-green-400 text-xl border border-green-50"><i class="fas fa-leaf"></i></div>
-            <span class="text-[10px] font-black text-slate-500 mt-2 uppercase">Organic</span>
-        </div>
-    </section>
-
     <section class="max-w-6xl mx-auto px-4 mt-10">
         <div class="flex justify-between items-end mb-6">
             <div>
@@ -110,7 +87,7 @@
     <div id="floatingCart" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md hidden z-[100]">
         <div class="bg-slate-900/95 backdrop-blur-xl p-4 rounded-[30px] shadow-2xl flex justify-between items-center border border-white/10">
             <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-[#f72585] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-pink-500/20">
+                <div class="w-11 h-11 bg-[#f72585] rounded-2xl flex items-center justify-center text-white">
                     <i class="fas fa-shopping-basket text-lg"></i>
                 </div>
                 <div>
@@ -125,125 +102,17 @@
     </div>
 
 <script>
+    // 1. Inisialisasi Data dari Storage
     let cart = JSON.parse(localStorage.getItem('finexcart')) || [];
     let currentSlide = 0;
 
-    window.onload = () => {
-        fetchProducts();
-        loadDynamicAds();
-        updateCartBar(); // Jalankan langsung saat refresh
-    };
-
-    // --- FUNGSI IKLAN SLIDESHOW ---
-    async function loadDynamicAds() {
-        const slider = document.getElementById('promo-slider');
-        const dotsContainer = document.getElementById('promo-dots');
-        
-        // Mengambil banner dari app_settings (Sesuaikan key_name Anda)
-        const { data: setting } = await db.from('app_settings')
-            .select('value_text, is_active')
-            .eq('key_name', 'dashboard_banners')
-            .single();
-
-        if (!setting || !setting.is_active || !setting.value_text) {
-            // Fallback jika data tidak ada
-            slider.innerHTML = `<div class="slide-item active"><img src="https://via.placeholder.com/800x400?text=Beauty+Bloom+Promo"></div>`;
-            return;
-        }
-
-        try {
-            const adImages = JSON.parse(setting.value_text);
-            slider.innerHTML = adImages.map((imgUrl, i) => `
-                <div class="slide-item ${i === 0 ? 'active' : ''}">
-                    <img src="${imgUrl}" alt="Promo ${i}">
-                </div>
-            `).join('');
-
-            dotsContainer.innerHTML = adImages.map((_, i) => `
-                <div class="dot-ad ${i === 0 ? 'active' : ''}"></div>
-            `).join('');
-
-            if (adImages.length > 1) {
-                setInterval(() => {
-                    const slides = document.querySelectorAll('.slide-item');
-                    const dots = document.querySelectorAll('.dot-ad');
-                    if (slides.length === 0) return;
-
-                    slides[currentSlide].classList.remove('active');
-                    dots[currentSlide].classList.remove('active');
-                    
-                    currentSlide = (currentSlide + 1) % slides.length;
-                    
-                    slides[currentSlide].classList.add('active');
-                    dots[currentSlide].classList.add('active');
-                }, 5000); // Ganti slide setiap 5 detik
-            }
-        } catch (e) { console.error("Gagal memuat banner:", e); }
-    }
-
-    // --- FUNGSI PRODUK ---
-    async function fetchProducts() {
-        const { data, error } = await db.from('produk')
-            .select('*')
-            .gt('stok_sekarang', 0)
-            .eq('tampil_online', true)
-            .order('created_at', { ascending: false });
-
-        if (error) return console.error(error);
-        renderProducts(data);
-    }
-
-    function renderProducts(list) {
-        const grid = document.getElementById('productGrid');
-        if (list.length === 0) {
-            grid.innerHTML = `<p class="col-span-full text-center py-10 text-slate-400 font-bold uppercase text-[10px]">Produk belum tersedia</p>`;
-            return;
-        }
-
-        grid.innerHTML = list.map(p => `
-            <div class="product-card bg-white rounded-[32px] p-3 shadow-sm border border-pink-50 flex flex-col h-full group">
-                <div class="w-full aspect-[4/5] bg-slate-50 rounded-[26px] mb-3 overflow-hidden relative">
-                    <img src="${p.image_url || 'https://via.placeholder.com/300x400'}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
-                    ${p.is_diskon ? '<div class="absolute top-3 left-3 bg-[#f72585] text-white text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-tighter">PROMO</div>' : ''}
-                </div>
-                <div class="flex-grow px-1">
-                    <h4 class="font-bold text-slate-700 text-[11px] leading-tight uppercase mb-1 line-clamp-2">${p.nama_barang}</h4>
-                    <p class="text-[#f72585] font-black text-sm italic tracking-tighter">Rp ${p.harga_jual.toLocaleString()}</p>
-                </div>
-                <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="mt-4 w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[9px] font-black uppercase transition-all active:scale-95 tracking-widest border border-pink-50">
-                    + Keranjang
-                </button>
-            </div>
-        `).join('');
-    }
-
-    // --- FUNGSI KERANJANG (PERSISTEN) ---
-    function addToCart(id, nama, harga) {
-        const idx = cart.findIndex(i => i.id === id);
-        if (idx > -1) {
-            cart[idx].qty++;
-        } else {
-            cart.push({ id, nama, harga, qty: 1 });
-        }
-        
-        localStorage.setItem('finexcart', JSON.stringify(cart));
-        updateCartBar();
-        
-        // Feedback Tombol
-        const btn = event.currentTarget;
-        const originalText = btn.innerText;
-        btn.innerHTML = "DITAMBAHKAN ✨";
-        btn.classList.add('bg-pink-500', 'text-white');
-        setTimeout(() => {
-            btn.innerText = originalText;
-            btn.classList.remove('bg-pink-500', 'text-white');
-        }, 800);
-    }
-
+    // 2. Fungsi Update Tampilan Cart (Didefinisikan di awal agar bisa dipanggil instan)
     function updateCartBar() {
         const bar = document.getElementById('floatingCart');
         const countEl = document.getElementById('cartCount');
         const totalEl = document.getElementById('cartTotal');
+
+        if (!bar || !countEl || !totalEl) return;
 
         if (cart && cart.length > 0) {
             bar.classList.remove('hidden');
@@ -256,13 +125,89 @@
         }
     }
 
+    // 3. JALANKAN LANGSUNG SAAT SCRIPT DIMUAT (PENTING AGAR TIDAK HILANG SAAT REFRESH)
+    // Gunakan timeout sedikit agar DOM ter-render sempurna
+    setTimeout(updateCartBar, 50);
+
+    window.onload = () => {
+        fetchProducts();
+        loadDynamicAds();
+        updateCartBar(); 
+    };
+
+    async function loadDynamicAds() {
+        const slider = document.getElementById('promo-slider');
+        const dotsContainer = document.getElementById('promo-dots');
+        const { data: setting } = await db.from('app_settings').select('value_text, is_active').eq('key_name', 'dashboard_banners').single();
+
+        if (!setting || !setting.is_active || !setting.value_text) {
+            slider.innerHTML = `<div class="slide-item active"><img src="https://via.placeholder.com/800x400?text=Beauty+Bloom+Promo"></div>`;
+            return;
+        }
+
+        try {
+            const adImages = JSON.parse(setting.value_text);
+            slider.innerHTML = adImages.map((imgUrl, i) => `<div class="slide-item ${i === 0 ? 'active' : ''}"><img src="${imgUrl}"></div>`).join('');
+            dotsContainer.innerHTML = adImages.map((_, i) => `<div class="dot-ad ${i === 0 ? 'active' : ''}"></div>`).join('');
+
+            if (adImages.length > 1) {
+                setInterval(() => {
+                    const slides = document.querySelectorAll('.slide-item');
+                    const dots = document.querySelectorAll('.dot-ad');
+                    if (slides.length === 0) return;
+                    slides[currentSlide].classList.remove('active');
+                    dots[currentSlide].classList.remove('active');
+                    currentSlide = (currentSlide + 1) % slides.length;
+                    slides[currentSlide].classList.add('active');
+                    dots[currentSlide].classList.add('active');
+                }, 5000);
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function fetchProducts() {
+        const { data, error } = await db.from('produk').select('*').gt('stok_sekarang', 0).eq('tampil_online', true).order('created_at', { ascending: false });
+        if (!error) renderProducts(data);
+    }
+
+    function renderProducts(list) {
+        const grid = document.getElementById('productGrid');
+        grid.innerHTML = list.map(p => `
+            <div class="product-card bg-white rounded-[32px] p-3 shadow-sm border border-pink-50 flex flex-col h-full group">
+                <div class="w-full aspect-[4/5] bg-slate-50 rounded-[26px] mb-3 overflow-hidden relative">
+                    <img src="${p.image_url || 'https://via.placeholder.com/300x400'}" class="w-full h-full object-cover">
+                    ${p.is_diskon ? '<div class="absolute top-3 left-3 bg-[#f72585] text-white text-[8px] font-black px-2.5 py-1 rounded-lg uppercase">PROMO</div>' : ''}
+                </div>
+                <div class="flex-grow px-1">
+                    <h4 class="font-bold text-slate-700 text-[11px] leading-tight uppercase mb-1 line-clamp-2">${p.nama_barang}</h4>
+                    <p class="text-[#f72585] font-black text-sm italic">Rp ${p.harga_jual.toLocaleString()}</p>
+                </div>
+                <button onclick="addToCart('${p.id}', '${p.nama_barang}', ${p.harga_jual})" class="mt-4 w-full bg-slate-50 hover:bg-pink-100 text-pink-500 py-3 rounded-2xl text-[9px] font-black uppercase transition-all tracking-widest border border-pink-50">
+                    + Keranjang
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function addToCart(id, nama, harga) {
+        const idx = cart.findIndex(i => i.id === id);
+        if (idx > -1) cart[idx].qty++;
+        else cart.push({ id, nama, harga, qty: 1 });
+        
+        localStorage.setItem('finexcart', JSON.stringify(cart));
+        updateCartBar();
+        
+        const btn = event.currentTarget;
+        btn.innerHTML = "BERHASIL ✨";
+        setTimeout(() => btn.innerText = "+ Keranjang", 800);
+    }
+
     async function checkLoginBeforeCheckout() {
         const { data: { session } } = await db.auth.getSession();
         if (!session) {
-            alert("Hai cantik! Silahkan Login atau Daftar Akun dulu ya untuk belanja.. 🌸");
+            alert("Hai cantik! Silahkan Login atau Daftar Akun dulu ya.. 🌸");
             window.location.href = "login-customer.html";
         } else {
-            // Arahkan ke halaman keranjang/checkout detail
             window.location.href = "online-shop.html"; 
         }
     }
