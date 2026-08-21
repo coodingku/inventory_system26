@@ -357,32 +357,33 @@
             <center style="margin-top:10px;">Terima Kasih</center>`;
     }
 
-   function sendWhatsApp() {
+  function sendWhatsApp() {
     let hp = document.getElementById('waNumber').value.trim();
     if (!hp) return alert("Nomor WhatsApp tidak boleh kosong!");
 
-    // Bersihkan karakter selain angka
+    // 1. Bersihkan nomor HP dari karakter non-angka
     hp = hp.replace(/\D/g, '');
     if (hp.startsWith('0')) hp = '62' + hp.slice(1);
 
     const namaToko = sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM';
+    const totalFormat = state.total ? state.total.toLocaleString('id-ID') : '0';
     
-    // Asumsi `state.lastInvId` menyimpan ID UUID/Primary Key dari transaksi yang baru disimpan
-    // Sesuaikan URL domain dengan domain Vercel / Hosting Anda
+    // 2. Buat URL link mengarah ke file invoice-view.html
     const domain = window.location.origin; 
+    // Pastikan state.lastInvId berisi ID/UUID dari database penjualan
     const receiptLink = `${domain}/invoice-view.html?id=${state.lastInvId}`;
 
+    // 3. Susun Pesan WhatsApp
     const rawMsg = `*NOTA DIGITAL ${namaToko}*\n` +
                    `No. Invoice: ${state.lastInv || '-'}\n` +
-                   `Total: Rp ${state.total ? state.total.toLocaleString('id-ID') : '0'}\n\n` +
-                   `Lihat struk belanja lengkap Anda di sini:\n${receiptLink}\n\n` +
+                   `Total: Rp ${totalFormat}\n\n` +
+                   `Lihat & cetak struk belanja resmi Anda di sini:\n` +
+                   `${receiptLink}\n\n` +
                    `_Terima kasih telah berbelanja!_`;
 
+    // 4. Encode & Buka WhatsApp
     const encodedMsg = encodeURIComponent(rawMsg);
     window.open(`https://wa.me/${hp}?text=${encodedMsg}`, '_blank');
-    
-    // Jangan reload jika masih ingin mencetak
-    // location.reload(); 
 }
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
