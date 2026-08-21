@@ -57,7 +57,7 @@
         .split-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background: #f9f9f9; padding: 10px; border-radius: 10px; }
         .split-item select, .split-item input { padding: 8px; border-radius: 5px; border: 1px solid #ddd; flex: 1; }
 
-        /* PRINT STYLE */
+        /* PRINT STYLE FOR BROWSER PRINT */
         #print-area { display: none; }
         @media print {
             body * { visibility: hidden; }
@@ -93,6 +93,7 @@
         <span id="cart-badge-count" class="cart-badge">0</span>
     </div>
 
+    <!-- CART MODAL -->
     <div id="cartModal" class="modal">
         <div class="modal-content">
             <h2 class="text-xl font-black mb-4 flex justify-between">
@@ -122,25 +123,53 @@
         </div>
     </div>
 
+    <!-- PAYMENT MODAL -->
     <div id="payModal" class="modal">
         <div class="modal-content">
             <h2 id="label-total-modal" class="text-center font-black text-2xl mb-6 text-slate-800"></h2>
             <div id="splitContainer"></div>
             <button class="text-blue-500 font-bold mb-4 flex items-center gap-2" onclick="addSplitRow()"><i class="fas fa-plus-circle"></i> Tambah Metode</button>
             
-            <div class="bg-slate-50 p-5 rounded-2xl space-y-2 mb-6 border border-slate-100">
+            <div class="bg-slate-50 p-5 rounded-2xl space-y-2 mb-4 border border-slate-100">
                 <div class="summary-row"><span>Diterima:</span><span id="txt-inputed" class="font-bold">Rp 0</span></div>
                 <div class="summary-row text-green-600 hidden" id="row-change"><span>Kembali:</span><span id="txt-change" class="font-bold text-lg">Rp 0</span></div>
                 <div class="summary-row text-red-500" id="row-rem"><span>Sisa Tagihan:</span><span id="txt-remaining" class="font-bold text-lg">Rp 0</span></div>
             </div>
+
+            <!-- OPSI METODE CETAK -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 mb-1">METODE CETAK STRUK:</label>
+                <select id="printMethodSelect" class="w-full p-3 border rounded-xl font-bold text-sm bg-gray-50">
+                    <option value="rawbt">🖨️ Bluetooth (RawBT App - Android)</option>
+                    <option value="direct_bt">📶 Bluetooth Direct (Web BT API)</option>
+                    <option value="browser">📄 Printer Browser Biasa / USB</option>
+                </select>
+            </div>
             
-            <button id="btnConfirm" class="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-lg" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
+            <button id="btnConfirm" class="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-all" onclick="executeTransaction()">KONFIRMASI & CETAK</button>
             <button onclick="closePayment()" class="w-full mt-4 text-gray-400 font-bold">Batal</button>
         </div>
     </div>
 
-    <div id="waModal" class="modal"><div class="modal-content text-center"><h2 class="text-green-600 font-black text-2xl mb-2">Transaksi Berhasil!</h2><p class="text-gray-400 mb-4">Ingin mengirim nota via WhatsApp?</p><input type="number" id="waNumber" placeholder="628xxx" class="w-full p-4 border rounded-2xl mb-4 text-center text-xl font-bold"><button id="btnSendWA" class="w-full py-4 bg-[#25D366] text-white rounded-2xl font-bold text-lg shadow-lg">KIRIM WHATSAPP</button><button onclick="location.reload()" class="w-full mt-4 text-gray-400 font-bold">Selesai / Transaksi Baru</button></div></div>
-    <div id="openShiftModal" class="modal"><div class="modal-content text-center"><h2 class="font-black text-2xl mb-6">Buka Kasir Baru</h2><input type="number" id="inputSaldoAwal" placeholder="Saldo Awal Rp" class="w-full p-5 border rounded-2xl mb-6 text-center text-3xl font-black outline-none focus:ring-4 focus:ring-blue-100"><button class="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-xl" onclick="executeOpenShift()">MULAI SHIFT</button></div></div>
+    <!-- WHATSAPP MODAL -->
+    <div id="waModal" class="modal">
+        <div class="modal-content text-center">
+            <h2 class="text-green-600 font-black text-2xl mb-2">Transaksi Berhasil!</h2>
+            <p class="text-gray-400 mb-4">Ingin mengirim nota via WhatsApp?</p>
+            <input type="number" id="waNumber" placeholder="628xxx" class="w-full p-4 border rounded-2xl mb-4 text-center text-xl font-bold">
+            <button id="btnSendWA" class="w-full py-4 bg-[#25D366] text-white rounded-2xl font-bold text-lg shadow-lg">KIRIM WHATSAPP</button>
+            <button onclick="location.reload()" class="w-full mt-4 text-gray-400 font-bold">Selesai / Transaksi Baru</button>
+        </div>
+    </div>
+
+    <!-- OPEN SHIFT MODAL -->
+    <div id="openShiftModal" class="modal">
+        <div class="modal-content text-center">
+            <h2 class="font-black text-2xl mb-6">Buka Kasir Baru</h2>
+            <input type="number" id="inputSaldoAwal" placeholder="Saldo Awal Rp" class="w-full p-5 border rounded-2xl mb-6 text-center text-3xl font-black outline-none focus:ring-4 focus:ring-blue-100">
+            <button class="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-xl" onclick="executeOpenShift()">MULAI SHIFT</button>
+        </div>
+    </div>
 
     <div id="print-area"></div>
 
@@ -294,10 +323,17 @@
     }
 
     async function executeTransaction() {
-        if (isSaving) return; isSaving = true;
-        const inv = `INV-${Date.now().toString().slice(-6)}`; const tgl = new Date().toISOString();
+        if (isSaving) return; 
+        isSaving = true;
+
+        const inv = `INV-${Date.now().toString().slice(-6)}`; 
+        const tgl = new Date().toISOString();
         const rows = document.querySelectorAll('.split-item');
-        state.payments = []; let totalDibayar = 0;
+        
+        state.lastInv = inv; // Set invoice number agar dibaca WA Modal
+        state.payments = []; 
+        let totalDibayar = 0;
+
         rows.forEach(row => { 
             const mtd = row.querySelector('.pay-method').value; 
             const amt = parseFloat(row.querySelector('.pay-amount').value || 0); 
@@ -306,10 +342,33 @@
         });
 
         try {
-            const { data: trx } = await db.from('penjualan').insert([{ no_invoice: inv, subtotal: Math.round(state.sub), diskon: Math.round(state.discItem + state.discGlobal), pajak: Math.round(state.tax), grand_total: state.total, bayar: totalDibayar, kasir_id: currentLogId, metode_pembayaran: state.payments.length > 1 ? "SPLIT" : state.payments[0].metode, tanggal: tgl }]).select().single();
+            const { data: trx, error: errTrx } = await db.from('penjualan').insert([{ 
+                no_invoice: inv, 
+                subtotal: Math.round(state.sub), 
+                diskon: Math.round(state.discItem + state.discGlobal), 
+                pajak: Math.round(state.tax), 
+                grand_total: state.total, 
+                bayar: totalDibayar, 
+                kasir_id: currentLogId, 
+                metode_pembayaran: state.payments.length > 1 ? "SPLIT" : state.payments[0].metode, 
+                tanggal: tgl 
+            }]).select().single();
+
+            if (errTrx) throw errTrx;
+            state.lastTrxId = trx.id;
+
             for (const item of cart) {
                 const subItem = (item.qty * item.harga) - ((item.qty * item.harga * item.discountItem) / 100);
-                await db.from('penjualan_detail').insert([{ penjualan_id: trx.id, produk_id: item.id, nama_barang: item.nama_barang, qty: item.qty, harga_satuan: item.harga, diskon_item_persen: item.discountItem, subtotal_item: subItem }]);
+                await db.from('penjualan_detail').insert([{ 
+                    penjualan_id: trx.id, 
+                    produk_id: item.id, 
+                    nama_barang: item.nama_barang, 
+                    qty: item.qty, 
+                    harga_satuan: item.harga, 
+                    diskon_item_persen: item.discountItem, 
+                    subtotal_item: subItem 
+                }]);
+
                 const { data: p } = await db.from('produk').select('*').eq('id', item.id).single();
                 if (p) {
                     await db.from('produk').update({ stok_sekarang: p.stok_sekarang - item.qty }).eq('id', item.id);
@@ -320,16 +379,38 @@
                     ]);
                 }
             }
+
             for (const p of state.payments) { 
                 let nom = (state.payments.length === 1 && p.jumlah > state.total) ? state.total : p.jumlah;
-                await db.from('jurnal_umum').insert([{ tanggal: tgl, no_bukti: inv, kode_akun: p.akun, keterangan: `Terima ${p.metode}`, debit: Math.round(nom), kredit: 0 }]);
+                await db.from('jurnal_umum').insert([{ 
+                    tanggal: tgl, 
+                    no_bukti: inv, 
+                    kode_akun: p.akun, 
+                    keterangan: `Terima ${p.metode}`, 
+                    debit: Math.round(nom), 
+                    kredit: 0 
+                }]);
             }
             
-            renderReceipt(inv, totalDibayar);
+            // PROSES CETAK SESUAI OPSI YANG DIPILIH
+            const method = document.getElementById('printMethodSelect').value;
             document.getElementById('payModal').style.display = 'none';
-            window.print();
+
+            if (method === 'rawbt') {
+                printToBluetoothRawBT(inv, totalDibayar);
+            } else if (method === 'direct_bt') {
+                await printToBluetoothDirect(inv, totalDibayar);
+            } else {
+                renderReceipt(inv, totalDibayar);
+                window.print();
+            }
+
             document.getElementById('waModal').style.display = 'flex';
-        } catch (e) { alert(e.message); isSaving = false; }
+        } catch (e) { 
+            alert("Terjadi kesalahan: " + e.message); 
+        } finally {
+            isSaving = false;
+        }
     }
 
     function renderReceipt(inv, totalBayar) {
@@ -337,7 +418,7 @@
         const itemRows = cart.map(i => {
             const sub = i.qty * i.harga;
             const pot = (sub * i.discountItem) / 100;
-            return `<div style="display:flex; justify-content:space-between;"><span>${i.nama_barang.substring(0,18)} x${i.qty}</span><span>${sub.toLocaleString()}</span></div>${pot > 0 ? `<div style="text-align:right; font-size:8px;">Disc Item: -${Math.round(pot).toLocaleString()}</div>` : ''}`;
+            return `<div style="display:flex; justify-content:space-between;"><span>${i.nama_barang.substring(0,18)} x${i.qty}</span><span>${sub.toLocaleString('id-ID')}</span></div>${pot > 0 ? `<div style="text-align:right; font-size:8px;">Disc Item: -${Math.round(pot).toLocaleString('id-ID')}</div>` : ''}`;
         }).join('');
 
         document.getElementById('print-area').innerHTML = `
@@ -347,22 +428,134 @@
             <div style="border-top:1px dashed #000; margin:5px 0;"></div>
             ${itemRows}
             <div style="border-top:1px dashed #000; margin:5px 0;"></div>
-            <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between;"><span>Diskon:</span><span>-${Math.round(state.discItem + state.discGlobal).toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between;"><span>PPN:</span><span>${Math.round(state.tax).toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:2px;"><span>TOTAL:</span><span>Rp ${state.total.toLocaleString()}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>${state.sub.toLocaleString('id-ID')}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Diskon:</span><span>-${Math.round(state.discItem + state.discGlobal).toLocaleString('id-ID')}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>PPN:</span><span>${Math.round(state.tax).toLocaleString('id-ID')}</span></div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-top:2px;"><span>TOTAL:</span><span>Rp ${state.total.toLocaleString('id-ID')}</span></div>
             <div style="border-top:1px dashed #000; margin-top:5px; padding-top:5px;"></div>
-            ${state.payments.map(p => `<div style="display:flex; justify-content:space-between;"><span>${p.metode}:</span><span>${p.jumlah.toLocaleString()}</span></div>`).join('')}
-            <div style="display:flex; justify-content:space-between;"><span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString()}</span></div>
+            ${state.payments.map(p => `<div style="display:flex; justify-content:space-between;"><span>${p.metode}:</span><span>${p.jumlah.toLocaleString('id-ID')}</span></div>`).join('')}
+            <div style="display:flex; justify-content:space-between;"><span>Kembali:</span><span>${(totalBayar - state.total).toLocaleString('id-ID')}</span></div>
             <center style="margin-top:10px;">Terima Kasih</center>`;
     }
 
- function sendWhatsApp() {
+    function generateThermalText(inv, totalBayar) {
+        const storeName = sessionStorage.getItem('NAMA_TOKO') || "BeautyBloom";
+        const lineChar = 32; // Standard lebar karakter printer thermal 58mm
+
+        const formatLine = (left, right) => {
+            const spaceLength = lineChar - (left.length + right.length);
+            return left + ' '.repeat(spaceLength > 0 ? spaceLength : 1) + right;
+        };
+
+        const formatCenter = (text) => {
+            const space = Math.floor((lineChar - text.length) / 2);
+            return ' '.repeat(space > 0 ? space : 0) + text;
+        };
+
+        let text = "";
+        text += formatCenter(storeName.toUpperCase()) + "\n";
+        text += formatCenter("Nota Penjualan") + "\n";
+        text += "-".repeat(lineChar) + "\n";
+        text += `Inv: ${inv}\n`;
+        text += `Tgl: ${new Date().toLocaleString('id-ID')}\n`;
+        text += "-".repeat(lineChar) + "\n";
+
+        cart.forEach(i => {
+            const sub = i.qty * i.harga;
+            const pot = (sub * i.discountItem) / 100;
+            
+            const itemTitle = `${i.nama_barang.substring(0, 20)} x${i.qty}`;
+            const itemSubtotal = sub.toLocaleString('id-ID');
+            text += formatLine(itemTitle, itemSubtotal) + "\n";
+
+            if (pot > 0) {
+                const discText = `  Disc Item: -${Math.round(pot).toLocaleString('id-ID')}`;
+                text += discText + "\n";
+            }
+        });
+
+        text += "-".repeat(lineChar) + "\n";
+        text += formatLine("Subtotal:", state.sub.toLocaleString('id-ID')) + "\n";
+        
+        const totalDisc = state.discItem + state.discGlobal;
+        if (totalDisc > 0) {
+            text += formatLine("Diskon:", `-${Math.round(totalDisc).toLocaleString('id-ID')}`) + "\n";
+        }
+        
+        if (state.tax > 0) {
+            text += formatLine("PPN:", Math.round(state.tax).toLocaleString('id-ID')) + "\n";
+        }
+
+        text += formatLine("TOTAL:", `Rp ${state.total.toLocaleString('id-ID')}`) + "\n";
+        text += "-".repeat(lineChar) + "\n";
+
+        state.payments.forEach(p => {
+            text += formatLine(`${p.metode}:`, p.jumlah.toLocaleString('id-ID')) + "\n";
+        });
+
+        const kembalian = totalBayar - state.total;
+        text += formatLine("Kembali:", kembalian.toLocaleString('id-ID')) + "\n";
+        
+        text += "-".repeat(lineChar) + "\n";
+        text += formatCenter("Terima Kasih") + "\n\n\n";
+
+        return text;
+    }
+
+    function printToBluetoothRawBT(inv, totalBayar) {
+        renderReceipt(inv, totalBayar);
+        const printData = generateThermalText(inv, totalBayar);
+        const intentUrl = "intent:#Intent;scheme=rawbt;package=ru.a404m.rawbtprinter;S.txt=" + 
+                          encodeURIComponent(printData) + ";end;";
+        window.location.href = intentUrl;
+    }
+
+    async function printToBluetoothDirect(inv, totalBayar) {
+        renderReceipt(inv, totalBayar);
+        const textData = generateThermalText(inv, totalBayar);
+
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+            });
+
+            const server = await device.gatt.connect();
+            const services = await server.getPrimaryServices();
+            let targetCharacteristic = null;
+
+            for (const service of services) {
+                const characteristics = await service.getCharacteristics();
+                for (const char of characteristics) {
+                    if (char.properties.write || char.properties.writeWithoutResponse) {
+                        targetCharacteristic = char;
+                        break;
+                    }
+                }
+            }
+
+            if (!targetCharacteristic) {
+                return alert("Karakteristik Bluetooth Printer tidak ditemukan.");
+            }
+
+            const encoder = new TextEncoder();
+            const initCmd = new Uint8Array([0x1B, 0x40]); // ESC/POS Reset
+            await targetCharacteristic.writeValue(initCmd);
+            await targetCharacteristic.writeValue(encoder.encode(textData));
+
+        } catch (err) {
+            console.error("Gagal Cetak Bluetooth:", err);
+            alert("Gagal terhubung ke printer Bluetooth: " + err.message);
+        }
+    }
+        
+    function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0A_Terima kasih!_`;
+        const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString('id-ID')}%0A%0A_Terima kasih!_`;
         window.open(`https://wa.me/${hp.startsWith('0')?'62'+hp.slice(1):hp}?text=${msg}`, '_blank');
         location.reload();
     }
+
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
