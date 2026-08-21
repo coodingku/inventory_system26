@@ -357,35 +357,11 @@
             <center style="margin-top:10px;">Terima Kasih</center>`;
     }
 
-function sendWhatsApp() {
-    let hp = document.getElementById('waNumber').value.trim();
-    if (!hp) return alert("Nomor WhatsApp tidak boleh kosong!");
-
-    hp = hp.replace(/\D/g, '');
-    if (hp.startsWith('0')) hp = '62' + hp.slice(1);
-
-    const namaToko = sessionStorage.getItem('NAMA_TOKO') || 'BeautyBloom';
-    const totalFormat = state.total ? state.total.toLocaleString('id-ID') : '0';
-    
-    // Validasi Invoice / ID
-    const invValue = state.lastInv || state.lastTrxId;
-    if (!invValue) {
-        return alert("Gagal membuat link: Nomor Invoice atau ID Transaksi tidak ditemukan.");
-    }
-
-    const paramName = state.lastInv ? 'no_invoice' : 'id';
-    const domain = window.location.origin; 
-    const receiptLink = `${domain}/invoice-view.html?${paramName}=${encodeURIComponent(invValue)}`;
-
-    const rawMsg = `*NOTA DIGITAL ${namaToko.toUpperCase()}*\n` +
-                   `No. Invoice: ${state.lastInv}\n` +
-                   `Total: Rp ${totalFormat}\n\n` +
-                   `Lihat & cetak struk belanja resmi Anda di sini:\n` +
-                   `${receiptLink}\n\n` +
-                   `_Terima kasih telah berbelanja!_`;
-
-    window.open(`https://wa.me/${hp}?text=${encodeURIComponent(rawMsg)}`, '_blank');
-}
+on sendWhatsApp() {
+        const hp = document.getElementById('waNumber').value;
+        const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0A_Terima kasih!_`;
+        window.open(`https://wa.me/${hp.startsWith('0')?'62'+hp.slice(1):hp}?text=${msg}`, '_blank');
+        location.reload();
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
 </body>
