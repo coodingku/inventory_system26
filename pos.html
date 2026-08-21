@@ -357,48 +357,34 @@
             <center style="margin-top:10px;">Terima Kasih</center>`;
     }
 
-  function sendWhatsApp() {
+function sendWhatsApp() {
     let hp = document.getElementById('waNumber').value.trim();
     if (!hp) return alert("Nomor WhatsApp tidak boleh kosong!");
 
-    // 1. Bersihkan nomor HP dari karakter non-angka
     hp = hp.replace(/\D/g, '');
     if (hp.startsWith('0')) hp = '62' + hp.slice(1);
 
-    const namaToko = sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM';
+    const namaToko = sessionStorage.getItem('NAMA_TOKO') || 'BeautyBloom';
     const totalFormat = state.total ? state.total.toLocaleString('id-ID') : '0';
     
-    // 2. TENTUKAN INVOICE/ID DENGAN VALIDASI SANGAT KETAT
-    // Mengabaikan jika nilainya 'no_invoice', null, atau undefined
-    let invValue = (state.lastInv && state.lastInv !== 'no_invoice') ? state.lastInv : null;
-    let paramName = 'no_invoice';
-
-    // Jika lastInv tidak valid, gunakan lastId (UUID)
-    if (!invValue && state.lastId) {
-        invValue = state.lastId;
-        paramName = 'id';
-    }
-
-    // Jika keduanya tidak ada, hentikan proses dan tampilkan peringatan
+    // Validasi Invoice / ID
+    const invValue = state.lastInv || state.lastTrxId;
     if (!invValue) {
         return alert("Gagal membuat link: Nomor Invoice atau ID Transaksi tidak ditemukan.");
     }
 
-    // 3. Buat URL link resmi
+    const paramName = state.lastInv ? 'no_invoice' : 'id';
     const domain = window.location.origin; 
     const receiptLink = `${domain}/invoice-view.html?${paramName}=${encodeURIComponent(invValue)}`;
 
-    // 4. Susun Pesan WhatsApp
-    const rawMsg = `*NOTA DIGITAL ${namaToko}*\n` +
-                   `No. Invoice: ${state.lastInv || invValue}\n` +
+    const rawMsg = `*NOTA DIGITAL ${namaToko.toUpperCase()}*\n` +
+                   `No. Invoice: ${state.lastInv}\n` +
                    `Total: Rp ${totalFormat}\n\n` +
                    `Lihat & cetak struk belanja resmi Anda di sini:\n` +
                    `${receiptLink}\n\n` +
                    `_Terima kasih telah berbelanja!_`;
 
-    // 5. Encode & Buka WhatsApp
-    const encodedMsg = encodeURIComponent(rawMsg);
-    window.open(`https://wa.me/${hp}?text=${encodedMsg}`, '_blank');
+    window.open(`https://wa.me/${hp}?text=${encodeURIComponent(rawMsg)}`, '_blank');
 }
     function logout() { localStorage.clear(); window.location.replace('login.html'); }
 </script>
