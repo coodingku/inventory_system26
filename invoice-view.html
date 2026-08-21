@@ -79,106 +79,111 @@
     </div>
 
 <script>
-    async function loadInvoice() {
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // 1. Ambil dari parameter 'no_invoice' ATAU 'id'
-        const queryParam = urlParams.get('no_invoice') || urlParams.get('id');
+  async function loadInvoice() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. Ambil nilai parameter dari URL (bisa no_invoice atau id)
+    const queryParam = urlParams.get('no_invoice') || urlParams.get('id');
 
-        if (!queryParam) {
-            document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>Link nota tidak valid.</p>";
-            return;
-        }
-
-        try {
-            let trx = null;
-            let errTrx = null;
-
-            // 2. Deteksi apakah input berupa UUID atau No Invoice
-            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryParam);
-
-            if (isUUID) {
-                // Pencarian via UUID
-                const res = await db
-                    .from('penjualan')
-                    .select('*')
-                    .eq('id', queryParam)
-                    .maybeSingle();
-                trx = res.data;
-                errTrx = res.error;
-            } else {
-                // Pencarian via Nomor Invoice (misal: INV-FN001)
-                const res = await db
-                    .from('penjualan')
-                    .select('*')
-                    .eq('no_invoice', queryParam)
-                    .maybeSingle();
-                trx = res.data;
-                errTrx = res.error;
-            }
-
-            if (errTrx || !trx) throw new Error("Data nota tidak ditemukan.");
-
-            // 3. Ambil Detail Item menggunakan UUID (trx.id) dari transaksi yang ditemukan
-            const { data: items, error: errItems } = await db
-                .from('penjualan_detail')
-                .select('*')
-                .eq('penjualan_id', trx.id);
-
-            if (errItems) console.error("Error detail items:", errItems);
-
-            // 4. Mapping Data ke UI
-            document.getElementById('store-name-receipt').innerText = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
-            document.getElementById('inv-no').innerText = trx.no_invoice;
-            document.getElementById('inv-cashier').innerText = trx.kasir_nama || '-';
-            document.getElementById('inv-date').innerText = new Date(trx.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-            document.getElementById('inv-method').innerText = trx.metode_pembayaran || 'Tunai';
-            
-            document.getElementById('inv-subtotal').innerText = "Rp " + (trx.subtotal || 0).toLocaleString('id-ID');
-            
-            const discValue = parseFloat(trx.diskon_global || trx.diskon || 0);
-            if (discValue > 0) {
-                document.getElementById('row-diskon').style.display = 'flex';
-                document.getElementById('inv-diskon').innerText = "-Rp " + discValue.toLocaleString('id-ID');
-            }
-
-            if (trx.pajak > 0) {
-                document.getElementById('row-pajak').style.display = 'flex';
-                document.getElementById('inv-pajak').innerText = "Rp " + trx.pajak.toLocaleString('id-ID');
-            }
-
-            document.getElementById('inv-total').innerText = "Rp " + (trx.grand_total || 0).toLocaleString('id-ID');
-            document.getElementById('inv-bayar').innerText = "Rp " + (trx.bayar || 0).toLocaleString('id-ID');
-            
-            const kembali = (trx.bayar || 0) - (trx.grand_total || 0);
-            document.getElementById('inv-kembali').innerText = "Rp " + (kembali > 0 ? kembali : 0).toLocaleString('id-ID');
-
-            const itemsHtml = (items || []).map(item => `
-                <tr>
-                    <td>
-                        <div style="font-weight:bold; color:#333;">${item.nama_barang}</div>
-                        <div style="color:#888; font-size:11px;">${item.qty} x Rp ${parseFloat(item.harga_satuan || 0).toLocaleString('id-ID')}</div>
-                    </td>
-                    <td style="text-align: right; font-weight:bold;">Rp ${parseFloat(item.subtotal_item || item.subtotal || 0).toLocaleString('id-ID')}</td>
-                </tr>
-            `).join('');
-            
-            document.getElementById('inv-items').innerHTML = itemsHtml;
-
-            // Tampilkan nota
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('receipt').style.display = 'block';
-
-        } catch (e) {
-            console.error("Error Detail:", e);
-            document.getElementById('loader').innerHTML = `<h3>Maaf</h3><p>${e.message}</p>`;
-        }
+    if (!queryParam) {
+        document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>Link nota tidak valid.</p>";
+        return;
     }
 
-    // Jalankan setelah DOM & Script Init siap
-    window.onload = () => {
-        setTimeout(loadInvoice, 500); 
-    };
+    try {
+        let trx = null;
+        let errTrx = null;
+
+        // 2. Deteksi apakah parameter dari URL berupa UUID atau Text No. Invoice
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryParam);
+
+        if (isUUID) {
+            // Jika dikirim UUID -> cari langsung berdasarkan kolom 'id'
+            const res = await db
+                .from('penjualan')
+                .select('*')
+                .eq('id', queryParam)
+                .maybeSingle();
+            trx = res.data;
+            errTrx = res.error;
+        } else {
+            // Jika dikirim Text (misal: INV-FN001) -> cari berdasarkan 'no_invoice'
+            const res = await db
+                .from('penjualan')
+                .select('*')
+                .eq('no_invoice', queryParam)
+                .maybeSingle();
+            trx = res.data;
+            errTrx = res.error;
+        }
+
+        if (errTrx || !trx) {
+            throw new Error("Data nota tidak ditemukan.");
+        }
+
+        // 3. TAHAP PENTING: Ambil detail barang dari 'penjualan_detail'
+        // Gunakan trx.id (UUID hasil query tahap 1) untuk dicocokkan ke 'penjualan_id'
+        const { data: items, error: errItems } = await db
+            .from('penjualan_detail')
+            .select('*')
+            .eq('penjualan_id', trx.id); // trx.id adalah UUID
+
+        if (errItems) {
+            console.error("Error detail items:", errItems);
+        }
+
+        // 4. Render Header Transaksi
+        document.getElementById('store-name-receipt').innerText = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
+        document.getElementById('inv-no').innerText = trx.no_invoice || '-';
+        document.getElementById('inv-cashier').innerText = trx.kasir_nama || '-';
+        document.getElementById('inv-date').innerText = new Date(trx.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+        document.getElementById('inv-method').innerText = trx.metode_pembayaran || 'Tunai';
+        
+        document.getElementById('inv-subtotal').innerText = "Rp " + (trx.subtotal || 0).toLocaleString('id-ID');
+        
+        const discValue = parseFloat(trx.diskon_global || trx.diskon || 0);
+        if (discValue > 0) {
+            document.getElementById('row-diskon').style.display = 'flex';
+            document.getElementById('inv-diskon').innerText = "-Rp " + discValue.toLocaleString('id-ID');
+        }
+
+        if (trx.pajak > 0) {
+            document.getElementById('row-pajak').style.display = 'flex';
+            document.getElementById('inv-pajak').innerText = "Rp " + trx.pajak.toLocaleString('id-ID');
+        }
+
+        document.getElementById('inv-total').innerText = "Rp " + (trx.grand_total || 0).toLocaleString('id-ID');
+        document.getElementById('inv-bayar').innerText = "Rp " + (trx.bayar || 0).toLocaleString('id-ID');
+        
+        const kembali = (trx.bayar || 0) - (trx.grand_total || 0);
+        document.getElementById('inv-kembali').innerText = "Rp " + (kembali > 0 ? kembali : 0).toLocaleString('id-ID');
+
+        // 5. Render Rincian Item Barang
+        const itemsHtml = (items || []).map(item => `
+            <tr>
+                <td>
+                    <div style="font-weight:bold; color:#333;">${item.nama_barang || item.nama_produk}</div>
+                    <div style="color:#888; font-size:11px;">${item.qty} x Rp ${parseFloat(item.harga_satuan || item.harga || 0).toLocaleString('id-ID')}</div>
+                </td>
+                <td style="text-align: right; font-weight:bold;">Rp ${parseFloat(item.subtotal_item || item.subtotal || 0).toLocaleString('id-ID')}</td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('inv-items').innerHTML = itemsHtml;
+
+        // Tampilkan nota & sembunyikan loader
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('receipt').style.display = 'block';
+
+    } catch (e) {
+        console.error("Detail Error:", e);
+        document.getElementById('loader').innerHTML = `<h3>Maaf</h3><p>${e.message}</p>`;
+    }
+}
+
+window.onload = () => {
+    setTimeout(loadInvoice, 500); 
+};
 </script>
 </body>
 </html>
