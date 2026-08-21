@@ -9,35 +9,35 @@
 
     <style>
         @media print {
-    @page { 
-        margin: 0; 
-        size: auto; /* Membiarkan printer menentukan panjang kertas otomatis */
-    }
-    body { 
-        margin: 0; 
-        padding: 0; 
-        height: auto !important; /* Mencegah sisa kertas memanjang kosong */
-    }
-    #print-area { 
-        display: block !important; 
-        width: 58mm; /* Standar lebar printer Bluetooth/Thermal */
-        margin: 0;
-        padding: 5px;
-        font-family: 'Courier New', Courier, monospace; /* Font lurus untuk thermal */
-        font-size: 10px;
-        line-height: 1.2;
-        color: black;
-    }
-    /* Menghilangkan elemen browser standar seperti header/footer tanggal */
-    header, footer { display: none !important; }
-}
+            @page { 
+                margin: 0; 
+                size: auto; 
+            }
+            body { 
+                margin: 0; 
+                padding: 0; 
+                height: auto !important; 
+            }
+            #print-area { 
+                display: block !important; 
+                width: 58mm; 
+                margin: 0;
+                padding: 5px;
+                font-family: 'Courier New', Courier, monospace; 
+                font-size: 10px;
+                line-height: 1.2;
+                color: black;
+            }
+            header, footer { display: none !important; }
+        }
         :root { --primary: #2c3e50; --accent: #e91e63; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .card { background: white; padding: 25px; border-radius: 15px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
         .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; }
         .method-header { margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent); color: var(--primary); font-size: 14px; font-weight: bold; }
-        input { width: 100%; padding: 12px; margin-top: 10px; font-size: 20px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; font-weight: bold; color: var(--primary); outline: none; }
+        input, select { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; color: var(--primary); outline: none; }
+        input { font-size: 20px; text-align: center; font-weight: bold; }
         .btn-close { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; margin-top: 20px; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 16px; transition: 0.3s; }
         
         #print-area { display: none; }
@@ -85,6 +85,15 @@
                 <span>Selisih Tunai:</span><b id="txt-selisih">Rp 0</b>
             </div>
 
+            <div style="margin-top: 15px;">
+                <label style="font-size:12px; font-weight:bold; color: var(--primary);">Metode Cetak Struk:</label>
+                <select id="printer-method">
+                    <option value="browser">🖨️ Browser / System Printer</option>
+                    <option value="bluetooth_direct">📱 Bluetooth Langsung (Web API)</option>
+                    <option value="rawbt">📱 Bluetooth (RawBT App - Android)</option>
+                </select>
+            </div>
+
             <button class="btn-close" id="btn-submit-closing" onclick="prosesClosing()">KONFIRMASI & TUTUP SHIFT</button>
             <button onclick="window.location.href='pos.html'" style="width:100%; background:none; border:none; color:gray; cursor:pointer; margin-top:15px; font-size: 13px;">Kembali ke Kasir</button>
         </div>
@@ -119,7 +128,6 @@
 
         async function loadDataClosing() {
             try {
-                // SINKRONISASI MASTER: Filter menggunakan kasir_id (UUID)
                 const { data: sales, error: salesErr } = await db.from('penjualan')
                     .select('id, subtotal, diskon, pajak, grand_total, metode_pembayaran')
                     .eq('kasir_id', shiftId);
@@ -149,7 +157,6 @@
                     const mtd = trx.metode_pembayaran || 'Tunai';
                     methodMap[mtd] = (methodMap[mtd] || 0) + parseFloat(trx.grand_total || 0);
                     
-                    // PERBAIKAN: Deteksi Tunai Masuk (Case Insensitive)
                     if (mtd.toUpperCase() === 'TUNAI' || mtd.toUpperCase() === 'CASH') {
                         dataCetak.tunai_masuk += parseFloat(trx.grand_total || 0);
                     }
@@ -158,7 +165,6 @@
                 dataCetak.methods = methodMap;
                 totalSistem = dataCetak.awal + dataCetak.tunai_masuk;
 
-                // Render UI
                 let htmlItems = "";
                 dataCetak.items = [];
                 for (let name in itemMap) {
@@ -206,7 +212,6 @@
             document.getElementById('btn-submit-closing').disabled = true;
 
             try {
-                // UPDATE KASIR_LOG
                 const { error } = await db.from('kasir_log').update({
                     waktu_tutup: tgl,
                     waktu_closing: tgl,
@@ -219,63 +224,149 @@
 
                 if (error) throw error;
 
-                renderStruk(fisik, selisih);
-                setTimeout(() => { window.print(); window.location.href = "dashboard.html"; }, 500);
+                const selectedMethod = document.getElementById('printer-method').value;
+
+                if (selectedMethod === 'browser') {
+                    renderStruk(fisik, selisih);
+                    setTimeout(() => { 
+                        window.print(); 
+                        window.location.href = "dashboard.html"; 
+                    }, 500);
+                } else if (selectedMethod === 'bluetooth_direct') {
+                    await printToBluetoothDirect(fisik, selisih);
+                    window.location.href = "dashboard.html";
+                } else if (selectedMethod === 'rawbt') {
+                    printToBluetoothRawBT(fisik, selisih);
+                    setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
+                }
+
             } catch (err) { alert(err.message); document.getElementById('btn-submit-closing').disabled = false; }
         }
 
-      function renderStruk(fisik, selisih) {
-    const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
-    
-    // 1. Render Daftar Item
-    let itemRows = dataCetak.items.map(i => `
-        <div style="display:flex; justify-content:space-between;">
-            <span style="flex:1;">${i.name.substring(0,18)}</span>
-            <span style="width:30px; text-align:right;">x${i.qty}</span>
-            <span style="width:65px; text-align:right;">${i.sub.toLocaleString('id-ID')}</span>
-        </div>
-    `).join('');
-    
-    // 2. Render Rincian Metode Bayar
-    let methodRows = "";
-    for (let m in dataCetak.methods) {
-        methodRows += `
-        <div style="display:flex; justify-content:space-between;">
-            <span>${m}</span><span>${dataCetak.methods[m].toLocaleString('id-ID')}</span>
-        </div>`;
-    }
+        function generateThermalText(fisik, selisih) {
+            const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
+            let txt = `${store}\nLAPORAN CLOSING KASIR\n${new Date().toLocaleString('id-ID')}\n--------------------------------\n`;
+            txt += "ITEM TERJUAL:\n";
+            dataCetak.items.forEach(i => {
+                txt += `${i.name.substring(0, 16)} x${i.qty} Rp${i.sub.toLocaleString('id-ID')}\n`;
+            });
+            txt += "--------------------------------\nRINGKASAN PENJUALAN:\n";
+            txt += `Kotor     : Rp${dataCetak.kotor.toLocaleString('id-ID')}\n`;
+            txt += `Diskon    :-Rp${dataCetak.diskon.toLocaleString('id-ID')}\n`;
+            txt += `Pajak     : Rp${dataCetak.pajak.toLocaleString('id-ID')}\n`;
+            txt += `Net Sales : Rp${dataCetak.net.toLocaleString('id-ID')}\n`;
+            txt += "--------------------------------\nRINCIAN METODE:\n";
+            for (let m in dataCetak.methods) {
+                txt += `${m} : Rp${dataCetak.methods[m].toLocaleString('id-ID')}\n`;
+            }
+            txt += "--------------------------------\n";
+            txt += `Modal Awal  : Rp${dataCetak.awal.toLocaleString('id-ID')}\n`;
+            txt += `Tunai Masuk : Rp${dataCetak.tunai_masuk.toLocaleString('id-ID')}\n`;
+            txt += `SIS. TUNAI  : Rp${totalSistem.toLocaleString('id-ID')}\n`;
+            txt += `FISIK LACI  : Rp${fisik.toLocaleString('id-ID')}\n`;
+            txt += `SELISIH     : Rp${selisih.toLocaleString('id-ID')}\n`;
+            txt += "--------------------------------\n";
+            txt += `Kasir: ${dataCetak.kasir}\n*** SHIFT CLOSED ***\n\n\n`;
+            return txt;
+        }
 
-    const printArea = document.getElementById('print-area');
-    printArea.innerHTML = `
-        <div style="width: 100%; height: auto; overflow: hidden;">
-            <center>
-                <b style="font-size:12px;">${store}</b><br>
-                LAPORAN CLOSING KASIR<br>
-                <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
-            </center>
-            ----------------------------<br>
-            <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
-            ----------------------------<br>
-            <b>RINGKASAN PENJUALAN:</b><br>
-            Kotor  : ${dataCetak.kotor.toLocaleString('id-ID')}<br>
-            Diskon : -${dataCetak.diskon.toLocaleString('id-ID')}<br>
-            Pajak  : ${dataCetak.pajak.toLocaleString('id-ID')}<br>
-            <b>Net Sales : ${dataCetak.net.toLocaleString('id-ID')}</b><br>
-            ----------------------------<br>
-            <b>RINCIAN METODE:</b><br>${methodRows}
-            ----------------------------<br>
-            Modal Awal   : ${dataCetak.awal.toLocaleString('id-ID')}<br>
-            Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString('id-ID')}<br>
-            <b>SIS. TUNAI  : ${totalSistem.toLocaleString('id-ID')}</b><br>
-            <b>FISIK LACI  : ${fisik.toLocaleString('id-ID')}</b><br>
-            <b>SELISIH     : ${selisih.toLocaleString('id-ID')}</b><br>
-            ----------------------------<br>
-            <center style="font-size:9px; margin-top:10px;">
-                Kasir: ${dataCetak.kasir}<br>
-                *** SHIFT CLOSED ***
-            </center>
-            <div style="height: 30px;"></div> </div>`;
-}
+        async function printToBluetoothDirect(fisik, selisih) {
+            const printData = generateThermalText(fisik, selisih);
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+                });
+
+                const server = await device.gatt.connect();
+                const services = await server.getPrimaryServices();
+                let targetCharacteristic = null;
+
+                for (const service of services) {
+                    const characteristics = await service.getCharacteristics();
+                    for (const char of characteristics) {
+                        if (char.properties.write || char.properties.writeWithoutResponse) {
+                            targetCharacteristic = char;
+                            break;
+                        }
+                    }
+                }
+
+                if (!targetCharacteristic) return alert("Karakteristik Bluetooth tidak ditemukan.");
+
+                const encoder = new TextEncoder();
+                const initCmd = new Uint8Array([0x1B, 0x40]); 
+                await targetCharacteristic.writeValue(initCmd);
+
+                const dataBytes = encoder.encode(printData);
+                const chunkSize = 100; // Chunking aman di bawah 512 bytes
+                for (let i = 0; i < dataBytes.length; i += chunkSize) {
+                    const chunk = dataBytes.slice(i, i + chunkSize);
+                    await targetCharacteristic.writeValue(chunk);
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            } catch (err) {
+                console.error("Gagal Cetak Bluetooth Direct:", err);
+                alert("Gagal cetak Bluetooth: " + err.message);
+            }
+        }
+
+        function printToBluetoothRawBT(fisik, selisih) {
+            const printData = generateThermalText(fisik, selisih);
+            const base64Data = btoa(unescape(encodeURIComponent(printData)));
+            window.location.href = "rawbt:base64," + base64Data;
+        }
+
+        function renderStruk(fisik, selisih) {
+            const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
+            
+            let itemRows = dataCetak.items.map(i => `
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="flex:1;">${i.name.substring(0,18)}</span>
+                    <span style="width:30px; text-align:right;">x${i.qty}</span>
+                    <span style="width:65px; text-align:right;">${i.sub.toLocaleString('id-ID')}</span>
+                </div>
+            `).join('');
+            
+            let methodRows = "";
+            for (let m in dataCetak.methods) {
+                methodRows += `
+                <div style="display:flex; justify-content:space-between;">
+                    <span>${m}</span><span>${dataCetak.methods[m].toLocaleString('id-ID')}</span>
+                </div>`;
+            }
+
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = `
+                <div style="width: 100%; height: auto; overflow: hidden;">
+                    <center>
+                        <b style="font-size:12px;">${store}</b><br>
+                        LAPORAN CLOSING KASIR<br>
+                        <span style="font-size:8px;">${new Date().toLocaleString('id-ID')}</span>
+                    </center>
+                    ----------------------------<br>
+                    <b>ITEM TERJUAL:</b><br>${itemRows || '-'}
+                    ----------------------------<br>
+                    <b>RINGKASAN PENJUALAN:</b><br>
+                    Kotor   : ${dataCetak.kotor.toLocaleString('id-ID')}<br>
+                    Diskon : -${dataCetak.diskon.toLocaleString('id-ID')}<br>
+                    Pajak   : ${dataCetak.pajak.toLocaleString('id-ID')}<br>
+                    <b>Net Sales : ${dataCetak.net.toLocaleString('id-ID')}</b><br>
+                    ----------------------------<br>
+                    <b>RINCIAN METODE:</b><br>${methodRows}
+                    ----------------------------<br>
+                    Modal Awal   : ${dataCetak.awal.toLocaleString('id-ID')}<br>
+                    Tunai Masuk  : ${dataCetak.tunai_masuk.toLocaleString('id-ID')}<br>
+                    <b>SIS. TUNAI  : ${totalSistem.toLocaleString('id-ID')}</b><br>
+                    <b>FISIK LACI  : ${fisik.toLocaleString('id-ID')}</b><br>
+                    <b>SELISIH     : ${selisih.toLocaleString('id-ID')}</b><br>
+                    ----------------------------<br>
+                    <center style="font-size:9px; margin-top:10px;">
+                        Kasir: ${dataCetak.kasir}<br>
+                        *** SHIFT CLOSED ***
+                    </center>
+                    <div style="height: 30px;"></div> </div>`;
+        }
     </script>
 </body>
 </html>
