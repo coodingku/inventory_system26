@@ -502,14 +502,19 @@
         return text;
     }
 
-    function printToBluetoothRawBT(inv, totalBayar) {
-        renderReceipt(inv, totalBayar);
-        const printData = generateThermalText(inv, totalBayar);
-        const intentUrl = "intent:#Intent;scheme=rawbt;package=ru.a404m.rawbtprinter;S.txt=" + 
-                          encodeURIComponent(printData) + ";end;";
-        window.location.href = intentUrl;
-    }
+   function printToBluetoothRawBT(inv, totalBayar) {
+    renderReceipt(inv, totalBayar);
+    const printData = generateThermalText(inv, totalBayar);
 
+    // Encode data ke Base64 agar aman dari karakter khusus
+    const base64Data = btoa(unescape(encodeURIComponent(printData)));
+
+    // Opsi 1: Menggunakan Direct Scheme RawBT (Paling Direkomendasikan)
+    const rawbtUrl = "rawbt:base64," + base64Data;
+
+    // Eksekusi pemanggilan
+    window.location.href = rawbtUrl;
+}
    async function printToBluetoothDirect(inv, totalBayar) {
     renderReceipt(inv, totalBayar);
     const textData = generateThermalText(inv, totalBayar);
