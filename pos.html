@@ -368,19 +368,35 @@
     const namaToko = sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM';
     const totalFormat = state.total ? state.total.toLocaleString('id-ID') : '0';
     
-    // 2. Buat URL link menggunakan no_invoice (state.lastInv)
-    const domain = window.location.origin; 
-    const receiptLink = `${domain}/invoice-view.html?no_invoice=${encodeURIComponent(state.lastInv)}`;
+    // 2. TENTUKAN INVOICE/ID DENGAN VALIDASI SANGAT KETAT
+    // Mengabaikan jika nilainya 'no_invoice', null, atau undefined
+    let invValue = (state.lastInv && state.lastInv !== 'no_invoice') ? state.lastInv : null;
+    let paramName = 'no_invoice';
 
-    // 3. Susun Pesan WhatsApp
+    // Jika lastInv tidak valid, gunakan lastId (UUID)
+    if (!invValue && state.lastId) {
+        invValue = state.lastId;
+        paramName = 'id';
+    }
+
+    // Jika keduanya tidak ada, hentikan proses dan tampilkan peringatan
+    if (!invValue) {
+        return alert("Gagal membuat link: Nomor Invoice atau ID Transaksi tidak ditemukan.");
+    }
+
+    // 3. Buat URL link resmi
+    const domain = window.location.origin; 
+    const receiptLink = `${domain}/invoice-view.html?${paramName}=${encodeURIComponent(invValue)}`;
+
+    // 4. Susun Pesan WhatsApp
     const rawMsg = `*NOTA DIGITAL ${namaToko}*\n` +
-                   `No. Invoice: ${state.lastInv || '-'}\n` +
+                   `No. Invoice: ${state.lastInv || invValue}\n` +
                    `Total: Rp ${totalFormat}\n\n` +
                    `Lihat & cetak struk belanja resmi Anda di sini:\n` +
                    `${receiptLink}\n\n` +
                    `_Terima kasih telah berbelanja!_`;
 
-    // 4. Encode & Buka WhatsApp
+    // 5. Encode & Buka WhatsApp
     const encodedMsg = encodeURIComponent(rawMsg);
     window.open(`https://wa.me/${hp}?text=${encodedMsg}`, '_blank');
 }
