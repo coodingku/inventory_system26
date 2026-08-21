@@ -20,8 +20,8 @@
         main { flex: 1; margin-left: 240px; padding: 40px; box-sizing: border-box; width: calc(100% - 240px); }
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
-        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; }
-        input[type="date"] { padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none; }
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; }
+        input[type="date"], select { padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none; font-size: 14px; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
@@ -79,6 +79,14 @@
                 <div>
                     <label style="display:block; font-size: 12px; margin-bottom: 5px; font-weight: bold;">Filter Tanggal:</label>
                     <input type="date" id="filter-date">
+                </div>
+                <div>
+                    <label style="display:block; font-size: 12px; margin-bottom: 5px; font-weight: bold;">Metode Cetak:</label>
+                    <select id="printer-method">
+                        <option value="browser">🖨️ Browser / System Printer</option>
+                        <option value="bluetooth_direct">📱 Bluetooth Langsung (Web API)</option>
+                        <option value="rawbt">📱 Bluetooth (RawBT App - Android)</option>
+                    </select>
                 </div>
                 <button onclick="loadBills()" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">🔍 Cari</button>
             </div>
@@ -182,11 +190,32 @@
             document.getElementById('modalDetail').style.display = 'flex';
         }
 
-        async function printBill(id) {
+        async function fetchBillData(id) {
             const { data: sales } = await db.from('penjualan').select('*').eq('id', id).single();
             const { data: details } = await db.from('penjualan_detail').select('*').eq('penjualan_id', id);
-            if (!sales) return;
+            if (!sales) return null;
 
+            const { data: journal } = await db.from('jurnal_umum').select('keterangan, debit').eq('no_bukti', sales.no_invoice).gt('debit', 0);
+            return { sales, details, journal };
+        }
+
+        async function printBill(id) {
+            const billData = await fetchBillData(id);
+            if (!billData) return;
+
+            const selectedMethod = document.getElementById('printer-method').value;
+
+            if (selectedMethod === 'browser') {
+                renderBrowserStruk(billData);
+                setTimeout(() => { window.print(); }, 500);
+            } else if (selectedMethod === 'bluetooth_direct') {
+                await printToBluetoothDirect(billData);
+            } else if (selectedMethod === 'rawbt') {
+                printToBluetoothRawBT(billData);
+            }
+        }
+
+        function renderBrowserStruk({ sales, details, journal }) {
             const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
             let itemRows = (details || []).map(it => `
                 <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
@@ -194,8 +223,6 @@
                     <span>${(it.subtotal_item || 0).toLocaleString('id-ID')}</span>
                 </div>`).join('');
 
-            // LOGIKA: Ambil rincian split payment jika ada dari Jurnal
-            const { data: journal } = await db.from('jurnal_umum').select('keterangan, debit').eq('no_bukti', sales.no_invoice).gt('debit', 0);
             let payRows = "";
             if (journal && journal.length > 0) {
                 journal.forEach(j => {
@@ -224,8 +251,83 @@
                     <center style="margin-top:10px;">*** TERIMA KASIH ***</center>
                     <div style="height:20px;"></div>
                 </div>`;
+        }
+
+        function generateThermalText({ sales, details, journal }) {
+            const store = sessionStorage.getItem('NAMA_TOKO') || "Finex POS";
+            let txt = `${store}\nSALINAN STRUK\n--------------------------------\n`;
+            txt += `No: ${sales.no_invoice}\nTgl: ${new Date(sales.created_at).toLocaleString('id-ID')}\n--------------------------------\n`;
             
-            setTimeout(() => { window.print(); }, 500);
+            (details || []).forEach(it => {
+                txt += `${it.nama_barang.substring(0, 16)} x${it.qty} Rp${(it.subtotal_item || 0).toLocaleString('id-ID')}\n`;
+            });
+
+            txt += `--------------------------------\nSubtotal: Rp${sales.subtotal.toLocaleString('id-ID')}\n`;
+            txt += `Diskon  :-Rp${sales.diskon.toLocaleString('id-ID')}\n`;
+            txt += `PPN     : Rp${(sales.pajak || 0).toLocaleString('id-ID')}\n`;
+            txt += `TOTAL   : Rp${sales.grand_total.toLocaleString('id-ID')}\n--------------------------------\n`;
+
+            if (journal && journal.length > 0) {
+                journal.forEach(j => {
+                    if (j.keterangan.includes("Terima")) {
+                        const mtd = j.keterangan.split('-')[0].replace("Terima ", "").trim();
+                        txt += `Bayar (${mtd}): Rp${j.debit.toLocaleString('id-ID')}\n`;
+                    }
+                });
+            } else {
+                txt += `Bayar (${sales.metode_pembayaran}): Rp${(sales.bayar ? sales.bayar : sales.grand_total).toLocaleString('id-ID')}\n`;
+            }
+
+            txt += `Kembali : Rp${((sales.bayar || sales.grand_total) - sales.grand_total).toLocaleString('id-ID')}\n--------------------------------\n`;
+            txt += `*** TERIMA KASIH ***\n\n\n`;
+            return txt;
+        }
+
+        async function printToBluetoothDirect(billData) {
+            const printData = generateThermalText(billData);
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+                });
+
+                const server = await device.gatt.connect();
+                const services = await server.getPrimaryServices();
+                let targetCharacteristic = null;
+
+                for (const service of services) {
+                    const characteristics = await service.getCharacteristics();
+                    for (const char of characteristics) {
+                        if (char.properties.write || char.properties.writeWithoutResponse) {
+                            targetCharacteristic = char;
+                            break;
+                        }
+                    }
+                }
+
+                if (!targetCharacteristic) return alert("Karakteristik Bluetooth tidak ditemukan.");
+
+                const encoder = new TextEncoder();
+                const initCmd = new Uint8Array([0x1B, 0x40]);
+                await targetCharacteristic.writeValue(initCmd);
+
+                const dataBytes = encoder.encode(printData);
+                const chunkSize = 100;
+                for (let i = 0; i < dataBytes.length; i += chunkSize) {
+                    const chunk = dataBytes.slice(i, i + chunkSize);
+                    await targetCharacteristic.writeValue(chunk);
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            } catch (err) {
+                console.error("Gagal Cetak Bluetooth Direct:", err);
+                alert("Gagal cetak Bluetooth: " + err.message);
+            }
+        }
+
+        function printToBluetoothRawBT(billData) {
+            const printData = generateThermalText(billData);
+            const base64Data = btoa(unescape(encodeURIComponent(printData)));
+            window.location.href = "rawbt:base64," + base64Data;
         }
 
         function closeModal() { document.getElementById('modalDetail').style.display = 'none'; }
