@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Receipt | Finex Pos</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>E-Receipt | BeautyBloom Finex Pos</title>
     
-    <script src="supabase-init.js"></script>
+    <!-- Favicon BeautyBloom -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body { font-family: 'Courier New', Courier, monospace; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -22,7 +24,7 @@
         .bold { font-weight: bold; font-size: 18px; color: #2c3e50; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
         .footer { text-align: center; margin-top: 35px; font-size: 12px; color: #999; line-height: 1.5; }
         .loading { text-align: center; padding: 50px; color: #666; font-family: sans-serif; }
-        .btn-print { width: 100%; margin-top: 25px; padding: 12px; border: none; background: #3498db; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif; }
+        .btn-print { width: 100%; margin-top: 25px; padding: 12px; border: none; background: #e91e63; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif; }
         @media print { .btn-print { display: none; } body { background: white; padding: 0; } .receipt-card { box-shadow: none; border: none; } }
     </style>
 </head>
@@ -32,7 +34,7 @@
     
     <div id="receipt" class="receipt-card" style="display: none;">
         <div class="header">
-            <h2 id="store-name-receipt">FINEX POS</h2>
+            <h2 id="store-name-receipt">BEAUTYBLOOM</h2>
             <p style="font-size: 12px; margin: 5px 0; color: #7f8c8d;">Struk Belanja Resmi</p>
         </div>
 
@@ -75,26 +77,27 @@
             <p id="footer-msg">Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.</p>
         </div>
         
-        <button onclick="window.print()" class="btn-print">Cetak Nota / Simpan PDF</button>
+        <button onclick="window.print()" class="btn-print">🖨️ Cetak Nota / Simpan PDF</button>
     </div>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
-    // Catatan: Karena ini diakses pelanggan (tanpa login), supabase-init.js 
-    // akan mencoba mengambil sub-domain/slug dari URL untuk menentukan API Key.
+    // Direct Client Supabase khusus Publik (Bypass Auth Guard dari supabase-init.js)
+    const SB_URL = 'https://uojhjskgugghwxtdsfvm.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvamhqc2tndWdnaHd4dGRzZnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTQ3OTQsImV4cCI6MjA4NDE5MDc5NH0.DZ5KfYYxy8yU2k1kgb8itJ7knefgX1k5NrUOdpgN0QM';
+    const publicDb = window.supabase.createClient(SB_URL, SB_KEY);
 
     async function loadInvoice() {
         const urlParams = new URLSearchParams(window.location.search);
         const invoiceId = urlParams.get('id');
 
         if (!invoiceId) {
-            document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>Link nota tidak valid.</p>";
+            document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>Link nota tidak valid atau ID tidak ditemukan.</p>";
             return;
         }
 
         try {
-            // Ambil data Penjualan dari DB pelanggan yang tepat
-            const { data: trx, error: errTrx } = await db
+            // 1. Ambil data Penjualan langsung lewat Public Client
+            const { data: trx, error: errTrx } = await publicDb
                 .from('penjualan')
                 .select('*')
                 .eq('id', invoiceId)
@@ -102,14 +105,14 @@
 
             if (errTrx || !trx) throw new Error("Data nota tidak ditemukan.");
 
-            // Ambil data Detail Item
-            const { data: items, error: errItems } = await db
+            // 2. Ambil data Detail Item
+            const { data: items, error: errItems } = await publicDb
                 .from('penjualan_detail')
                 .select('*')
                 .eq('penjualan_id', invoiceId);
 
-            // Mapping Data ke UI
-            document.getElementById('store-name-receipt').innerText = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
+            // 3. Mapping Data ke UI
+            document.getElementById('store-name-receipt').innerText = "BEAUTYBLOOM";
             document.getElementById('inv-no').innerText = trx.no_invoice;
             document.getElementById('inv-cashier').innerText = trx.kasir_nama || '-';
             document.getElementById('inv-date').innerText = new Date(trx.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
@@ -140,7 +143,7 @@
                         <div style="font-weight:bold; color:#333;">${item.nama_barang}</div>
                         <div style="color:#888; font-size:11px;">${item.qty} x Rp ${item.harga_satuan.toLocaleString('id-ID')}</div>
                     </td>
-                    <td style="text-align: right; font-weight:bold;">${parseFloat(item.subtotal_item || 0).toLocaleString('id-ID')}</td>
+                    <td style="text-align: right; font-weight:bold;">Rp ${parseFloat(item.subtotal_item || item.subtotal || 0).toLocaleString('id-ID')}</td>
                 </tr>
             `).join('');
             
@@ -155,10 +158,7 @@
         }
     }
 
-    // Jalankan setelah DOM & Script Init siap
-    window.onload = () => {
-        setTimeout(loadInvoice, 500); 
-    };
+    window.onload = loadInvoice;
 </script>
 </body>
 </html>
