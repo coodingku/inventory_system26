@@ -566,10 +566,12 @@
         alert("Gagal terhubung ke printer Bluetooth: " + err.message);
     }
 }
-    function sendWhatsApp() {
+       function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
-        const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString('id-ID')}%0A%0A_Terima kasih!_`;
-        window.open(`https://wa.me/${hp.startsWith('0')?'62'+hp.slice(1):hp}?text=${msg}`, '_blank');
+        if (!hp) return alert("Masukkan nomor WA!");
+        const cleanHp = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
+        const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString()}%0A%0A_Terima kasih sudah berbelanja!_`;
+        window.open(`https://wa.me/${cleanHp}?text=${msg}`, '_blank');
         location.reload();
     }
 
