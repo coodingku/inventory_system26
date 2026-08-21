@@ -79,36 +79,55 @@
     </div>
 
 <script>
-    // Variabel 'db' disediakan secara dinamis oleh supabase-init.js
-    // Catatan: Karena ini diakses pelanggan (tanpa login), supabase-init.js 
-    // akan mencoba mengambil sub-domain/slug dari URL untuk menentukan API Key.
-
     async function loadInvoice() {
         const urlParams = new URLSearchParams(window.location.search);
-        const invoiceId = urlParams.get('id');
+        
+        // 1. Ambil dari parameter 'no_invoice' ATAU 'id'
+        const queryParam = urlParams.get('no_invoice') || urlParams.get('id');
 
-        if (!invoiceId) {
+        if (!queryParam) {
             document.getElementById('loader').innerHTML = "<h3>Error!</h3><p>Link nota tidak valid.</p>";
             return;
         }
 
         try {
-            // Ambil data Penjualan dari DB pelanggan yang tepat
-            const { data: trx, error: errTrx } = await db
-                .from('penjualan')
-                .select('*')
-                .eq('id', invoiceId)
-                .maybeSingle();
+            let trx = null;
+            let errTrx = null;
+
+            // 2. Deteksi apakah input berupa UUID atau No Invoice
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryParam);
+
+            if (isUUID) {
+                // Pencarian via UUID
+                const res = await db
+                    .from('penjualan')
+                    .select('*')
+                    .eq('id', queryParam)
+                    .maybeSingle();
+                trx = res.data;
+                errTrx = res.error;
+            } else {
+                // Pencarian via Nomor Invoice (misal: INV-FN001)
+                const res = await db
+                    .from('penjualan')
+                    .select('*')
+                    .eq('no_invoice', queryParam)
+                    .maybeSingle();
+                trx = res.data;
+                errTrx = res.error;
+            }
 
             if (errTrx || !trx) throw new Error("Data nota tidak ditemukan.");
 
-            // Ambil data Detail Item
+            // 3. Ambil Detail Item menggunakan UUID (trx.id) dari transaksi yang ditemukan
             const { data: items, error: errItems } = await db
                 .from('penjualan_detail')
                 .select('*')
-                .eq('penjualan_id', invoiceId);
+                .eq('penjualan_id', trx.id);
 
-            // Mapping Data ke UI
+            if (errItems) console.error("Error detail items:", errItems);
+
+            // 4. Mapping Data ke UI
             document.getElementById('store-name-receipt').innerText = sessionStorage.getItem('NAMA_TOKO') || "FINEX POS";
             document.getElementById('inv-no').innerText = trx.no_invoice;
             document.getElementById('inv-cashier').innerText = trx.kasir_nama || '-';
@@ -128,19 +147,19 @@
                 document.getElementById('inv-pajak').innerText = "Rp " + trx.pajak.toLocaleString('id-ID');
             }
 
-            document.getElementById('inv-total').innerText = "Rp " + trx.grand_total.toLocaleString('id-ID');
+            document.getElementById('inv-total').innerText = "Rp " + (trx.grand_total || 0).toLocaleString('id-ID');
             document.getElementById('inv-bayar').innerText = "Rp " + (trx.bayar || 0).toLocaleString('id-ID');
             
-            const kembali = (trx.bayar || 0) - trx.grand_total;
+            const kembali = (trx.bayar || 0) - (trx.grand_total || 0);
             document.getElementById('inv-kembali').innerText = "Rp " + (kembali > 0 ? kembali : 0).toLocaleString('id-ID');
 
             const itemsHtml = (items || []).map(item => `
                 <tr>
                     <td>
                         <div style="font-weight:bold; color:#333;">${item.nama_barang}</div>
-                        <div style="color:#888; font-size:11px;">${item.qty} x Rp ${item.harga_satuan.toLocaleString('id-ID')}</div>
+                        <div style="color:#888; font-size:11px;">${item.qty} x Rp ${parseFloat(item.harga_satuan || 0).toLocaleString('id-ID')}</div>
                     </td>
-                    <td style="text-align: right; font-weight:bold;">${parseFloat(item.subtotal_item || 0).toLocaleString('id-ID')}</td>
+                    <td style="text-align: right; font-weight:bold;">Rp ${parseFloat(item.subtotal_item || item.subtotal || 0).toLocaleString('id-ID')}</td>
                 </tr>
             `).join('');
             
@@ -151,6 +170,7 @@
             document.getElementById('receipt').style.display = 'block';
 
         } catch (e) {
+            console.error("Error Detail:", e);
             document.getElementById('loader').innerHTML = `<h3>Maaf</h3><p>${e.message}</p>`;
         }
     }
