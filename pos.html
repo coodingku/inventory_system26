@@ -510,45 +510,57 @@
         window.location.href = intentUrl;
     }
 
-    async function printToBluetoothDirect(inv, totalBayar) {
-        renderReceipt(inv, totalBayar);
-        const textData = generateThermalText(inv, totalBayar);
+   async function printToBluetoothDirect(inv, totalBayar) {
+    renderReceipt(inv, totalBayar);
+    const textData = generateThermalText(inv, totalBayar);
 
-        try {
-            const device = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
-            });
+    try {
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+        });
 
-            const server = await device.gatt.connect();
-            const services = await server.getPrimaryServices();
-            let targetCharacteristic = null;
+        const server = await device.gatt.connect();
+        const services = await server.getPrimaryServices();
+        let targetCharacteristic = null;
 
-            for (const service of services) {
-                const characteristics = await service.getCharacteristics();
-                for (const char of characteristics) {
-                    if (char.properties.write || char.properties.writeWithoutResponse) {
-                        targetCharacteristic = char;
-                        break;
-                    }
+        for (const service of services) {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+                if (char.properties.write || char.properties.writeWithoutResponse) {
+                    targetCharacteristic = char;
+                    break;
                 }
             }
-
-            if (!targetCharacteristic) {
-                return alert("Karakteristik Bluetooth Printer tidak ditemukan.");
-            }
-
-            const encoder = new TextEncoder();
-            const initCmd = new Uint8Array([0x1B, 0x40]); // ESC/POS Reset
-            await targetCharacteristic.writeValue(initCmd);
-            await targetCharacteristic.writeValue(encoder.encode(textData));
-
-        } catch (err) {
-            console.error("Gagal Cetak Bluetooth:", err);
-            alert("Gagal terhubung ke printer Bluetooth: " + err.message);
         }
-    }
+
+        if (!targetCharacteristic) {
+            return alert("Karakteristik Bluetooth Printer tidak ditemukan.");
+        }
+
+        const encoder = new TextEncoder();
         
+        // 1. Kirim reset command ke printer
+        const initCmd = new Uint8Array([0x1B, 0x40]); 
+        await targetCharacteristic.writeValue(initCmd);
+
+        // 2. Encode teks struk menjadi Uint8Array
+        const dataBytes = encoder.encode(textData);
+
+        // 3. Pecah data menjadi potongan kecil (misal 100 byte) agar tidak melampaui batas 512 bytes
+        const chunkSize = 100; 
+        for (let i = 0; i < dataBytes.length; i += chunkSize) {
+            const chunk = dataBytes.slice(i, i + chunkSize);
+            await targetCharacteristic.writeValue(chunk);
+            // Beri sedikit jeda agar buffer printer tidak meluap
+            await new Promise(resolve => setTimeout(resolve, 50)); 
+        }
+
+    } catch (err) {
+        console.error("Gagal Cetak Bluetooth:", err);
+        alert("Gagal terhubung ke printer Bluetooth: " + err.message);
+    }
+}
     function sendWhatsApp() {
         const hp = document.getElementById('waNumber').value;
         const msg = `*NOTA ${sessionStorage.getItem('NAMA_TOKO') || 'BEAUTYBLOOM'}*%0ANo Invoice: ${state.lastInv}%0ATotal: Rp ${state.total.toLocaleString('id-ID')}%0A%0A_Terima kasih!_`;
